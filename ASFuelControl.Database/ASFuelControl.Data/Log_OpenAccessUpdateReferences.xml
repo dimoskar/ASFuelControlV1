@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" href="_ConvertModelWizard_Files\UpgradeReferences.xslt"?>
+<UpgradeLog>
+  <Events>
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\ASFuelControl.Data.csproj" Message="Assembly References" />
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\ASFuelControl.Data.csproj" Message="Project References" />
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\ASFuelControl.Data.csproj" Message="Import Directives" />
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\App.Config" Message="Assembly References" />
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\App.Config" Message="Http Handlers" />
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\App.Config" Message="Handlers (IIS7+)" />
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\App.Config" Message="Config Sections" />
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\App.Config" Message="Render Extensions" />
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\App.Config" Message="App.Config" />
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\Properties\Resources.resx" Message="Resources.resx" />
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\ASFuelControl.Data.csproj" Message="ASFuelControl.Data" />
+    <Event EventType="Success" Action="Analyze" SourceItem="D:\DEV\Exedron\2018\ASFuelControl.Database\ASFuelControl.Data\ASFuelControl.Data.sln" Message="ASFuelControl.Data" />
+  </Events>
+</UpgradeLog>

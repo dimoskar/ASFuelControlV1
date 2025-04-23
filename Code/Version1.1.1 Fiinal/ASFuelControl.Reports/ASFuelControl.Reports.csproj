@@ -1,0 +1,401 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{B6FBFEEA-74E9-480D-9913-81742B358600}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>ASFuelControl.Reports</RootNamespace>
+    <AssemblyName>ASFuelControl.Reports</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="Telerik.OpenAccess, Version=2014.2.711.1, Culture=neutral, PublicKeyToken=7ce17eeaf1d59342, processorArchitecture=MSIL" />
+    <Reference Include="Telerik.OpenAccess.35.Extensions, Version=2014.2.711.1, Culture=neutral, PublicKeyToken=7ce17eeaf1d59342, processorArchitecture=MSIL" />
+    <Reference Include="Telerik.Reporting, Version=7.2.13.1016, Culture=neutral, PublicKeyToken=a9d7983dfcc261be" />
+    <Reference Include="Telerik.ReportViewer.WinForms, Version=7.2.13.1016, Culture=neutral, PublicKeyToken=a9d7983dfcc261be, processorArchitecture=MSIL" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AlertReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="AlertReport.Designer.cs">
+      <DependentUpon>AlertReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="BalanceReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="BalanceReport.Designer.cs">
+      <DependentUpon>BalanceReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="BalanceReports\BalanceDS.cs">
+      <DependentUpon>BalanceDS.xsd</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="BalanceReports\BalanceDS.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>BalanceDS.xsd</DependentUpon>
+    </Compile>
+    <Compile Include="BalanceReports\BalanceLoad.cs" />
+    <Compile Include="BalanceReports\DivergenceBalanceReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="BalanceReports\DivergenceBalanceReport.Designer.cs">
+      <DependentUpon>DivergenceBalanceReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="BalanceReports\PumpBalanceReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="BalanceReports\PumpBalanceReport.Designer.cs">
+      <DependentUpon>PumpBalanceReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="BalanceReports\TankBalanceReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="BalanceReports\TankBalanceReport.Designer.cs">
+      <DependentUpon>TankBalanceReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="BalanceReports\TankFillingBalanceReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="BalanceReports\TankFillingBalanceReport.Designer.cs">
+      <DependentUpon>TankFillingBalanceReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="DeliveryReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="DeliveryReport.Designer.cs">
+      <DependentUpon>DeliveryReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="InvoiceReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="InvoiceReport.Designer.cs">
+      <DependentUpon>InvoiceReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Invoices\InvoiceReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Invoices\InvoiceReport.Designer.cs">
+      <DependentUpon>InvoiceReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Invoices\TankFillingReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Invoices\TankFillingReport.Designer.cs">
+      <DependentUpon>TankFillingReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="InvoiceThermal.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="InvoiceThermal.Designer.cs">
+      <DependentUpon>InvoiceThermal.cs</DependentUpon>
+    </Compile>
+    <Compile Include="LiterCheckReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="LiterCheckReport.Designer.cs">
+      <DependentUpon>LiterCheckReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="NozzleTotalsReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="NozzleTotalsReport.Designer.cs">
+      <DependentUpon>NozzleTotalsReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+    <Compile Include="ReportViewer.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ReportViewer.Designer.cs">
+      <DependentUpon>ReportViewer.cs</DependentUpon>
+    </Compile>
+    <Compile Include="SaleReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="SaleReport.Designer.cs">
+      <DependentUpon>SaleReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="SaleReportFuelType.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="SaleReportFuelType.Designer.cs">
+      <DependentUpon>SaleReportFuelType.cs</DependentUpon>
+    </Compile>
+    <Compile Include="SaleReportDispenser.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="SaleReportDispenser.Designer.cs">
+      <DependentUpon>SaleReportDispenser.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ShiftReportDispenser.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ShiftReportDispenser.Designer.cs">
+      <DependentUpon>ShiftReportDispenser.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ShiftReportFuelType.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ShiftReportFuelType.Designer.cs">
+      <DependentUpon>ShiftReportFuelType.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ShiftReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ShiftReport.Designer.cs">
+      <DependentUpon>ShiftReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ShilftLiterCheck.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ShilftLiterCheck.Designer.cs">
+      <DependentUpon>ShilftLiterCheck.cs</DependentUpon>
+    </Compile>
+    <Compile Include="TankFillingReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="TankFillingReport.Designer.cs">
+      <DependentUpon>TankFillingReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="TankFillingThermal.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="TankFillingThermal.Designer.cs">
+      <DependentUpon>TankFillingThermal.cs</DependentUpon>
+    </Compile>
+    <Compile Include="TankStausReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="TankStausReport.Designer.cs">
+      <DependentUpon>TankStausReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="TitrimetryReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="TitrimetryReport.Designer.cs">
+      <DependentUpon>TitrimetryReport.cs</DependentUpon>
+    </Compile>
+    <Compile Include="TransactionReport.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="TransactionReport.Designer.cs">
+      <DependentUpon>TransactionReport.cs</DependentUpon>
+    </Compile>
+    <Service Include="{94E38DFF-614B-4cbd-B67C-F211BB35CE8B}" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="AlertReport.resx">
+      <DependentUpon>AlertReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="BalanceReport.resx">
+      <DependentUpon>BalanceReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="BalanceReports\DivergenceBalanceReport.resx">
+      <DependentUpon>DivergenceBalanceReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="BalanceReports\PumpBalanceReport.resx">
+      <DependentUpon>PumpBalanceReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="BalanceReports\TankBalanceReport.resx">
+      <DependentUpon>TankBalanceReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="BalanceReports\TankFillingBalanceReport.resx">
+      <DependentUpon>TankFillingBalanceReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="DeliveryReport.resx">
+      <DependentUpon>DeliveryReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="InvoiceReport.resx">
+      <DependentUpon>InvoiceReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Invoices\InvoiceReport.resx">
+      <DependentUpon>InvoiceReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Invoices\TankFillingReport.resx">
+      <DependentUpon>TankFillingReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="InvoiceThermal.resx">
+      <DependentUpon>InvoiceThermal.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="LiterCheckReport.resx">
+      <DependentUpon>LiterCheckReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="NozzleTotalsReport.resx">
+      <DependentUpon>NozzleTotalsReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ReportViewer.resx">
+      <DependentUpon>ReportViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SaleReport.resx">
+      <DependentUpon>SaleReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SaleReportFuelType.resx">
+      <DependentUpon>SaleReportFuelType.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SaleReportDispenser.resx">
+      <DependentUpon>SaleReportDispenser.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ShiftReport.resx">
+      <DependentUpon>ShiftReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ShiftReportDispenser.resx">
+      <DependentUpon>ShiftReportDispenser.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ShiftReportFuelType.resx">
+      <DependentUpon>ShiftReportFuelType.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ShilftLiterCheck.resx">
+      <DependentUpon>ShilftLiterCheck.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="TankFillingReport.resx">
+      <DependentUpon>TankFillingReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="TankFillingThermal.resx">
+      <DependentUpon>TankFillingThermal.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="TankStausReport.resx">
+      <DependentUpon>TankStausReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="TitrimetryReport.resx">
+      <DependentUpon>TitrimetryReport.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="TransactionReport.resx">
+      <DependentUpon>TransactionReport.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ASFuelControl.Communication\ASFuelControl.Communication.csproj">
+      <Project>{80D12E04-F31E-4868-940F-3FC81B387FCC}</Project>
+      <Name>ASFuelControl.Communication</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Data\ASFuelControl.Data.csproj">
+      <Project>{16EE9704-B2F3-4CBB-AB0E-93B26B4676E6}</Project>
+      <Name>ASFuelControl.Data</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+    <None Include="Resources\app.config" />
+    <None Include="BalanceReports\BalanceDS.xsc">
+      <DependentUpon>BalanceDS.xsd</DependentUpon>
+    </None>
+    <None Include="BalanceReports\BalanceDS.xsd">
+      <SubType>Designer</SubType>
+      <Generator>MSDataSetGenerator</Generator>
+      <LastGenOutput>BalanceDS.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="BalanceReports\BalanceDS.xss">
+      <DependentUpon>BalanceDS.xsd</DependentUpon>
+    </None>
+    <None Include="Properties\DataSources\ASFuelControl.Data.AlertDefinition.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.ApplicationUser.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.ApplicationUserLoggon.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.AtgProbeProtocol.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.AtgProbeType.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Balance.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.CommunicationController.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Dispenser.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.DispenserProtocol.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.DispenserSetting.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.DispenserType.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.FuelType.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.FuelTypePrice.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Invoice.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.InvoiceForm.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.InvoiceLine.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.InvoicePrint.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.InvoiceRelation.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.InvoiceType.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Normalization.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Nozzle.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.NozzleFlow.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.NozzlePriceList.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.NozzleUsagePeriod.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Option.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.PendingSend.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.PriceList.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.PriceListTimeSpan.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.SalesTransaction.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.SalesView.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.SendLog.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Shift.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.SystemEvent.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.SystemEventDatum.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Tank.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankFilling.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankFillingView.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankPrice.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankSale.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankSetting.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankUsagePeriod.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Titrimetry.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TitrimetryLevel.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Trader.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.UsagePeriod.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Vehicle.datasource" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\MainLogo.png" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+  <Import Condition="Exists('$(MSBuildExtensionsPath)\OpenAccess.targets')" Project="$(MSBuildExtensionsPath)\OpenAccess.targets" />
+</Project>

@@ -1,0 +1,95 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="Controller">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="WorkFlow">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element maxOccurs="unbounded" name="WorkFlowStep">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element maxOccurs="unbounded" name="Method">
+                      <xs:complexType>
+                        <xs:sequence minOccurs="0">
+                          <xs:element maxOccurs="unbounded" name="Write">
+                            <xs:complexType>
+                              <xs:sequence>
+                                <xs:element name="GetMethods">
+                                  <xs:complexType>
+                                    <xs:sequence>
+                                      <xs:element maxOccurs="unbounded" name="GetAddress">
+                                        <xs:complexType>
+                                          <xs:attribute name="Param1" type="xs:unsignedByte" use="required" />
+                                          <xs:attribute name="Param2" type="xs:unsignedByte" use="required" />
+                                          <xs:attribute name="ReturnIndex" type="xs:unsignedByte" use="required" />
+                                        </xs:complexType>
+                                      </xs:element>
+                                      <xs:element minOccurs="0" maxOccurs="unbounded" name="GetPriceBuffer">
+                                        <xs:complexType>
+                                          <xs:attribute name="ReturnIndex" type="xs:unsignedByte" use="required" />
+                                        </xs:complexType>
+                                      </xs:element>
+                                    </xs:sequence>
+                                  </xs:complexType>
+                                </xs:element>
+                                <xs:element minOccurs="0" maxOccurs="unbounded" name="Evaluation">
+                                  <xs:complexType>
+                                    <xs:sequence minOccurs="0">
+                                      <xs:element name="GetMethods">
+                                        <xs:complexType>
+                                          <xs:sequence>
+                                            <xs:element name="GetAddress">
+                                              <xs:complexType>
+                                                <xs:attribute name="Param1" type="xs:unsignedByte" use="required" />
+                                                <xs:attribute name="Param2" type="xs:unsignedByte" use="required" />
+                                                <xs:attribute name="ReturnIndex" type="xs:unsignedByte" use="required" />
+                                              </xs:complexType>
+                                            </xs:element>
+                                          </xs:sequence>
+                                        </xs:complexType>
+                                      </xs:element>
+                                    </xs:sequence>
+                                    <xs:attribute name="Response" type="xs:string" use="optional" />
+                                    <xs:attribute name="Skip" type="xs:unsignedByte" use="required" />
+                                    <xs:attribute name="Take" type="xs:unsignedByte" use="required" />
+                                    <xs:attribute name="Method" type="xs:string" use="optional" />
+                                  </xs:complexType>
+                                </xs:element>
+                              </xs:sequence>
+                              <xs:attribute name="Data" type="xs:string" use="required" />
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                        <xs:attribute name="Name" type="xs:string" use="required" />
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                  <xs:attribute name="Condition" type="xs:string" use="optional" />
+                  <xs:attribute name="BreakLoop" type="xs:string" use="required" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="Statuses">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element maxOccurs="unbounded" name="Status">
+                <xs:complexType>
+                  <xs:attribute name="Data" type="xs:string" use="required" />
+                  <xs:attribute name="Value" type="xs:string" use="required" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="Type" type="xs:string" use="required" />
+      <xs:attribute name="BaudRate" type="xs:unsignedShort" use="required" />
+      <xs:attribute name="Parity" type="xs:string" use="required" />
+      <xs:attribute name="StopBits" type="xs:string" use="required" />
+      <xs:attribute name="DataBits" type="xs:unsignedByte" use="required" />
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

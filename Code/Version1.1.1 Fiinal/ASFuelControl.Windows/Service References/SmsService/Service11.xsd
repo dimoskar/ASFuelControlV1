@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:tns="http://schemas.datacontract.org/2004/07/ExedronSMSService" elementFormDefault="qualified" targetNamespace="http://schemas.datacontract.org/2004/07/ExedronSMSService" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import schemaLocation="http://www.5gsms.com/Service1.svc?xsd=xsd3" namespace="http://schemas.datacontract.org/2004/07/ExedronSMSDAL" />
+  <xs:import schemaLocation="http://www.5gsms.com/Service1.svc?xsd=xsd5" namespace="http://schemas.datacontract.org/2004/07/CampaignModel" />
+  <xs:complexType name="SmsSendReturn">
+    <xs:complexContent mixed="false">
+      <xs:extension base="tns:ServiceReturn">
+        <xs:sequence>
+          <xs:element minOccurs="0" name="SMSMessageId" nillable="true" type="xs:string" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="SmsSendReturn" nillable="true" type="tns:SmsSendReturn" />
+  <xs:complexType name="ServiceReturn">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="HasError" type="xs:boolean" />
+      <xs:element xmlns:q1="http://schemas.datacontract.org/2004/07/ExedronSMSDAL" minOccurs="0" name="ReturnType" type="q1:ReturnTypeEnum" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="ServiceReturn" nillable="true" type="tns:ServiceReturn" />
+  <xs:complexType name="ArrayOfSmsSendReturn">
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="SmsSendReturn" nillable="true" type="tns:SmsSendReturn" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="ArrayOfSmsSendReturn" nillable="true" type="tns:ArrayOfSmsSendReturn" />
+  <xs:complexType name="SmsStatusReturn">
+    <xs:complexContent mixed="false">
+      <xs:extension base="tns:ServiceReturn">
+        <xs:sequence>
+          <xs:element xmlns:q2="http://schemas.datacontract.org/2004/07/ExedronSMSDAL" minOccurs="0" name="Response" nillable="true" type="q2:MessageDeliveryResponse" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="SmsStatusReturn" nillable="true" type="tns:SmsStatusReturn" />
+  <xs:complexType name="ArrayOfSmsStatusReturn">
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="SmsStatusReturn" nillable="true" type="tns:SmsStatusReturn" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="ArrayOfSmsStatusReturn" nillable="true" type="tns:ArrayOfSmsStatusReturn" />
+  <xs:complexType name="ArrayOfSmsBaseStatusReturn">
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="SmsBaseStatusReturn" nillable="true" type="tns:SmsBaseStatusReturn" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="ArrayOfSmsBaseStatusReturn" nillable="true" type="tns:ArrayOfSmsBaseStatusReturn" />
+  <xs:complexType name="SmsBaseStatusReturn">
+    <xs:complexContent mixed="false">
+      <xs:extension base="tns:ServiceReturn">
+        <xs:sequence>
+          <xs:element minOccurs="0" name="Code" nillable="true" type="xs:string" />
+          <xs:element minOccurs="0" name="CodeDescription" nillable="true" type="xs:string" />
+          <xs:element minOccurs="0" name="DateDelivered" type="xs:dateTime" />
+          <xs:element minOccurs="0" name="DateSent" type="xs:dateTime" />
+          <xs:element minOccurs="0" name="Operator" nillable="true" type="xs:string" />
+          <xs:element minOccurs="0" name="PhoneNumber" nillable="true" type="xs:string" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="SmsBaseStatusReturn" nillable="true" type="tns:SmsBaseStatusReturn" />
+  <xs:complexType name="BalanceReturn">
+    <xs:complexContent mixed="false">
+      <xs:extension base="tns:ServiceReturn">
+        <xs:sequence>
+          <xs:element minOccurs="0" name="Balance" type="xs:decimal" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="BalanceReturn" nillable="true" type="tns:BalanceReturn" />
+  <xs:complexType name="UserReturn">
+    <xs:complexContent mixed="false">
+      <xs:extension base="tns:ServiceReturn">
+        <xs:sequence>
+          <xs:element xmlns:q3="http://schemas.datacontract.org/2004/07/CampaignModel" minOccurs="0" name="Customers" nillable="true" type="q3:ArrayOfCustomerView" />
+          <xs:element minOccurs="0" name="ErrorMessage" nillable="true" type="xs:string" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="UserReturn" nillable="true" type="tns:UserReturn" />
+  <xs:complexType name="PurchaseReturn">
+    <xs:complexContent mixed="false">
+      <xs:extension base="tns:ServiceReturn">
+        <xs:sequence>
+          <xs:element minOccurs="0" name="ErrorMessage" nillable="true" type="xs:string" />
+          <xs:element xmlns:q4="http://schemas.datacontract.org/2004/07/CampaignModel" minOccurs="0" name="Purchases" nillable="true" type="q4:ArrayOfPurchaseView" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="PurchaseReturn" nillable="true" type="tns:PurchaseReturn" />
+  <xs:complexType name="MainBalanceReturn">
+    <xs:complexContent mixed="false">
+      <xs:extension base="tns:ServiceReturn">
+        <xs:sequence>
+          <xs:element minOccurs="0" name="ErrorMessage" nillable="true" type="xs:string" />
+          <xs:element minOccurs="0" name="MainBalance" type="xs:decimal" />
+          <xs:element minOccurs="0" name="SumBalance" type="xs:decimal" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="MainBalanceReturn" nillable="true" type="tns:MainBalanceReturn" />
+</xs:schema>

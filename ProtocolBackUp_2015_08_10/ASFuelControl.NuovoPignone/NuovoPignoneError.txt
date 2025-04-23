@@ -1,0 +1,18 @@
+
+System.Exception: evalTotals() Failed
+   at ASFuelControl.NuovoPignone.NuovoPignoneProtocol.evalTotals(Nozzle nozzle, Byte[] response)
+   at ASFuelControl.NuovoPignone.NuovoPignoneProtocol.GetTotals(Nozzle nozzle)
+   at ASFuelControl.NuovoPignone.NuovoPignoneProtocol.ThreadRun()
+System.InvalidOperationException: The port is closed.
+   at System.IO.Ports.SerialPort.get_BytesToRead()
+   at ASFuelControl.NuovoPignone.NuovoPignoneProtocol.GetTotals(Nozzle nozzle)
+   at ASFuelControl.NuovoPignone.NuovoPignoneProtocol.ThreadRun()
+System.Exception: evalTotals() Failed
+   at ASFuelControl.NuovoPignone.NuovoPignoneProtocol.evalTotals(Nozzle nozzle, Byte[] response)
+   at ASFuelControl.NuovoPignone.NuovoPignoneProtocol.GetTotals(Nozzle nozzle)
+   at ASFuelControl.NuovoPignone.NuovoPignoneProtocol.ThreadRun()
+System.InvalidOperationException: Collection was modified; enumeration operation may not execute.
+   at System.ThrowHelper.ThrowInvalidOperationException(ExceptionResource resource)
+   at System.Collections.Generic.List`1.Enumerator.MoveNextRare()
+   at System.Collections.Generic.List`1.Enumerator.MoveNext()
+   at ASFuelControl.NuovoPignone.NuovoPignoneProtocol.ThreadRun()

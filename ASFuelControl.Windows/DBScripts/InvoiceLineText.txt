@@ -1,0 +1,1 @@
+﻿[FuelType.Code]	[FuelType.Name]	[Volume]	[UnitPrice]	[Discount]	[VatAmount]	[TotalPrice]

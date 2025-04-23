@@ -1,0 +1,949 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{48032EFD-8617-4F45-9586-095E5953BDAA}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>ASFuelControl.Windows</RootNamespace>
+    <AssemblyName>ASFuelControl.Windows</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
+    <FileAlignment>512</FileAlignment>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>1</ApplicationRevision>
+    <ApplicationVersion>1.1.1.%2a</ApplicationVersion>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="eTokenLib, Version=1.0.0.0, Culture=neutral, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\Debug\eTokenLib.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.ServiceModel" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="Telerik.OpenAccess, Version=2014.2.711.1, Culture=neutral, PublicKeyToken=7ce17eeaf1d59342, processorArchitecture=MSIL">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Telerik.OpenAccess.35.Extensions, Version=2014.2.711.1, Culture=neutral, PublicKeyToken=7ce17eeaf1d59342, processorArchitecture=MSIL" />
+    <Reference Include="Telerik.Reporting, Version=7.2.13.1016, Culture=neutral, PublicKeyToken=a9d7983dfcc261be, processorArchitecture=MSIL">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Telerik.ReportViewer.WinForms, Version=7.2.13.1016, Culture=neutral, PublicKeyToken=a9d7983dfcc261be, processorArchitecture=MSIL">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Telerik.WinControls, Version=2013.3.1127.40, Culture=neutral, PublicKeyToken=5bb2a467cbec794e">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Telerik.WinControls.GridView, Version=2013.3.1127.40, Culture=neutral, PublicKeyToken=5bb2a467cbec794e, processorArchitecture=MSIL">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Telerik.WinControls.Themes.TelerikMetroBlue, Version=2013.3.1127.40, Culture=neutral, PublicKeyToken=5bb2a467cbec794e, processorArchitecture=MSIL">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Telerik.WinControls.Themes.Windows8, Version=2013.3.1127.40, Culture=neutral, PublicKeyToken=5bb2a467cbec794e, processorArchitecture=MSIL">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Telerik.WinControls.UI, Version=2013.3.1127.40, Culture=neutral, PublicKeyToken=5bb2a467cbec794e, processorArchitecture=MSIL">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="TelerikCommon, Version=2013.3.1127.40, Culture=neutral, PublicKeyToken=5bb2a467cbec794e">
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Crypto.cs" />
+    <Compile Include="MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Service References\SmsService\Reference.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Reference.svcmap</DependentUpon>
+    </Compile>
+    <Compile Include="Threads\ControllerThread.cs" />
+    <Compile Include="Threads\DirectPrinter.cs" />
+    <Compile Include="Threads\ExcelTextStripper.cs" />
+    <Compile Include="Threads\MailSender.cs" />
+    <Compile Include="Threads\PrintAgent.cs" />
+    <Compile Include="Threads\RichTextStripper.cs" />
+    <Compile Include="Threads\SendAlertsThread.cs" />
+    <Compile Include="Threads\ThreadController.cs" />
+    <Compile Include="UI\Catalogs\DispenserGrid.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Catalogs\DispenserGrid.Designer.cs">
+      <DependentUpon>DispenserGrid.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Catalogs\ReportGrid.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Catalogs\ReportGrid.Designer.cs">
+      <DependentUpon>ReportGrid.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Catalogs\SettingsGrid.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Catalogs\SettingsGrid.Designer.cs">
+      <DependentUpon>SettingsGrid.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Catalogs\Statistics.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Catalogs\Statistics.Designer.cs">
+      <DependentUpon>Statistics.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Catalogs\TankGrid.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Catalogs\TankGrid.Designer.cs">
+      <DependentUpon>TankGrid.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\AlarmControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\AlarmControl.Designer.cs">
+      <DependentUpon>AlarmControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\DispenserControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\DispenserControl.Designer.cs">
+      <DependentUpon>DispenserControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\LcdDisplay.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\LcdDisplay.Designer.cs">
+      <DependentUpon>LcdDisplay.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\LcdUpDown.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\LcdUpDown.Designer.cs">
+      <DependentUpon>LcdUpDown.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\NozzleControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\NozzleControl.Designer.cs">
+      <DependentUpon>NozzleControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\NozzleInfoControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\NozzleInfoControl.Designer.cs">
+      <DependentUpon>NozzleInfoControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\PanelExt.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\PriceControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\PriceControl.Designer.cs">
+      <DependentUpon>PriceControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\TankControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\TankControl.Designer.cs">
+      <DependentUpon>TankControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\TankDataControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\TankDataControl.Designer.cs">
+      <DependentUpon>TankDataControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\TankGauge.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\TankGauge.Designer.cs">
+      <DependentUpon>TankGauge.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\TankLinearGauge.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\TankLinearGauge.Designer.cs">
+      <DependentUpon>TankLinearGauge.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Controls\WaitingClock.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\WaitingClock.Designer.cs">
+      <DependentUpon>WaitingClock.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Forms\AboutForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\AboutForm.Designer.cs">
+      <DependentUpon>AboutForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Forms\AlertsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\AlertsForm.Designer.cs">
+      <DependentUpon>AlertsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Forms\DispenserInfoForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\DispenserInfoForm.Designer.cs">
+      <DependentUpon>DispenserInfoForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Forms\DispenserTransactionsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\DispenserTransactionsForm.Designer.cs">
+      <DependentUpon>DispenserTransactionsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Forms\InvoiceForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\InvoiceForm.Designer.cs">
+      <DependentUpon>InvoiceForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Forms\LoadWaitingForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\LoadWaitingForm.Designer.cs">
+      <DependentUpon>LoadWaitingForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Forms\LoginForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\LoginForm.Designer.cs">
+      <DependentUpon>LoginForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Forms\ResolveAlarmForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\ResolveAlarmForm.Designer.cs">
+      <DependentUpon>ResolveAlarmForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Forms\ShiftForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\ShiftForm.Designer.cs">
+      <DependentUpon>ShiftForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Forms\UserVerificationForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\UserVerificationForm.Designer.cs">
+      <DependentUpon>UserVerificationForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\AttachFillingForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\AttachFillingForm.Designer.cs">
+      <DependentUpon>AttachFillingForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectBalanceForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectBalanceForm.Designer.cs">
+      <DependentUpon>SelectBalanceForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectFromToForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectFromToForm.Designer.cs">
+      <DependentUpon>SelectFromToForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectFuelTypeForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectFuelTypeForm.Designer.cs">
+      <DependentUpon>SelectFuelTypeForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectInvoiceControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectInvoiceControl.Designer.cs">
+      <DependentUpon>SelectInvoiceControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectInvoiceForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectInvoiceForm.Designer.cs">
+      <DependentUpon>SelectInvoiceForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectInvoiceTypeForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectInvoiceTypeForm.Designer.cs">
+      <DependentUpon>SelectInvoiceTypeForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectNozzleForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectNozzleForm.Designer.cs">
+      <DependentUpon>SelectNozzleForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectPrinterForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectPrinterForm.Designer.cs">
+      <DependentUpon>SelectPrinterForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectShift.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectShift.Designer.cs">
+      <DependentUpon>SelectShift.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectTankActionForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectTankActionForm.Designer.cs">
+      <DependentUpon>SelectTankActionForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectTraderForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\SelectTraderForm.Designer.cs">
+      <DependentUpon>SelectTraderForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SettingForms\CommunicationSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\CommunicationSettingsForm.Designer.cs">
+      <DependentUpon>CommunicationSettingsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SettingForms\ControllerSettings.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\ControllerSettings.Designer.cs">
+      <DependentUpon>ControllerSettings.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SettingForms\FuelPumpSettings.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\FuelPumpSettings.Designer.cs">
+      <DependentUpon>FuelPumpSettings.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SettingForms\InvoiceTypesForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\InvoiceTypesForm.Designer.cs">
+      <DependentUpon>InvoiceTypesForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SettingForms\MainSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\MainSettingsForm.Designer.cs">
+      <DependentUpon>MainSettingsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SettingForms\PriceSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\PriceSettingsForm.Designer.cs">
+      <DependentUpon>PriceSettingsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SettingForms\PrinterSettings.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\PrinterSettings.Designer.cs">
+      <DependentUpon>PrinterSettings.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SettingForms\TankSettings.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\TankSettings.Designer.cs">
+      <DependentUpon>TankSettings.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\SettingForms\UserSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\UserSettingsForm.Designer.cs">
+      <DependentUpon>UserSettingsForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Include="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <EmbeddedResource Include="UI\Catalogs\DispenserGrid.resx">
+      <DependentUpon>DispenserGrid.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Catalogs\ReportGrid.resx">
+      <DependentUpon>ReportGrid.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Catalogs\SettingsGrid.resx">
+      <DependentUpon>SettingsGrid.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Catalogs\Statistics.resx">
+      <DependentUpon>Statistics.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Catalogs\TankGrid.resx">
+      <DependentUpon>TankGrid.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\AlarmControl.resx">
+      <DependentUpon>AlarmControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\DispenserControl.resx">
+      <DependentUpon>DispenserControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\LcdDisplay.resx">
+      <DependentUpon>LcdDisplay.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\LcdUpDown.resx">
+      <DependentUpon>LcdUpDown.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\NozzleControl.resx">
+      <DependentUpon>NozzleControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\NozzleInfoControl.resx">
+      <DependentUpon>NozzleInfoControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\PriceControl.resx">
+      <DependentUpon>PriceControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\TankControl.resx">
+      <DependentUpon>TankControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\TankDataControl.resx">
+      <DependentUpon>TankDataControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\TankGauge.resx">
+      <DependentUpon>TankGauge.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\TankLinearGauge.resx">
+      <DependentUpon>TankLinearGauge.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Controls\WaitingClock.resx">
+      <DependentUpon>WaitingClock.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Forms\AboutForm.resx">
+      <DependentUpon>AboutForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Forms\AlertsForm.resx">
+      <DependentUpon>AlertsForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Forms\DispenserInfoForm.resx">
+      <DependentUpon>DispenserInfoForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Forms\DispenserTransactionsForm.resx">
+      <DependentUpon>DispenserTransactionsForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Forms\InvoiceForm.resx">
+      <DependentUpon>InvoiceForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Forms\LoadWaitingForm.resx">
+      <DependentUpon>LoadWaitingForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Forms\LoginForm.resx">
+      <DependentUpon>LoginForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Forms\ResolveAlarmForm.resx">
+      <DependentUpon>ResolveAlarmForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Forms\ShiftForm.resx">
+      <DependentUpon>ShiftForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\Forms\UserVerificationForm.resx">
+      <DependentUpon>UserVerificationForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\AttachFillingForm.resx">
+      <DependentUpon>AttachFillingForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\SelectBalanceForm.resx">
+      <DependentUpon>SelectBalanceForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\SelectFromToForm.resx">
+      <DependentUpon>SelectFromToForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\SelectFuelTypeForm.resx">
+      <DependentUpon>SelectFuelTypeForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\SelectInvoiceControl.resx">
+      <DependentUpon>SelectInvoiceControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\SelectInvoiceForm.resx">
+      <DependentUpon>SelectInvoiceForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\SelectInvoiceTypeForm.resx">
+      <DependentUpon>SelectInvoiceTypeForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\SelectNozzleForm.resx">
+      <DependentUpon>SelectNozzleForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\SelectPrinterForm.resx">
+      <DependentUpon>SelectPrinterForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\SelectShift.resx">
+      <DependentUpon>SelectShift.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\SelectTankActionForm.resx">
+      <DependentUpon>SelectTankActionForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SelectionForms\SelectTraderForm.resx">
+      <DependentUpon>SelectTraderForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SettingForms\CommunicationSettingsForm.resx">
+      <DependentUpon>CommunicationSettingsForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SettingForms\ControllerSettings.resx">
+      <DependentUpon>ControllerSettings.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SettingForms\FuelPumpSettings.resx">
+      <DependentUpon>FuelPumpSettings.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SettingForms\InvoiceTypesForm.resx">
+      <DependentUpon>InvoiceTypesForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SettingForms\MainSettingsForm.resx">
+      <DependentUpon>MainSettingsForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SettingForms\PriceSettingsForm.resx">
+      <DependentUpon>PriceSettingsForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SettingForms\PrinterSettings.resx">
+      <DependentUpon>PrinterSettings.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SettingForms\TankSettings.resx">
+      <DependentUpon>TankSettings.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SettingForms\UserSettingsForm.resx">
+      <DependentUpon>UserSettingsForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <None Include="app.config" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.AlertDefinition.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.ApplicationUser.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.ApplicationUserLoggon.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.AtgProbeProtocol.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.AtgProbeType.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Balance.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.CommunicationController.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Crc32.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Dispenser.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.DispenserProtocol.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.DispenserSetting.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.DispenserType.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.FuelType.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.FuelTypePrice.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Invoice.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.InvoiceForm.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.InvoiceLine.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.InvoicePrint.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.InvoiceRelation.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.InvoiceType.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Normalization.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Nozzle.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.NozzleFlow.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.NozzlePriceList.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.NozzleUsagePeriod.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Option.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.PendingSend.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.PriceList.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.PriceListTimeSpan.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.SalesTransaction.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.SalesView.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.SendLog.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Shift.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.SystemEvent.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.SystemEventDatum.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Tank.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankFilling.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankFillingInvoiceView.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankFillingView.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankLevelEndView.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankLevelStartView.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankPrice.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankSale.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankSetting.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TankUsagePeriod.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Titrimetry.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.TitrimetryLevel.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Trader.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.UsagePeriod.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.Data.Vehicle.datasource" />
+    <None Include="Properties\DataSources\ASFuelControl.VirtualDevices.DispenserSale.datasource" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <None Include="Service References\SmsService\ASFuelControl.Windows.SmsService.BalanceReturn.datasource">
+      <DependentUpon>Reference.svcmap</DependentUpon>
+    </None>
+    <None Include="Service References\SmsService\ASFuelControl.Windows.SmsService.MainBalanceReturn.datasource">
+      <DependentUpon>Reference.svcmap</DependentUpon>
+    </None>
+    <None Include="Service References\SmsService\ASFuelControl.Windows.SmsService.PurchaseReturn.datasource">
+      <DependentUpon>Reference.svcmap</DependentUpon>
+    </None>
+    <None Include="Service References\SmsService\ASFuelControl.Windows.SmsService.ServiceReturn.datasource">
+      <DependentUpon>Reference.svcmap</DependentUpon>
+    </None>
+    <None Include="Service References\SmsService\ASFuelControl.Windows.SmsService.SmsBaseStatusReturn.datasource">
+      <DependentUpon>Reference.svcmap</DependentUpon>
+    </None>
+    <None Include="Service References\SmsService\ASFuelControl.Windows.SmsService.SmsSendReturn.datasource">
+      <DependentUpon>Reference.svcmap</DependentUpon>
+    </None>
+    <None Include="Service References\SmsService\ASFuelControl.Windows.SmsService.SmsStatusReturn.datasource">
+      <DependentUpon>Reference.svcmap</DependentUpon>
+    </None>
+    <None Include="Service References\SmsService\ASFuelControl.Windows.SmsService.UserReturn.datasource">
+      <DependentUpon>Reference.svcmap</DependentUpon>
+    </None>
+    <None Include="Service References\SmsService\Service1.wsdl" />
+    <None Include="Service References\SmsService\Service1.xsd">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="Service References\SmsService\Service11.xsd">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="Service References\SmsService\Service12.xsd">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="Service References\SmsService\Service13.xsd">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="Service References\SmsService\Service14.xsd">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="Service References\SmsService\Service15.xsd">
+      <SubType>Designer</SubType>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ASFuelControl.AK6\ASFuelControl.AK6.csproj">
+      <Project>{2AA7C3B9-0C06-481C-9476-B05E901161E5}</Project>
+      <Name>ASFuelControl.AK6</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Ametek\ASFuelControl.Ametek.csproj">
+      <Project>{FCD7F7D7-C8A6-4244-99B9-D4593558332E}</Project>
+      <Name>ASFuelControl.Ametek</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Box69\ASFuelControl.Box69.csproj">
+      <Project>{E1F1441A-34E7-4FB0-8442-DACFF5F5376C}</Project>
+      <Name>ASFuelControl.Box69</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Common\ASFuelControl.Common.csproj">
+      <Project>{88C17760-58E3-4890-95A4-A2E58FC14CF0}</Project>
+      <Name>ASFuelControl.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Communication\ASFuelControl.Communication.csproj">
+      <Project>{80D12E04-F31E-4868-940F-3FC81B387FCC}</Project>
+      <Name>ASFuelControl.Communication</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Data\ASFuelControl.Data.csproj">
+      <Project>{16EE9704-B2F3-4CBB-AB0E-93B26B4676E6}</Project>
+      <Name>ASFuelControl.Data</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Elbis\ASFuelControl.Elbis.csproj">
+      <Project>{2DBA4B16-BF08-4AE7-BFBA-58BF5E00F9A1}</Project>
+      <Name>ASFuelControl.Elbis</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.EMR3\ASFuelControl.EMR3.csproj">
+      <Project>{4C6A1AF8-51AC-4A02-AB5C-52408D08E1A0}</Project>
+      <Name>ASFuelControl.EMR3</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Fafnir\ASFuelControl.Fafnir.csproj">
+      <Project>{42A29F23-6F61-4BBE-A3D6-1E0D416DE67C}</Project>
+      <Name>ASFuelControl.Fafnir</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.FuelPump\ASFuelControl.FuelPump.csproj">
+      <Project>{DEA737A6-0A88-4953-86DB-2E102E82996C}</Project>
+      <Name>ASFuelControl.FuelPump</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Gilbarco\ASFuelControl.Gilbarco.csproj">
+      <Project>{C17BCF06-6159-4507-A972-80E2FB5B41B8}</Project>
+      <Name>ASFuelControl.Gilbarco</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Logging\ASFuelControl.Logging.csproj">
+      <Project>{85953593-6156-4463-9C47-1DCD8024A087}</Project>
+      <Name>ASFuelControl.Logging</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Millenium\ASFuelControl.Millenium.csproj">
+      <Project>{35316759-D03C-4B55-8FD9-C85E9EB5312F}</Project>
+      <Name>ASFuelControl.Millenium</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.NuovoPignone\ASFuelControl.NuovoPignone.csproj">
+      <Project>{264B2DCC-57E2-4D0D-B822-05E48BC081A6}</Project>
+      <Name>ASFuelControl.NuovoPignone</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.PTS\ASFuelControl.PTS.csproj">
+      <Project>{9887DE29-01B2-43AF-88F7-032B6A172DD8}</Project>
+      <Name>ASFuelControl.PTS</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Reports\ASFuelControl.Reports.csproj">
+      <Project>{B6FBFEEA-74E9-480D-9913-81742B358600}</Project>
+      <Name>ASFuelControl.Reports</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.StartItaliana\ASFuelControl.StartItaliana.csproj">
+      <Project>{DCA5919C-20D1-499C-A91B-749ECA0AD432}</Project>
+      <Name>ASFuelControl.StartItaliana</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Tank\ASFuelControl.Tank.csproj">
+      <Project>{C71609CB-3F4F-4A99-A530-F55E31E8EF70}</Project>
+      <Name>ASFuelControl.Tank</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.VirtualDevices\ASFuelControl.VirtualDevices.csproj">
+      <Project>{19FAB68F-DA50-4192-9AC7-8CEC8BF4B996}</Project>
+      <Name>ASFuelControl.VirtualDevices</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.WorkFlow\ASFuelControl.WorkFlow.csproj">
+      <Project>{29DEF4D2-A8EE-421C-ABD8-D8433932015F}</Project>
+      <Name>ASFuelControl.WorkFlow</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\MainLogo.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Nozzle.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Fuel-Station.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\SettingsTank.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Price.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\TankIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Delete.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Add.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Lock.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Tank.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Images\Display.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\UserChange.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FuelPump.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Settings.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Statistics.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Invoice.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Tank_128.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Users.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Alert.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FuelPump_128.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\GeneralSettings.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Invoice_128.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Prices.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\SaveBig.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Save.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Cancel.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Import.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Down.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Up.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Controller.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Customers.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Search.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Customer.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Invoice_100.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Bottle.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FillingCancel.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FillingEnd.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\FillingStart.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\CustomerSelect.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="DBScripts\UpdateDatabase1.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="DBScripts\CreateDatabase.sql" />
+    <Content Include="DBScripts\UpdateDatabase2.sql" />
+    <Content Include="DBScripts\UpdateDatabase3.sql" />
+    <Content Include="DBScripts\UpdateDatabase4.sql" />
+    <Content Include="DBScripts\UpdateDatabase5.sql" />
+    <Content Include="DBScripts\UpdateDatabase6.sql" />
+    <Content Include="DBScripts\UpdateDatabase7.sql" />
+    <Content Include="DBScripts\UpdateDatabase8.sql" />
+    <Content Include="icon.ico" />
+    <None Include="Resources\UnLocked.png" />
+    <None Include="Resources\Locked.png" />
+    <None Include="Resources\Guard.png" />
+    <None Include="Resources\Drain64.png" />
+    <None Include="Resources\Fill64.png" />
+    <None Include="Resources\Search_small.png" />
+    <None Include="Resources\Reset.png" />
+    <None Include="Resources\Border.png" />
+    <None Include="Resources\Information.png" />
+    <None Include="Resources\Message.png" />
+    <None Include="Service References\SmsService\Reference.svcmap">
+      <Generator>WCF Proxy Generator</Generator>
+      <LastGenOutput>Reference.cs</LastGenOutput>
+    </None>
+    <None Include="Service References\SmsService\configuration.svcinfo" />
+    <None Include="Service References\SmsService\configuration91.svcinfo" />
+    <None Include="Service References\SmsService\Service1.disco" />
+    <None Include="Resources\Pratiriouxos.gr.png" />
+    <None Include="Resources\PrinterBig.png" />
+    <None Include="Resources\Printer_small.png" />
+    <None Include="Resources\Printer.png" />
+    <None Include="Resources\UserShiftEnd.png" />
+    <None Include="Resources\UserShift.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include=".NETFramework,Version=v4.0">
+      <Visible>False</Visible>
+      <ProductName>Microsoft .NET Framework 4 %28x86 and x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1 Client Profile</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Windows.Installer.3.1">
+      <Visible>False</Visible>
+      <ProductName>Windows Installer 3.1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Service References\" />
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadataStorage Include="Service References\SmsService\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

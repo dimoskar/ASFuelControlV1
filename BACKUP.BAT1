@@ -1,0 +1,1 @@
+osql -S <SERVERNAME> -E -Q "BACKUP DATABASE <DATABASE> TO DISK='<PATH>\ASFuelControlDB.bak'"

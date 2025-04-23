@@ -1,0 +1,19 @@
+File,LOC,SLOC-P,SLOC-L,MVG,BLOC,C&SLOC,CLOC,CWORD,HCLOC,HCWORD
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\AlertClass.cs,17,15,10,0,2,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\BalanceClass.cs,178,159,120,7,19,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\ChangePriceClass.cs,16,14,9,0,2,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\CommunicationMethods.cs,434,385,254,60,48,2,1,4,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\DeliveryNoteClass.cs,143,124,102,4,19,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\FuelTypePumpClass.cs,99,86,70,3,13,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\FuelVolumeClass.cs,81,73,51,0,8,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\IncomeRecieptClass.cs,86,79,62,5,7,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\LiterCheckClass.cs,33,30,23,1,3,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\SendMethods.cs,272,251,181,32,21,1,0,2,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Enums\AlertIdEnum.cs,22,20,6,0,2,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Enums\DeliveryTypeEnum.cs,16,14,6,0,2,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Enums\FuelTypeEnum.cs,24,22,6,0,2,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Enums\LocalizedEnumExtensions.cs,48,44,26,7,4,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Enums\WorkFieldEnum.cs,20,18,6,0,2,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Properties\AssemblyInfo.cs,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Properties\Resources.Designer.cs,262,143,83,25,31,1,88,463,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Service References\FuelFlowService\Reference.cs,2929,2285,1354,203,445,1,199,412,0,1

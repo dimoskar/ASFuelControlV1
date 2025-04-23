@@ -1,0 +1,23 @@
+﻿millenniumAPI_1410123:
+
+------------------------------------
+misc:
+public variables,methods,properties renamed starting w/ Capital 
+booleans prefix "is"
+------------------------------------
+
+Class dispenserCommands:
+
+New EvaluateBuffer(byte) επιστρέφεί για κάθε Nozzle το τελευταιο state και όχι το σύνολο.
+New CreateCmd(int dispenserId, CommandTypeEnum command = CommandTypeEnum.FetchBuffer)
+-------------------------------------
+Class Nozzle
+ta totalLitres,displayPrice,displayLitres έγιναν private attributes
+get{} apo τις public μεθόδους
+ 
+Nozzle.getDisplayLitres(int) 
+Nozzle.getDisplayPrice(int)
+Nozzle.getTotalLitres(int)
+
+ο ακέραιος int  ορίζει τον  αριθμό των δεκαδικών.
+-------------------------------------------------

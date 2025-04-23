@@ -1,0 +1,29 @@
+****************** Shelf Protocol
+
+//Polling Get STatus
+Dispenser 1
+2D 0A 00 07 01 D3 C8
+Dispenser 2 
+2D 0F 00 07 01 96 74
+
+
+//Get Totals
+Dispenser 1
+2D 0A 00 07 15 66 9A
+Dispenser 2
+2D 0F 00 07 15 23 26
+
+//Halt
+Dispenser 1
+2D 0A 00 07 0C 7E 19
+Dispenser 2
+2D 0F 00 07 0C 3B A5
+
+
+//Unknow Command
+2D 0A 00 07 0C 7E 19 
+2D 0A 00 09 03 0F 00 E7 B8 
+2D 0B 00 09 03 00 00 79 ED 
+2D 0C 00 09 03 00 00 38 25 
+2D 0D 00 09 03 00 00 98 60 
+2D 0E 00 09 03 00 00 78 AE

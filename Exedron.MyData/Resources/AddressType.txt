@@ -1,0 +1,6 @@
+﻿<address>
+    <street>[street]</street>
+    <number>[number]</number>
+    <postalCode>[postalcode]</postalCode>
+    <city>[city]</city>
+</address>

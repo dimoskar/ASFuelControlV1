@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wsdl:definitions xmlns:wsap="http://schemas.xmlsoap.org/ws/2004/08/addressing/policy" xmlns:wsa10="http://www.w3.org/2005/08/addressing" xmlns:tns="http://tempuri.org/" xmlns:msc="http://schemas.microsoft.com/ws/2005/12/wsdl/contract" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:wsx="http://schemas.xmlsoap.org/ws/2004/09/mex" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsam="http://www.w3.org/2007/05/addressing/metadata" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:wsaw="http://www.w3.org/2006/05/addressing/wsdl" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:xsd="http://www.w3.org/2001/XMLSchema" name="Service1" targetNamespace="http://tempuri.org/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+  <wsdl:types>
+    <xsd:schema targetNamespace="http://tempuri.org/Imports">
+      <xsd:import schemaLocation="http://www.5gsms.com/Service1.svc?xsd=xsd0" namespace="http://tempuri.org/" />
+      <xsd:import schemaLocation="http://www.5gsms.com/Service1.svc?xsd=xsd1" namespace="http://schemas.microsoft.com/2003/10/Serialization/" />
+      <xsd:import schemaLocation="http://www.5gsms.com/Service1.svc?xsd=xsd2" namespace="http://schemas.datacontract.org/2004/07/ExedronSMSService" />
+      <xsd:import schemaLocation="http://www.5gsms.com/Service1.svc?xsd=xsd3" namespace="http://schemas.datacontract.org/2004/07/ExedronSMSDAL" />
+      <xsd:import schemaLocation="http://www.5gsms.com/Service1.svc?xsd=xsd4" namespace="http://schemas.microsoft.com/2003/10/Serialization/Arrays" />
+      <xsd:import schemaLocation="http://www.5gsms.com/Service1.svc?xsd=xsd5" namespace="http://schemas.datacontract.org/2004/07/CampaignModel" />
+    </xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="IService1_SendSms_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendSms" />
+  </wsdl:message>
+  <wsdl:message name="IService1_SendSms_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendSmsResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_SendBatchSms_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendBatchSms" />
+  </wsdl:message>
+  <wsdl:message name="IService1_SendBatchSms_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendBatchSmsResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_SendBatchSmsDate_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendBatchSmsDate" />
+  </wsdl:message>
+  <wsdl:message name="IService1_SendBatchSmsDate_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendBatchSmsDateResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetSmsStatus_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetSmsStatus" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetSmsStatus_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetSmsStatusResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetSmsStatusBatch_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetSmsStatusBatch" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetSmsStatusBatch_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetSmsStatusBatchResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetSmsBaseStatus_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetSmsBaseStatus" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetSmsBaseStatus_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetSmsBaseStatusResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetBalance_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetBalance" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetBalance_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetBalanceResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_CreateCustomer_InputMessage">
+    <wsdl:part name="parameters" element="tns:CreateCustomer" />
+  </wsdl:message>
+  <wsdl:message name="IService1_CreateCustomer_OutputMessage">
+    <wsdl:part name="parameters" element="tns:CreateCustomerResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetUsers_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetUsers" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetUsers_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetUsersResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_AddCustomerBalance_InputMessage">
+    <wsdl:part name="parameters" element="tns:AddCustomerBalance" />
+  </wsdl:message>
+  <wsdl:message name="IService1_AddCustomerBalance_OutputMessage">
+    <wsdl:part name="parameters" element="tns:AddCustomerBalanceResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_ChangeCustomer_InputMessage">
+    <wsdl:part name="parameters" element="tns:ChangeCustomer" />
+  </wsdl:message>
+  <wsdl:message name="IService1_ChangeCustomer_OutputMessage">
+    <wsdl:part name="parameters" element="tns:ChangeCustomerResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_AddPayment_InputMessage">
+    <wsdl:part name="parameters" element="tns:AddPayment" />
+  </wsdl:message>
+  <wsdl:message name="IService1_AddPayment_OutputMessage">
+    <wsdl:part name="parameters" element="tns:AddPaymentResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_AddCreditsPayment_InputMessage">
+    <wsdl:part name="parameters" element="tns:AddCreditsPayment" />
+  </wsdl:message>
+  <wsdl:message name="IService1_AddCreditsPayment_OutputMessage">
+    <wsdl:part name="parameters" element="tns:AddCreditsPaymentResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_CheckUser_InputMessage">
+    <wsdl:part name="parameters" element="tns:CheckUser" />
+  </wsdl:message>
+  <wsdl:message name="IService1_CheckUser_OutputMessage">
+    <wsdl:part name="parameters" element="tns:CheckUserResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetAmountForCredits_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetAmountForCredits" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetAmountForCredits_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetAmountForCreditsResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetCreditsForAmount_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetCreditsForAmount" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetCreditsForAmount_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetCreditsForAmountResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetPurchases_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetPurchases" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetPurchases_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetPurchasesResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetMainBalance_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetMainBalance" />
+  </wsdl:message>
+  <wsdl:message name="IService1_GetMainBalance_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetMainBalanceResponse" />
+  </wsdl:message>
+  <wsdl:message name="IService1_DeletePurchase_InputMessage">
+    <wsdl:part name="parameters" element="tns:DeletePurchase" />
+  </wsdl:message>
+  <wsdl:message name="IService1_DeletePurchase_OutputMessage">
+    <wsdl:part name="parameters" element="tns:DeletePurchaseResponse" />
+  </wsdl:message>
+  <wsdl:portType name="IService1">
+    <wsdl:operation name="SendSms">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/SendSms" message="tns:IService1_SendSms_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/SendSmsResponse" message="tns:IService1_SendSms_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="SendBatchSms">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/SendBatchSms" message="tns:IService1_SendBatchSms_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/SendBatchSmsResponse" message="tns:IService1_SendBatchSms_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="SendBatchSmsDate">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/SendBatchSmsDate" message="tns:IService1_SendBatchSmsDate_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/SendBatchSmsDateResponse" message="tns:IService1_SendBatchSmsDate_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="GetSmsStatus">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/GetSmsStatus" message="tns:IService1_GetSmsStatus_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/GetSmsStatusResponse" message="tns:IService1_GetSmsStatus_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="GetSmsStatusBatch">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/GetSmsStatusBatch" message="tns:IService1_GetSmsStatusBatch_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/GetSmsStatusBatchResponse" message="tns:IService1_GetSmsStatusBatch_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="GetSmsBaseStatus">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/GetSmsBaseStatus" message="tns:IService1_GetSmsBaseStatus_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/GetSmsBaseStatusResponse" message="tns:IService1_GetSmsBaseStatus_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="GetBalance">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/GetBalance" message="tns:IService1_GetBalance_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/GetBalanceResponse" message="tns:IService1_GetBalance_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="CreateCustomer">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/CreateCustomer" message="tns:IService1_CreateCustomer_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/CreateCustomerResponse" message="tns:IService1_CreateCustomer_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="GetUsers">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/GetUsers" message="tns:IService1_GetUsers_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/GetUsersResponse" message="tns:IService1_GetUsers_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="AddCustomerBalance">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/AddCustomerBalance" message="tns:IService1_AddCustomerBalance_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/AddCustomerBalanceResponse" message="tns:IService1_AddCustomerBalance_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="ChangeCustomer">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/ChangeCustomer" message="tns:IService1_ChangeCustomer_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/ChangeCustomerResponse" message="tns:IService1_ChangeCustomer_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="AddPayment">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/AddPayment" message="tns:IService1_AddPayment_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/AddPaymentResponse" message="tns:IService1_AddPayment_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="AddCreditsPayment">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/AddCreditsPayment" message="tns:IService1_AddCreditsPayment_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/AddCreditsPaymentResponse" message="tns:IService1_AddCreditsPayment_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="CheckUser">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/CheckUser" message="tns:IService1_CheckUser_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/CheckUserResponse" message="tns:IService1_CheckUser_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="GetAmountForCredits">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/GetAmountForCredits" message="tns:IService1_GetAmountForCredits_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/GetAmountForCreditsResponse" message="tns:IService1_GetAmountForCredits_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="GetCreditsForAmount">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/GetCreditsForAmount" message="tns:IService1_GetCreditsForAmount_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/GetCreditsForAmountResponse" message="tns:IService1_GetCreditsForAmount_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="GetPurchases">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/GetPurchases" message="tns:IService1_GetPurchases_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/GetPurchasesResponse" message="tns:IService1_GetPurchases_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="GetMainBalance">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/GetMainBalance" message="tns:IService1_GetMainBalance_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/GetMainBalanceResponse" message="tns:IService1_GetMainBalance_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="DeletePurchase">
+      <wsdl:input wsaw:Action="http://tempuri.org/IService1/DeletePurchase" message="tns:IService1_DeletePurchase_InputMessage" />
+      <wsdl:output wsaw:Action="http://tempuri.org/IService1/DeletePurchaseResponse" message="tns:IService1_DeletePurchase_OutputMessage" />
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="BasicHttpBinding_IService1" type="tns:IService1">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="SendSms">
+      <soap:operation soapAction="http://tempuri.org/IService1/SendSms" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendBatchSms">
+      <soap:operation soapAction="http://tempuri.org/IService1/SendBatchSms" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendBatchSmsDate">
+      <soap:operation soapAction="http://tempuri.org/IService1/SendBatchSmsDate" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetSmsStatus">
+      <soap:operation soapAction="http://tempuri.org/IService1/GetSmsStatus" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetSmsStatusBatch">
+      <soap:operation soapAction="http://tempuri.org/IService1/GetSmsStatusBatch" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetSmsBaseStatus">
+      <soap:operation soapAction="http://tempuri.org/IService1/GetSmsBaseStatus" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetBalance">
+      <soap:operation soapAction="http://tempuri.org/IService1/GetBalance" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="CreateCustomer">
+      <soap:operation soapAction="http://tempuri.org/IService1/CreateCustomer" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetUsers">
+      <soap:operation soapAction="http://tempuri.org/IService1/GetUsers" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AddCustomerBalance">
+      <soap:operation soapAction="http://tempuri.org/IService1/AddCustomerBalance" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="ChangeCustomer">
+      <soap:operation soapAction="http://tempuri.org/IService1/ChangeCustomer" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AddPayment">
+      <soap:operation soapAction="http://tempuri.org/IService1/AddPayment" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AddCreditsPayment">
+      <soap:operation soapAction="http://tempuri.org/IService1/AddCreditsPayment" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="CheckUser">
+      <soap:operation soapAction="http://tempuri.org/IService1/CheckUser" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetAmountForCredits">
+      <soap:operation soapAction="http://tempuri.org/IService1/GetAmountForCredits" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetCreditsForAmount">
+      <soap:operation soapAction="http://tempuri.org/IService1/GetCreditsForAmount" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetPurchases">
+      <soap:operation soapAction="http://tempuri.org/IService1/GetPurchases" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetMainBalance">
+      <soap:operation soapAction="http://tempuri.org/IService1/GetMainBalance" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="DeletePurchase">
+      <soap:operation soapAction="http://tempuri.org/IService1/DeletePurchase" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="Service1">
+    <wsdl:port name="BasicHttpBinding_IService1" binding="tns:BasicHttpBinding_IService1">
+      <soap:address location="http://www.5gsms.com/Service1.svc" />
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

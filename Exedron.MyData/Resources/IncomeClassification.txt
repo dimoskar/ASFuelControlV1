@@ -1,0 +1,6 @@
+<incomeClassification>
+  <icls:classificationType>[classificationtype]</icls:classificationType>
+  <icls:classificationCategory>[classificationcategory]</icls:classificationCategory>
+  <icls:amount>[amount]</icls:amount>
+  <icls:id>[id]</icls:id>
+</incomeClassification>

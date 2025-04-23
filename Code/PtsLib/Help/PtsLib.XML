@@ -1,0 +1,1939 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>PtsLib</name>
+    </assembly>
+    <members>
+        <member name="T:PTSLib.PTS.Nozzle">
+            <summary>
+            Provides information about a nozzle of a FuelPoint.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.Nozzle.#ctor(PTSLib.PTS.FuelPoint,System.Byte)">
+            <summary>
+            Creates an exemplar of Nozzle class.
+            </summary>
+            <param name="parent">Exemplar of parent FuelPoint class.</param>
+            <param name="id">Identifier of a nozzle.</param>
+        </member>
+        <member name="M:PTSLib.PTS.Nozzle.UpdateTotals">
+            <summary>
+            Requests a FuelPoint on values of electronic totalizer.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.Nozzle.FuelPoint">
+            <summary>
+            Gets an object FuelPoint, to which a nozzle belongs to.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.Nozzle.ID">
+            <summary>
+            Gets an identifier of a nozzle.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.Nozzle.PricePerLiter">
+            <summary>
+            Gets or sets price of fuel per liter/galon.
+            </summary>
+            <exception cref="T:System.ArgumentOutOfRangeException">
+            Set value is less than zero.
+            </exception>
+        </member>
+        <member name="P:PTSLib.PTS.Nozzle.TotalDispensedAmount">
+            <summary>
+            Gets a value of totally dispensed amount (in cents) of electronic totalizer.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.Nozzle.TotalDispensedVolume">
+            <summary>
+            Gets a value of totally dispensed volume (in 10 ml units) of electronic totalizer.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.AtgChannel">
+            <summary>
+            Provides information about an ATG channel of a PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.AtgChannel.#ctor(PTSLib.PTS.PTSController)">
+            <summary>
+            Creates an exemplar of AtgChannel class.
+            </summary>
+            <param name="parent">Exemplar of parent PTS class.</param>
+        </member>
+        <member name="P:PTSLib.PTS.AtgChannel.BaudRate">
+            <summary>
+            Gets or sets baud rate of a channel.
+            </summary>
+            <remarks>
+            To make this setting work it is necessary to call a method 
+            UpdateAtgConfiguration() of PTS exemplar, to which a channel belongs to.
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.AtgChannel.ID">
+            <summary>
+            Gets an identifier of a channel.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.AtgChannel.Protocol">
+            <summary>
+            Gets or sets a communication protocol of a AtgChannel.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.AtgChannel.ATGs">
+            <summary>
+            Gets an array of objects ATG, which belongs to given AtgChannel.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.AtgChannel.PTS">
+            <summary>
+            Gets an a PTS exemplar, to which a channel belongs to.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.FuelPointChannel">
+            <summary>
+            Provides information about a FuelPoint channel of a PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.FuelPointChannel.#ctor(PTSLib.PTS.PTSController)">
+            <summary>
+            Creates an exemplar of FuelPointChannel class.
+            </summary>
+            <param name="parent">Exemplar of parent PTS class.</param>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPointChannel.BaudRate">
+            <summary>
+            Gets or sets baud rate of a channel.
+            </summary>
+            <remarks>
+            To make this setting work it is necessary to call a method 
+            UpdateFuelPointConfiguration() of PTS exemplar, to which a channel belongs to.
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPointChannel.ID">
+            <summary>
+            Gets an identifier of a channel.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPointChannel.Protocol">
+            <summary>
+            Gets or sets a communication protocol of a channel.
+            </summary>
+            <remarks>
+            To make this setting work it is necessary to call a method 
+            UpdateFuelPointConfiguration() of PTS exemplar, to which a channel belongs to.
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPointChannel.FuelPoints">
+            <summary>
+            Gets an array of objects FuelPoint, which belongs to given channel.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPointChannel.PTS">
+            <summary>
+            Gets an a PTS exemplar, to which a channel belongs to.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.AsciiConversion">
+            <summary>
+            Provides methods for various data conversions for processing of PTS controller messages.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.AsciiConversion.AsciiToByte(System.Byte)">
+            <summary>
+            Method for conversion from ascii bytes to byte.
+            </summary>
+            <param name="asciiByte">Initial ascii bytes value.</param>
+        </member>
+        <member name="M:PTSLib.PTS.AsciiConversion.ByteToAscii(System.Byte)">
+            <summary>
+            Method for conversion from bytes to ascii byte.
+            </summary>
+            <param name="ordByte">Initial bytes value.</param>
+        </member>
+        <member name="M:PTSLib.PTS.AsciiConversion.ByteToAsciiExt(System.Byte)">
+            <summary>
+            Method for conversion from bytes to ascii byte.
+            </summary>
+            <param name="ordByte">Initial bytes value.</param>
+        </member>
+        <member name="M:PTSLib.PTS.AsciiConversion.AsciiToInt(System.Byte[])">
+            <summary>
+            Method for conversion from array of ascii bytes to int.
+            </summary>
+            <param name="asciiBytes">Initial array of ascii bytes.</param>
+        </member>
+        <member name="M:PTSLib.PTS.AsciiConversion.IntToAscii(System.Int32,System.Int32)">
+            <summary>
+            Method for conversion from int to array of ascii bytes.
+            </summary>
+            <param name="value">Initial int value.</param>
+            <param name="length">Length of int value.</param>
+        </member>
+        <member name="M:PTSLib.PTS.AsciiConversion.IntToAsciiExt(System.Int32)">
+            <summary>
+            Method for conversion from int to array of ascii bytes.
+            </summary>
+            <param name="value">Initial int value.</param>
+        </member>
+        <member name="M:PTSLib.PTS.AsciiConversion.HexAsciiToInt(System.Byte[])">
+            <summary>
+            Method for conversion from array of ascii hexidecimal bytes to int.
+            </summary>
+            <param name="asciiBytes">Initial array of ascii hexidecimal bytes.</param>
+        </member>
+        <member name="M:PTSLib.PTS.AsciiConversion.BytesArrayToString(System.Byte[])">
+            <summary>
+            Method for conversion from array of bytes to string.
+            </summary>
+            <param name="bytesArray">Initial array of bytes.</param>
+        </member>
+        <member name="M:PTSLib.PTS.AsciiConversion.StringToBytesArray(System.String)">
+            <summary>
+            Method for conversion from string to array of bytes.
+            </summary>
+            <param name="initString">Initial string value.</param>
+        </member>
+        <member name="T:PTSLib.PTS.PtsConfiguration">
+            <summary>
+            Provides information about a PTS controller configuration.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.PtsConfiguration.FuelPointChannelQuantity">
+            <summary>
+            Quantity of FuelPoint channels in PTS controller.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.PtsConfiguration.FuelPointQuantity">
+            <summary>
+            Maximum quantity of FuelPoints, that can be connected to PTS controller.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.PtsConfiguration.FuelPointAddressQuantity">
+            <summary>
+            Maximum value of FuelPoint address.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.PtsConfiguration.NozzleQuantity">
+            <summary>
+            Maximum possible quantity of nozzles in a FuelPoint.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.PtsConfiguration.AtgChannelQuantity">
+            <summary>
+            Quantity of ATG channels in PTS controller.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.PtsConfiguration.AtgQuantity">
+            <summary>
+            Maximum quantity of ATGs, that can be connected to PTS controller.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.PtsConfiguration.AtgAddressQuantity">
+            <summary>
+            Maximum value of ATG address.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.PtsConfiguration.PtsBaudRate">
+            <summary>
+            Communication baud rate for PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PtsConfiguration.#ctor(PTSLib.PTS.PTSController)">
+            <summary>
+            Creates an exemplar of PtsConfiguration class.
+            </summary>
+            <param name="pts">Exemplar of parent PTS class.</param>
+        </member>
+        <member name="M:PTSLib.PTS.PtsConfiguration.FuelPointInit(System.Byte[])">
+            <summary>
+            Provides initialization of FuelPoints.
+            </summary>
+            <param name="settResponse">Response on configuration of dispenser channels, received from a PTS controller.</param>
+        </member>
+        <member name="M:PTSLib.PTS.PtsConfiguration.AtgInit(System.Byte[])">
+            <summary>
+            Provides initialization of ATG.
+            </summary>
+            <param name="settResponse">Response on configuration of ATG channels, received from a PTS controller.</param>
+        </member>
+        <member name="P:PTSLib.PTS.PtsConfiguration.FuelPointChannels">
+            <summary>
+            Gets an array of objects FuelPointChannel of PTS controller.
+            </summary>
+            <remarks>At closed connection returns a value (Nothing в Visual Basic).</remarks>
+        </member>
+        <member name="P:PTSLib.PTS.PtsConfiguration.FuelPoints">
+            <summary>
+            Gets an array of objects FuelPoint of PTS controller.
+            </summary>
+            <remarks>At closed connection returns a value (Nothing в Visual Basic).</remarks>
+        </member>
+        <member name="P:PTSLib.PTS.PtsConfiguration.AtgChannels">
+            <summary>
+            Gets an array of objects AtgChannel of PTS controller.
+            </summary>
+            <remarks>At closed connection returns a value (Nothing в Visual Basic).</remarks>
+        </member>
+        <member name="P:PTSLib.PTS.PtsConfiguration.ATGs">
+            <summary>
+            Gets an array of objects ATG of PTS controller.
+            </summary>
+            <remarks>At closed connection returns a value (Nothing в Visual Basic).</remarks>
+        </member>
+        <member name="T:PTSLib.PTS.ATG">
+            <summary>
+            Provides data on measurement of an ATG (automatic tank gauge) system.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.ATG.#ctor(PTSLib.PTS.PTSController)">
+            <summary>
+            Creates exemplar of ATG class.
+            </summary>
+            <param name="pts">Exemplar of parent PTS class</param>
+        </member>
+        <member name="M:PTSLib.PTS.ATG.GetMeasurementData">
+            <summary>
+            Requests ATG measurement resuls.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ID">
+            <summary>
+            Gets unique identifier of an ATG.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.PhysicalAddress">
+            <summary>
+            Gets or sets physical address of an ATG.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ChannelID">
+            <summary>
+            Gets or sets an identifier of a channel, to which an ATG is connected.
+            </summary>
+            <remarks>
+            If an ATG is not connected to a channel then a value should be equal to zero.
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.Channel">
+            <summary>
+            Gets an object AtgChannel, to which an ATG is connected.
+            </summary>
+            <remarks>
+            If an ATG is not connected to a channel - returns a value null (Nothing in Visual Basic).
+            </remarks>     
+        </member>
+        <member name="P:PTSLib.PTS.ATG.IsActive">
+            <summary>
+            Gets or sets a value, which points if an ATG is active and it is necessary to query its state.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductHeight">
+            <summary>
+            Gets a value of product level (in 0.1 millimeters) in tank.   
+            </summary>     
+            <remarks>
+            If ATG system does not return value of products level - returns null (Nothing in Visual Basic).
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductHeightPresent">
+            <summary>
+            Gets a boolean value indicating whether an ATG provides measurement of product level.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductVolume">
+            <summary>
+            Gets a value of product volume (in liters) in tank.  
+            </summary>      
+            <remarks>
+            If ATG system does not return value of product volume - returns null (Nothing in Visual Basic).
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductVolumePresent">
+            <summary>
+            Gets a boolean value indicating whether an ATG provides measurement of product volume.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.WaterHeight">
+            <summary>
+            Gets a value of water level (in 0.1 millimeters) in tank.
+            </summary>
+            <remarks>
+            If ATG system does not return value of water level - returns null (Nothing in Visual Basic).
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.WaterHeightPresent">
+            <summary>
+            Gets a boolean value indicating whether an ATG provides measurement of water level.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.WaterVolume">
+            <summary>
+            Gets a value of water volume (in liters) in tank.
+            </summary>
+            <remarks>
+            If ATG system does not return value of water volume - returns null (Nothing in Visual Basic).
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.WaterVolumePresent">
+            <summary>
+            Gets a boolean value indicating whether an ATG provides measurement of water volume.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.Temperature">
+            <summary>
+            Gets a value of product temperature (in 0.1 degrees Celcium) in tank.
+            </summary>
+            <remarks>
+            If ATG system does not return value of product temperature - returns null (Nothing in Visual Basic).
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.TemperaturePresent">
+            <summary>
+            Gets a boolean value indicating whether an ATG provides measurement of product temperature.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductUllage">
+            <summary>
+            Gets a value of product ullage volume (in liters) in tank. 
+            </summary>
+            <remarks>
+            If ATG system does not return value of product ullage volume - returns null (Nothing in Visual Basic).
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductUllagePresent">
+            <summary>
+            Gets a boolean value indicating whether an ATG provides measurement of product ullage volume.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductTCVolume">
+            <summary>
+            Gets a value of product temperature compensated volume (in liters) in tank. 
+            </summary>
+            <remarks>
+            If ATG system does not return value of product temperature compensated volume - returns null (Nothing in Visual Basic).
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductTCVolumePresent">
+            <summary>
+            Gets a boolean value indicating whether an ATG provides measurement of product temperature compensated volume.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductDensity">
+            <summary>
+            Gets a value of product density (in 0.1 kilograms devided on cubic meters) in tank. 
+            </summary>
+            <remarks>
+            If ATG system does not return value of product density - returns null (Nothing in Visual Basic).
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductDensityPresent">
+            <summary>
+            Gets a boolean value indicating whether an ATG provides measurement of product density.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductMass">
+            <summary>
+            Gets a value of product mass (in 0.1 kilograms) in tank. 
+            </summary>
+            <remarks>
+            If ATG system does not return value of product mass - returns null (Nothing in Visual Basic).
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.ProductMassPresent">
+            <summary>
+            Gets a boolean value indicating whether an ATG provides measurement of product mass.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ATG.MaxTankHeight">
+            <summary>
+            Maximum tank height (should be equal to ATG probe height).
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.ATG.DataUpdated">
+            <summary>
+            Event occures at update of measurements data from ATG.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.PtsParameter">
+            <summary>
+            Provides information about a PTS controller parameter.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PtsParameter.ParameterAddress">
+            <summary>
+            Gets a value of parameter address.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PtsParameter.ParameterNumber">
+            <summary>
+            Gets a value of parameter number.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PtsParameter.ParameterValue">
+            <summary>
+            Gets a value of parameter.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.AuthorizeType">
+            <summary>
+            Specifies a type of authorization for commands Authorize for a FuelPoint.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AuthorizeType.Volume">
+            <summary>
+            Authorization by volume.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AuthorizeType.Amount">
+            <summary>
+            Authorization by money amount.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.PtsCRC16">
+            <summary>
+            Provides methods for calculation of CRC16 using polynom P(x) = x^16 + x^15 + x^2 + 1.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.PtsCRC16.Crc16Table">
+            <summary>
+            Table of polynom recalculated data.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PtsCRC16.Calculate(System.Byte[])">
+            <summary>
+            Method for calculation of CRC16 (slow, using routines). 
+            </summary>
+            <param name="bytes">Message data bytes, from which CRC should becalculated.</param>
+            <returns>Calculated CRC value.</returns>
+        </member>
+        <member name="M:PTSLib.PTS.PtsCRC16.CalculateFast(System.Byte[])">
+            <summary>
+            Method for calculation of CRC16 (quick, using precalculated data from table).
+            </summary>
+            <param name="bytes">Message data bytes, from which CRC should becalculated.</param>
+            <returns>Calculated CRC value.</returns>
+        </member>
+        <member name="T:PTSLib.PTS.FuelPointChannelProtocol">
+            <summary>
+            Specifies a list of supported communication protocols of FuelPoint channels of a PTS controller.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.None">
+            <summary>
+            Communication protocol is not set.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.ADAST_EASYCALL">
+            <summary>
+            Protocol ADAST EASYCALL.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.TIT_UNIPUMP">
+            <summary>
+            Protocol TIT UNIPUMP.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.WAYNE_DART">
+            <summary>
+            Protocol WAYNE DART.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.MMPETRO_ZAP">
+            <summary>
+            Protocol MMPETRO ZAP.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.GILBARCO_TWO_WIRE">
+            <summary>
+            Protocol GILBARCO TWO-WIRE.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.TOKHEIM">
+            <summary>
+            Protocol TOKHEIM (Tokheim Controller-Dispenser Communication protocol).
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.TATSUNO_BENC_PDE">
+            <summary>
+            Protocol Tatsuno BENC PDE.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.DEVELCO">
+            <summary>
+            Protocol DEVELCO.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.SAFE_GRAF">
+            <summary>
+            Protocol SAFE Graf.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.GALILEO_PUMP_CONTROL">
+            <summary>
+            Protocol Pump Control GALILEO.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.TOKHEIM_5_nozzles">
+            <summary>
+            Protocol TOKHEIM (5 nozzles).
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.SLAVUTICH_FD_LINK">
+            <summary>
+            Protocol SLAVUTICH FD-Link.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.PUMP_SIMULATOR_10">
+            <summary>
+            Protocol PUMP_SIMULATOR_10.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.SB_T10_AR">
+            <summary>
+            Protocol T10_AR.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.TATSUNO_SSLAN">
+            <summary>
+            Protocol TATSUNO SS-LAN.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.SHELF">
+            <summary>
+            Protocol SHELF.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.UNIGAZ">
+            <summary>
+            Protocol UNIGAZ.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.BATCHEN_Electroline">
+            <summary>
+            Protocol BATCHEN_Electroline.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.PUMALAN">
+            <summary>
+            Protocol PUMALAN.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.KOREA_EnE">
+            <summary>
+            Protocol KOREA_EnE.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.BENNETT_CL">
+            <summary>
+            Protocol BENNETT_CL.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.BENNETT_RS485">
+            <summary>
+            Protocol BENNETT_RS485.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.WAYNE_USCL">
+            <summary>
+            Protocol WAYNE_USCL.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.NUOVO_PIGNONE_CL">
+            <summary>
+            Protocol NUOVO_PIGNONE_CL.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.PEC">
+            <summary>
+            Protocol PEC.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.BLUE_SKY">
+            <summary>
+            Protocol BLUE_SKY.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.PROWALCO">
+            <summary>
+            Protocol PROWALCO.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.TOKICO_SS_LAN">
+            <summary>
+            Protocol TOKICO_SS_LAN.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.SANKI">
+            <summary>
+            Protocol SANKI.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.LANFENG">
+            <summary>
+            Protocol LANFENG.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.DONG_HWA_Prime">
+            <summary>
+            Protocol DONG HWA Prime.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.EPCO">
+            <summary>
+            Protocol EPCO.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.WAYNE_DART_SIMPLEX">
+            <summary>
+            Protocol WAYNE DART SIMPLEX.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.KALVACHA">
+            <summary>
+            Protocol KALVACHA.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.HONG_YANG_FZ">
+            <summary>
+            Protocol HONG_YANG_FZ.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.KRAUS_MNET">
+            <summary>
+            Protocol KRAUS MNET.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.PUMP_SIMULATOR">
+            <summary>
+            Protocol PUMP SIMULATOR.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.HONG_YANG_886">
+            <summary>
+            Protocol HONG_YANG_886.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.BATCHEN_MPP">
+            <summary>
+            Protocol BATCHEN_MPP.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.TOMINAGA_SS_LAN">
+            <summary>
+            Protocol TOMINAGA_SS_LAN.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.TOPAZ">
+            <summary>
+            Protocol TOPAZ.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.HONG_YANG_MPD_886">
+            <summary>
+            Protocol HONG_YANG_MPD_886.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.FALCON_LPG">
+            <summary>
+            Protocol FALCON_LPG.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointChannelProtocol.TOPAZ_WONS">
+            <summary>
+            Protocol TOPAZ_WONS.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.AtgChannelProtocol">
+            <summary>
+            Specifies a list of supported communication protocols of ATG channels of a PTS controller.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AtgChannelProtocol.None">
+            <summary>
+            Communication protocol is not set.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AtgChannelProtocol.VEEDER_ROOT">
+            <summary>
+            Protocol GILBARCO Veeder Root TLS 3.5.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AtgChannelProtocol.START_ITALIANA">
+            <summary>
+            Protocol Start Italiana.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AtgChannelProtocol.PETROVEND">
+            <summary>
+            Protocol PetrolVend 4.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AtgChannelProtocol.STRUNA_1_4">
+            <summary>
+            Protocol Struna 1.4.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AtgChannelProtocol.FAFNIR_VISY_Quick">
+            <summary>
+            Protocol FAFNIR_VISY_Quick.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AtgChannelProtocol.ASSYTECH">
+            <summary>
+            Protocol ASSYTECH.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AtgChannelProtocol.ATG_SIMULATOR">
+            <summary>
+            Protocol ATG_SIMULATOR.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AtgChannelProtocol.HECTRONIC_HLS">
+            <summary>
+            Protocol HECTRONIC_HLS.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.AtgChannelProtocol.UNIPROBE">
+            <summary>
+            Protocol UNIPROBE.
+            </summary>
+        </member>
+        <member name="T:TiT.PTS.Properties.Resources">
+            <summary>
+              A strongly-typed resource class, for looking up localized strings, etc.
+            </summary>
+        </member>
+        <member name="P:TiT.PTS.Properties.Resources.ResourceManager">
+            <summary>
+              Returns the cached ResourceManager instance used by this class.
+            </summary>
+        </member>
+        <member name="P:TiT.PTS.Properties.Resources.Culture">
+            <summary>
+              Overrides the current thread's CurrentUICulture property for all
+              resource lookups using this strongly typed resource class.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.FuelPoint">
+            <summary>
+            Provides control over a FuelPoint connected to a PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.FuelPoint.#ctor(PTSLib.PTS.PTSController)">
+            <summary>
+            Creates exemplar of ATG class.
+            </summary>
+            <param name="pts">Exemplar of parent PTS class.</param>
+        </member>
+        <member name="M:PTSLib.PTS.FuelPoint.Authorize(PTSLib.PTS.AuthorizeType,System.Int32,System.Byte)">
+            <summary>
+            Sends a command on authorization to a FuelPoint for a currently taken up nozzle and opens a transaction.
+            </summary>
+            <param name="autorizeType">Type of authorization.</param>
+            <param name="orderAmount">Amount of order.</param>
+            <param name="nozzleId">Identifier of authorized nozzle.</param>
+            <remarks>
+            In case of authorization is done by amount (AuthorizeType.Amount) <paramref name="orderAmmount"/>
+            will have value in cents, in case of authorization is done by volume (AuthorizeType.Volume) 
+            <paramref name="orderAmount"/> will have value in 10 ml units.
+            Given method will work only when a property Status equals to FuelPointStatus.Nozzle and a FuelPoint is locked by a method Lock() (property Locked equals to true).
+            After closing of a transaction it is necessary to call a method Unlock().
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.FuelPoint.CloseTransaction">
+            <summary>
+            Closes current tranaction.
+            </summary>
+            <remarks>
+            Given method needs to be called in a case if value of property Status 
+            equals to FuelPointStatus.TransactionCompleted or FuelPointStatus.TransactionStopped.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.FuelPoint.Halt">
+            <summary>
+            Stops dispensing of fuel through a FuelPoint.
+            </summary>
+            <remarks>
+            If AutocloseTransaction equals to true then transaction closes automatically, at this
+            property Status will be equal to FuelPointStatus.TransactionStopped.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.FuelPoint.Lock">
+            <summary>
+            Locks control over a FuelPoint in a multi POS system (each POS system having a PTS controller connected).
+            </summary>
+            <remarks>
+            Given method needs to be called before calling methods Autorize and UpdatePrices.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.FuelPoint.Unlock">
+            <summary>
+            Unlocks control over a FuelPoint in a multi POS system (each POS system having a PTS controller connected).
+            </summary>
+            <remarks>
+            Given method needs to be called after calling methods Autorize and UpdatePrices.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.FuelPoint.SetPrices">
+            <summary>
+            Sets prices on fuel for nozzles in a FuelPoint in accordance with prices set by
+            properties PricePerLiter of connected objects Nozzle.
+            </summary>
+            <remarks>
+            Before calling a given method it is necessary to call a method Lock, and after it to call a method Unlock. 
+            Before calling a method Unlock it is necessary to wait for a pause for prices to be updated (duration of a 
+            pause may vary depending on fuel dispenser, in average up to 3 sec max).
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.FuelPoint.GetPrices">
+            <summary>
+            Gets prices on fuel for nozzles in a FuelPoint.
+            </summary>
+            <remarks>
+            Before calling a given method it is necessary to call a method Lock, and after it to call a method Unlock. 
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.FuelPoint.GetTotals(System.Byte)">
+            <summary>
+            Gets total counters from the FuelPoint.
+            </summary>
+            <remarks>
+            Before calling a given method it is necessary to call a method Lock, and after it to call a method Unlock. 
+            </remarks>
+            <param name="nozzleId">Identifier of the nozzle.</param>
+        </member>
+        <member name="M:PTSLib.PTS.FuelPoint.GetStatus">
+            <summary>
+            Gets status of the FuelPoint.
+            </summary>
+            <remarks>
+            Returns current status of the FuelPoint. 
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.ActiveNozzle">
+            <summary>
+            Gets a currently taken up nozzle. 
+            </summary>
+            <remarks>
+            If there is no taken up nozzle - then returns null (Nothing in Visual Basic).
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.ActiveNozzleID">
+            <summary>
+            Gets an identifier of a taken up nozzle. 
+            </summary>
+            <remarks>
+            If there is no taken up nozzle - then returns 0.
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.TransactionNozzleID">
+            <summary>
+            Gets an identifier of a nozzle, through which fuel was dispensed in last ransaction. 
+            </summary>
+            <remarks>
+            If there was no transaction - then returns 0.
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.CurrentPendingCommand">
+            <summary>
+            Gets code of command currently executed by PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.PreviousPendingCommand">
+            <summary>
+            Gets code of previous command currently executed by PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.IsActive">
+            <summary>
+            Gets or sets a value, which points if a FuelPoint is active and it is necessary to query its state.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.TransFinished">
+            <summary>
+            Gets or sets a value, which points that previous transaction has just finished (used in order to request totalizers at once after transaction is finished and closed).
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.AutocloseTransaction">
+            <summary>
+            Gets or sets a value, which points whether transaction should be closed automatically or it is necessary 
+            to close transaction manually after it is finished.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.ID">
+            <summary>
+            Gets unique identifier of a FuelPoint.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.PhysicalAddress">
+            <summary>
+            Gets or sets physical address of a FuelPoint.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.ChannelID">
+            <summary>
+            Gets or sets an identifier of a channel, to which a FuelPoint is connected.
+            </summary>
+            <remarks>
+            If a FuelPoint is not connected to a channel then a value should be equal to zero.
+            </remarks>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.Channel">
+            <summary>
+            Gets an object FuelPointChannel, to which a FuelPoint is connected.
+            </summary>
+            <remarks>
+            If a FuelPoint is not connected to a channel - returns a value null (Nothing in Visual Basic).
+            </remarks>     
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.OrderMode">
+            <summary>
+            Gets or sets whether dispensing should be done when preset with previous setting of order in system or in dispenser
+            </summary>     
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.DispensedAmount">
+            <summary>
+            Gets an amount (in cents) for a current (in a case of an active transaction) or last fuel dispense.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.DispensedVolume">
+            <summary>
+            Gets a volume (in 10 ml units) for a current (in a case of an active transaction) or last fuel dispense.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.Locked">
+            <summary>
+            Gets a value indicating whether a FuelPoint is locked.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.Nozzles">
+            <summary>
+             Gets an array of objects Nozzle connected to given a FuelPoint.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.DispenserStatus">
+            <summary>
+            Gets a status of a FuelPoint.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.FuelPoint.TransactionID">
+            <summary>
+            Gets or sets an identifier of a current transaction.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.FuelPoint.NozzleChanged">
+            <summary>
+            Event occures when another nozzle at FuelPoint is taken up.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.FuelPoint.StatusChanged">
+            <summary>
+            Event occures when status of FuelPoint is changed.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.FuelPoint.PendingCommandChanged">
+            <summary>
+            Event occures when status of FuelPoint is changed.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.FuelPoint.TotalsUpdated">
+            <summary>
+            Event occures when information about an electronic totalizer of one of the nozzles is updated.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.FuelPoint.PricesGet">
+            <summary>
+            Event occures when information about a price of one of the nozzles is updated.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.FuelPoint.TransactionFinished">
+            <summary>
+            Event occures every time when a transaction is finished normally or as a result of stoppage using a method Stop().
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.PTSController">
+            <summary>
+            Provides instruments for access and control over PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.#ctor">
+            <summary>
+            Initializes a new exemplar of PTS class.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.Open">
+            <summary>
+            Opens a connection with a PTS controller.
+            </summary>
+            <exception cref="T:System.InvalidOperationException">
+            Specified COM-port is already opened.
+            </exception>
+            <exception cref="T:System.ArgumentException">
+            COM-port name does not start with "COM".
+            </exception>
+            <exception cref="T:System.UnauthorizedAccessException">
+            Access to specified COM-port is denied.
+            </exception>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.Close">
+            <summary>
+            Closes connection with a PTS controller.
+            </summary>
+            <exception cref="T:System.InvalidOperationException">
+            Specified COM-port is not opened.
+            </exception>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.startRefreshThread">
+            <summary>
+            Starts a new thread, which updates statuses of connected FuelPoints.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.stopRefreshThread">
+            <summary>
+            Stops operation of a thread, which updates statuses of connected FuelPoints.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.GetFuelPointByID(System.Int32)">
+            <summary>
+            Returns FuelPoint by its ID value.
+            </summary>
+            <param name="fuelPointId">Identifier of a FuelPoint.</param>
+            <remarks>
+            Value of parameter <paramref name="fuelPointId"/> should be in ranges from 1 to PtsConfiguration.FuelPointCount.
+            At closed connection returns value null (Nothing in Visual Basic).
+            </remarks>
+            <exception cref="T:System.ArgumentOutOfRangeException">
+            Value of parameter <paramref name="fuelPointId"/> has invalid value.
+            </exception>
+            <returns>Object FuelPoint of a requested FuelPoint.</returns>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.GetAtgByID(System.Int32)">
+            <summary>
+            Returns ATG by its ID value.
+            </summary>
+            <param name="atgId">Identifier of an ATG.</param>
+            <remarks>
+            Value of parameter <paramref name="atgId"/> should be in ranges from 1 to PtsConfiguration.AtgCount.
+            At closed connection returns value null (Nothing in Visual Basic).
+            </remarks>
+            <exception cref="T:System.ArgumentOutOfRangeException">
+            Value of parameter <paramref name="atgId"/> has invalid value.
+            </exception>
+            <returns>Object ATG of a requested ATG.</returns>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.InitializeConfig">
+            <summary>
+            Initializes FuelPoint and ATG configuration of PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestStatus(System.Int32)">
+            <summary>
+            Gets status of a FuelPoint.
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in range from 1 to PtsConfiguration.FuelPointQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestExtendedStatus(System.Int32)">
+            <summary>
+            Gets extended status of a FuelPoint.
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in range from 1 to PtsConfiguration.FuelPointQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestLock(System.Int32)">
+            <summary>
+            Sets lock on control over a FuelPoint in a multi POS system (several POS systems each with a PTS controller).
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in ranges from 1 to PtsConfiguration.FuelPointQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestUnlock(System.Int32)">
+            <summary>
+            Sets unlock on control over a FuelPoint in a multi POS system (several POS systems each with a PTS controller).
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in ranges from 1 to PtsConfiguration.FuelPointQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestAuthorize(System.Int32,System.Byte,PTSLib.PTS.AuthorizeType,System.Int32,System.Int32)">
+            <summary>
+            Sets authorization of a FuelPoint.
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <param name="nozzleId">Identifier of a nozzle.</param>
+            <param name="autorizeType">Type of authorization (by volume or by money amount).</param>
+            <param name="orderAmount">Amount of authorization (volume or money amount).</param>
+            <param name="pricePerLiter">Fuel price per liter.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in ranges from 1 to PtsConfiguration.FuelPointQuantity.
+            Value of parameter <paramref name="nozzleId"/> should be in ranges from 1 to PtsConfiguration.NozzleQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestExtendedAuthorize(System.Int32,System.Byte,PTSLib.PTS.AuthorizeType,System.Int32,System.Int32)">
+            <summary>
+            Sets extended authorization of a FuelPoint.
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <param name="nozzleId">Identifier of a nozzle.</param>
+            <param name="autorizeType">Type of authorization (by volume or by money amount).</param>
+            <param name="orderAmount">Amount of authorization (volume or money amount).</param>
+            <param name="pricePerLiter">Fuel price per liter.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in ranges from 1 to PtsConfiguration.FuelPointQuantity.
+            Value of parameter <paramref name="nozzleId"/> should be in ranges from 1 to PtsConfiguration.NozzleQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestHalt(System.Int32)">
+            <summary>
+            Stops fuel dispensing through a specified FuelPoint.
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in ranges from 1 to PtsConfiguration.FuelPointQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestCloseTransaction(System.Int32,System.Int32)">
+            <summary>
+            Closes a transaction of PTS controller.
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <param name="transactionId">Identifier of a transaction.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in ranges from 1 to PtsConfiguration.FuelPointQuantity.
+            Value of parameter <paramref name="transactionId"/> should be in ranges from 0 to 99.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestTotals(System.Int32,System.Byte)">
+            <summary>
+            Gets a value of electronic totalizer of a nozzle of a FuelPoint.
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <param name="nozzleId">Identifier of a nozzle.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in ranges from 1 to PtsConfiguration.FuelPointQuantity.
+            Value of parameter <paramref name="nozzleId"/> should be in ranges from 1 to PtsConfiguration.NozzleQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestExtendedTotals(System.Int32,System.Byte)">
+            <summary>
+            Gets a value of electronic totalizer of a nozzle of a FuelPoint.
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <param name="nozzleId">Identifier of a nozzle.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in ranges from 1 to PtsConfiguration.FuelPointQuantity.
+            Value of parameter <paramref name="nozzleId"/> should be in ranges from 1 to PtsConfiguration.NozzleQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestPricesGet(System.Int32)">
+            <summary>
+            Gets fuel prices for nozzles of a FuelPoint.
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in ranges from 1 to PtsConfiguration.FuelPointQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestPricesSet(System.Int32,System.Int32[])">
+            <summary>
+            Sets fuel prices for nozzles of a FuelPoint.
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <param name="prices">
+            Array of fuel prices for nozzles in cents. If length of the array is shorter than 
+            required for a total quantity of nozzles in a FuelPoint (prices for not all nozzles 
+            are specified) then prices will be set only for the first nozzles, if length of the 
+            array is longer than required for a total quantity of nozzles in a FuelPoint - then only 
+            first elements of the array will be used as fuel prices for nozzles.  If fuel price for a 
+            nozzle equals to zero - price is ignored.
+            </param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in ranges from 1 to PtsConfiguration.FuelPointQuantity.
+            Value of parameter <paramref name="nozzleId"/> should be in ranges from 1 to PtsConfiguration.NozzleQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestExtendedPricesSet(System.Int32,System.Int32[])">
+            <summary>
+            Sets extended fuel prices for nozzles of a FuelPoint.
+            </summary>
+            <param name="deviceId">Identifier of a FuelPoint.</param>
+            <param name="prices">
+            Array of fuel prices for nozzles in cents. If length of the array is shorter than 
+            required for a total quantity of nozzles in a FuelPoint (prices for not all nozzles 
+            are specified) then prices will be set only for the first nozzles, if length of the 
+            array is longer than required for a total quantity of nozzles in a FuelPoint - then only 
+            first elements of the array will be used as fuel prices for nozzles.  If fuel price for a 
+            nozzle equals to zero - price is ignored.
+            </param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in ranges from 1 to PtsConfiguration.FuelPointQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestAtgMeasurementData(System.Int32)">
+            <summary>
+            Gets data on measurements by ATG probe.
+            </summary>
+            <param name="deviceId">Identifier of an ATG.</param>
+            <remarks>
+            Value of parameter <paramref name="deviceId"/> should be in range from 1 to PtsConfiguration.AtgQuantity.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestVersion">
+            <summary>
+            Gets firmware version information from PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestParameterGet(System.Int16,System.Int32)">
+            <summary>
+            Gets a value of PTS controller parameter.
+            </summary>
+            <param name="parameterAddress">Address of the parameter requested</param>
+            <param name="parameterNumber">Number of the parameter requested</param>
+            <returns>Value of a parameter.</returns>
+            <remarks>
+            Value of parameter <paramref name="parameterAddress"/> should be in ranges from 0 to PtsConfiguration.FuelPointQuantity, at this value 0 corresponds to PTS.
+            Value of parameter <paramref name="parameterNumber"/> should be in range from 0 to 9999.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestParameterSet(System.Int16,System.Int32,System.Byte[])">
+            <summary>
+            Sets a value of PTS controller parameter.
+            </summary>
+            <param name="parameterAddress">Address of the parameter requested</param>
+            <param name="parameterNumber">Number of the parameter requested</param>
+            <param name="parameterValue">Value of the parameter requested</param>
+            <remarks>
+            Value of parameter <paramref name="parameterAddress"/> should be in ranges from 0 to PtsConfiguration.FuelPointQuantity, at this value 0 corresponds to PTS. 
+            Value of parameter <paramref name="parameterNumber"/> should be in ranges from 0 to 9999.
+            Writing of a parameter to a FuelPoint with identifier 0 will set the parameter for PTS itself.  
+            Writing of a parameter with a identifier 0 will cause nulling of all parameters for the specified  FuelPoint
+            or PTS itself in case of writing to broadcasting FuelPoint with identifier 0.
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestFuelPointConfigurationSet">
+            <summary>
+            Sets configuration of FuelPoint channels to PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestFuelPointConfigurationGet">
+            <summary>
+            Gets configuration of FuelPoint channels from PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.GetFuelPointConfiguration">
+            <summary>
+            Reads and applies configuration of objects FuelPoint of PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.SetFuelPointConfiguration">
+            <summary>
+            Writes and applies configuration of objects FuelPoint of PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestAtgConfigurationSet">
+            <summary>
+            Sets configuration of ATG probe channels to PTS controller.
+            </summary>
+            <remarks>
+            Value of parameter <paramref name="configuration"/> should be in ranges ... .
+            </remarks>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.RequestAtgConfigurationGet">
+            <summary>
+            Gets configuration of ATG probe channels from PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.GetAtgConfiguration">
+            <summary>
+            Reads and applies configuration of objects ATG of PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.SetAtgConfiguration">
+            <summary>
+            Writes and applies configuration of objects ATG of PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.processResponseMessage(System.Int32,System.Byte[])">
+            <summary>
+            Processes a response from a PTS controller.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.sendMessage(System.Int32,System.Byte[])">
+            <summary>
+            Sends a request to a PTS controller and checks validity of a response.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PTSController.readResponseMessage(System.Byte[]@)">
+            <summary>
+            Receives a response from a PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.IsOpen">
+            <summary>
+            Gets a value indicating a status of PTS controller connection - opened or closed.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.PortName">
+            <summary>
+            Gets or sets a COM-port name, to which PTS controller is connected.
+            </summary>
+            <remarks>A list of valid COM-port names can be received using a static method System.IO.Ports.SerialPort.GetPortNames().</remarks>
+            <exception cref="T:System.ArgumentException">Invalid COM-port name.</exception>
+            <exception cref="T:System.ArgumentNullException">Property PortName has a null value (Nothing in Visual Basic).</exception>
+            <exception cref="T:System.InvalidOperationException">Specified COM-port is already opened.</exception>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.ResponseCode">
+            <summary>
+            Gets response code of PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.ResponseExtCode">
+            <summary>
+            Gets response code of PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.ResponseTimeout">
+            <summary>
+            Gets or sets duration of expectation of a response from COM-port in milliseconds.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.UniPumpTimeout">
+            <summary>
+            Gets or sets duration of expectation of a response from a PTS controller in milliseconds.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.TotalsUpdateTimeout">
+            <summary>
+            Gets or sets duration of expectation of a total counters from the PTS controller in milliseconds.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.Configuration">
+            <summary>
+            Gets configuration of PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.Parameter">
+            <summary>
+            Gets access to an object PtsParameter, which provides information about a parameter of PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.FuelPointChannels">
+            <summary>
+            Gets an array of objects FuelPointChannel for a PTS controller.
+            </summary>
+            <remarks>At closed connection returns value null (Nothing in Visual Basic).</remarks>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.FuelPoints">
+            <summary>
+            Gets an array of objects FuelPoint for a PTS controller.
+            </summary>
+            <remarks>At closed connection returns value null (Nothing in Visual Basic).</remarks>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.AtgChannels">
+            <summary>
+            Gets an array of objects AtgChannel for a PTS controller.
+            </summary>
+            <remarks>At closed connection returns value null (Nothing in Visual Basic).</remarks>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.ATGs">
+            <summary>
+            Gets an array of objects ATG for a PTS controller.
+            </summary>
+            <remarks>At closed connection returns value null (Nothing in Visual Basic).</remarks>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.ReleaseInfo">
+            <summary>
+            Gets an object ReleaseInfo, which provides information about a firmware version of PTS controller.
+            </summary>
+            <remarks>At closed connection returns value null (Nothing in Visual Basic).</remarks>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.SelectedAuthorizationType">
+            <summary>
+            Gets and sets authorization type of a PTS controller over FuelPoints.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.AuthorizationPolling">
+            <summary>
+            Gets and sets whether polling authorization should be constantly made or once once if pump is in READY state.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.UseExtendedCommands">
+            <summary>
+            Gets and sets whether to use general commands or extended commands
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.RequestTotalizers">
+            <summary>
+            Gets or sets whether it is necessary to request totalizers after each dispensing performed or not.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.AutomaticAuthorize">
+            <summary>
+            Gets or sets whether it is necessary to automatically authorize a dispenser when nozzle is up in postpayment mode or manually
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.PTSController.ManualModeAuthorizeValue">
+            <summary>
+            Gets or sets a value of volume to authorize a dispenser when manual mode is selected
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.PTSController.Closing">
+            <summary>
+            Event occures before closing a COM-port.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.PTSController.Closed">
+            <summary>
+            Event occures after closing a COM-port.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.PTSController.Initializing">
+            <summary>
+            Event occures before beginning of initialization.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.PTSController.Initialized">
+            <summary>
+            Event occures after of initialization.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.PTSController.Opening">
+            <summary>
+            Event occures before opening a COM-port.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.PTSController.Opened">
+            <summary>
+            Event occures after opening a COM-port.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.PTSController.TotalsUpdated">
+            <summary>
+            Event occures after calling a method UpdateTotals(), in which data of an electronic totalizer is received.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.PTSController.PricesGet">
+            <summary>
+            Event occures after calling a method UpdatePrices(), in which data of a prices of FuelPoint is received.
+            </summary>
+        </member>
+        <member name="E:PTSLib.PTS.PTSController.TimeoutExpired">
+            <summary>
+            Event occures when at request of data from a PTS controller duration of a response 
+            exceeds a value set in ResponseTimeout.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.MessageErrorEventArgs">
+            <summary>
+            Provides information on errors in transmitted messages.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.TotalsEventArgs">
+            <summary>
+            Provides information for an event TotalsUpdated.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.TotalsEventArgs.#ctor(System.Int32,System.Byte,PTSLib.PTS.Nozzle)">
+            <summary>
+            Creates an exemplar of TotalsEventArgs class.
+            </summary>
+            <param name="address">Physical address of a FuelPoint.</param>
+            <param name="nozzleId">Identifier of a nozzle, for which electronic totalizer was updated.</param>
+            <param name="nozzle">Nozzle, for which electronic totalizer was updated.</param>
+        </member>
+        <member name="P:PTSLib.PTS.TotalsEventArgs.Address">
+            <summary>
+            Gets physical address of a FuelPoint.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.TotalsEventArgs.NozzleID">
+            <summary>
+            Gets identifier of a nozzle, for which electronic totalizer was updated.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.TotalsEventArgs.Nozzle">
+            <summary>
+            Gets nozzle, for which electronic totalizer was updated.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.PricesEventArgs">
+            <summary>
+            Provides information for an event PricesUpdated.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.PricesEventArgs.#ctor(System.Int32)">
+            <summary>
+            Creates an exemplar of PricesEventArgs class.
+            </summary>
+            <param name="address">Physical address of a FuelPoint.</param>
+        </member>
+        <member name="P:PTSLib.PTS.PricesEventArgs.Address">
+            <summary>
+            Gets physical address of a FuelPoint.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.TransactionEventArgs">
+            <summary>
+            Provides information for an event TransactionFinished.
+            </summary>
+        </member>
+        <member name="M:PTSLib.PTS.TransactionEventArgs.#ctor(System.Int32,System.Byte,System.Single,System.Int32,System.Single)">
+            <summary>
+            Creates an exemplar of TransactionEventArgs class.
+            </summary>
+            <param name="transactionId">Identifier of a transaction.</param>
+            <param name="nozzle">Identifier of a nozzle.</param>
+            <param name="dispensedAmount">Dispensed amount.</param>
+            <param name="dispensedVolume">Dispensed volume.</param>
+        </member>
+        <member name="P:PTSLib.PTS.TransactionEventArgs.TransactionID">
+            <summary>
+            Gets identifier of a transaction.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.TransactionEventArgs.Nozzle">
+            <summary>
+            Gets identifier of a nozzle.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.TransactionEventArgs.DispensedAmount">
+            <summary>
+            Gets dispensed amount.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.TransactionEventArgs.DispensedVolume">
+            <summary>
+            Gets dispensed volume.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.TransactionEventArgs.DispensedPrice">
+            <summary>
+            Gets dispensed price.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.OrderModes.Preset">
+            <summary>
+            Mode of dispensing with previous setting of order in system
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.OrderModes.Manual">
+            <summary>
+            Mode of dispensing with setting of order in dispenser or without setting of order
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.ChannelBaudRate">
+            <summary>
+            Specifies a list of supported baud ratea of FuelPointChannels and AtgChannels of PTS controller.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.ChannelBaudRate.None">
+            <summary>
+            Baud rate is not set.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.ChannelBaudRate.BR2400">
+            <summary>
+            Baud rate 2400 baud.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.ChannelBaudRate.BR4800">
+            <summary>
+            Baud rate 4800 baud.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.ChannelBaudRate.BR5787">
+            <summary>
+            Baud rate 5758 baud.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.ChannelBaudRate.BR9600">
+            <summary>
+            Baud rate 9600 baud.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.ChannelBaudRate.BR19200">
+            <summary>
+            Baud rate 19200 baud.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.ChannelBaudRate.BR1200">
+            <summary>
+            Baud rate 1200 baud.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.ChannelBaudRate.BR38400">
+            <summary>
+            Baud rate 38400 baud.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.ChannelBaudRate.BR115200">
+            <summary>
+            Baud rate 115200 baud.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.ChannelBaudRate.BR300">
+            <summary>
+            Baud rate 300 baud.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.ChannelBaudRate.BR600">
+            <summary>
+            Baud rate 600 baud.
+            </summary>
+        </member>
+        <member name="T:PTSLib.Unipump.UnipumpUtils">
+            <summary>
+            Contains methods for formation of messages to PTS controller in format of UniPump communication protocol specification. 
+            </summary>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateMessage(System.Int32,System.Collections.Generic.List{System.Byte})">
+            <summary>
+            General method for preparation of the packet to be sent to the PTS controller.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+            <param name="data">List of bytes of transferred command.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateRequestMessage(System.Int32,System.Byte,System.Collections.Generic.List{System.Byte})">
+            <summary>
+            General method for formation of data field of command to be sent to PTS controller.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+            <param name="requestCode">Code of the command to be executed.</param>
+            <param name="data">List of data bytes of the commands.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateStatusRequestMessage(System.Int32)">
+            <summary>
+            Method for formation of StatusRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateExtendedStatusRequestMessage(System.Int32)">
+            <summary>
+            Method for formation of ExtendedStatusRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateAuthorizeRequestMessage(System.Int32,System.Byte,PTSLib.PTS.AuthorizeType,System.Int32,System.Int32)">
+            <summary>
+            Method for formation of AuthorizeRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+            <param name="nozzleId">ID of nozzle.</param>
+            <param name="authorizeType">Type of authorization.</param>
+            <param name="orderAmount">Amount of order (in volume or money amount depending on authorization type).</param>
+            <param name="pricePerLiter">Price per liter (or other volume unit).</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateExtendedAuthorizeRequestMessage(System.Int32,System.Byte,PTSLib.PTS.AuthorizeType,System.Int32,System.Int32)">
+            <summary>
+            Method for formation of ExtendedAuthorizeRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+            <param name="nozzleId">ID of nozzle.</param>
+            <param name="autorizeType">Type of authorization.</param>
+            <param name="orderAmount">Amount of order (in volume or money amount depending on authorization type).</param>
+            <param name="pricePerLiter">Price per liter (or other volume unit).</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateCloseTransactionRequestMessage(System.Int32,System.Int32)">
+            <summary>
+            Method for formation of CloseTransactionRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+            <param name="transactionId">ID of transaction.</param>
+            <returns></returns>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateTotalRequestMessage(System.Int32,System.Byte)">
+            <summary>
+            Method for formation of CreateTotalRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+            <param name="nozzleId">ID of nozzle.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateExtendedTotalRequestMessage(System.Int32,System.Byte)">
+            <summary>
+            Method for formation of CreateTotalRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+            <param name="nozzleId">ID of nozzle.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateHaltRequestMessage(System.Int32)">
+            <summary>
+            Method for formation of HaltRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateLockRequestMessage(System.Int32)">
+            <summary>
+            Method for formation of LockRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateUnlockRequestMessage(System.Int32)">
+            <summary>
+            Method for formation of UnlockRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreatePricesSetRequestMessage(System.Int32,System.Int32[])">
+            <summary>
+            Method for formation of PricesSetRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+            <param name="prices">Array of nozzle prices of a fuel point.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateExtendedPricesSetRequestMessage(System.Int32,System.Int32[])">
+            <summary>
+            Method for formation of ExtendedPricesSetRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+            <param name="prices">Array of nozzle prices of a fuel point.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreatePricesGetRequestMessage(System.Int32)">
+            <summary>
+            Method for formation of PricesGetRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateParameterGetRequestMessage(System.Int16,System.Int32)">
+            <summary>
+            Method for formation of ParameterGetRequest command.
+            </summary>
+            <param name="parameterAddress">Address of the parameter requested.</param>
+            <param name="parameterNumber">Number of the parameter requested.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateParameterSetRequestMessage(System.Int16,System.Int32,System.Byte[])">
+            <summary>
+            Method for formation of ParameterSetRequest command.
+            </summary>
+            <param name="parameterAddress">Address of the parameter requested.</param>
+            <param name="parameterNumber">Number of the parameter requested.</param>
+            <param name="parameterValue">Value of the parameter requested.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateVersionRequestMessage">
+            <summary>
+            Method for formation of VersionRequest command.
+            </summary>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreatePumpConfigGetRequestMessage">
+            <summary>
+            Method for formation of PumpConfigGetRequest command.
+            </summary>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreatePumpConfigSetRequestMessage(PTSLib.PTS.PtsConfiguration)">
+            <summary>
+            Method for formation of PumpConfigSetRequest command.
+            </summary>
+            <param name="settings">Configuration of PTS controller PTSLib.PTS.PtsConfiguration.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateAtgConfigGetRequestMessage">
+            <summary>
+            Method for formation of AtgConfigGetRequest command.
+            </summary>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateAtgConfigSetRequestMessage(PTSLib.PTS.PtsConfiguration)">
+            <summary>
+            Method for formation of AtgConfigSetRequest command.
+            </summary>
+            <param name="settings">Configuration of PTS controller PTSLib.PTS.PtsConfiguration.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.CreateAtgDataRequestMessage(System.Int32)">
+            <summary>
+            Method for formation of AtgDataRequest command.
+            </summary>
+            <param name="deviceId">ID of the device (fuel dispenser, ATG system probe, etc), to which command is addressed.</param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.IsValidMessage(System.Byte[])">
+            <summary>
+            Method for checking whether message has format in accordance with UniPump communication protocol specification.
+            </summary>
+            <param name="message"></param>
+        </member>
+        <member name="M:PTSLib.Unipump.UnipumpUtils.IsValidCRC(System.Byte[])">
+            <summary>
+            Method for checking CRC of the message.
+            </summary>
+            <param name="message">Message with CRC to be checked.</param>
+        </member>
+        <member name="T:PTSLib.PTS.ReleaseInfo">
+            <summary>
+            Provides information about a firmware version of PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ReleaseInfo.ReleaseDate">
+            <summary>
+            Gets a firmware version date of PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ReleaseInfo.ReleaseNum">
+            <summary>
+            Gets a firmware version number of PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ReleaseInfo.ReleaseVersion">
+            <summary>
+            Gets a full release firmware version name of PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ReleaseInfo.SupportedFuelPointProtocols">
+            <summary>
+            Gets a list of supported FuelPoint communication protocols by a firmware version of PTS controller.
+            </summary>
+        </member>
+        <member name="P:PTSLib.PTS.ReleaseInfo.SupportedAtgProtocols">
+            <summary>
+            Gets a list of supported ATG communication protocols by a firmware version of PTS controller.
+            </summary>
+        </member>
+        <member name="T:PTSLib.PTS.FuelPointStatus">
+            <summary>
+            Specifies a list of supported statuses of a FuelPoint.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointStatus.OFFLINE">
+            <summary>
+            FuelPoint is not active (locked or manual mode of control is switched on).
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointStatus.IDLE">
+            <summary>
+            All nozzles are hanged down (idle mode).
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointStatus.NOZZLE">
+            <summary>
+            Nozzle is taken up, waiting for authorization.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointStatus.READY">
+            <summary>
+            Dispensing is allowed, indicator is being tested.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointStatus.WORK">
+            <summary>
+            Fuel is being dispensed through a nozzle.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointStatus.TRANSACTIONCOMPLETED">
+            <summary>
+            Transaction is finished normally, waiting for a nozzle to be hanged down.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointStatus.TRANSACTIONSTOPPED">
+            <summary>
+            Transaction is finished abnormally, waiting for a nozzle to be hanged down.
+            </summary>
+        </member>
+        <member name="F:PTSLib.PTS.FuelPointStatus.ERROR">
+            <summary>
+            Status of an error.
+            </summary>
+        </member>
+    </members>
+</doc>

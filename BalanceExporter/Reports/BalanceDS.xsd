@@ -1,0 +1,136 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema id="BalanceDS" targetNamespace="http://tempuri.org/BalanceDS.xsd" xmlns:mstns="http://tempuri.org/BalanceDS.xsd" xmlns="http://tempuri.org/BalanceDS.xsd" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:msprop="urn:schemas-microsoft-com:xml-msprop" attributeFormDefault="qualified" elementFormDefault="qualified">
+  <xs:annotation>
+    <xs:appinfo source="urn:schemas-microsoft-com:xml-msdatasource">
+      <DataSource DefaultConnectionIndex="0" FunctionsComponentName="QueriesTableAdapter" Modifier="AutoLayout, AnsiClass, Class, Public" SchemaSerializationMode="IncludeSchema" xmlns="urn:schemas-microsoft-com:xml-msdatasource">
+        <Connections />
+        <Tables />
+        <Sources />
+      </DataSource>
+    </xs:appinfo>
+  </xs:annotation>
+  <xs:element name="BalanceDS" msdata:IsDataSet="true" msdata:UseCurrentLocale="true" msprop:EnableTableAdapterManager="true" msprop:Generator_DataSetName="BalanceDS" msprop:Generator_UserDSName="BalanceDS">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="Balance" msprop:Generator_TableClassName="BalanceDataTable" msprop:Generator_TableVarName="tableBalance" msprop:Generator_RowChangedName="BalanceRowChanged" msprop:Generator_TablePropName="Balance" msprop:Generator_RowDeletingName="BalanceRowDeleting" msprop:Generator_RowChangingName="BalanceRowChanging" msprop:Generator_RowEvHandlerName="BalanceRowChangeEventHandler" msprop:Generator_RowDeletedName="BalanceRowDeleted" msprop:Generator_RowClassName="BalanceRow" msprop:Generator_UserTableName="Balance" msprop:Generator_RowEvArgName="BalanceRowChangeEvent">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="BeginDateTime" msprop:Generator_ColumnVarNameInTable="columnBeginDateTime" msprop:Generator_ColumnPropNameInRow="BeginDateTime" msprop:Generator_ColumnPropNameInTable="BeginDateTimeColumn" msprop:Generator_UserColumnName="BeginDateTime" type="xs:dateTime" minOccurs="0" />
+              <xs:element name="EndDateTime" msprop:Generator_ColumnVarNameInTable="columnEndDateTime" msprop:Generator_ColumnPropNameInRow="EndDateTime" msprop:Generator_ColumnPropNameInTable="EndDateTimeColumn" msprop:Generator_UserColumnName="EndDateTime" type="xs:dateTime" minOccurs="0" />
+              <xs:element name="BusinessName" msprop:Generator_ColumnVarNameInTable="columnBusinessName" msprop:Generator_ColumnPropNameInRow="BusinessName" msprop:Generator_ColumnPropNameInTable="BusinessNameColumn" msprop:Generator_UserColumnName="BusinessName" type="xs:string" minOccurs="0" />
+              <xs:element name="Amdika" msprop:Generator_ColumnVarNameInTable="columnAmdika" msprop:Generator_ColumnPropNameInRow="Amdika" msprop:Generator_ColumnPropNameInTable="AmdikaColumn" msprop:Generator_UserColumnName="Amdika" type="xs:string" minOccurs="0" />
+              <xs:element name="BalanceDateTime" msprop:Generator_ColumnVarNameInTable="columnBalanceDateTime" msprop:Generator_ColumnPropNameInRow="BalanceDateTime" msprop:Generator_ColumnPropNameInTable="BalanceDateTimeColumn" msprop:Generator_UserColumnName="BalanceDateTime" type="xs:dateTime" minOccurs="0" />
+              <xs:element name="BalanceId" msdata:DataType="System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" msprop:Generator_ColumnVarNameInTable="columnBalanceId" msprop:Generator_ColumnPropNameInRow="BalanceId" msprop:Generator_ColumnPropNameInTable="BalanceIdColumn" msprop:Generator_UserColumnName="BalanceId" type="xs:string" minOccurs="0" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="FuelTypeData" msprop:Generator_TableClassName="FuelTypeDataDataTable" msprop:Generator_TableVarName="tableFuelTypeData" msprop:Generator_RowChangedName="FuelTypeDataRowChanged" msprop:Generator_TablePropName="FuelTypeData" msprop:Generator_RowDeletingName="FuelTypeDataRowDeleting" msprop:Generator_RowChangingName="FuelTypeDataRowChanging" msprop:Generator_RowEvHandlerName="FuelTypeDataRowChangeEventHandler" msprop:Generator_RowDeletedName="FuelTypeDataRowDeleted" msprop:Generator_RowClassName="FuelTypeDataRow" msprop:Generator_UserTableName="FuelTypeData" msprop:Generator_RowEvArgName="FuelTypeDataRowChangeEvent">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="FuelTypeId" msdata:DataType="System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" msprop:Generator_ColumnVarNameInTable="columnFuelTypeId" msprop:Generator_ColumnPropNameInRow="FuelTypeId" msprop:Generator_ColumnPropNameInTable="FuelTypeIdColumn" msprop:Generator_UserColumnName="FuelTypeId" type="xs:string" minOccurs="0" />
+              <xs:element name="DiffVolume" msprop:Generator_ColumnVarNameInTable="columnDiffVolume" msprop:Generator_ColumnPropNameInRow="DiffVolume" msprop:Generator_ColumnPropNameInTable="DiffVolumeColumn" msprop:Generator_UserColumnName="DiffVolume" type="xs:decimal" minOccurs="0" />
+              <xs:element name="DiffVolumeNormalized" msprop:Generator_ColumnVarNameInTable="columnDiffVolumeNormalized" msprop:Generator_ColumnPropNameInRow="DiffVolumeNormalized" msprop:Generator_ColumnPropNameInTable="DiffVolumeNormalizedColumn" msprop:Generator_UserColumnName="DiffVolumeNormalized" type="xs:decimal" minOccurs="0" />
+              <xs:element name="DiffPercentage" msprop:Generator_ColumnVarNameInTable="columnDiffPercentage" msprop:Generator_ColumnPropNameInRow="DiffPercentage" msprop:Generator_ColumnPropNameInTable="DiffPercentageColumn" msprop:Generator_UserColumnName="DiffPercentage" type="xs:decimal" minOccurs="0" />
+              <xs:element name="DiffPercentafeNormelized" msprop:Generator_ColumnVarNameInTable="columnDiffPercentafeNormelized" msprop:Generator_ColumnPropNameInRow="DiffPercentafeNormelized" msprop:Generator_ColumnPropNameInTable="DiffPercentafeNormelizedColumn" msprop:Generator_UserColumnName="DiffPercentafeNormelized" type="xs:decimal" minOccurs="0" />
+              <xs:element name="BalanceId" msdata:DataType="System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" msprop:Generator_ColumnVarNameInTable="columnBalanceId" msprop:Generator_ColumnPropNameInRow="BalanceId" msprop:Generator_ColumnPropNameInTable="BalanceIdColumn" msprop:Generator_UserColumnName="BalanceId" type="xs:string" minOccurs="0" />
+              <xs:element name="FuelTypeName" msprop:Generator_ColumnVarNameInTable="columnFuelTypeName" msprop:Generator_ColumnPropNameInRow="FuelTypeName" msprop:Generator_ColumnPropNameInTable="FuelTypeNameColumn" msprop:Generator_UserColumnName="FuelTypeName" type="xs:string" minOccurs="0" />
+              <xs:element name="FuelTypeCode" msprop:Generator_ColumnVarNameInTable="columnFuelTypeCode" msprop:Generator_ColumnPropNameInRow="FuelTypeCode" msprop:Generator_ColumnPropNameInTable="FuelTypeCodeColumn" msprop:Generator_UserColumnName="FuelTypeCode" type="xs:string" minOccurs="0" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="DispenserData" msprop:Generator_TableClassName="DispenserDataDataTable" msprop:Generator_TableVarName="tableDispenserData" msprop:Generator_RowChangedName="DispenserDataRowChanged" msprop:Generator_TablePropName="DispenserData" msprop:Generator_RowDeletingName="DispenserDataRowDeleting" msprop:Generator_RowChangingName="DispenserDataRowChanging" msprop:Generator_RowEvHandlerName="DispenserDataRowChangeEventHandler" msprop:Generator_RowDeletedName="DispenserDataRowDeleted" msprop:Generator_RowClassName="DispenserDataRow" msprop:Generator_UserTableName="DispenserData" msprop:Generator_RowEvArgName="DispenserDataRowChangeEvent">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="DispenserDataId" msdata:DataType="System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" msprop:Generator_ColumnVarNameInTable="columnDispenserDataId" msprop:Generator_ColumnPropNameInRow="DispenserDataId" msprop:Generator_ColumnPropNameInTable="DispenserDataIdColumn" msprop:Generator_UserColumnName="DispenserDataId" type="xs:string" minOccurs="0" />
+              <xs:element name="DispenserNumber" msprop:Generator_ColumnVarNameInTable="columnDispenserNumber" msprop:Generator_ColumnPropNameInRow="DispenserNumber" msprop:Generator_ColumnPropNameInTable="DispenserNumberColumn" msprop:Generator_UserColumnName="DispenserNumber" type="xs:int" minOccurs="0" />
+              <xs:element name="NozzleNumber" msprop:Generator_ColumnVarNameInTable="columnNozzleNumber" msprop:Generator_ColumnPropNameInRow="NozzleNumber" msprop:Generator_ColumnPropNameInTable="NozzleNumberColumn" msprop:Generator_UserColumnName="NozzleNumber" type="xs:int" minOccurs="0" />
+              <xs:element name="TotalizerStart" msprop:Generator_ColumnVarNameInTable="columnTotalizerStart" msprop:Generator_ColumnPropNameInRow="TotalizerStart" msprop:Generator_ColumnPropNameInTable="TotalizerStartColumn" msprop:Generator_UserColumnName="TotalizerStart" type="xs:decimal" minOccurs="0" />
+              <xs:element name="TotalizerEnd" msprop:Generator_ColumnVarNameInTable="columnTotalizerEnd" msprop:Generator_ColumnPropNameInRow="TotalizerEnd" msprop:Generator_ColumnPropNameInTable="TotalizerEndColumn" msprop:Generator_UserColumnName="TotalizerEnd" type="xs:decimal" minOccurs="0" />
+              <xs:element name="FuelTypeId" msdata:DataType="System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" msprop:Generator_ColumnVarNameInTable="columnFuelTypeId" msprop:Generator_ColumnPropNameInRow="FuelTypeId" msprop:Generator_ColumnPropNameInTable="FuelTypeIdColumn" msprop:Generator_UserColumnName="FuelTypeId" type="xs:string" minOccurs="0" />
+              <xs:element name="TotalOut" msprop:Generator_ColumnVarNameInTable="columnTotalOut" msprop:Generator_ColumnPropNameInRow="TotalOut" msprop:Generator_ColumnPropNameInTable="TotalOutColumn" msprop:Generator_UserColumnName="TotalOut" type="xs:decimal" minOccurs="0" />
+              <xs:element name="TotalOutNormalized" msprop:Generator_ColumnVarNameInTable="columnTotalOutNormalized" msprop:Generator_ColumnPropNameInRow="TotalOutNormalized" msprop:Generator_ColumnPropNameInTable="TotalOutNormalizedColumn" msprop:Generator_UserColumnName="TotalOutNormalized" type="xs:decimal" minOccurs="0" />
+              <xs:element name="TotalSales" msprop:Generator_ColumnVarNameInTable="columnTotalSales" msprop:Generator_ColumnPropNameInRow="TotalSales" msprop:Generator_ColumnPropNameInTable="TotalSalesColumn" msprop:Generator_UserColumnName="TotalSales" type="xs:decimal" minOccurs="0" />
+              <xs:element name="TotalLiterCheck" msprop:Generator_ColumnVarNameInTable="columnTotalLiterCheck" msprop:Generator_ColumnPropNameInRow="TotalLiterCheck" msprop:Generator_ColumnPropNameInTable="TotalLiterCheckColumn" msprop:Generator_UserColumnName="TotalLiterCheck" type="xs:decimal" minOccurs="0" />
+              <xs:element name="FuelTypeDescription" msprop:Generator_ColumnVarNameInTable="columnFuelTypeDescription" msprop:Generator_ColumnPropNameInRow="FuelTypeDescription" msprop:Generator_ColumnPropNameInTable="FuelTypeDescriptionColumn" msprop:Generator_UserColumnName="FuelTypeDescription" type="xs:string" minOccurs="0" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="TankData" msprop:Generator_TableClassName="TankDataDataTable" msprop:Generator_TableVarName="tableTankData" msprop:Generator_RowChangedName="TankDataRowChanged" msprop:Generator_TablePropName="TankData" msprop:Generator_RowDeletingName="TankDataRowDeleting" msprop:Generator_RowChangingName="TankDataRowChanging" msprop:Generator_RowEvHandlerName="TankDataRowChangeEventHandler" msprop:Generator_RowDeletedName="TankDataRowDeleted" msprop:Generator_RowClassName="TankDataRow" msprop:Generator_UserTableName="TankData" msprop:Generator_RowEvArgName="TankDataRowChangeEvent">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="TankDataId" msdata:DataType="System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" msprop:Generator_ColumnVarNameInTable="columnTankDataId" msprop:Generator_ColumnPropNameInRow="TankDataId" msprop:Generator_ColumnPropNameInTable="TankDataIdColumn" msprop:Generator_UserColumnName="TankDataId" type="xs:string" minOccurs="0" />
+              <xs:element name="FuelTypeId" msdata:DataType="System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" msprop:Generator_ColumnVarNameInTable="columnFuelTypeId" msprop:Generator_ColumnPropNameInRow="FuelTypeId" msprop:Generator_ColumnPropNameInTable="FuelTypeIdColumn" msprop:Generator_UserColumnName="FuelTypeId" type="xs:string" minOccurs="0" />
+              <xs:element name="TankSerialNumber" msprop:Generator_ColumnVarNameInTable="columnTankSerialNumber" msprop:Generator_ColumnPropNameInRow="TankSerialNumber" msprop:Generator_ColumnPropNameInTable="TankSerialNumberColumn" msprop:Generator_UserColumnName="TankSerialNumber" type="xs:string" minOccurs="0" />
+              <xs:element name="TankVolume" msprop:Generator_ColumnVarNameInTable="columnTankVolume" msprop:Generator_ColumnPropNameInRow="TankVolume" msprop:Generator_ColumnPropNameInTable="TankVolumeColumn" msprop:Generator_UserColumnName="TankVolume" type="xs:decimal" minOccurs="0" />
+              <xs:element name="VolumeBegin" msprop:Generator_ColumnVarNameInTable="columnVolumeBegin" msprop:Generator_ColumnPropNameInRow="VolumeBegin" msprop:Generator_ColumnPropNameInTable="VolumeBeginColumn" msprop:Generator_UserColumnName="VolumeBegin" type="xs:decimal" minOccurs="0" />
+              <xs:element name="VolumeEnd" msprop:Generator_ColumnVarNameInTable="columnVolumeEnd" msprop:Generator_ColumnPropNameInRow="VolumeEnd" msprop:Generator_ColumnPropNameInTable="VolumeEndColumn" msprop:Generator_UserColumnName="VolumeEnd" type="xs:decimal" minOccurs="0" />
+              <xs:element name="VolumeNomalizedBegin" msprop:Generator_ColumnVarNameInTable="columnVolumeNomalizedBegin" msprop:Generator_ColumnPropNameInRow="VolumeNomalizedBegin" msprop:Generator_ColumnPropNameInTable="VolumeNomalizedBeginColumn" msprop:Generator_UserColumnName="VolumeNomalizedBegin" type="xs:decimal" minOccurs="0" />
+              <xs:element name="VolumeNomalizedEnd" msprop:Generator_ColumnVarNameInTable="columnVolumeNomalizedEnd" msprop:Generator_ColumnPropNameInRow="VolumeNomalizedEnd" msprop:Generator_ColumnPropNameInTable="VolumeNomalizedEndColumn" msprop:Generator_UserColumnName="VolumeNomalizedEnd" type="xs:decimal" minOccurs="0" />
+              <xs:element name="TemperatureStart" msprop:Generator_ColumnVarNameInTable="columnTemperatureStart" msprop:Generator_ColumnPropNameInRow="TemperatureStart" msprop:Generator_ColumnPropNameInTable="TemperatureStartColumn" msprop:Generator_UserColumnName="TemperatureStart" type="xs:decimal" minOccurs="0" />
+              <xs:element name="TemperatureEnd" msprop:Generator_ColumnVarNameInTable="columnTemperatureEnd" msprop:Generator_ColumnPropNameInRow="TemperatureEnd" msprop:Generator_ColumnPropNameInTable="TemperatureEndColumn" msprop:Generator_UserColumnName="TemperatureEnd" type="xs:decimal" minOccurs="0" />
+              <xs:element name="TankNumber" msprop:Generator_ColumnVarNameInTable="columnTankNumber" msprop:Generator_ColumnPropNameInRow="TankNumber" msprop:Generator_ColumnPropNameInTable="TankNumberColumn" msprop:Generator_UserColumnName="TankNumber" type="xs:int" minOccurs="0" />
+              <xs:element name="FuelTypeDescription" msprop:Generator_ColumnVarNameInTable="columnFuelTypeDescription" msprop:Generator_ColumnPropNameInRow="FuelTypeDescription" msprop:Generator_ColumnPropNameInTable="FuelTypeDescriptionColumn" msprop:Generator_UserColumnName="FuelTypeDescription" type="xs:string" minOccurs="0" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="TankFillingData" msprop:Generator_TableClassName="TankFillingDataDataTable" msprop:Generator_TableVarName="tableTankFillingData" msprop:Generator_RowChangedName="TankFillingDataRowChanged" msprop:Generator_TablePropName="TankFillingData" msprop:Generator_RowDeletingName="TankFillingDataRowDeleting" msprop:Generator_RowChangingName="TankFillingDataRowChanging" msprop:Generator_RowEvHandlerName="TankFillingDataRowChangeEventHandler" msprop:Generator_RowDeletedName="TankFillingDataRowDeleted" msprop:Generator_RowClassName="TankFillingDataRow" msprop:Generator_UserTableName="TankFillingData" msprop:Generator_RowEvArgName="TankFillingDataRowChangeEvent">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="BalanceId" msdata:DataType="System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" msprop:Generator_ColumnVarNameInTable="columnBalanceId" msprop:Generator_ColumnPropNameInRow="BalanceId" msprop:Generator_ColumnPropNameInTable="BalanceIdColumn" msprop:Generator_UserColumnName="BalanceId" type="xs:string" minOccurs="0" />
+              <xs:element name="TankFillingId" msdata:DataType="System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" msprop:Generator_ColumnVarNameInTable="columnTankFillingId" msprop:Generator_ColumnPropNameInRow="TankFillingId" msprop:Generator_ColumnPropNameInTable="TankFillingIdColumn" msprop:Generator_UserColumnName="TankFillingId" type="xs:string" />
+              <xs:element name="Deliveries" msprop:Generator_ColumnVarNameInTable="columnDeliveries" msprop:Generator_ColumnPropNameInRow="Deliveries" msprop:Generator_ColumnPropNameInTable="DeliveriesColumn" msprop:Generator_UserColumnName="Deliveries" type="xs:decimal" minOccurs="0" />
+              <xs:element name="Deliveries15" msprop:Generator_ColumnVarNameInTable="columnDeliveries15" msprop:Generator_ColumnPropNameInRow="Deliveries15" msprop:Generator_ColumnPropNameInTable="Deliveries15Column" msprop:Generator_UserColumnName="Deliveries15" type="xs:decimal" minOccurs="0" />
+              <xs:element name="Additional" msprop:Generator_ColumnVarNameInTable="columnAdditional" msprop:Generator_ColumnPropNameInRow="Additional" msprop:Generator_ColumnPropNameInTable="AdditionalColumn" msprop:Generator_UserColumnName="Additional" type="xs:decimal" minOccurs="0" />
+              <xs:element name="Additional15" msprop:Generator_ColumnVarNameInTable="columnAdditional15" msprop:Generator_ColumnPropNameInRow="Additional15" msprop:Generator_ColumnPropNameInTable="Additional15Column" msprop:Generator_UserColumnName="Additional15" type="xs:decimal" minOccurs="0" />
+              <xs:element name="Invoiced" msprop:Generator_ColumnVarNameInTable="columnInvoiced" msprop:Generator_ColumnPropNameInRow="Invoiced" msprop:Generator_ColumnPropNameInTable="InvoicedColumn" msprop:Generator_UserColumnName="Invoiced" type="xs:decimal" minOccurs="0" />
+              <xs:element name="Invoiced15" msprop:Generator_ColumnVarNameInTable="columnInvoiced15" msprop:Generator_ColumnPropNameInRow="Invoiced15" msprop:Generator_ColumnPropNameInTable="Invoiced15Column" msprop:Generator_UserColumnName="Invoiced15" type="xs:decimal" minOccurs="0" />
+              <xs:element name="FuelTypeId" msdata:DataType="System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" msprop:Generator_ColumnVarNameInTable="columnFuelTypeId" msprop:Generator_ColumnPropNameInRow="FuelTypeId" msprop:Generator_ColumnPropNameInTable="FuelTypeIdColumn" msprop:Generator_UserColumnName="FuelTypeId" type="xs:string" minOccurs="0" />
+              <xs:element name="FuelTypeName" msprop:Generator_ColumnVarNameInTable="columnFuelTypeName" msprop:Generator_ColumnPropNameInRow="FuelTypeName" msprop:Generator_ColumnPropNameInTable="FuelTypeNameColumn" msprop:Generator_UserColumnName="FuelTypeName" type="xs:string" minOccurs="0" />
+              <xs:element name="FuelTypeCode" msprop:Generator_ColumnVarNameInTable="columnFuelTypeCode" msprop:Generator_ColumnPropNameInRow="FuelTypeCode" msprop:Generator_ColumnPropNameInTable="FuelTypeCodeColumn" msprop:Generator_UserColumnName="FuelTypeCode" type="xs:string" minOccurs="0" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:complexType>
+    <xs:unique name="BalanceKey1">
+      <xs:selector xpath=".//mstns:Balance" />
+      <xs:field xpath="mstns:BalanceId" />
+    </xs:unique>
+    <xs:unique name="FuelTypeDataKey1">
+      <xs:selector xpath=".//mstns:FuelTypeData" />
+      <xs:field xpath="mstns:FuelTypeId" />
+    </xs:unique>
+    <xs:unique name="DispenserDataKey1">
+      <xs:selector xpath=".//mstns:DispenserData" />
+      <xs:field xpath="mstns:DispenserDataId" />
+    </xs:unique>
+    <xs:unique name="TankDataKey1">
+      <xs:selector xpath=".//mstns:TankData" />
+      <xs:field xpath="mstns:TankDataId" />
+    </xs:unique>
+    <xs:unique name="Constraint1" msdata:PrimaryKey="true">
+      <xs:selector xpath=".//mstns:TankFillingData" />
+      <xs:field xpath="mstns:TankFillingId" />
+    </xs:unique>
+    <xs:keyref name="FK_FuelTypeData_TankFillingData" refer="FuelTypeDataKey1" msprop:rel_Generator_UserChildTable="TankFillingData" msprop:rel_Generator_ChildPropName="GetTankFillingDataRows" msprop:rel_Generator_UserRelationName="FK_FuelTypeData_TankFillingData" msprop:rel_Generator_ParentPropName="FuelTypeDataRow" msprop:rel_Generator_RelationVarName="relationFK_FuelTypeData_TankFillingData" msprop:rel_Generator_UserParentTable="FuelTypeData">
+      <xs:selector xpath=".//mstns:TankFillingData" />
+      <xs:field xpath="mstns:FuelTypeId" />
+    </xs:keyref>
+    <xs:keyref name="FK_Balance_TankFillingData" refer="BalanceKey1" msprop:rel_Generator_UserChildTable="TankFillingData" msprop:rel_Generator_ChildPropName="GetTankFillingDataRows" msprop:rel_Generator_UserRelationName="FK_Balance_TankFillingData" msprop:rel_Generator_RelationVarName="relationFK_Balance_TankFillingData" msprop:rel_Generator_UserParentTable="Balance" msprop:rel_Generator_ParentPropName="BalanceRow">
+      <xs:selector xpath=".//mstns:TankFillingData" />
+      <xs:field xpath="mstns:BalanceId" />
+    </xs:keyref>
+    <xs:keyref name="FK_FuelTypeData_TankData" refer="FuelTypeDataKey1" msprop:rel_Generator_UserChildTable="TankData" msprop:rel_Generator_ChildPropName="GetTankDataRows" msprop:rel_Generator_UserRelationName="FK_FuelTypeData_TankData" msprop:rel_Generator_RelationVarName="relationFK_FuelTypeData_TankData" msprop:rel_Generator_UserParentTable="FuelTypeData" msprop:rel_Generator_ParentPropName="FuelTypeDataRow">
+      <xs:selector xpath=".//mstns:TankData" />
+      <xs:field xpath="mstns:FuelTypeId" />
+    </xs:keyref>
+    <xs:keyref name="FK_FuelTypeData_DispenserData" refer="FuelTypeDataKey1" msprop:rel_Generator_UserChildTable="DispenserData" msprop:rel_Generator_ChildPropName="GetDispenserDataRows" msprop:rel_Generator_UserRelationName="FK_FuelTypeData_DispenserData" msprop:rel_Generator_RelationVarName="relationFK_FuelTypeData_DispenserData" msprop:rel_Generator_UserParentTable="FuelTypeData" msprop:rel_Generator_ParentPropName="FuelTypeDataRow">
+      <xs:selector xpath=".//mstns:DispenserData" />
+      <xs:field xpath="mstns:FuelTypeId" />
+    </xs:keyref>
+    <xs:keyref name="FK_Balance_FuelTypeData" refer="BalanceKey1" msprop:rel_Generator_UserChildTable="FuelTypeData" msprop:rel_Generator_ChildPropName="GetFuelTypeDataRows" msprop:rel_Generator_UserRelationName="FK_Balance_FuelTypeData" msprop:rel_Generator_RelationVarName="relationFK_Balance_FuelTypeData" msprop:rel_Generator_UserParentTable="Balance" msprop:rel_Generator_ParentPropName="BalanceRow">
+      <xs:selector xpath=".//mstns:FuelTypeData" />
+      <xs:field xpath="mstns:BalanceId" />
+    </xs:keyref>
+  </xs:element>
+</xs:schema>

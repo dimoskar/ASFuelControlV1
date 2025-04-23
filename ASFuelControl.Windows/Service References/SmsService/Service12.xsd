@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:tns="http://schemas.datacontract.org/2004/07/ExedronSMSDAL" elementFormDefault="qualified" targetNamespace="http://schemas.datacontract.org/2004/07/ExedronSMSDAL" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import schemaLocation="http://www.5gsms.com/Service1.svc?xsd=xsd4" namespace="http://schemas.microsoft.com/2003/10/Serialization/Arrays" />
+  <xs:simpleType name="ReturnTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="NoError" />
+      <xs:enumeration value="UserNameExists" />
+      <xs:enumeration value="PasswordValidation" />
+      <xs:enumeration value="UsernameValidation" />
+      <xs:enumeration value="EmailValidation" />
+      <xs:enumeration value="CustomerNotFound" />
+      <xs:enumeration value="CustomerCellPhoneNotFound" />
+      <xs:enumeration value="CustomerCellPhoneInvalid" />
+      <xs:enumeration value="PaymentMethodNotFound" />
+      <xs:enumeration value="PurchaseNotFound" />
+      <xs:enumeration value="InvalidatedPhoneNumber" />
+      <xs:enumeration value="GeneralError" />
+      <xs:enumeration value="CampaignNotFound" />
+      <xs:enumeration value="CampaignMemberFound" />
+      <xs:enumeration value="CampaignAlreadyStarted" />
+      <xs:enumeration value="CellPhoneListNotFound" />
+      <xs:enumeration value="WrongCountryPrefix" />
+      <xs:enumeration value="OutOfCredits" />
+      <xs:enumeration value="OutOfCreditsMainApplication" />
+      <xs:enumeration value="FilterShort" />
+      <xs:enumeration value="UserNotFound" />
+      <xs:enumeration value="NotAllowed" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="ReturnTypeEnum" nillable="true" type="tns:ReturnTypeEnum" />
+  <xs:complexType name="MessageDeliveryResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="Code" nillable="true" type="xs:string" />
+      <xs:element minOccurs="0" name="Cost" type="xs:decimal" />
+      <xs:element minOccurs="0" name="Country" nillable="true" type="xs:string" />
+      <xs:element minOccurs="0" name="Description" nillable="true" type="xs:string" />
+      <xs:element xmlns:q1="http://schemas.microsoft.com/2003/10/Serialization/Arrays" minOccurs="0" name="EID" nillable="true" type="q1:ArrayOfstring" />
+      <xs:element minOccurs="0" name="ID" nillable="true" type="xs:string" />
+      <xs:element minOccurs="0" name="IsFinal" type="xs:boolean" />
+      <xs:element minOccurs="0" name="MSISDN" nillable="true" type="xs:string" />
+      <xs:element minOccurs="0" name="MccMnc" nillable="true" type="xs:string" />
+      <xs:element minOccurs="0" name="Operator" nillable="true" type="xs:string" />
+      <xs:element minOccurs="0" name="Response" nillable="true" type="xs:string" />
+      <xs:element minOccurs="0" name="TrackedDate" type="xs:dateTime" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="MessageDeliveryResponse" nillable="true" type="tns:MessageDeliveryResponse" />
+  <xs:simpleType name="PaymentTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="CreditCard" />
+      <xs:enumeration value="PayPal" />
+      <xs:enumeration value="Google" />
+      <xs:enumeration value="BankTransfer" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="PaymentTypeEnum" nillable="true" type="tns:PaymentTypeEnum" />
+</xs:schema>

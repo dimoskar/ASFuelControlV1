@@ -1,0 +1,12 @@
+<invoiceDetails>
+    <lineNumber>[linenumber]</lineNumber>
+	<itemDescr>[itemDescr]</itemDescr>
+    <quantity>[quantity]</quantity>
+    <measurementUnit>[measurementunit]</measurementUnit>
+    <netValue>[netvalue]</netValue>
+    <vatCategory>[vatcategory]</vatCategory>
+    <vatAmount>[vatamount]</vatAmount>
+	<vatExemptionCategory>[vatexemptioncategory]</vatExemptionCategory>
+    <deductionsAmount>[deductionsamount]</deductionsAmount>
+    [incomeclassification]
+</invoiceDetails>

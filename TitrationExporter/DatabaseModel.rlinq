@@ -1,0 +1,408 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<DomainModel xmlns:dm0="http://schemas.microsoft.com/VisualStudio/2008/DslTools/Core" dslVersion="2.0.0.0" name="DatabaseModel" namespace="TitrationExporter" showPropertiesCompartment="true" xmlns="http://www.telerik.com/ORM">
+  <orm:orm name="DatabaseModel" backend="mssql" default-schema="dbo" xmlns:orm="http://tempuri.org/ORM">
+    <orm:namespace name="TitrationExporter" default="true">
+      <orm:class name="TitrimetryLevel" uniqueId="b967fd28-0d69-44bd-8d68-0647e67130d0">
+        <orm:table name="TitrimetryLevel" />
+        <orm:identity>
+          <orm:key-generator name="guid">
+            <orm:key-generator-member property-name="TitrimetryLevelId" />
+          </orm:key-generator>
+          <orm:single-field field-name="_titrimetryLevelId" />
+        </orm:identity>
+        <orm:concurrency strategy="changed" />
+        <orm:field name="_titrimetryLevelId" property="TitrimetryLevelId" behavior="readwrite" uniqueId="a4ce5195-0c3a-46b1-9b0b-5267defedfee" type="System.Guid">
+          <orm:column name="TitrimetryLevelId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_titrimetryId" property="TitrimetryId" behavior="readwrite" uniqueId="fc35a844-5ab2-44de-8dd1-8d5a19e168a2" type="System.Nullable`1[[System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="TitrimetryId" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_height" property="Height" behavior="readwrite" uniqueId="a263a00e-0978-47d8-8c6d-8e5046ca2f77" type="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="Height" sql-type="decimal" nullable="true" length="18" scale="2" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_volume" property="Volume" behavior="readwrite" uniqueId="82060772-fe1f-4f2c-a349-33bd4e19289c" type="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="Volume" sql-type="decimal" nullable="true" length="18" scale="2" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_titrimetry" property="Titrimetry" behavior="readwrite" uniqueId="75a819a1-ed4f-47d0-acf7-0718fa5cc941" type="TitrationExporter.Titrimetry">
+          <orm:reference uniqueId="7f6d9643-ec42-40cc-8b75-e4368eea2b3e" association-name="TitrimetryLevelHasTitrimetry">
+            <orm:sharedfield name="_titrimetryId" target-class="TitrationExporter.Titrimetry" target-field="_titrimetryId" />
+            <orm:constraint name="Titrimetry_TitrimetryLevel_FK1" delete-action="dbdefaultrule" destination-table="Titrimetry" />
+          </orm:reference>
+        </orm:field>
+        <orm:index name="idx_titrimetry_height_volume">
+          <orm:columnMapping>
+            <orm:column name="TitrimetryId" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+          </orm:columnMapping>
+        </orm:index>
+      </orm:class>
+      <orm:class name="Titrimetry" uniqueId="9a34a945-0eea-4663-a339-afe4185f01d0">
+        <orm:table name="Titrimetry" />
+        <orm:identity>
+          <orm:key-generator name="guid">
+            <orm:key-generator-member property-name="TitrimetryId" />
+          </orm:key-generator>
+          <orm:single-field field-name="_titrimetryId" />
+        </orm:identity>
+        <orm:concurrency strategy="changed" />
+        <orm:field name="_titrimetryId" property="TitrimetryId" behavior="readwrite" uniqueId="6c7366ad-daa3-46a5-b821-d7a8e605314e" type="System.Guid">
+          <orm:column name="TitrimetryId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_tankId" property="TankId" behavior="readwrite" uniqueId="5e37d7ea-d267-4d11-a3d9-17c5cab609a4" type="System.Nullable`1[[System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="TankId" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_titrationDate" property="TitrationDate" behavior="readwrite" uniqueId="11ace3a8-6bcf-4a17-9b83-20d42bab6b91" type="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="TitrationDate" sql-type="datetime" nullable="true" length="0" scale="0" ado-type="DateTime" />
+        </orm:field>
+        <orm:field name="_printDate" property="PrintDate" behavior="readwrite" uniqueId="2346ff37-5d35-44b2-8d88-6a1ac4cfb8c0" type="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="PrintDate" sql-type="datetime" nullable="true" length="0" scale="0" ado-type="DateTime" />
+        </orm:field>
+        <orm:field name="_documentSign" property="DocumentSign" behavior="readwrite" uniqueId="1a109fd5-3e72-4a86-9207-595f44901100" type="System.String">
+          <orm:column name="DocumentSign" sql-type="nvarchar" nullable="true" length="100" scale="0" ado-type="UnicodeStringVariableLength" />
+        </orm:field>
+        <orm:field name="_titrimetryLevels" property="TitrimetryLevels" behavior="readwrite" uniqueId="3ab37b86-2355-46a2-9358-3eb2bb51eb4e" type="TitrationExporter.TitrimetryLevel">
+          <orm:collection element-class="TitrationExporter.TitrimetryLevel" inverse-field="_titrimetry" order-by="" uniqueId="7f6d9643-ec42-40cc-8b75-e4368eea2b3e" />
+        </orm:field>
+        <orm:field name="_tank" property="Tank" behavior="readwrite" uniqueId="73bc0d5e-3e0f-46ff-ae4b-f55d87f43a72" type="TitrationExporter.Tank">
+          <orm:reference uniqueId="722e07b8-d3f8-4f0c-88fa-7bee05ee44f5" association-name="TitrimetryHasTank">
+            <orm:sharedfield name="_tankId" target-class="TitrationExporter.Tank" target-field="_tankId" />
+            <orm:constraint name="Tank_Titrimetry_FK1" delete-action="dbdefaultrule" destination-table="Tank" />
+          </orm:reference>
+        </orm:field>
+      </orm:class>
+      <orm:class name="Tank" uniqueId="e26abe7b-45bc-4809-b0f5-af672fd4df15">
+        <orm:table name="Tank" />
+        <orm:identity>
+          <orm:key-generator name="guid">
+            <orm:key-generator-member property-name="TankId" />
+          </orm:key-generator>
+          <orm:single-field field-name="_tankId" />
+        </orm:identity>
+        <orm:concurrency strategy="changed" />
+        <orm:field name="_tankId" property="TankId" behavior="readwrite" uniqueId="0457f0fe-25f9-4112-a8d2-a66b3fa85156" type="System.Guid">
+          <orm:column name="TankId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_fuelTypeId" property="FuelTypeId" behavior="readwrite" uniqueId="030cf933-efbf-4151-931f-6565bc45e888" type="System.Guid">
+          <orm:column name="FuelTypeId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_totalVolume" property="TotalVolume" behavior="readwrite" uniqueId="05d55f46-f74d-4427-885b-313e9d86e1c8" type="System.Decimal">
+          <orm:column name="TotalVolume" sql-type="decimal" nullable="false" length="19" scale="2" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_offsetVolume" property="OffsetVolume" behavior="readwrite" uniqueId="5cfdfa08-7615-4ae1-87f2-1557cec210f8" type="System.Decimal">
+          <orm:column name="OffsetVolume" sql-type="decimal" nullable="false" length="19" scale="2" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_physicalState" property="PhysicalState" behavior="readwrite" uniqueId="d048bea1-21fd-4fce-bbc8-fce4b5eb70af" type="System.Int32">
+          <orm:column name="PhysicalState" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        </orm:field>
+        <orm:field name="_channel" property="Channel" behavior="readwrite" uniqueId="8c3406c8-be2d-415f-bf2b-1c0c20299dc1" type="System.Int32">
+          <orm:column name="Channel" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        </orm:field>
+        <orm:field name="_address" property="Address" behavior="readwrite" uniqueId="74473745-b7be-466e-8e45-5141b7d3b73b" type="System.Int32">
+          <orm:column name="Address" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        </orm:field>
+        <orm:field name="_atgProbeTypeId" property="AtgProbeTypeId" behavior="readwrite" uniqueId="c87207af-6790-4dbf-a39b-64db4ac03630" type="System.Guid">
+          <orm:column name="AtgProbeTypeId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_communicationControllerId" property="CommunicationControllerId" behavior="readwrite" uniqueId="7b582cc0-ef74-47c0-b6a5-b49920a111c2" type="System.Guid">
+          <orm:column name="CommunicationControllerId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_maxWaterHeight" property="MaxWaterHeight" behavior="readwrite" uniqueId="46bbc8b5-8428-4dad-a04f-8477c1bb4ed9" type="System.Decimal">
+          <orm:column name="MaxWaterHeight" sql-type="decimal" nullable="false" length="18" scale="4" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_minFuelHeight" property="MinFuelHeight" behavior="readwrite" uniqueId="4cd1edd8-e1c7-4e17-8901-ae15e70dbdc2" type="System.Decimal">
+          <orm:column name="MinFuelHeight" sql-type="decimal" nullable="false" length="18" scale="4" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_maxFuelHeight" property="MaxFuelHeight" behavior="readwrite" uniqueId="76f97c61-9c5a-410c-8ea9-6443e334874f" type="System.Decimal">
+          <orm:column name="MaxFuelHeight" sql-type="decimal" nullable="false" length="18" scale="4" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_tankNumber" property="TankNumber" behavior="readwrite" uniqueId="8795a81b-8a22-4491-ae9e-84cc1d606a81" type="System.Int32">
+          <orm:column name="TankNumber" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        </orm:field>
+        <orm:field name="_tankSerialNumber" property="TankSerialNumber" behavior="readwrite" uniqueId="d1f9425c-b4cf-40ca-a56e-118b0d69fb64" type="System.String">
+          <orm:column name="TankSerialNumber" sql-type="nvarchar" nullable="false" length="100" scale="0" ado-type="UnicodeStringVariableLength" />
+        </orm:field>
+        <orm:field name="_fuelLevel" property="FuelLevel" behavior="readwrite" uniqueId="6b6959d3-e303-4e0e-a8b7-387e5b5d84ef" type="System.Decimal">
+          <orm:column name="FuelLevel" sql-type="decimal" nullable="false" length="18" scale="3" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_waterLevel" property="WaterLevel" behavior="readwrite" uniqueId="ea62ce57-e7f4-4c81-b708-4cc9a24f32c8" type="System.Decimal">
+          <orm:column name="WaterLevel" sql-type="decimal" nullable="false" length="18" scale="3" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_temperatire" property="Temperatire" behavior="readwrite" uniqueId="ee4f1b43-283b-4190-9b70-11e356bd72b4" type="System.Decimal">
+          <orm:column name="Temperatire" sql-type="decimal" nullable="false" length="18" scale="3" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_isVirtual" property="IsVirtual" behavior="readwrite" uniqueId="af135fba-09c6-4589-a77f-4fc681c7276b" type="System.Nullable`1[[System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="IsVirtual" sql-type="bit" nullable="true" length="0" scale="0" ado-type="Bit" />
+        </orm:field>
+        <orm:field name="_offestWater" property="OffestWater" behavior="readwrite" uniqueId="c1040e60-fe2b-4abd-99f2-c936c2dcd72f" type="System.Decimal">
+          <orm:column name="OffestWater" sql-type="decimal" nullable="false" length="19" scale="2" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_orderLimit" property="OrderLimit" behavior="readwrite" uniqueId="9d0555c8-c03e-4fb8-8f42-ce9a06da5136" type="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="OrderLimit" sql-type="decimal" nullable="true" length="19" scale="2" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_titrimetries" property="Titrimetries" behavior="readwrite" uniqueId="4d4f9854-3bc2-4eda-9a44-28f54563509f" type="TitrationExporter.Titrimetry">
+          <orm:collection element-class="TitrationExporter.Titrimetry" inverse-field="_tank" order-by="" uniqueId="722e07b8-d3f8-4f0c-88fa-7bee05ee44f5" />
+        </orm:field>
+        <orm:field name="_fuelType" property="FuelType" behavior="readwrite" uniqueId="ba9a0dfe-2261-467c-9085-99204a6cab7c" type="TitrationExporter.FuelType">
+          <orm:reference uniqueId="3f559f02-3ee7-498d-8e2a-9f2367accc36" association-name="TankHasFuelType">
+            <orm:sharedfield name="_fuelTypeId" target-class="TitrationExporter.FuelType" target-field="_fuelTypeId" />
+            <orm:constraint name="FuelType_Tank_FK1" delete-action="dbdefaultrule" destination-table="FuelType" />
+          </orm:reference>
+        </orm:field>
+      </orm:class>
+      <orm:class name="FuelType" uniqueId="84b025af-7327-4681-8b02-db9a0a227124">
+        <orm:table name="FuelType" />
+        <orm:identity>
+          <orm:key-generator name="guid">
+            <orm:key-generator-member property-name="FuelTypeId" />
+          </orm:key-generator>
+          <orm:single-field field-name="_fuelTypeId" />
+        </orm:identity>
+        <orm:concurrency strategy="changed" />
+        <orm:field name="_fuelTypeId" property="FuelTypeId" behavior="readwrite" uniqueId="3b49a2f5-3829-42c2-9c57-61cf6a61c4e1" type="System.Guid">
+          <orm:column name="FuelTypeId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_name" property="Name" behavior="readwrite" uniqueId="c60eae67-d939-4127-9d2b-15bca559c972" type="System.String">
+          <orm:column name="Name" sql-type="nvarchar" nullable="false" length="100" scale="0" ado-type="UnicodeStringVariableLength" />
+        </orm:field>
+        <orm:field name="_code" property="Code" behavior="readwrite" uniqueId="e98a2c2c-23b8-4c40-89d4-7f0aef02e356" type="System.String">
+          <orm:column name="Code" sql-type="nvarchar" nullable="false" length="30" scale="0" ado-type="UnicodeStringVariableLength" />
+        </orm:field>
+        <orm:field name="_color" property="Color" behavior="readwrite" uniqueId="e140c4cb-e29c-478c-8e92-5f63b9027f3a" type="System.Nullable`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="Color" sql-type="int" nullable="true" length="0" scale="0" ado-type="Int32" />
+        </orm:field>
+        <orm:field name="_thermalCoeficient" property="ThermalCoeficient" behavior="readwrite" uniqueId="3e2f827b-3f17-4447-bf3a-c4924eeddb2c" type="System.Decimal">
+          <orm:column name="ThermalCoeficient" sql-type="decimal" nullable="false" length="18" scale="9" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_enumeratorValue" property="EnumeratorValue" behavior="readwrite" uniqueId="e45188cd-9fbe-4605-8439-3874496c73b1" type="System.Int32">
+          <orm:column name="EnumeratorValue" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        </orm:field>
+        <orm:field name="_baseDensity" property="BaseDensity" behavior="readwrite" uniqueId="81d7941a-a26d-40ed-ab29-80daaa74a75b" type="System.Decimal">
+          <orm:column name="BaseDensity" sql-type="decimal" nullable="false" length="18" scale="3" ado-type="Decimal" />
+        </orm:field>
+        <orm:field name="_tanks" property="Tanks" behavior="readwrite" uniqueId="b3abb49a-c424-4c93-90df-8092fadc389a" type="TitrationExporter.Tank">
+          <orm:collection element-class="TitrationExporter.Tank" inverse-field="_fuelType" order-by="" uniqueId="3f559f02-3ee7-498d-8e2a-9f2367accc36" />
+        </orm:field>
+      </orm:class>
+    </orm:namespace>
+    <orm:schema schema="">
+      <orm:table name="TitrimetryLevel">
+        <orm:column name="TitrimetryLevelId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        <orm:column name="TitrimetryId" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="Height" sql-type="decimal" nullable="true" length="18" scale="2" ado-type="Decimal" />
+        <orm:column name="Volume" sql-type="decimal" nullable="true" length="18" scale="2" ado-type="Decimal" />
+        <orm:index name="idx_titrimetry_height_volume">
+          <orm:columnMapping>
+            <orm:column name="TitrimetryId" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+          </orm:columnMapping>
+        </orm:index>
+        <orm:constraint name="Titrimetry_TitrimetryLevel_FK1" delete-action="dbdefaultrule" destination-table="Titrimetry">
+          <orm:column name="TitrimetryId" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+        </orm:constraint>
+      </orm:table>
+      <orm:table name="Titrimetry">
+        <orm:column name="TitrimetryId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        <orm:column name="TankId" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="TitrationDate" sql-type="datetime" nullable="true" length="0" scale="0" ado-type="DateTime" />
+        <orm:column name="PrintDate" sql-type="datetime" nullable="true" length="0" scale="0" ado-type="DateTime" />
+        <orm:column name="DocumentSign" sql-type="nvarchar" nullable="true" length="100" scale="0" ado-type="UnicodeStringVariableLength" />
+        <orm:constraint name="Tank_Titrimetry_FK1" delete-action="dbdefaultrule" destination-table="Tank">
+          <orm:column name="TankId" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+        </orm:constraint>
+      </orm:table>
+      <orm:table name="Tank">
+        <orm:column name="TankId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        <orm:column name="FuelTypeId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="TotalVolume" sql-type="decimal" nullable="false" length="19" scale="2" ado-type="Decimal" />
+        <orm:column name="OffsetVolume" sql-type="decimal" nullable="false" length="19" scale="2" ado-type="Decimal" />
+        <orm:column name="PhysicalState" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="Channel" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="Address" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="AtgProbeTypeId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="CommunicationControllerId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="MaxWaterHeight" sql-type="decimal" nullable="false" length="18" scale="4" ado-type="Decimal" />
+        <orm:column name="MinFuelHeight" sql-type="decimal" nullable="false" length="18" scale="4" ado-type="Decimal" />
+        <orm:column name="MaxFuelHeight" sql-type="decimal" nullable="false" length="18" scale="4" ado-type="Decimal" />
+        <orm:column name="TankNumber" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="TankSerialNumber" sql-type="nvarchar" nullable="false" length="100" scale="0" ado-type="UnicodeStringVariableLength" />
+        <orm:column name="FuelLevel" sql-type="decimal" nullable="false" length="18" scale="3" ado-type="Decimal" />
+        <orm:column name="WaterLevel" sql-type="decimal" nullable="false" length="18" scale="3" ado-type="Decimal" />
+        <orm:column name="Temperatire" sql-type="decimal" nullable="false" length="18" scale="3" ado-type="Decimal" />
+        <orm:column name="IsVirtual" sql-type="bit" nullable="true" length="0" scale="0" ado-type="Bit" />
+        <orm:column name="OffestWater" sql-type="decimal" nullable="false" length="19" scale="2" ado-type="Decimal" />
+        <orm:column name="OrderLimit" sql-type="decimal" nullable="true" length="19" scale="2" ado-type="Decimal" />
+        <orm:constraint name="FuelType_Tank_FK1" delete-action="dbdefaultrule" destination-table="FuelType">
+          <orm:column name="FuelTypeId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        </orm:constraint>
+      </orm:table>
+      <orm:table name="FuelType">
+        <orm:column name="FuelTypeId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        <orm:column name="Name" sql-type="nvarchar" nullable="false" length="100" scale="0" ado-type="UnicodeStringVariableLength" />
+        <orm:column name="Code" sql-type="nvarchar" nullable="false" length="30" scale="0" ado-type="UnicodeStringVariableLength" />
+        <orm:column name="Color" sql-type="int" nullable="true" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="ThermalCoeficient" sql-type="decimal" nullable="false" length="18" scale="9" ado-type="Decimal" />
+        <orm:column name="EnumeratorValue" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="BaseDensity" sql-type="decimal" nullable="false" length="18" scale="3" ado-type="Decimal" />
+      </orm:table>
+    </orm:schema>
+    <orm:relational-naming-settings>
+      <orm:source-strategy>Property</orm:source-strategy>
+      <orm:remove-camel-case>False</orm:remove-camel-case>
+    </orm:relational-naming-settings>
+  </orm:orm>
+  <ModelSettings xmlns="">
+    <AppConfigConnectionPropertyName>ASFuelControlDB_KatsikakiConnection</AppConfigConnectionPropertyName>
+    <AppConfigConnectionString>Data Source=DIMOS-PC\SQLSERVER;Initial Catalog=ASFuelControlDB_Katsikaki;Integrated Security=True</AppConfigConnectionString>
+    <InitialCatalog>ASFuelControlDB_Katsikaki</InitialCatalog>
+    <NamingSettings>
+      <ClassRules>
+        <CaseMode>PascalCase</CaseMode>
+        <PluralizationMode>Singularize</PluralizationMode>
+      </ClassRules>
+      <FieldRules>
+        <AddPrefix>_</AddPrefix>
+        <CaseMode>CamelCase</CaseMode>
+      </FieldRules>
+      <PropertyRules>
+        <CaseMode>PascalCase</CaseMode>
+      </PropertyRules>
+      <NavigationPropertyRules />
+    </NamingSettings>
+    <CodeGenerationSettings>
+      <MappingDefinitionType>Xml</MappingDefinitionType>
+      <GenerateMultipleFiles>false</GenerateMultipleFiles>
+    </CodeGenerationSettings>
+    <SchemaUpdateSettings />
+    <BackendConfigurationSettings>
+      <BackendConfiguration>
+        <Backend>MsSql</Backend>
+        <ProviderName>System.Data.SqlClient</ProviderName>
+      </BackendConfiguration>
+    </BackendConfigurationSettings>
+  </ModelSettings>
+  <Types>
+    <DomainClass Id="b967fd28-0d69-44bd-8d68-0647e67130d0" name="TitrimetryLevel" namespace="TitrationExporter" showPropertiesCompartment="true" identityMechanism="Guid" concurrencyMode="Changed" showNavigationCompartment="true" showImplementationCompartment="true" identityMechanismMember="TitrimetryLevelId">
+      <Property Id="a4ce5195-0c3a-46b1-9b0b-5267defedfee" name="TitrimetryLevelId" type="Guid" label="TitrimetryLevelId : Guid" kind="Persistent" identity="true" fieldName="_titrimetryLevelId" />
+      <Property Id="a263a00e-0978-47d8-8c6d-8e5046ca2f77" name="Height" type="Decimal" label="Height : Decimal" nullable="true" kind="Persistent" fieldName="_height" />
+      <Property Id="fc35a844-5ab2-44de-8dd1-8d5a19e168a2" name="TitrimetryId" type="Guid" label="TitrimetryId : Guid" nullable="true" kind="Persistent" fieldName="_titrimetryId" />
+      <Property Id="82060772-fe1f-4f2c-a349-33bd4e19289c" name="Volume" type="Decimal" label="Volume : Decimal" nullable="true" kind="Persistent" fieldName="_volume" />
+      <AssociationTargets>
+        <Association Id="7f6d9643-ec42-40cc-8b75-e4368eea2b3e" SourceMultiplicity="ZeroOne" name="TitrimetryLevelHasTitrimetry">
+          <DomainClassMoniker name="/DatabaseModel/Titrimetry" />
+          <targetNavigationalProperty>
+            <associationDefinesTargetProperty Id="814b4985-73ef-4e13-88c8-9386e8fcba41">
+              <NavigationalPropertyMoniker name="/DatabaseModel/Titrimetry/TitrimetryLevels" />
+            </associationDefinesTargetProperty>
+          </targetNavigationalProperty>
+          <sourceNavigationalProperty>
+            <associationDefinesSourceProperty Id="ee99497a-19a5-4a30-b80a-07b215238fd6">
+              <NavigationalPropertyMoniker name="/DatabaseModel/TitrimetryLevel/Titrimetry" />
+            </associationDefinesSourceProperty>
+          </sourceNavigationalProperty>
+        </Association>
+      </AssociationTargets>
+      <navigationalProperties>
+        <classHasNavigationalProperties Id="e514dfbb-33a4-4fd8-927e-cf465fb67698">
+          <NavigationalProperty Id="75a819a1-ed4f-47d0-acf7-0718fa5cc941" name="Titrimetry" type="Titrimetry" label="Titrimetry : Titrimetry" nullable="true" kind="Persistent" fieldName="_titrimetry" isDependent="false" isManaged="false" />
+        </classHasNavigationalProperties>
+      </navigationalProperties>
+    </DomainClass>
+    <DomainClass Id="9a34a945-0eea-4663-a339-afe4185f01d0" name="Titrimetry" namespace="TitrationExporter" showPropertiesCompartment="true" identityMechanism="Guid" concurrencyMode="Changed" showNavigationCompartment="true" showImplementationCompartment="true" identityMechanismMember="TitrimetryId">
+      <Property Id="6c7366ad-daa3-46a5-b821-d7a8e605314e" name="TitrimetryId" type="Guid" label="TitrimetryId : Guid" kind="Persistent" identity="true" fieldName="_titrimetryId" />
+      <Property Id="1a109fd5-3e72-4a86-9207-595f44901100" name="DocumentSign" label="DocumentSign : String" kind="Persistent" fieldName="_documentSign" />
+      <Property Id="2346ff37-5d35-44b2-8d88-6a1ac4cfb8c0" name="PrintDate" type="DateTime" label="PrintDate : DateTime" nullable="true" kind="Persistent" fieldName="_printDate" />
+      <Property Id="5e37d7ea-d267-4d11-a3d9-17c5cab609a4" name="TankId" type="Guid" label="TankId : Guid" nullable="true" kind="Persistent" fieldName="_tankId" />
+      <Property Id="11ace3a8-6bcf-4a17-9b83-20d42bab6b91" name="TitrationDate" type="DateTime" label="TitrationDate : DateTime" nullable="true" kind="Persistent" fieldName="_titrationDate" />
+      <AssociationTargets>
+        <Association Id="722e07b8-d3f8-4f0c-88fa-7bee05ee44f5" SourceMultiplicity="ZeroOne" name="TitrimetryHasTank">
+          <DomainClassMoniker name="/DatabaseModel/Tank" />
+          <targetNavigationalProperty>
+            <associationDefinesTargetProperty Id="98ddfaeb-1022-4879-adae-f8b3d7669df6">
+              <NavigationalPropertyMoniker name="/DatabaseModel/Tank/Titrimetries" />
+            </associationDefinesTargetProperty>
+          </targetNavigationalProperty>
+          <sourceNavigationalProperty>
+            <associationDefinesSourceProperty Id="fc17f996-7db5-4dcb-bd58-41055a729558">
+              <NavigationalPropertyMoniker name="/DatabaseModel/Titrimetry/Tank" />
+            </associationDefinesSourceProperty>
+          </sourceNavigationalProperty>
+        </Association>
+      </AssociationTargets>
+      <navigationalProperties>
+        <classHasNavigationalProperties Id="95893053-8636-4422-af25-685c93236bdf">
+          <NavigationalProperty Id="3ab37b86-2355-46a2-9358-3eb2bb51eb4e" name="TitrimetryLevels" type="IList&lt;TitrimetryLevel&gt;" label="TitrimetryLevels : IList&lt;TitrimetryLevel&gt;" nullable="true" kind="Persistent" fieldName="_titrimetryLevels" isDependent="false" isManaged="false" />
+        </classHasNavigationalProperties>
+        <classHasNavigationalProperties Id="ce589e17-5f3f-42b1-86ec-3a4724c0c52a">
+          <NavigationalProperty Id="73bc0d5e-3e0f-46ff-ae4b-f55d87f43a72" name="Tank" type="Tank" label="Tank : Tank" nullable="true" kind="Persistent" fieldName="_tank" isDependent="false" isManaged="false" />
+        </classHasNavigationalProperties>
+      </navigationalProperties>
+    </DomainClass>
+    <DomainClass Id="e26abe7b-45bc-4809-b0f5-af672fd4df15" name="Tank" namespace="TitrationExporter" showPropertiesCompartment="true" identityMechanism="Guid" concurrencyMode="Changed" showNavigationCompartment="true" showImplementationCompartment="true" identityMechanismMember="TankId">
+      <Property Id="0457f0fe-25f9-4112-a8d2-a66b3fa85156" name="TankId" type="Guid" label="TankId : Guid" kind="Persistent" identity="true" fieldName="_tankId" />
+      <Property Id="74473745-b7be-466e-8e45-5141b7d3b73b" name="Address" type="Int32" label="Address : Int32" kind="Persistent" fieldName="_address" />
+      <Property Id="c87207af-6790-4dbf-a39b-64db4ac03630" name="AtgProbeTypeId" type="Guid" label="AtgProbeTypeId : Guid" kind="Persistent" fieldName="_atgProbeTypeId" />
+      <Property Id="8c3406c8-be2d-415f-bf2b-1c0c20299dc1" name="Channel" type="Int32" label="Channel : Int32" kind="Persistent" fieldName="_channel" />
+      <Property Id="7b582cc0-ef74-47c0-b6a5-b49920a111c2" name="CommunicationControllerId" type="Guid" label="CommunicationControllerId : Guid" kind="Persistent" fieldName="_communicationControllerId" />
+      <Property Id="6b6959d3-e303-4e0e-a8b7-387e5b5d84ef" name="FuelLevel" type="Decimal" label="FuelLevel : Decimal" kind="Persistent" fieldName="_fuelLevel" />
+      <Property Id="030cf933-efbf-4151-931f-6565bc45e888" name="FuelTypeId" type="Guid" label="FuelTypeId : Guid" kind="Persistent" fieldName="_fuelTypeId" />
+      <Property Id="af135fba-09c6-4589-a77f-4fc681c7276b" name="IsVirtual" type="Boolean" label="IsVirtual : Boolean" nullable="true" kind="Persistent" fieldName="_isVirtual" />
+      <Property Id="76f97c61-9c5a-410c-8ea9-6443e334874f" name="MaxFuelHeight" type="Decimal" label="MaxFuelHeight : Decimal" kind="Persistent" fieldName="_maxFuelHeight" />
+      <Property Id="46bbc8b5-8428-4dad-a04f-8477c1bb4ed9" name="MaxWaterHeight" type="Decimal" label="MaxWaterHeight : Decimal" kind="Persistent" fieldName="_maxWaterHeight" />
+      <Property Id="4cd1edd8-e1c7-4e17-8901-ae15e70dbdc2" name="MinFuelHeight" type="Decimal" label="MinFuelHeight : Decimal" kind="Persistent" fieldName="_minFuelHeight" />
+      <Property Id="c1040e60-fe2b-4abd-99f2-c936c2dcd72f" name="OffestWater" type="Decimal" label="OffestWater : Decimal" kind="Persistent" fieldName="_offestWater" />
+      <Property Id="5cfdfa08-7615-4ae1-87f2-1557cec210f8" name="OffsetVolume" type="Decimal" label="OffsetVolume : Decimal" kind="Persistent" fieldName="_offsetVolume" />
+      <Property Id="9d0555c8-c03e-4fb8-8f42-ce9a06da5136" name="OrderLimit" type="Decimal" label="OrderLimit : Decimal" nullable="true" kind="Persistent" fieldName="_orderLimit" />
+      <Property Id="d048bea1-21fd-4fce-bbc8-fce4b5eb70af" name="PhysicalState" type="Int32" label="PhysicalState : Int32" kind="Persistent" fieldName="_physicalState" />
+      <Property Id="8795a81b-8a22-4491-ae9e-84cc1d606a81" name="TankNumber" type="Int32" label="TankNumber : Int32" kind="Persistent" fieldName="_tankNumber" />
+      <Property Id="d1f9425c-b4cf-40ca-a56e-118b0d69fb64" name="TankSerialNumber" label="TankSerialNumber : String" kind="Persistent" fieldName="_tankSerialNumber" />
+      <Property Id="ee4f1b43-283b-4190-9b70-11e356bd72b4" name="Temperatire" type="Decimal" label="Temperatire : Decimal" kind="Persistent" fieldName="_temperatire" />
+      <Property Id="05d55f46-f74d-4427-885b-313e9d86e1c8" name="TotalVolume" type="Decimal" label="TotalVolume : Decimal" kind="Persistent" fieldName="_totalVolume" />
+      <Property Id="ea62ce57-e7f4-4c81-b708-4cc9a24f32c8" name="WaterLevel" type="Decimal" label="WaterLevel : Decimal" kind="Persistent" fieldName="_waterLevel" />
+      <AssociationTargets>
+        <Association Id="3f559f02-3ee7-498d-8e2a-9f2367accc36" SourceMultiplicity="One" name="TankHasFuelType">
+          <DomainClassMoniker name="/DatabaseModel/FuelType" />
+          <targetNavigationalProperty>
+            <associationDefinesTargetProperty Id="5e92964f-4a54-4b3d-9ff0-51c6eb84a6f2">
+              <NavigationalPropertyMoniker name="/DatabaseModel/FuelType/Tanks" />
+            </associationDefinesTargetProperty>
+          </targetNavigationalProperty>
+          <sourceNavigationalProperty>
+            <associationDefinesSourceProperty Id="fce64e5f-5682-43a5-8eac-ab8d737d755c">
+              <NavigationalPropertyMoniker name="/DatabaseModel/Tank/FuelType" />
+            </associationDefinesSourceProperty>
+          </sourceNavigationalProperty>
+        </Association>
+      </AssociationTargets>
+      <navigationalProperties>
+        <classHasNavigationalProperties Id="3f19c113-5261-4462-9c7d-7466e0538952">
+          <NavigationalProperty Id="4d4f9854-3bc2-4eda-9a44-28f54563509f" name="Titrimetries" type="IList&lt;Titrimetry&gt;" label="Titrimetries : IList&lt;Titrimetry&gt;" nullable="true" kind="Persistent" fieldName="_titrimetries" isDependent="false" isManaged="false" />
+        </classHasNavigationalProperties>
+        <classHasNavigationalProperties Id="2c12ac3e-ac48-40ba-aa6d-105f868a131f">
+          <NavigationalProperty Id="ba9a0dfe-2261-467c-9085-99204a6cab7c" name="FuelType" type="FuelType" label="FuelType : FuelType" nullable="true" kind="Persistent" fieldName="_fuelType" isDependent="false" isManaged="false" />
+        </classHasNavigationalProperties>
+      </navigationalProperties>
+    </DomainClass>
+    <DomainClass Id="84b025af-7327-4681-8b02-db9a0a227124" name="FuelType" namespace="TitrationExporter" showPropertiesCompartment="true" identityMechanism="Guid" concurrencyMode="Changed" showNavigationCompartment="true" showImplementationCompartment="true" identityMechanismMember="FuelTypeId">
+      <Property Id="3b49a2f5-3829-42c2-9c57-61cf6a61c4e1" name="FuelTypeId" type="Guid" label="FuelTypeId : Guid" kind="Persistent" identity="true" fieldName="_fuelTypeId" />
+      <Property Id="81d7941a-a26d-40ed-ab29-80daaa74a75b" name="BaseDensity" type="Decimal" label="BaseDensity : Decimal" kind="Persistent" fieldName="_baseDensity" />
+      <Property Id="e98a2c2c-23b8-4c40-89d4-7f0aef02e356" name="Code" label="Code : String" kind="Persistent" fieldName="_code" />
+      <Property Id="e140c4cb-e29c-478c-8e92-5f63b9027f3a" name="Color" type="Int32" label="Color : Int32" nullable="true" kind="Persistent" fieldName="_color" />
+      <Property Id="e45188cd-9fbe-4605-8439-3874496c73b1" name="EnumeratorValue" type="Int32" label="EnumeratorValue : Int32" kind="Persistent" fieldName="_enumeratorValue" />
+      <Property Id="c60eae67-d939-4127-9d2b-15bca559c972" name="Name" label="Name : String" kind="Persistent" fieldName="_name" />
+      <Property Id="3e2f827b-3f17-4447-bf3a-c4924eeddb2c" name="ThermalCoeficient" type="Decimal" label="ThermalCoeficient : Decimal" kind="Persistent" fieldName="_thermalCoeficient" />
+      <navigationalProperties>
+        <classHasNavigationalProperties Id="860a6cf3-f968-4fce-bc72-7a358d335a65">
+          <NavigationalProperty Id="b3abb49a-c424-4c93-90df-8092fadc389a" name="Tanks" type="IList&lt;Tank&gt;" label="Tanks : IList&lt;Tank&gt;" nullable="true" kind="Persistent" fieldName="_tanks" isDependent="false" isManaged="false" />
+        </classHasNavigationalProperties>
+      </navigationalProperties>
+    </DomainClass>
+  </Types>
+  <domainContext>
+    <domainModelHasDomainContext Id="75a61def-b1ef-4b17-803e-710c219fb721">
+      <domainContainer name="DatabaseModel" namespace="TitrationExporter" showPropertiesCompartment="true">
+        <entitySetProperty name="TitrimetryLevels" namespace="TitrationExporter" type="TitrimetryLevel" label="TitrimetryLevels : IQueryable&lt;TitrationExporter.TitrimetryLevel&gt;" />
+        <entitySetProperty name="Titrimetries" namespace="TitrationExporter" type="Titrimetry" label="Titrimetries : IQueryable&lt;TitrationExporter.Titrimetry&gt;" />
+        <entitySetProperty name="Tanks" namespace="TitrationExporter" type="Tank" label="Tanks : IQueryable&lt;TitrationExporter.Tank&gt;" />
+        <entitySetProperty name="FuelTypes" namespace="TitrationExporter" type="FuelType" label="FuelTypes : IQueryable&lt;TitrationExporter.FuelType&gt;" />
+      </domainContainer>
+    </domainModelHasDomainContext>
+  </domainContext>
+</DomainModel>

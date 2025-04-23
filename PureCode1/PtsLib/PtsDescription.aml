@@ -1,0 +1,146 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<topic id="11135d03-aaec-4eba-a6e3-e89f9def049b" revisionNumber="1">
+  <developerConceptualDocument xmlns="http://ddue.schemas.microsoft.com/authoring/2003/5" xmlns:xlink="http://www.w3.org/1999/xlink">    
+    <section address="PtsPurpose">     
+      <title>
+      	<legacyUnderline>
+      		Purpose of PTS controller and given documentation
+      	</legacyUnderline>
+      </title>
+      <content>  
+      	<para>
+      		PTS controller over fuel dispensers and ATG systems is a specialized controller which allows remote control over 
+      		petrol, diesel, CNG and LPG dispensers and automatic tank gauge (ATG) systems installed at petrol, CNG and LPG stations 
+      		and storage depots.
+      	</para>
+        <para>
+        	PTS controller is intended to be used in connection with control systems for petrol stations 
+        	(POS systems, cash registers, OPT terminals, etc) to provide simultaneous control over various 
+        	types of electronic fuel delivery dispensers and ATG systems of various manufactures using the 
+        	single common communication protocol UniPump. PTS controller provides conversion of the common 
+        	communication protocol UniPump into various proprietary communication protocols of manufacturers.
+		</para>
+		<para>
+			This documentation covers methods of API (application programming interface) for PTS controller written 
+			in C# programming language (requires .NET Framework version 2.0). Given API includes description of all methods 
+			calling commands and responses of PTS controller described in UniPump communication protocol for communication
+			with PTS controller for provision of control over dispensers and ATG systems and configuration of PTS controller.
+		</para>
+		<mediaLink>
+			<image xlink:href="General_scheme" placement="center" />
+		</mediaLink>
+      </content>      
+    </section>
+    <section>
+    	<title>
+    		<legacyUnderline>
+    			Structure of PTS controller
+    		</legacyUnderline>
+    		</title>
+    	<content>
+    		<para>
+    		PTS controller has 2 internal independent polling cycles: cycle for communication with a MASTER device 
+    		(POS system, cash register, OPT terminal, etc) and a cycle for communication with fuel dispensers and ATG systems. 
+    		PTS controller has input communication port in RS-232 interface through which a MASTER device communicates with the 
+    		PTS controller using UniPump communication protocol.
+			</para>
+    	</content>
+    </section>
+    <section>
+    	<title>
+    		<legacyUnderline>
+    			Features
+    		</legacyUnderline>
+    	</title>
+    	<content>
+    		<para>
+    			PTS controller can simultaneously control up to 16 fueling places. Fueling place is a whole fuel dispenser 
+    			if it has only 1 side or a fueling place of a fuel dispenser if the fuel dispenser has 2 sides. Connected 
+    			fuelling places can use up to 4 various communication protocols because each of the PTS controller pump channels 
+    			can be adjusted to a separate communication protocol and baud rate. Each PTS controller pump channel can connect up 
+    			to 16 fueling places maximum.
+    		</para>
+    		<para>
+    			PTS controller polls pumps in the same pump channel one by one, pumps in different pump channels 
+    			are polled independently (each pump channel is polled in own thread).
+    		</para>
+    		<para>
+    			PTS controller can simultaneously control up to 16 ATG probes (gauges) (separate probes or probes connected to 
+    			ATG systems / consoles) that use up to 3 various communication protocols (each of the ATG channels can be adjusted to 
+    			a separate communication protocol and baud rate and connect up to 16 ATG probes).
+    		</para>
+    		<para>
+    			PTS controller allows a possibility to lead management over the same fuel dispensers from several POS systems 
+    			and share ATG probes measurement values between several interconnected PTS controllers. Thus every interconnected 
+    			PTS controller is able to provide control over any of the connected fuel dispensers and know ATG system measurement 
+    			data of every other interconnected PTS controller.
+    		</para>
+    	</content>    
+    </section>    
+    <section>
+    	<title>
+    		<legacyUnderline>
+    			Parameters
+    		</legacyUnderline>
+    	</title>
+    	<content>
+    		<para>
+    		PTS controller has built-in parameters, which serve for configuration of the PTS controller, 
+    		setting of configuration for connected fuel dispensers and ATG systems. 
+    		Range of allowed parameters’ addresses is from 0 to 32. 
+    		Range of possible parameters' numbers for each parameter address is from 0 to 9999.
+    		Range of possible parameters' values for each parameter number is from 0 to 0xFFFFFFFF. 
+    		Writing of a parameter value to allowed parameter address with parameter number not equal to 0 will set this 
+    		parameter value for the specified parameter address with parameter number. 
+    		Writing of a parameter value to allowed parameter address with parameter number equal to 0 will cause zeroing 
+    		of all parameter values for all parameter numbers for the specified parameter address.
+    		</para>
+    	</content>    
+    </section>  
+    <section>
+    	<title>
+    		<legacyUnderline>
+    			Manufacturer
+   			</legacyUnderline>
+   		</title>
+    	<content>
+    		<para>
+    			Complete information regarding PTS controller can be found on its web-page:
+    			<externalLink>
+    				<linkText>http://www.technotrade.ua/fuel_pump_controller.html</linkText>
+					<linkUri>http://www.technotrade.ua/fuel_pump_controller.html</linkUri>
+					<linkTarget>_blank</linkTarget>
+				</externalLink>.
+    		<para> 
+    		</para>
+				All technical questions regarding the PTS controller are welcome to be asked on support mailbox:
+				<externalLink>
+    				<linkText>support_1a@technotrade.ua</linkText>
+					<linkUri>mailto:support_1a@technotrade.ua</linkUri>
+				</externalLink>. Our support team will be glad to help you.
+    		<para>
+    		</para>
+				In case if you find any mistakes, omissions in this document or have any suggestions on improvements to this document, 
+				please feel free to e-mail them our support mailbox:
+				<externalLink>
+    				<linkText>support_1a@technotrade.ua</linkText>
+					<linkUri>mailto:support_1a@technotrade.ua</linkUri>
+				</externalLink>. We will be grateful to you for this valuable information.
+    		</para>
+    		<para>
+    			This document has been carefully prepared and is believed to be accurate. 
+    			However TECHNOTRADE LTD, its employees and its agents do not assume responsibility for 
+    			its use either directly or indirectly. TECHNOTRADE LTD reserves a right to make changes 
+    			to this document at any time without notice. Prospective users of this document should contact 
+    			TECHNOTRADE LTD at the time they wish to implement this protocol on their products to become 
+    			aware of any updates that may apply.
+    		</para>
+    		<para>
+    			<legacyBold>
+    				© TECHNOTRADE LTD
+    			</legacyBold>
+    		</para>
+    	</content>    
+    </section> 
+  </developerConceptualDocument>
+</topic>

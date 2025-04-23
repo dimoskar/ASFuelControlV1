@@ -1,0 +1,48 @@
+******************************************TATSUNO Protocol**************************************
+
+****************Polling - GET STATUS
+Dispenser1 - Id1
+96 96 21 05
+
+Dispenser2 - Id2
+96 96 22 05
+
+****************AUTHORISE
+Dispenser1 - WithoutPreset - Price 1,987
+96 96 [21] 82 41 [30] [39 39 39 39 39 39 30] [B1] [39] [B8] [B7] [B1 03 03] [06]
+
+Dispenser1 - Price 1,000 Volume Preset
+96 96 [21] 82 41 [30] [30 30 30 B1 30 30 30] [B1] [30] [30] [30] [B1 03 82] [39] 
+
+Dispenser1 - Price 1,222 Authorise Preset 8,00 Volume
+96 96 [21] 82 41 [30] [30 30 30 B8 30 30 30] [B1] [B2] [B2] [B2] [B1 03 82] [C6]
+
+Dispenser1 - Price 1,222 Authorise Preset 10,00 Volume
+96 96 [21] 82 41 [30] [30 30 B1 30 30 30 30] [B1] [B2] [B2] [B2] [B1 03 82] [3F]
+
+Dispenser1 - Price 1,222 Authorise Preset 10,00 Amount
+96 96 [21] 82 41 [B1] [30 30 B1 30 30 30 30] [B1] [39] [B8] [B7] [B1 03 82] [D2]
+
+****************HALT
+96 96 [21] 82 C3 30 03 00 [78]
+
+****************Resume
+96 96 [21] 82 C3 41 03 00 [09]
+
+****************SET PRICE
+Dispenser2	1,548
+96 96 [22] 82 5A B1 [B1] [35] [B4] [B8] [03 81] [E2]<-CRC
+Dispenser2	1,549
+96 96 [22] 82 5A B1 [B1] [35] [B4] [39] [03 81] [63]<-CRC
+Dispenser2	2,777
+96 96 [22] 82 5A B1 [B2] [B7] [B7] [B7] [03 81] [E7]<-CRC 
+Dispenser2	0,854
+96 96 [22] 82 5A B1 [30] [B8] [35] [B4] [03 81] [E1]<-CRC
+
+
+****************GetTotals
+Dispenser1
+96 96 [21] 82 D8 B1 B1 03 00 [3F]
+Dispenser2
+96 96 [22] 82 D8 B1 B1 03 00 [3F]
+

@@ -1,0 +1,237 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AlertTypeEnum_BalanceDifference" xml:space="preserve">
+    <value>Διαφορά Ισοζυγίου</value>
+  </data>
+  <data name="AlertTypeEnum_CommunicationLossFuelPoint" xml:space="preserve">
+    <value>Σφάλμα Συνδεσης Αντλίας</value>
+  </data>
+  <data name="AlertTypeEnum_CommunicationLossTank" xml:space="preserve">
+    <value>Σφάλμα Συνδεσης Δεξαμενής</value>
+  </data>
+  <data name="AlertTypeEnum_FuelLoss" xml:space="preserve">
+    <value>Αδικαιολόγητη Απώλεια καυσίμου</value>
+  </data>
+  <data name="AlertTypeEnum_FuelPointError" xml:space="preserve">
+    <value>Σφάλμα Αντλίας</value>
+  </data>
+  <data name="AlertTypeEnum_ProgramTermination" xml:space="preserve">
+    <value>Διακοπή λειτουργίας προγράμματος</value>
+  </data>
+  <data name="AlertTypeEnum_TankAlert" xml:space="preserve">
+    <value>Σφάλμα Δεξαμενής</value>
+  </data>
+  <data name="AlertTypeEnum_TitrimetryDataChange" xml:space="preserve">
+    <value>Αλλαγή Ογκομετρικού Πίνακα</value>
+  </data>
+  <data name="AlertTypeEnum_WrongDataFuelPoint" xml:space="preserve">
+    <value>Σφάλμα Δεδομένων Αντλίας</value>
+  </data>
+  <data name="AlertTypeEnum_WrongDataTank" xml:space="preserve">
+    <value>Σφάλμα Δεδομένων Δεξαμενής</value>
+  </data>
+  <data name="ApplicationUserLevelEnum_Administrator" xml:space="preserve">
+    <value>Γενικός Διαχειρηστής</value>
+  </data>
+  <data name="ApplicationUserLevelEnum_Device" xml:space="preserve">
+    <value>Συσκευή</value>
+  </data>
+  <data name="ApplicationUserLevelEnum_SuperUser" xml:space="preserve">
+    <value>Διαχειρηστής</value>
+  </data>
+  <data name="ApplicationUserLevelEnum_User" xml:space="preserve">
+    <value>Χρήστης</value>
+  </data>
+  <data name="CommunicationTypeEnum_CurrentLoop" xml:space="preserve">
+    <value>CurrentLoop</value>
+  </data>
+  <data name="CommunicationTypeEnum_RS232" xml:space="preserve">
+    <value>RS232</value>
+  </data>
+  <data name="CommunicationTypeEnum_RS422" xml:space="preserve">
+    <value>RS422</value>
+  </data>
+  <data name="CommunicationTypeEnum_RS485" xml:space="preserve">
+    <value>RS485</value>
+  </data>
+  <data name="EventType_NozzleTotalDifference" xml:space="preserve">
+    <value>Το Στόμιο στο κανάλι {0} με διεύθυνση {1} έχει {2} λίτρα διαφορά.</value>
+  </data>
+  <data name="EventType_TankTotalDifference" xml:space="preserve">
+    <value>Η Δεξαμενή στο κανάλι {0} με διεύθυνση {1} έχει {2} λίτρα διαφορά.</value>
+  </data>
+  <data name="FlowStateEnum_ValveClosed" xml:space="preserve">
+    <value>Κλειστή Παροχή</value>
+  </data>
+  <data name="FlowStateEnum_ValveOpen" xml:space="preserve">
+    <value>Ανοιχτή Παροχή</value>
+  </data>
+  <data name="OPTConnectionTypeEnum_RS232" xml:space="preserve">
+    <value>RS 232</value>
+  </data>
+  <data name="OPTConnectionTypeEnum_TCPIP" xml:space="preserve">
+    <value>TCP / IP</value>
+  </data>
+  <data name="OPTTypeEnum_Master" xml:space="preserve">
+    <value>Σε Σειρά</value>
+  </data>
+  <data name="OPTTypeEnum_Slave" xml:space="preserve">
+    <value>Παράλληλη Σύνδεση</value>
+  </data>
+  <data name="PaymentTypeEnum_Cash" xml:space="preserve">
+    <value>Μετρητά</value>
+  </data>
+  <data name="PaymentTypeEnum_Credit" xml:space="preserve">
+    <value>Επί Πιστώσει</value>
+  </data>
+  <data name="PaymentTypeEnum_CreditCard" xml:space="preserve">
+    <value>Πιστωτική Κάρτα</value>
+  </data>
+  <data name="ScheduleTypeEnum_Date" xml:space="preserve">
+    <value>βάσει Ημερομηνίας</value>
+  </data>
+  <data name="ScheduleTypeEnum_WayOfWeek" xml:space="preserve">
+    <value>Εβδομαδιαίος</value>
+  </data>
+  <data name="ScheduleWeekDayEnum_DayOff" xml:space="preserve">
+    <value>Αργία</value>
+  </data>
+  <data name="ScheduleWeekDayEnum_Friday" xml:space="preserve">
+    <value>Παρασκευή</value>
+  </data>
+  <data name="ScheduleWeekDayEnum_Monday" xml:space="preserve">
+    <value>Δευτέρα</value>
+  </data>
+  <data name="ScheduleWeekDayEnum_Saturday" xml:space="preserve">
+    <value>Σάββατο</value>
+  </data>
+  <data name="ScheduleWeekDayEnum_Sunday" xml:space="preserve">
+    <value>Κυριακή</value>
+  </data>
+  <data name="ScheduleWeekDayEnum_Thursday" xml:space="preserve">
+    <value>Πέμπτη</value>
+  </data>
+  <data name="ScheduleWeekDayEnum_Tuesday" xml:space="preserve">
+    <value>Τρίτη</value>
+  </data>
+  <data name="ScheduleWeekDayEnum_Wednesday" xml:space="preserve">
+    <value>Τετάρτη</value>
+  </data>
+</root>

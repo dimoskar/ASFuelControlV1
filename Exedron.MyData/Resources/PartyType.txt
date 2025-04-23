@@ -1,0 +1,7 @@
+<[partytype]>
+    <vatNumber>[vatnumber]</vatNumber>
+    <country>[country]</country>
+    <branch>[branch]</branch>
+	<name>[name]</name>
+	[address]
+</[partytype]>

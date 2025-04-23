@@ -1,0 +1,10 @@
+<invoice>
+  [issuer]
+  [counterpart]
+  [invoiceheader]
+  <paymentMethods>
+    [paymentmethoddetails]
+  </paymentMethods>
+  [invoicedetails]
+  [invoicesummary]
+</invoice>

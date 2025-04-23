@@ -1,0 +1,123 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Controller Type="NuovoPignone" BaudRate="2400" Parity="Odd" StopBits="One" DataBits="8">
+  <WorkFlow>
+	<WorkFlowStep Condition="QueryInitialize" BreakLoop="True">
+		<Method Name="Initialize"/>
+	</WorkFlowStep>
+	<WorkFlowStep Condition="QueryPrice" BreakLoop="True">
+		<Method Name="SetPrice">
+			<Write Data="0x00-[0]-0x06-[1]-[2]">
+				<GetMethods>
+					<GetAddress Param1="4" Param2="8" ReturnIndex="0"/>
+					<GetPriceBuffer ReturnIndex="0"/>
+					<GetPriceBuffer ReturnIndex="1"/>
+				</GetMethods>	
+			</Write>
+			<Write Data="0x00-[0]-[1]">
+				<GetMethods>
+					<GetAddress Param1="5" Param2="8" ReturnIndex="0"/>
+					<GetAddress Param1="250" Param2="8" ReturnIndex="0"/>
+				</GetMethods>	
+				<Evaluation Response="[0]" Skip="0" Take="1">
+					<GetMethods>
+						<GetAddress Param1="5" Param2="8" ReturnIndex="0"/>
+					</GetMethods>
+				</Evaluation>
+			</Write>
+		</Method>
+	</WorkFlowStep>
+	<WorkFlowStep Condition="QueryTotals" BreakLoop="True">
+		<Method Name="GetVolumeTotals">
+			<Write Data="0x00-[0]-0x08">
+				<GetMethods>
+					<GetAddress Param1="1" Param2="8" ReturnIndex="0"/>
+				</GetMethods>	
+				<Evaluation Method="EvaluateTotalVolume" Skip="2" Take="6"/>
+			</Write>
+		</Method>
+		<Method Name="GetAmountTotals">
+			<Write Data="0x00-[GetAddress(2, 8)]-0x07">
+				<GetMethods>
+					<GetAddress Param1="2" Param2="8" ReturnIndex="0"/>
+				</GetMethods>	
+				<Evaluation Method="EvaluateTotalAmount" Skip="10" Take="6"/>
+			</Write>
+		</Method>
+		<Method Name="GetDisplay">
+			<Write Data="0x00-[0]-0x0B">
+				<GetMethods>
+					<GetAddress Param1="2" Param2="8" ReturnIndex="0"/>
+				</GetMethods>	
+				<Evaluation Method="EvaluateVolume" Skip="2" Take="6"/>
+				<Evaluation Method="EvaluateDisplay" Skip="10" Take="6"/>
+			</Write>
+		</Method>
+	</WorkFlowStep>
+	<WorkFlowStep Condition="QueryHalt" BreakLoop="True">
+		<Method Name="Halt">
+			<Write Data="0x00-[0]-0x0D">
+				<GetMethods>
+					<GetAddress Param1="4" Param2="8" ReturnIndex="0"/>
+				</GetMethods>	
+			</Write>
+			<Write Data="0x00-[0]-[1]">
+				<GetMethods>
+					<GetAddress Param1="5" Param2="8" ReturnIndex="0"/>
+					<GetAddress Param1="250" Param2="8" ReturnIndex="0"/>
+				</GetMethods>	
+				<Evaluation Response="[0]" Skip="0" Take="1">
+					<GetMethods>
+						<GetAddress Param1="5" Param2="8" ReturnIndex="0"/>
+					</GetMethods>
+				</Evaluation>
+			</Write>	
+		</Method>
+	</WorkFlowStep>
+	<WorkFlowStep Condition="QueryAuthorize" BreakLoop="True">
+		<Method Name="Authorize">
+			<Write Data="0x00-[0]-0x0E">
+				<GetMethods>
+					<GetAddress Param1="1" Param2="8" ReturnIndex="0"/>
+				</GetMethods>	
+			</Write>
+			<Write Data="0x00-[0]-[1]">
+				<GetMethods>
+					<GetAddress Param1="5" Param2="8" ReturnIndex="0"/>
+					<GetAddress Param1="250" Param2="8" ReturnIndex="0"/>
+				</GetMethods>
+				<Evaluation Response="[0]" Skip="0" Take="1">
+					<GetMethods>
+						<GetAddress Param1="5" Param2="8" ReturnIndex="0"/>
+					</GetMethods>
+				</Evaluation>
+			</Write>
+		</Method>
+	</WorkFlowStep>
+	<WorkFlowStep Condition="IsWorking" BreakLoop="False">
+		<Method Name="GetDisplay">
+			<Write Data="0x00-[0]-0x0B">
+				<GetMethods>
+					<GetAddress Param1="2" Param2="8" ReturnIndex="0"/>
+				</GetMethods>
+				<Evaluation Method="EvaluateVolume" Skip="2" Take="6"/>
+				<Evaluation Method="EvaluateDisplay" Skip="10" Take="6"/>
+			</Write>
+		</Method>
+	</WorkFlowStep>
+	<WorkFlowStep BreakLoop="False">
+		<Method Name="GetStatus">
+			<Write Data="0x00-[0]">
+				<GetMethods>
+					<GetAddress Param1="1" Param2="8" ReturnIndex="0"/>
+				</GetMethods>
+				<Evaluation Method="EvaluateStatus" Skip="1" Take="1"/>
+			</Write>
+		</Method>
+	</WorkFlowStep>
+  </WorkFlow>
+  <Statuses>
+    <Status Data="0x00" Value="Idle"/>
+    <Status Data="0x08" Value="Nozzle"/>
+    <Status Data="0x0A" Value="Work"/>
+  </Statuses>
+</Controller>

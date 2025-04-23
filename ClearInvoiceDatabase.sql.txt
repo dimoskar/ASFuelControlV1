@@ -1,0 +1,17 @@
+delete tanksale
+delete InvoiceLineRelation
+delete InvoiceRelation
+delete InvoiceLine
+delete salestransaction
+delete invoice
+delete balance
+delete tankfilling
+
+delete tankprice
+delete usageperiod
+
+delete SystemEventData
+delete SystemEvent
+
+delete PendingSend
+delete FuelTypePrice

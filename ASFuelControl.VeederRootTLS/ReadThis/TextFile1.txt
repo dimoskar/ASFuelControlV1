@@ -1,0 +1,6 @@
+﻿
+        //                                                               -->      -->      -->
+        //<SOH>i20101 1502261734 01 1 0000 07 4446B667 4446B667 45C82935 438D6EC8 00000000 414671FB 0000000&&EEE1<ETX>
+        //            YYMMDDHHmm TT p ssss NN FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF&&CCCC<ETX>
+        //                       ID           LITRA    LITRA    Ullage   Height   Water    Temp
+        //     i20101 1502261742 01 1 0000 07 4446B667 4446B667 45C82935 438D6F71 00000000 41468A6C 00000000 &&EEF2

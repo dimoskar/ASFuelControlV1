@@ -1,0 +1,11 @@
+<invoiceSummary>
+    <totalNetValue>[totalnetvalue]</totalNetValue>
+    <totalVatAmount>[totalvatamount]</totalVatAmount>
+    <totalWithheldAmount>[totalwithheldamount]</totalWithheldAmount>
+    <totalFeesAmount>[totalfeesamount]</totalFeesAmount>
+    <totalStampDutyAmount>[totalstampdutyamount]</totalStampDutyAmount>
+    <totalOtherTaxesAmount>[totalothertaxesamount]</totalOtherTaxesAmount>
+    <totalDeductionsAmount>[totaldeductionsamount]</totalDeductionsAmount>
+    <totalGrossValue>[totalgrossvalue]</totalGrossValue>
+    [incomeclassification]
+</invoiceSummary>

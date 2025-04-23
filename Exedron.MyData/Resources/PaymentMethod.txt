@@ -1,0 +1,5 @@
+<paymentMethodDetails>
+  <type>[type]</type>
+  <amount>[amount]</amount>
+  <paymentMethodInfo>[paymentmethodinfo]</paymentMethodInfo>
+</paymentMethodDetails>

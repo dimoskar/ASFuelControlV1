@@ -1,0 +1,4 @@
+<otherDeliveryNoteHeader>
+    [loadingAddress]
+	[deliveryAddress]
+</otherDeliveryNoteHeader>

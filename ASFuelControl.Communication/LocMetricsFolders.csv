@@ -1,0 +1,11 @@
+Folder,Files,LOC,SLOC-P,SLOC-L,MVG,BLOC,C&SLOC,CLOC,CWORD,HCLOC,HCWORD
+Total,18,4717,3777,2372,347,635,5,305,1001,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication,18,4717,3777,2372,347,635,5,305,1001,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Enums,5,130,118,50,7,12,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Properties,2,299,158,86,25,36,1,105,583,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Service References,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Service References\FuelFlowService,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\obj\x86,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\obj\x86\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\obj\x86\Release,0,0,0,0,0,0,0,0,0,0,0

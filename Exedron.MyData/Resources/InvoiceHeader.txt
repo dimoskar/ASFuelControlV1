@@ -1,0 +1,11 @@
+<invoiceHeader>
+    <series>[series]</series>
+    <aa>[aa]</aa>
+    <issueDate>[issuedate]</issueDate>
+    <invoiceType>[invoicetype]</invoiceType>
+    <vatPaymentSuspension>[vatpaymentsuspension]</vatPaymentSuspension>
+    <currency>[currency]</currency>
+	<correlatedInvoices>[correlatedinvoices]</correlatedInvoices>
+	<movePurpose>[movepurpose]</movePurpose>
+	[otherDeliveryNoteHeader]
+</invoiceHeader>

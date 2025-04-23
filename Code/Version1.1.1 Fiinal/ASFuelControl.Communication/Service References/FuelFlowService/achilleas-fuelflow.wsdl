@@ -1,0 +1,829 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wsdl:definitions xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:tm="http://microsoft.com/wsdl/mime/textMatching/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:tns="http://mygsi.eu/" xmlns:s1="http://www.gsis.gr/ff/1.0" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:s="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" targetNamespace="http://mygsi.eu/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+  <wsdl:types>
+    <s:schema elementFormDefault="qualified" targetNamespace="http://mygsi.eu/">
+      <s:import namespace="http://www.gsis.gr/ff/1.0" />
+      <s:element name="SendReceipt">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="DS" type="s1:Fuelflows_TypeIncomeReceipts" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendReceiptResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="SendReceiptResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendBalance">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="DS" type="s1:Fuelflows_TypeBalance" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendBalanceResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="SendBalanceResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendDelivery">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="DS" type="s1:Fuelflows_TypeDeliveryNote" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendDeliveryResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="SendDeliveryResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendAlert">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="DS" type="s1:Fuelflows_TypeAlertRegistration" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendAlertResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="SendAlertResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendLiterCheck">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="DS" type="s1:Fuelflows_TypeLiterCheck" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendLiterCheckResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="SendLiterCheckResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendTankCheck">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="DS" type="s1:Fuelflows_TypeTankCheck" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendTankCheckResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="SendTankCheckResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="PriceChange">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="DS" type="s1:Fuelflows_TypePriceChange" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="PriceChangeResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="PriceChangeResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="CheckOTP">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="preKey" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="CheckOTPResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="CheckOTPResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="UpdateSoftWare">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="preKey" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="_sData" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="UpdateSoftWareResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="UpdateSoftWareResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="RegisterOTP">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="preKey" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="RegisterOTPResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="RegisterOTPResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SWUpdate">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="preKey" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="SData" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SWUpdateResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="SWUpdateResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetRegNums">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="AMDIKA" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="Token" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetRegNumsResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetRegNumsResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+    </s:schema>
+    <s:schema elementFormDefault="qualified" targetNamespace="http://www.gsis.gr/ff/1.0">
+      <s:complexType name="Fuelflows_TypeIncomeReceipts">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="Header" type="s1:Header_Type" />
+          <s:element minOccurs="1" maxOccurs="1" name="NUM_OF_RECEIPTS" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="unbounded" name="IncomeReceipt">
+            <s:complexType>
+              <s:sequence>
+                <s:element minOccurs="0" maxOccurs="1" name="F_31A" type="s:string" />
+                <s:element minOccurs="0" maxOccurs="1" name="F_31AA" type="s:string" />
+                <s:element minOccurs="0" maxOccurs="1" name="F_31B" type="s:string" />
+                <s:element minOccurs="0" maxOccurs="1" name="F_31C" type="s:string" />
+                <s:element minOccurs="0" maxOccurs="1" name="F_31D" type="s1:Fuel_Type" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_31E" type="s:dateTime" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_31F" type="s:decimal" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_31G" type="s:decimal" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_31H" type="s:decimal" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_31I" type="s:decimal" />
+                <s:element minOccurs="0" maxOccurs="1" name="F_32" type="s1:CarData_Type" />
+                <s:element minOccurs="0" maxOccurs="1" name="F_33" type="s:string" />
+                <s:element minOccurs="0" maxOccurs="1" name="F_34" type="s:string" />
+                <s:element minOccurs="0" maxOccurs="1" name="F_35" type="s:string" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_36" type="s:decimal" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_37" type="s:int" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_38" type="s:decimal" />
+              </s:sequence>
+            </s:complexType>
+          </s:element>
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="Header_Type">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="CompanyTIN" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="SubmitterTIN" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="eToken" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="SubmissionDate" type="s:dateTime" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="Fuel_Type">
+        <s:sequence>
+          <s:element minOccurs="1" maxOccurs="1" name="Code" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="Description" type="s:string" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="CarData_Type">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="plateLetters" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="plateNumber" type="s:string" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="Fuelflows_TypeBalance">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="Header" type="s1:Header_Type" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_HMEROMINIA_R">
+            <s:complexType>
+              <s:sequence>
+                <s:element minOccurs="1" maxOccurs="1" name="F_DATEDURATION" type="s:date" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_ORA_ARXHS_R" type="s:time" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_ORA_LIXIS" type="s:time" />
+              </s:sequence>
+            </s:complexType>
+          </s:element>
+          <s:element minOccurs="0" maxOccurs="1" name="FuelMovements">
+            <s:complexType>
+              <s:sequence>
+                <s:element minOccurs="0" maxOccurs="unbounded" name="FuelMovement">
+                  <s:complexType>
+                    <s:sequence>
+                      <s:element minOccurs="0" maxOccurs="1" name="F_KAYSIMO_EIDOS" type="s1:Fuel_Type" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2236A1" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2236A2" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2236B1" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2236B2" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2237" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2238" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2239A" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2239B" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_22310" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_22310A" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_22310B" type="s:decimal" />
+                    </s:sequence>
+                  </s:complexType>
+                </s:element>
+              </s:sequence>
+              <s:attribute name="F_KAYSIMA_NO" type="s:int" use="required" />
+            </s:complexType>
+          </s:element>
+          <s:element minOccurs="0" maxOccurs="1" name="Reservoirs">
+            <s:complexType>
+              <s:sequence>
+                <s:element minOccurs="0" maxOccurs="unbounded" name="Reservoir">
+                  <s:complexType>
+                    <s:sequence>
+                      <s:element minOccurs="1" maxOccurs="1" name="F_DEXAMENH_AA" type="s:int" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_DEXAMENH_XORITIKOTITA" type="s:decimal" />
+                      <s:element minOccurs="0" maxOccurs="1" name="F_KAYSIMO_EIDOS" type="s1:Fuel_Type" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2232_MM" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2232_VOL" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2232_TEMP" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2233" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2234_MM" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2234_VOL" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2234_TEMP" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2235" type="s:decimal" />
+                    </s:sequence>
+                  </s:complexType>
+                </s:element>
+              </s:sequence>
+              <s:attribute name="ReservoirsNumber" type="s:int" use="required" />
+            </s:complexType>
+          </s:element>
+          <s:element minOccurs="0" maxOccurs="1" name="PumpsPerFuelType">
+            <s:complexType>
+              <s:sequence>
+                <s:element minOccurs="0" maxOccurs="unbounded" name="FuelTypes">
+                  <s:complexType>
+                    <s:sequence>
+                      <s:element minOccurs="0" maxOccurs="1" name="F_KAYSIMO_AA" type="s1:Fuel_Type" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2244B" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2245B" type="s:decimal" />
+                      <s:element minOccurs="0" maxOccurs="unbounded" name="FuelTypePump">
+                        <s:complexType>
+                          <s:sequence>
+                            <s:element minOccurs="0" maxOccurs="1" name="FuelType" type="s1:Fuel_Type" />
+                            <s:element minOccurs="0" maxOccurs="1" name="F_ANTLIA_AA" type="s:string" />
+                            <s:element minOccurs="0" maxOccurs="1" name="F_2241A" type="s:string" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2241B" type="s:int" />
+                            <s:element minOccurs="0" maxOccurs="1" name="F_Pump_Reservoir" type="s:string" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2242" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2243" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2244A" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2244B" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2244C" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2244D" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2244E" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2244F" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2245A" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2245B" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2245C" type="s:decimal" />
+                          </s:sequence>
+                        </s:complexType>
+                      </s:element>
+                    </s:sequence>
+                    <s:attribute name="TotalPumpsNumber" type="s:int" use="required" />
+                  </s:complexType>
+                </s:element>
+              </s:sequence>
+              <s:attribute name="F_KAYSIMA_NO" type="s:int" use="required" />
+            </s:complexType>
+          </s:element>
+          <s:element minOccurs="0" maxOccurs="1" name="DivergencesPerFuelType">
+            <s:complexType>
+              <s:sequence>
+                <s:element minOccurs="0" maxOccurs="unbounded" name="FuelTypeDivergence">
+                  <s:complexType>
+                    <s:sequence>
+                      <s:element minOccurs="0" maxOccurs="1" name="FuelType" type="s1:Fuel_Type" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2251" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2252" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2253" type="s:decimal" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_2254" type="s:decimal" />
+                    </s:sequence>
+                  </s:complexType>
+                </s:element>
+              </s:sequence>
+              <s:attribute name="FuelTypesNumber" type="s:int" use="required" />
+            </s:complexType>
+          </s:element>
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="Fuelflows_TypeDeliveryNote">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="Header" type="s1:Header_Type" />
+          <s:element minOccurs="0" maxOccurs="1" name="Document">
+            <s:complexType>
+              <s:sequence>
+                <s:element minOccurs="0" maxOccurs="1" name="F_2151" type="s:string" />
+                <s:element minOccurs="0" maxOccurs="1" name="F_2151A" type="s:string" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_DELIVERY_TYPE" type="s:int" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_2152A" type="s:int" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_2152B" type="s:int" />
+                <s:element minOccurs="0" maxOccurs="1" name="F_2152C" type="s:string" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_2152D" type="s:dateTime" />
+                <s:element minOccurs="0" maxOccurs="1" name="F_2153" type="s:string" />
+              </s:sequence>
+            </s:complexType>
+          </s:element>
+          <s:element minOccurs="0" maxOccurs="unbounded" name="FuelData">
+            <s:complexType>
+              <s:sequence>
+                <s:element minOccurs="0" maxOccurs="1" name="FUELTYPE" type="s1:Fuel_Type" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_2154" type="s:decimal" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_2155" type="s:decimal" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_2156" type="s:decimal" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_2157" type="s:decimal" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_217" type="s:decimal" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_218" type="s:decimal" />
+                <s:element minOccurs="1" maxOccurs="1" name="F_219" type="s:decimal" />
+              </s:sequence>
+            </s:complexType>
+          </s:element>
+          <s:element minOccurs="0" maxOccurs="1" name="Reservoirs">
+            <s:complexType>
+              <s:sequence>
+                <s:element minOccurs="0" maxOccurs="unbounded" name="Reservoir">
+                  <s:complexType>
+                    <s:sequence>
+                      <s:element minOccurs="0" maxOccurs="1" name="F_211" type="s:string" />
+                      <s:element minOccurs="0" maxOccurs="1" name="F_212" type="s1:Fuel_Type" />
+                      <s:element minOccurs="1" maxOccurs="1" name="F_213" type="s:dateTime" />
+                      <s:element minOccurs="0" maxOccurs="1" name="DataBefore">
+                        <s:complexType>
+                          <s:sequence>
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2141" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2142A" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2142B" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2143" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2144" type="s:dateTime" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2145" type="s:dateTime" />
+                          </s:sequence>
+                        </s:complexType>
+                      </s:element>
+                      <s:element minOccurs="0" maxOccurs="1" name="DataAfter">
+                        <s:complexType>
+                          <s:sequence>
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2161" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2162A" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2162B" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2163" type="s:decimal" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2164" type="s:dateTime" />
+                            <s:element minOccurs="1" maxOccurs="1" name="F_2165" type="s:dateTime" />
+                          </s:sequence>
+                        </s:complexType>
+                      </s:element>
+                    </s:sequence>
+                  </s:complexType>
+                </s:element>
+              </s:sequence>
+              <s:attribute name="ReservoirsNumber" type="s:int" use="required" />
+            </s:complexType>
+          </s:element>
+        </s:sequence>
+        <s:attribute name="F_AR_EIDOS_KAYSIMOU" type="s:int" use="required" />
+      </s:complexType>
+      <s:complexType name="Fuelflows_TypeAlertRegistration">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="Header" type="s1:Header_Type" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_ALERT" type="s1:Alert_Type" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="Alert_Type">
+        <s:sequence>
+          <s:element minOccurs="1" maxOccurs="1" name="F_ALERTID" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="F_DATE" type="s:dateTime" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_REASONING" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_DEVICE_LABEL" type="s:string" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="Fuelflows_TypeLiterCheck">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="Header" type="s1:Header_Type" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="F_231_1" type="s:dateTime" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_FUEL_CODE" type="s1:Fuel_Type" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_LABEL_OGKOMETR" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_LABEL_POOL" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="F_CAPACITY" type="s:decimal" />
+          <s:element minOccurs="1" maxOccurs="1" name="F_CAPACITY_15" type="s:decimal" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="Fuelflows_TypeTankCheck">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="Header" type="s1:Header_Type" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="F_3001" type="s:dateTime" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_LABEL" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="F_3002" type="s:decimal" />
+          <s:element minOccurs="1" maxOccurs="1" name="F_3003" type="s:decimal" />
+          <s:element minOccurs="1" maxOccurs="1" name="F_3004" type="s:decimal" />
+          <s:element minOccurs="1" maxOccurs="1" name="F_3005" type="s:decimal" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="Fuelflows_TypePriceChange">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="1" name="Header" type="s1:Header_Type" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="F_4001" type="s:dateTime" />
+          <s:element minOccurs="0" maxOccurs="1" name="F_4002" type="s1:Fuel_Type" />
+          <s:element minOccurs="1" maxOccurs="1" name="F_4003" type="s:decimal" />
+        </s:sequence>
+      </s:complexType>
+    </s:schema>
+  </wsdl:types>
+  <wsdl:message name="SendReceiptSoapIn">
+    <wsdl:part name="parameters" element="tns:SendReceipt" />
+  </wsdl:message>
+  <wsdl:message name="SendReceiptSoapOut">
+    <wsdl:part name="parameters" element="tns:SendReceiptResponse" />
+  </wsdl:message>
+  <wsdl:message name="SendBalanceSoapIn">
+    <wsdl:part name="parameters" element="tns:SendBalance" />
+  </wsdl:message>
+  <wsdl:message name="SendBalanceSoapOut">
+    <wsdl:part name="parameters" element="tns:SendBalanceResponse" />
+  </wsdl:message>
+  <wsdl:message name="SendDeliverySoapIn">
+    <wsdl:part name="parameters" element="tns:SendDelivery" />
+  </wsdl:message>
+  <wsdl:message name="SendDeliverySoapOut">
+    <wsdl:part name="parameters" element="tns:SendDeliveryResponse" />
+  </wsdl:message>
+  <wsdl:message name="SendAlertSoapIn">
+    <wsdl:part name="parameters" element="tns:SendAlert" />
+  </wsdl:message>
+  <wsdl:message name="SendAlertSoapOut">
+    <wsdl:part name="parameters" element="tns:SendAlertResponse" />
+  </wsdl:message>
+  <wsdl:message name="SendLiterCheckSoapIn">
+    <wsdl:part name="parameters" element="tns:SendLiterCheck" />
+  </wsdl:message>
+  <wsdl:message name="SendLiterCheckSoapOut">
+    <wsdl:part name="parameters" element="tns:SendLiterCheckResponse" />
+  </wsdl:message>
+  <wsdl:message name="SendTankCheckSoapIn">
+    <wsdl:part name="parameters" element="tns:SendTankCheck" />
+  </wsdl:message>
+  <wsdl:message name="SendTankCheckSoapOut">
+    <wsdl:part name="parameters" element="tns:SendTankCheckResponse" />
+  </wsdl:message>
+  <wsdl:message name="PriceChangeSoapIn">
+    <wsdl:part name="parameters" element="tns:PriceChange" />
+  </wsdl:message>
+  <wsdl:message name="PriceChangeSoapOut">
+    <wsdl:part name="parameters" element="tns:PriceChangeResponse" />
+  </wsdl:message>
+  <wsdl:message name="CheckOTPSoapIn">
+    <wsdl:part name="parameters" element="tns:CheckOTP" />
+  </wsdl:message>
+  <wsdl:message name="CheckOTPSoapOut">
+    <wsdl:part name="parameters" element="tns:CheckOTPResponse" />
+  </wsdl:message>
+  <wsdl:message name="UpdateSoftWareSoapIn">
+    <wsdl:part name="parameters" element="tns:UpdateSoftWare" />
+  </wsdl:message>
+  <wsdl:message name="UpdateSoftWareSoapOut">
+    <wsdl:part name="parameters" element="tns:UpdateSoftWareResponse" />
+  </wsdl:message>
+  <wsdl:message name="RegisterOTPSoapIn">
+    <wsdl:part name="parameters" element="tns:RegisterOTP" />
+  </wsdl:message>
+  <wsdl:message name="RegisterOTPSoapOut">
+    <wsdl:part name="parameters" element="tns:RegisterOTPResponse" />
+  </wsdl:message>
+  <wsdl:message name="SWUpdateSoapIn">
+    <wsdl:part name="parameters" element="tns:SWUpdate" />
+  </wsdl:message>
+  <wsdl:message name="SWUpdateSoapOut">
+    <wsdl:part name="parameters" element="tns:SWUpdateResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetRegNumsSoapIn">
+    <wsdl:part name="parameters" element="tns:GetRegNums" />
+  </wsdl:message>
+  <wsdl:message name="GetRegNumsSoapOut">
+    <wsdl:part name="parameters" element="tns:GetRegNumsResponse" />
+  </wsdl:message>
+  <wsdl:portType name="achilleas_fuelflow_receiptSoap">
+    <wsdl:operation name="SendReceipt">
+      <wsdl:input message="tns:SendReceiptSoapIn" />
+      <wsdl:output message="tns:SendReceiptSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="SendBalance">
+      <wsdl:input message="tns:SendBalanceSoapIn" />
+      <wsdl:output message="tns:SendBalanceSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="SendDelivery">
+      <wsdl:input message="tns:SendDeliverySoapIn" />
+      <wsdl:output message="tns:SendDeliverySoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="SendAlert">
+      <wsdl:input message="tns:SendAlertSoapIn" />
+      <wsdl:output message="tns:SendAlertSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="SendLiterCheck">
+      <wsdl:input message="tns:SendLiterCheckSoapIn" />
+      <wsdl:output message="tns:SendLiterCheckSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="SendTankCheck">
+      <wsdl:input message="tns:SendTankCheckSoapIn" />
+      <wsdl:output message="tns:SendTankCheckSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="PriceChange">
+      <wsdl:input message="tns:PriceChangeSoapIn" />
+      <wsdl:output message="tns:PriceChangeSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="CheckOTP">
+      <wsdl:input message="tns:CheckOTPSoapIn" />
+      <wsdl:output message="tns:CheckOTPSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="UpdateSoftWare">
+      <wsdl:input message="tns:UpdateSoftWareSoapIn" />
+      <wsdl:output message="tns:UpdateSoftWareSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="RegisterOTP">
+      <wsdl:input message="tns:RegisterOTPSoapIn" />
+      <wsdl:output message="tns:RegisterOTPSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="SWUpdate">
+      <wsdl:input message="tns:SWUpdateSoapIn" />
+      <wsdl:output message="tns:SWUpdateSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetRegNums">
+      <wsdl:input message="tns:GetRegNumsSoapIn" />
+      <wsdl:output message="tns:GetRegNumsSoapOut" />
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="achilleas_fuelflow_receiptSoap" type="tns:achilleas_fuelflow_receiptSoap">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="SendReceipt">
+      <soap:operation soapAction="http://mygsi.eu/SendReceipt" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendBalance">
+      <soap:operation soapAction="http://mygsi.eu/SendBalance" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendDelivery">
+      <soap:operation soapAction="http://mygsi.eu/SendDelivery" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendAlert">
+      <soap:operation soapAction="http://mygsi.eu/SendAlert" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendLiterCheck">
+      <soap:operation soapAction="http://mygsi.eu/SendLiterCheck" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendTankCheck">
+      <soap:operation soapAction="http://mygsi.eu/SendTankCheck" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="PriceChange">
+      <soap:operation soapAction="http://mygsi.eu/PriceChange" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="CheckOTP">
+      <soap:operation soapAction="http://mygsi.eu/CheckOTP" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="UpdateSoftWare">
+      <soap:operation soapAction="http://mygsi.eu/UpdateSoftWare" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="RegisterOTP">
+      <soap:operation soapAction="http://mygsi.eu/RegisterOTP" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SWUpdate">
+      <soap:operation soapAction="http://mygsi.eu/SWUpdate" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetRegNums">
+      <soap:operation soapAction="http://mygsi.eu/GetRegNums" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:binding name="achilleas_fuelflow_receiptSoap12" type="tns:achilleas_fuelflow_receiptSoap">
+    <soap12:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="SendReceipt">
+      <soap12:operation soapAction="http://mygsi.eu/SendReceipt" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendBalance">
+      <soap12:operation soapAction="http://mygsi.eu/SendBalance" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendDelivery">
+      <soap12:operation soapAction="http://mygsi.eu/SendDelivery" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendAlert">
+      <soap12:operation soapAction="http://mygsi.eu/SendAlert" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendLiterCheck">
+      <soap12:operation soapAction="http://mygsi.eu/SendLiterCheck" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendTankCheck">
+      <soap12:operation soapAction="http://mygsi.eu/SendTankCheck" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="PriceChange">
+      <soap12:operation soapAction="http://mygsi.eu/PriceChange" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="CheckOTP">
+      <soap12:operation soapAction="http://mygsi.eu/CheckOTP" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="UpdateSoftWare">
+      <soap12:operation soapAction="http://mygsi.eu/UpdateSoftWare" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="RegisterOTP">
+      <soap12:operation soapAction="http://mygsi.eu/RegisterOTP" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SWUpdate">
+      <soap12:operation soapAction="http://mygsi.eu/SWUpdate" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetRegNums">
+      <soap12:operation soapAction="http://mygsi.eu/GetRegNums" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="achilleas_fuelflow_receipt">
+    <wsdl:port name="achilleas_fuelflow_receiptSoap" binding="tns:achilleas_fuelflow_receiptSoap">
+      <soap:address location="http://eisrek.mygsi.eu/achilleas-fuelflow.asmx" />
+    </wsdl:port>
+    <wsdl:port name="achilleas_fuelflow_receiptSoap12" binding="tns:achilleas_fuelflow_receiptSoap12">
+      <soap12:address location="http://eisrek.mygsi.eu/achilleas-fuelflow.asmx" />
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

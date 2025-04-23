@@ -1,0 +1,749 @@
+Folder,Files,LOC,SLOC-P,SLOC-L,MVG,BLOC,C&SLOC,CLOC,CWORD,HCLOC,HCWORD
+Total,2402,726987,573545,376963,52060,70913,2540,82529,257976,10,190
+D:\DEV\Exedron\ASFuelControl.Windows.45,2402,726987,573545,376963,52060,70913,2540,82529,257976,10,190
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6,4,898,554,341,65,117,10,227,899,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6_Dual,3,695,605,339,86,61,0,29,257,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6_Dual\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6_Dual\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6_Dual\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6_Dual\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6_Mono,3,709,617,347,88,63,0,29,257,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.AK6_Mono\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Ametek,4,668,579,331,42,72,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Ametek\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Ametek\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Ametek\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Ametek\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Box69,7,2446,1909,1220,319,302,12,235,880,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Box69\Properties,2,73,36,12,2,12,1,25,150,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Box69b,2,975,743,438,91,104,10,128,488,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Box69b\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Box69b\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Box69b\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Box69b\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.BoxIFSF,2,847,760,395,87,50,0,37,169,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.BoxIFSF\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.BoxIFSF\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.BoxIFSF\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.BoxIFSF\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Common,43,6663,4718,2817,672,776,15,1169,4229,0,4
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Common\Enumerators,17,473,427,143,9,46,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Common\Properties,3,542,294,164,50,66,2,182,906,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Common\Sales,4,640,318,215,23,80,12,242,849,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Common\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Common\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Common\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication,18,4717,3777,2372,347,635,5,305,1001,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Enums,5,130,118,50,7,12,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Properties,2,299,158,86,25,36,1,105,583,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Service References,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\Service References\FuelFlowService,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\obj\x86,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\obj\x86\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Communication\obj\x86\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Data,19,27319,23877,12657,2800,2670,77,772,4221,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Data\Implementation,7,6753,5682,3435,1010,669,76,402,1425,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Data\Properties,2,509,276,158,48,59,1,174,949,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Data\Validators,7,682,478,288,66,111,0,93,277,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Data\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Data\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Data\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.EMR3,3,700,576,330,79,97,9,27,174,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.EMR3\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.EMR3\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.EMR3\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.EMR3\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Elbis,4,1413,841,524,112,168,1,404,1374,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Elbis\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Euromat,2,82,53,28,2,12,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Euromat\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Europump,3,946,760,448,114,117,3,69,680,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Europump\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Europump\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Europump\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Europump\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Fafnir,4,575,455,274,48,94,3,26,174,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.FafnirDirect,4,553,434,262,44,96,3,23,165,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.FafnirDirect\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.FafnirDirect\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.FafnirDirect\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.FafnirDirect\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Fafnir\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Fafnir\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Fafnir\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Fafnir\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.FuelPump,3,1091,772,463,142,133,4,186,651,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.FuelPump\Properties,2,73,36,12,2,12,1,25,150,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.FuelPump\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.FuelPump\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.FuelPump\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GVR,5,1195,1126,306,63,51,0,18,123,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GVR\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GVR\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GVR\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GVR\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Gilbarco,9,2741,2395,1473,354,255,44,91,569,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoCn,3,867,659,400,104,107,16,101,491,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoCn\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoCn\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoCn\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoCn\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoFrontier,4,897,849,508,96,48,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoFrontier\Properties,1,21,19,5,0,2,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoFrontier\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoFrontier\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoFrontier\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoMulti,5,1093,760,457,118,114,18,219,1370,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoMulti\Properties,3,128,61,26,4,20,2,47,269,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoMulti\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoMulti\obj\x86,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoMulti\obj\x86\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.GilbarcoMulti\obj\x86\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Gilbarco\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Gilbarco\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Gilbarco\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Gilbarco\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Logging,2,321,259,161,27,20,0,42,216,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Logging\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Logging\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Logging\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Logging\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Millennium,3,1025,767,451,100,128,13,130,803,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.MillenniumMulti,3,2050,1694,965,248,237,21,119,730,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.MillenniumMultiV1,2,964,812,464,123,103,11,49,297,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.MillenniumMultiV1\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.MillenniumMultiV1\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.MillenniumMultiV1\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.MillenniumMultiV1\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.MillenniumMulti\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.MillenniumMulti\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.MillenniumMulti\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.MillenniumMulti\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Millennium\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Millennium\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Millennium\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Millennium\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignone,3,787,678,406,94,79,2,30,208,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignoneCL,3,795,652,377,89,98,0,45,216,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignoneCL\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignoneCL\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignoneCL\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignoneCL\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignoneV1,3,956,642,392,95,270,7,44,270,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignoneV1\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignoneV1\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignoneV1\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignoneV1\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignone\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignone\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignone\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.NuovoPignone\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.PTS,2,731,576,353,120,104,2,51,264,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.PTS\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Petrotec,3,922,786,472,95,72,0,64,234,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.PetrotecCEM01,3,896,736,435,90,112,5,48,239,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.PetrotecCEM01\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Petrotec\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Petrotec\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Petrotec\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Petrotec\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Prime,3,846,674,376,83,111,0,61,498,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Prime\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Prime\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Prime\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Prime\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Pumalan,3,1200,929,635,114,214,1,57,397,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Pumalan2,3,1154,879,611,101,219,1,56,387,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Pumalan2\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Pumalan2\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Pumalan2\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.PumalanRelay,3,1313,1001,677,118,230,1,82,446,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.PumalanRelay\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.PumalanRelay\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.PumalanRelay\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.PumalanRelay\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Pumalan\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Pumalan\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Pumalan\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Pumalan\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.RFID,6,333,248,134,11,46,10,39,200,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.RFID\Properties,2,64,28,9,1,11,1,25,150,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.RFID\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.RFID\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.RFID\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Reports,80,27464,21863,18123,443,891,9,4710,3780,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Reports\BalanceReports,11,6405,5371,3549,367,512,1,522,495,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Reports\Invoices,14,6204,4951,4444,12,49,2,1204,758,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Reports\Properties,3,160,87,36,7,23,2,50,282,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Reports\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Reports\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Reports\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Schwelm,3,915,721,437,122,102,15,92,450,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Schwelm\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Schwelm\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Schwelm\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Schwelm\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItaliana,4,618,476,280,52,84,0,58,238,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaL,4,656,472,277,48,90,0,94,366,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaLOng,4,637,456,269,48,87,0,94,366,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaLOng\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaL\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaL\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaL\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaL\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaXMT,4,617,478,279,52,83,0,56,232,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaXMT\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaXMT\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaXMT\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItalianaXMT\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItaliana\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItaliana\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItaliana\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.StartItaliana\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Tank,3,948,561,349,113,119,1,268,999,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Tank\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Tank\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Tank\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Tank\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Teosis,2,139,93,48,3,18,1,28,155,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Teosis\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Teosis\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Teosis\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.UniversalPump,5,1265,803,360,74,202,0,260,757,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.UniversalPump\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.UniversalPump\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.UniversalPump\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.UniversalPump\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLS,6,673,538,315,41,97,0,38,180,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLSIB,6,675,542,319,41,95,0,38,180,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLSIB\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLSIB\Protocol,1,42,34,23,4,8,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLSIB\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLSIB\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLSIB\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLS\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLS\Protocol,1,42,34,23,4,8,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLS\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLS\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VeederRootTLS\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VirtualDevices,10,1483,1189,709,132,159,1,135,558,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VirtualDevices\Properties,2,209,108,56,15,26,1,75,420,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VirtualDevices\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VirtualDevices\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.VirtualDevices\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDL,3,587,449,274,66,87,1,51,232,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDL\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDL\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDL\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDL\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDart,3,995,739,456,106,202,8,54,405,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDartV1,3,1238,940,569,180,190,1,108,614,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDartV1\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDartV1\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDartV1\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDartV1\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDartV2,3,1180,869,534,162,196,1,115,655,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDartV2\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDartV2\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDartV2\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDartV2\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneDart\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneSU,3,758,603,383,77,79,0,76,395,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneSU\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneSU\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneSU\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WayneSU\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows,169,54816,41174,32418,2211,3799,51,9843,22699,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\Properties,3,2325,1137,693,192,208,2,980,4146,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\Service References,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\Service References\SmsService,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\Threads,14,9586,6773,4373,816,1021,28,1792,6873,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI,147,38861,30247,25424,891,2142,17,6472,9977,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI\Catalogs,12,4586,3133,2644,96,348,2,1105,2334,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI\Controls,29,4463,3433,2633,152,385,9,645,1276,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI\Forms,40,10764,8761,7376,260,500,2,1503,1661,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI\SelectionForms,36,6183,4860,3975,149,360,0,963,1342,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI\SettingForms,30,12865,10060,8796,234,549,4,2256,3364,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\obj\x86,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\obj\x86\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\obj\x86\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WorkFlow,7,481,367,223,38,80,0,34,190,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WorkFlow\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WorkFlow\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WorkFlow\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.WorkFlow\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\BalanceExporter,21,11501,9653,6032,754,1087,4,761,1162,0,4
+D:\DEV\Exedron\ASFuelControl.Windows.45\BalanceExporter\Properties,3,148,73,34,6,22,2,53,295,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\BalanceExporter\Reports,12,10409,8858,5461,719,973,2,578,656,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code,646,189707,150335,102908,12191,16956,540,22416,61442,2,44
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.AK6,4,751,465,290,48,101,10,185,741,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.AK6\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Ametek,4,443,357,216,38,62,0,24,143,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Ametek\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Box69,7,2424,1917,1225,322,289,11,218,837,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Box69\Properties,2,73,36,12,2,12,1,25,150,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Common,25,1937,1562,918,207,228,2,147,709,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Common\Enumerators,9,272,244,94,9,28,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Common\Properties,2,299,158,86,25,36,1,105,567,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Common\Sales,3,122,109,76,3,13,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Communication,18,4713,3773,2368,347,635,5,305,1001,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Communication\Enums,5,130,118,50,7,12,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Communication\Properties,2,299,158,86,25,36,1,105,583,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Communication\Service References,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Communication\Service References\FuelFlowService,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Data,18,19257,16946,8923,1848,1932,53,379,2562,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Data\Implementation,6,2935,2491,1601,431,334,52,110,472,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Data\Properties,2,245,128,68,19,30,1,87,537,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Data\Validators,7,682,478,288,66,111,0,93,277,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.EMR3,3,780,619,374,100,78,10,83,325,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.EMR3\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Elbis,4,1386,819,512,110,163,1,404,1374,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Elbis\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Fafnir,4,474,366,227,36,79,0,29,170,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Fafnir\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.FuelPump,2,880,662,403,122,109,2,109,411,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.FuelPump\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Gilbarco,5,1158,1000,623,162,109,29,49,328,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Gilbarco\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Logging,2,255,196,119,20,17,0,42,216,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Logging\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Millenium,8,1425,1000,624,122,192,29,233,1204,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Millenium\Enums,4,125,86,24,0,24,2,15,194,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Millenium\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.NuovoPignone,3,624,510,315,78,74,8,40,282,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.NuovoPignone\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.PTS,2,733,585,354,121,95,2,53,270,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.PTS\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Reports,56,18053,14368,11503,402,642,3,3043,2551,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Reports\BalanceReports,11,6361,5332,3530,364,507,1,522,495,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Reports\Invoices,4,1415,1079,957,0,10,0,326,198,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Reports\Properties,3,160,87,36,7,23,2,50,282,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.StartItaliana,4,435,354,214,38,61,0,20,129,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.StartItaliana\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Tank,2,649,533,345,101,88,0,28,167,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Tank\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.VirtualDevices,9,906,726,435,64,105,1,75,395,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.VirtualDevices\Properties,2,173,88,44,11,22,1,63,361,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Windows,114,29686,22787,17881,1213,2307,28,4592,10507,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Windows\Properties,3,1099,592,355,96,112,2,395,1785,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Windows\Service References,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Windows\Service References\SmsService,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Windows\Threads,9,5197,3890,2556,485,651,13,656,2894,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Windows\UI,97,20723,16095,13599,407,1233,11,3395,5534,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Windows\UI\Catalogs,10,2644,2140,1809,61,189,2,315,386,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Windows\UI\Controls,25,3445,2701,2072,112,306,5,438,820,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Windows\UI\Forms,20,3684,2912,2504,58,186,2,586,769,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Windows\UI\SelectionForms,24,4323,3394,2864,83,237,0,692,867,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.Windows\UI\SettingForms,18,6627,4948,4350,93,315,2,1364,2692,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.WorkFlow,7,479,365,221,38,80,0,34,190,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\ASFuelControl.WorkFlow\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Evaluant.Calculator,21,7844,5981,3881,616,1352,86,511,3370,2,18
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Evaluant.Calculator\Domain,10,1390,1014,551,177,346,1,30,237,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Evaluant.Calculator\Properties,1,36,15,3,0,5,0,16,118,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\PtsLib,19,5024,2995,1719,388,593,52,1436,7649,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\PtsLib\Properties,3,130,63,27,4,20,2,47,251,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal,305,89391,71449,49218,5650,7565,208,10377,25911,0,12
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.AK6,4,751,465,290,48,101,10,185,741,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.AK6\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Ametek,4,443,357,216,38,62,0,24,143,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Ametek\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Box69,7,2387,1882,1204,315,286,11,219,823,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Box69\Properties,2,73,36,12,2,12,1,25,150,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Common,26,2016,1610,951,206,239,2,167,750,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Common\Enumerators,9,272,244,94,9,28,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Common\Properties,2,299,158,86,25,36,1,105,567,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Common\Sales,4,225,201,136,15,24,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Communication,18,4713,3773,2368,347,635,5,305,1001,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Communication\Enums,5,130,118,50,7,12,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Communication\Properties,2,299,158,86,25,36,1,105,583,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Communication\Service References,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Communication\Service References\FuelFlowService,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Data,18,19257,16946,8923,1848,1932,53,379,2562,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Data\Implementation,6,2935,2491,1601,431,334,52,110,472,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Data\Properties,2,245,128,68,19,30,1,87,537,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Data\Validators,7,682,478,288,66,111,0,93,277,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.EMR3,3,780,619,374,100,78,10,83,325,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.EMR3\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Elbis,4,1386,819,512,110,163,1,404,1374,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Elbis\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Fafnir,4,476,367,228,36,79,0,30,174,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Fafnir\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.FuelPump,2,885,661,404,121,109,2,115,437,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.FuelPump\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Gilbarco,5,1158,1000,623,162,109,29,49,328,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Gilbarco\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Logging,2,255,196,119,20,17,0,42,216,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Logging\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Millenium,9,2184,1637,1001,210,265,41,282,2243,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Millenium\Enums,4,125,86,24,0,24,2,15,194,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Millenium\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.NuovoPignone,3,624,510,315,78,74,8,40,282,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.NuovoPignone\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.PTS,2,682,534,324,112,97,2,51,264,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.PTS\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Reports,58,18603,14803,11891,404,645,3,3155,2633,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Reports\BalanceReports,11,6361,5332,3530,364,507,1,522,495,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Reports\Invoices,4,1415,1079,957,0,10,0,326,198,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Reports\Properties,3,160,87,36,7,23,2,50,282,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.StartItaliana,4,435,354,214,38,61,0,20,129,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.StartItaliana\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Tank,2,676,556,349,107,87,0,33,178,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Tank\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.VirtualDevices,9,934,752,451,66,107,1,75,395,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.VirtualDevices\Properties,2,173,88,44,11,22,1,63,361,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Windows,114,30267,23243,18240,1246,2339,30,4685,10723,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Windows\Properties,3,1146,615,370,100,116,2,415,1876,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Windows\Service References,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Windows\Service References\SmsService,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Windows\Threads,9,5351,4034,2654,503,659,15,658,2904,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Windows\UI,97,21081,16364,13833,417,1251,11,3466,5649,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Windows\UI\Catalogs,10,2704,2190,1846,63,193,2,321,388,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Windows\UI\Controls,25,3573,2778,2135,117,318,5,477,921,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Windows\UI\Forms,20,3707,2932,2518,61,187,2,588,773,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Windows\UI\SelectionForms,24,4341,3411,2879,83,238,0,692,867,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.Windows\UI\SettingForms,18,6756,5053,4455,93,315,2,1388,2700,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.WorkFlow,7,479,365,221,38,80,0,34,190,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Code\Version1.1.1 Fiinal\ASFuelControl.WorkFlow\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\EuromatTest,7,1135,693,442,56,129,2,313,1147,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\EuromatTest\Properties,3,140,73,25,4,20,2,47,269,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Evaluant.Calculator,21,7844,5981,3881,616,1352,86,511,3370,2,18
+D:\DEV\Exedron\ASFuelControl.Windows.45\Evaluant.Calculator\Domain,10,1390,1014,551,177,346,1,30,237,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Evaluant.Calculator\Properties,1,36,15,3,0,5,0,16,118,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Millenium,8,652,458,292,57,105,26,89,548,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Millenium\Properties,2,101,48,20,3,14,1,39,239,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Millenium\enums,4,92,79,24,0,13,1,0,3,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\NewBox69,7,1531,1113,724,190,190,12,228,842,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\NewBox69\ASFuelControl.Box69,7,1531,1113,724,190,190,12,228,842,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\NewBox69\ASFuelControl.Box69\Properties,2,73,36,12,2,12,1,25,150,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\OldCode,18,5327,4034,2630,585,691,29,602,2522,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\OldCode\ASFuelControl.Box69,7,2071,1561,1008,241,258,12,252,891,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\OldCode\ASFuelControl.Box69\Properties,2,73,36,12,2,12,1,25,150,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\OldCode\ASFuelControl.Millenium,2,363,289,168,38,55,0,19,127,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\OldCode\ASFuelControl.MilleniumConnector,4,726,530,377,42,115,5,81,693,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\OldCode\ASFuelControl.MilleniumConnector\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\OldCode\ASFuelControl.Millenium\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10,178,74280,59208,38451,5167,6105,267,8967,23073,0,11
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.AK6,4,858,547,336,60,116,10,195,786,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.AK6\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.AK6_Dual,3,605,528,296,70,47,0,30,185,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.AK6_Dual\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Ametek,4,476,383,230,41,69,0,24,143,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Ametek\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Box69,7,2446,1909,1220,319,302,12,235,880,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Box69\Properties,2,73,36,12,2,12,1,25,150,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Box69b,2,967,751,441,91,105,10,111,442,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Box69b\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Box69b\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Box69b\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.BoxIFSF,2,837,768,398,87,49,0,20,127,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.BoxIFSF\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Data,18,24594,21639,11463,2443,2436,73,519,3416,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Data\Implementation,6,4934,4242,2644,733,522,72,170,773,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Data\Properties,2,455,246,140,42,53,1,156,859,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Data\Validators,7,682,478,288,66,111,0,93,277,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.EMR3,3,850,674,404,118,79,11,97,375,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.EMR3\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Elbis,4,1413,841,524,112,168,1,404,1374,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Elbis\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Euromat,2,82,53,28,2,12,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Euromat\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Fafnir,4,545,425,260,43,90,3,30,197,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Fafnir\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.GVR,5,1183,1115,300,61,51,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.GVR\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.GVR\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.GVR\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Gilbarco,9,3573,2017,1257,294,397,67,1159,4080,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.GilbarcoCn,3,783,627,378,90,90,16,66,355,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.GilbarcoCn\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.GilbarcoMulti,5,936,732,444,99,92,19,112,935,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.GilbarcoMulti\Properties,3,128,61,26,4,20,2,47,269,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Gilbarco\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Logging,2,255,196,119,20,17,0,42,216,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Logging\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Millennium,3,1017,775,454,100,126,13,116,756,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.MillenniumMulti,2,1055,822,470,122,122,12,111,534,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.MillenniumMulti\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.MillenniumMulti\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.MillenniumMulti\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Millennium\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Millennium\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Millennium\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Millennium\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.NuovoPignone,3,1375,657,375,102,111,9,607,1922,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.NuovoPignone\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.PTS,2,731,576,353,120,104,2,51,264,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.PTS\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Prime,3,1037,472,294,79,138,0,427,1270,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Prime\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Pumalan,3,1154,879,611,101,219,1,56,387,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Pumalan2,3,1154,879,611,101,219,1,56,387,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Pumalan2\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Pumalan2\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Pumalan2\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Pumalan\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Reports,78,25782,20506,16925,441,868,7,4408,3570,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Reports\BalanceReports,11,6403,5369,3549,367,512,1,522,495,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Reports\Invoices,12,5062,4034,3629,12,47,2,981,639,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.Reports\Properties,3,160,87,36,7,23,2,50,282,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.StartItaliana,4,572,437,260,51,78,0,57,232,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ProtocolBackUp_2015_08_10\ASFuelControl.StartItaliana\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols,25,4227,3319,2101,408,552,55,356,2152,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\MILLENIUM DIMOS,7,550,373,258,15,67,2,110,450,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\MILLENIUM DIMOS\MILLENIUM,7,550,373,258,15,67,2,110,450,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\MILLENIUM DIMOS\MILLENIUM\MILLENIUM,7,550,373,258,15,67,2,110,450,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\MILLENIUM DIMOS\MILLENIUM\MILLENIUM\Properties,3,140,73,25,4,20,2,47,269,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\Nikolas,16,1974,1476,983,175,300,40,198,1349,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\Nikolas\Millennium,9,932,618,422,81,170,31,144,1048,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\Nikolas\Millennium\ConsoleApplication11,9,932,618,422,81,170,31,144,1048,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\Nikolas\Millennium\ConsoleApplication11\Properties,2,101,48,20,3,14,1,39,239,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\Nikolas\Millennium\ConsoleApplication11\enums,4,123,84,24,0,24,2,15,194,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\Nikolas\nuovoPignone,7,1042,858,561,94,130,9,54,301,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\Nikolas\nuovoPignone\nuovoPignone,7,1042,858,561,94,130,9,54,301,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\Nikolas\nuovoPignone\nuovoPignone\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Protocols\Nikolas\nuovoPignone\nuovoPignone\enums,2,49,44,12,0,5,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PtsLib,19,5024,2995,1719,388,593,52,1436,7649,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\PtsLib\Properties,3,130,63,27,4,20,2,47,251,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode,297,82191,65040,38321,7169,9803,376,7348,31321,2,26
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1,341,100327,78886,53690,6542,9391,332,12050,35590,2,32
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.AK6,4,751,465,290,48,101,10,185,741,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.AK6\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Ametek,4,443,357,216,38,62,0,24,143,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Ametek\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Box69,7,2424,1917,1225,322,289,11,218,837,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Box69\Properties,2,73,36,12,2,12,1,25,150,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Common,25,1937,1562,918,207,228,2,147,709,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Common\Enumerators,9,272,244,94,9,28,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Common\Properties,2,299,158,86,25,36,1,105,567,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Common\Sales,3,122,109,76,3,13,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Communication,18,4713,3773,2368,347,635,5,305,1001,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Communication\Enums,5,130,118,50,7,12,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Communication\Properties,2,299,158,86,25,36,1,105,583,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Communication\Service References,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Communication\Service References\FuelFlowService,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Data,18,19257,16946,8923,1848,1932,53,379,2562,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Data\Implementation,6,2935,2491,1601,431,334,52,110,472,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Data\Properties,2,245,128,68,19,30,1,87,537,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Data\Validators,7,682,478,288,66,111,0,93,277,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.EMR3,3,780,619,374,100,78,10,83,325,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.EMR3\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Elbis,4,1386,819,512,110,163,1,404,1374,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Elbis\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Fafnir,4,474,366,227,36,79,0,29,170,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Fafnir\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.FuelPump,2,880,662,403,122,109,2,109,411,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.FuelPump\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Gilbarco,5,1158,1000,623,162,109,29,49,328,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Gilbarco\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Logging,2,255,196,119,20,17,0,42,216,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Logging\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Millenium,8,1425,1000,624,122,192,29,233,1204,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Millenium\Enums,4,125,86,24,0,24,2,15,194,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Millenium\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.NuovoPignone,3,624,510,315,78,74,8,40,282,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.NuovoPignone\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.PTS,2,731,584,353,121,94,2,53,270,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.PTS\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Reports,56,18053,14368,11503,402,642,3,3043,2551,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Reports\BalanceReports,11,6361,5332,3530,364,507,1,522,495,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Reports\Invoices,4,1415,1079,957,0,10,0,326,198,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Reports\Properties,3,160,87,36,7,23,2,50,282,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.StartItaliana,4,435,354,214,38,61,0,20,129,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.StartItaliana\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Tank,2,649,533,345,101,88,0,28,167,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Tank\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.VirtualDevices,9,906,726,435,64,105,1,75,395,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.VirtualDevices\Properties,2,173,88,44,11,22,1,63,361,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Windows,114,29705,22794,17886,1215,2308,28,4603,10566,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Windows\Properties,3,1123,603,362,98,114,2,406,1844,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Windows\Service References,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Windows\Service References\SmsService,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Windows\Threads,9,5197,3890,2556,485,651,13,656,2894,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Windows\UI,97,20723,16095,13599,407,1233,11,3395,5534,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Windows\UI\Catalogs,10,2644,2140,1809,61,189,2,315,386,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Windows\UI\Controls,25,3445,2701,2072,112,306,5,438,820,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Windows\UI\Forms,20,3684,2912,2504,58,186,2,586,769,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Windows\UI\SelectionForms,24,4323,3394,2864,83,237,0,692,867,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.Windows\UI\SettingForms,18,6627,4948,4350,93,315,2,1364,2692,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.WorkFlow,7,479,365,221,38,80,0,34,190,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\ASFuelControl.WorkFlow\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\Evaluant.Calculator,21,7844,5981,3881,616,1352,86,511,3370,2,18
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\Evaluant.Calculator\Domain,10,1390,1014,551,177,346,1,30,237,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\Evaluant.Calculator\Properties,1,36,15,3,0,5,0,16,118,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\PtsLib,19,5018,2989,1715,387,593,52,1436,7649,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode1\PtsLib\Properties,3,130,63,27,4,20,2,47,251,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2,272,70002,55476,33144,6221,8701,360,5825,28716,2,20
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.AK6,4,786,477,289,52,108,10,201,789,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.AK6\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Ametek,4,443,357,216,38,62,0,24,143,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Ametek\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Box69,6,2352,1862,1196,313,279,10,211,793,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Box69\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Common,25,1782,1493,889,183,210,1,79,303,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Common\Enumerators,9,272,244,94,9,28,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Common\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Common\Sales,4,245,220,151,16,25,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Communication,17,4469,3636,2287,322,607,4,226,558,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Communication\Enums,5,130,118,50,7,12,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Communication\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Communication\Service References,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Communication\Service References\FuelFlowService,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Data,17,19087,16869,8878,1833,1909,52,309,2145,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Data\Implementation,6,2935,2491,1601,431,334,52,110,472,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Data\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Data\Validators,7,682,478,288,66,111,0,93,277,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.EMR3,3,780,619,374,100,78,10,83,325,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.EMR3\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Elbis,4,1387,820,513,110,163,1,404,1374,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Elbis\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Fafnir,4,476,367,228,36,79,0,30,174,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Fafnir\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.FuelPump,2,894,671,410,123,108,2,115,437,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.FuelPump\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Gilbarco,6,1653,1342,837,195,165,43,146,701,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Gilbarco\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Logging,2,255,196,119,20,17,0,42,216,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Logging\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Millenium,9,2143,1620,986,199,281,40,242,1558,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Millenium\Enums,4,125,86,24,0,24,2,15,194,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Millenium\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Millennium,2,882,698,414,92,111,12,73,568,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.NuovoPignone,3,633,521,301,72,66,8,46,297,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.NuovoPignone\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.PTS,2,684,536,326,112,97,2,51,264,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.PTS\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Reports,29,1015,689,443,41,83,0,243,702,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Reports\BalanceReports,6,251,185,133,9,30,0,36,92,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Reports\Invoices,2,54,32,20,0,4,0,18,46,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Reports\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.StartItaliana,4,435,354,214,38,61,0,20,129,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.StartItaliana\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Tank,2,680,560,350,108,87,0,33,178,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Tank\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.VirtualDevices,8,802,684,415,55,89,0,29,154,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.VirtualDevices\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Windows,63,14293,11197,7257,1107,1913,29,1183,5533,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Windows\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Windows\Service References,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Windows\Service References\SmsService,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Windows\Threads,9,5389,4071,2671,503,660,15,658,2904,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Windows\UI,49,6636,5238,3545,379,941,12,457,2293,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Windows\UI\Catalogs,5,996,827,564,62,158,3,11,37,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Windows\UI\Controls,13,1684,1403,916,106,233,5,48,175,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Windows\UI\Forms,10,948,803,558,53,123,2,22,88,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Windows\UI\SelectionForms,12,1146,967,621,71,165,0,14,58,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.Windows\UI\SettingForms,9,1862,1238,886,87,262,2,362,1935,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.WorkFlow,7,479,365,221,38,80,0,34,190,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\ASFuelControl.WorkFlow\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\BalanceExporter,11,831,630,413,37,117,0,84,315,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\BalanceExporter\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\BalanceExporter\Reports,6,253,187,134,9,30,0,36,92,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\Evaluant.Calculator,21,7844,5981,3881,616,1352,86,511,3370,2,18
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\Evaluant.Calculator\Domain,10,1390,1014,551,177,346,1,30,237,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\Evaluant.Calculator\Properties,1,36,15,3,0,5,0,16,118,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\PtsLib,17,4917,2932,1687,381,579,50,1406,7500,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode2\PtsLib\Properties,1,39,17,4,0,5,0,17,102,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.AK6,4,858,547,336,60,116,10,195,786,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.AK6\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Ametek,4,471,379,228,40,68,0,24,143,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Ametek\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Box69b,2,967,751,441,91,105,10,111,442,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Box69b\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Box69b\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Box69b\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.BoxIFSF,2,837,768,398,87,49,0,20,127,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.BoxIFSF\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Common,36,3237,2312,1367,245,397,13,528,1856,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Common\Enumerators,16,437,394,137,9,43,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Common\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Common\Sales,4,633,325,218,25,80,12,228,798,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Communication,17,4451,3630,2285,322,604,4,217,538,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Communication\Enums,5,130,118,50,7,12,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Communication\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Communication\Service References,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Communication\Service References\FuelFlowService,1,2929,2285,1354,203,445,1,199,412,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Data,17,23977,21228,11224,2384,2375,72,374,2655,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Data\Implementation,6,4811,4134,2582,724,513,72,164,751,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Data\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Data\Validators,7,682,478,288,66,111,0,93,277,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.EMR3,3,850,674,404,118,79,11,97,375,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.EMR3\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Euromat,2,82,53,28,2,12,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Euromat\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Fafnir,4,540,421,258,42,89,3,30,197,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Fafnir\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.FuelPump,2,982,711,438,130,118,3,153,556,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.FuelPump\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.GVR,5,1183,1115,300,61,51,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.GVR\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.GVR\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.GVR\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Gilbarco,9,3573,2017,1257,294,397,67,1159,4080,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.GilbarcoCn,3,766,637,386,93,83,20,46,287,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.GilbarcoCn\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Gilbarco\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Logging,2,255,196,119,20,17,0,42,216,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Logging\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Millennium,3,1017,775,454,100,126,13,116,756,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.MillenniumMulti,2,1060,825,472,123,122,12,113,596,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.MillenniumMulti\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.MillenniumMulti\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.MillenniumMulti\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Millennium\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Millennium\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Millennium\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Millennium\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.NuovoPignone,3,1375,657,375,102,111,9,607,1922,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.NuovoPignone\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Prime,3,508,433,268,74,50,0,25,144,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Prime\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Pumalan,3,1154,879,611,101,219,1,56,387,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Pumalan\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Reports,34,1267,865,563,53,114,2,288,847,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Reports\BalanceReports,6,251,185,133,9,30,0,36,92,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Reports\Invoices,6,263,174,112,12,29,2,60,184,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Reports\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.StartItaliana,4,567,433,258,50,77,0,57,232,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.StartItaliana\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Tank,3,903,539,333,107,117,1,247,920,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Tank\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.VeederRootTLS,6,649,539,317,43,93,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.VeederRootTLS\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.VeederRootTLS\Protocol,1,42,34,23,4,8,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.VirtualDevices,8,1129,938,564,92,119,0,72,251,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.VirtualDevices\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.WayneDL,3,580,458,278,66,87,1,35,190,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.WayneDL\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Windows,85,20630,15914,10257,1615,2576,38,2140,8898,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Windows\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Windows\Service References,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Windows\Service References\SmsService,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Windows\Threads,10,7075,5007,3258,627,783,20,1285,5112,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Windows\UI,70,10761,8783,5799,736,1434,16,544,2599,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Windows\UI\Catalogs,5,1344,1101,753,82,219,5,24,83,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Windows\UI\Controls,15,1942,1594,1031,121,266,7,82,294,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Windows\UI\Forms,18,2725,2353,1541,210,327,2,45,171,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Windows\UI\SelectionForms,18,1756,1498,940,120,237,0,21,83,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.Windows\UI\SettingForms,14,2994,2237,1534,203,385,2,372,1968,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.WorkFlow,7,479,365,221,38,80,0,34,190,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\ASFuelControl.WorkFlow\Properties,1,37,15,3,0,5,0,17,120,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\Evaluant.Calculator,21,7844,5981,3881,616,1352,86,511,3370,2,18
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\Evaluant.Calculator\Domain,10,1390,1014,551,177,346,1,30,237,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\PureCode\Evaluant.Calculator\Properties,1,36,15,3,0,5,0,16,118,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\TaxReplacement,3,114,74,33,6,15,1,25,150,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\TaxReplacement\Properties,2,82,44,15,3,13,1,25,150,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\TaxReplacement\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\TaxReplacement\obj\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\TaxReplacement\obj\Release,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\Test,6,322,215,117,15,39,2,68,338,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\TestXSD,1,530,397,204,32,79,1,54,124,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\Test\Properties,3,140,73,25,4,20,2,47,269,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ThermalNew,2,904,725,629,23,13,0,166,100,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\TitrationExporter,7,1119,902,505,65,113,2,104,401,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\TitrationExporter\Properties,3,139,71,29,5,21,2,47,269,0,2

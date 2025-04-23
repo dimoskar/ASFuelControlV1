@@ -1,0 +1,21 @@
+﻿ΕΚΔΟΤΗΣ				ΣΥΝΝΑΛΛΑΣΣΟΜΕΝΟΣ
+ΕΠΩΝΥΜΙΑ:[CompanyName]		ΕΠΩΝΥΜΙΑ:[Trader.Name]
+ΔΙΕΥΘΥΝΣΗ:[CompanyAddress]	ΔΙΕΥΘΥΝΣΗ:[Trader.Address]
+ΠΟΛΗ:[CompanyCity]		ΠΟΛΗ:[Trader.City]
+Α.Φ.Μ.:[CompanyVATNumber]	Δ.Ο.Υ.:[CompanyVATOffice]	Α.Φ.Μ.:[Trader.TaxRegistrationNumber]	Δ.Ο.Υ.:[Trader.TaxRegistrationOffice]
+ΕΠΑΓΓΕΛΜΑ:[CompanyOccupation]	ΕΠΑΓΓΕΛΜΑ:[Trader.Occupation]
+				ΟΧΗΜΑ:[Vehicle.PlateNumber]
+ΤΥΠΟΣ ΠΑΡΑΣΤΑΤΙΚΟΥ		ΣΕΙΡΑ	ΑΡΙΘΜΟΣ	ΗΜΕΡΟΜΗΝΙΑ
+[InvoiceType.Description]	[Invoice.Series]	[Invoice.Number]	[Invoice.TransactionDate]
+
+ΚΩΔΙΚΟΣ	ΤΥΠΟΣ ΚΑΥΣΙΜΟΥ	ΟΓΚΟΣ	ΤΙΜΗ ΜΟΝΑΔΟΣ	ΕΚΠΤΩΣΗ	ΦΠΑ	ΣΥΝΟΛΟ	
+[InvoiceLines]
+
+ΣΥΝΟΛΟ ΠΡΟ ΕΚΠΤΩΣΗΣ:[Invoice.NettoAmount]
+ΕΚΠΤΩΣΗ:[Invoice.DiscountNettoAmount]
+ΣΥΝΟΛΟ:[Invoice.NettoAmount - Invoice.DiscountNettoAmount]
+Φ.Π.Α.:[Invoice.VatAmount]
+ΓΕΝΙΚΟ ΣΥΝΟΛΟ:[Invoice.TotalAmount]
+
+[Invoice.Trader.VatExemptionReason]
+[ELINE]

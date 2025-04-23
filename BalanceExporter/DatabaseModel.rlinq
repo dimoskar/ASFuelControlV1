@@ -1,0 +1,166 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<DomainModel xmlns:dm0="http://schemas.microsoft.com/VisualStudio/2008/DslTools/Core" dslVersion="2.0.0.0" name="DatabaseModel" namespace="BalanceExporter" showPropertiesCompartment="true" xmlns="http://www.telerik.com/ORM">
+  <orm:orm name="DatabaseModel" backend="mssql" default-schema="dbo" xmlns:orm="http://tempuri.org/ORM">
+    <orm:namespace name="BalanceExporter" default="true">
+      <orm:class name="Balance" uniqueId="77982a9a-1d53-46cd-87d4-faeea1d3e7f3">
+        <orm:table name="Balance" />
+        <orm:identity>
+          <orm:key-generator name="guid">
+            <orm:key-generator-member property-name="BalanceId" />
+          </orm:key-generator>
+          <orm:single-field field-name="_balanceId" />
+        </orm:identity>
+        <orm:concurrency strategy="changed" />
+        <orm:field name="_balanceId" property="BalanceId" behavior="readwrite" uniqueId="26dd1af9-7a79-4da1-8214-5eb75bb30d8f" type="System.Guid">
+          <orm:column name="BalanceId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_startDate" property="StartDate" behavior="readwrite" uniqueId="35958e33-2063-44d6-ad73-b8a54fa87fdb" type="System.DateTime">
+          <orm:column name="StartDate" sql-type="datetime" nullable="false" length="0" scale="0" ado-type="DateTime" />
+        </orm:field>
+        <orm:field name="_endDate" property="EndDate" behavior="readwrite" uniqueId="c6236bbb-d9e5-48d5-8979-0e5859dc47b6" type="System.DateTime">
+          <orm:column name="EndDate" sql-type="datetime" nullable="false" length="0" scale="0" ado-type="DateTime" />
+        </orm:field>
+        <orm:field name="_lastSale" property="LastSale" behavior="readwrite" uniqueId="8fcea486-97e3-4dd5-9aa5-3a8b6596b76b" type="System.Nullable`1[[System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="LastSale" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_lastFilling" property="LastFilling" behavior="readwrite" uniqueId="02e8fdc0-d131-42fe-95b9-231f936cc20d" type="System.Nullable`1[[System.Guid, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="LastFilling" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_balanceText" property="BalanceText" behavior="readwrite" uniqueId="1fe5d75d-bc64-4a55-8d29-67e5258f1d3a" type="System.String">
+          <orm:column name="BalanceText" sql-type="ntext" nullable="false" length="0" scale="0" ado-type="UnicodeStringInfiniteLength" />
+        </orm:field>
+        <orm:field name="_applicationUserId" property="ApplicationUserId" behavior="readwrite" uniqueId="c2ae828d-7508-457e-a1b4-21e9cb3db386" type="System.Guid">
+          <orm:column name="ApplicationUserId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        </orm:field>
+        <orm:field name="_sentDateTime" property="SentDateTime" behavior="readwrite" uniqueId="74629596-6a78-4f80-b7d1-48f0d8fdb058" type="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="SentDateTime" sql-type="datetime" nullable="true" length="0" scale="0" ado-type="DateTime" />
+        </orm:field>
+        <orm:field name="_responseCode" property="ResponseCode" behavior="readwrite" uniqueId="e04208e0-8e1a-4a9c-9753-96b126e2e28f" type="System.String">
+          <orm:column name="ResponseCode" sql-type="nvarchar" nullable="true" length="500" scale="0" ado-type="UnicodeStringVariableLength" />
+        </orm:field>
+        <orm:field name="_printDate" property="PrintDate" behavior="readwrite" uniqueId="915646fe-4f20-4df2-baea-a24264b62284" type="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]">
+          <orm:column name="PrintDate" sql-type="datetime" nullable="true" length="0" scale="0" ado-type="DateTime" />
+        </orm:field>
+        <orm:field name="_documentSign" property="DocumentSign" behavior="readwrite" uniqueId="6592a107-2637-4f98-9f37-3f366471e5e7" type="System.String">
+          <orm:column name="DocumentSign" sql-type="nvarchar" nullable="true" length="100" scale="0" ado-type="UnicodeStringVariableLength" />
+        </orm:field>
+      </orm:class>
+    </orm:namespace>
+    <orm:schema schema="">
+      <orm:table name="Nozzle">
+        <orm:column name="NozzleId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        <orm:column name="DispenserId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="TotalCounter" sql-type="decimal" nullable="false" length="19" scale="4" ado-type="Decimal" />
+        <orm:column name="Channel" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="Address" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="Name" sql-type="nvarchar" nullable="false" length="100" scale="0" ado-type="UnicodeStringVariableLength" />
+        <orm:column name="FuelTypeId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="OrderId" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="NozzleState" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="SerialNumber" sql-type="nvarchar" nullable="true" length="50" scale="0" ado-type="UnicodeStringVariableLength" />
+        <orm:column name="OfficialNozzleNumber" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:constraint name="Dispenser_Nozzle_FK1" delete-action="dbdefaultrule" destination-table="Dispenser">
+          <orm:column name="DispenserId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        </orm:constraint>
+        <orm:constraint name="FK_Nozzle_FuelType" delete-action="dbdefaultrule" destination-table="FuelType">
+          <orm:column name="FuelTypeId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        </orm:constraint>
+      </orm:table>
+      <orm:table name="FuelType">
+        <orm:column name="FuelTypeId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        <orm:column name="Name" sql-type="nvarchar" nullable="false" length="100" scale="0" ado-type="UnicodeStringVariableLength" />
+        <orm:column name="Code" sql-type="nvarchar" nullable="false" length="30" scale="0" ado-type="UnicodeStringVariableLength" />
+        <orm:column name="Color" sql-type="int" nullable="true" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="ThermalCoeficient" sql-type="decimal" nullable="false" length="18" scale="9" ado-type="Decimal" />
+        <orm:column name="EnumeratorValue" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="BaseDensity" sql-type="decimal" nullable="false" length="18" scale="3" ado-type="Decimal" />
+      </orm:table>
+      <orm:table name="Dispenser">
+        <orm:column name="DispenserId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        <orm:column name="PhysicalState" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="IsValid" sql-type="bit" nullable="false" length="0" scale="0" ado-type="Bit" />
+        <orm:column name="InValidationDate" sql-type="datetime" nullable="true" length="0" scale="0" ado-type="DateTime" />
+        <orm:column name="DispenserTypeId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="CommunicationControllerId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="Channel" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="PhysicalAddress" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="DispenserNumber" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="PumpSerialNumber" sql-type="nvarchar" nullable="false" length="100" scale="0" ado-type="UnicodeStringVariableLength" />
+        <orm:column name="OfficialPumpNumber" sql-type="int" nullable="false" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="DecimalPlaces" sql-type="int" nullable="true" length="0" scale="0" ado-type="Int32" />
+        <orm:column name="UnitPriceDecimalPlaces" sql-type="int" nullable="true" length="0" scale="0" ado-type="Int32" />
+      </orm:table>
+      <orm:table name="Balance">
+        <orm:column name="BalanceId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" primary-key="true" ado-type="Guid" />
+        <orm:column name="StartDate" sql-type="datetime" nullable="false" length="0" scale="0" ado-type="DateTime" />
+        <orm:column name="EndDate" sql-type="datetime" nullable="false" length="0" scale="0" ado-type="DateTime" />
+        <orm:column name="LastSale" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="LastFilling" sql-type="uniqueidentifier" nullable="true" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="BalanceText" sql-type="ntext" nullable="false" length="0" scale="0" ado-type="UnicodeStringInfiniteLength" />
+        <orm:column name="ApplicationUserId" sql-type="uniqueidentifier" nullable="false" length="0" scale="0" ado-type="Guid" />
+        <orm:column name="SentDateTime" sql-type="datetime" nullable="true" length="0" scale="0" ado-type="DateTime" />
+        <orm:column name="ResponseCode" sql-type="nvarchar" nullable="true" length="500" scale="0" ado-type="UnicodeStringVariableLength" />
+        <orm:column name="PrintDate" sql-type="datetime" nullable="true" length="0" scale="0" ado-type="DateTime" />
+        <orm:column name="DocumentSign" sql-type="nvarchar" nullable="true" length="100" scale="0" ado-type="UnicodeStringVariableLength" />
+      </orm:table>
+    </orm:schema>
+    <orm:relational-naming-settings>
+      <orm:source-strategy>Property</orm:source-strategy>
+      <orm:remove-camel-case>False</orm:remove-camel-case>
+    </orm:relational-naming-settings>
+  </orm:orm>
+  <ModelSettings xmlns="">
+    <AppConfigConnectionPropertyName>ASFuelControlDBConnection</AppConfigConnectionPropertyName>
+    <AppConfigConnectionString>Data Source=DIMOS-PC\SQLSERVER;Initial Catalog=ASFuelControlDB_new;Integrated Security=True</AppConfigConnectionString>
+    <InitialCatalog>ASFuelControlDB_new</InitialCatalog>
+    <NamingSettings>
+      <ClassRules>
+        <CaseMode>PascalCase</CaseMode>
+        <PluralizationMode>Singularize</PluralizationMode>
+      </ClassRules>
+      <FieldRules>
+        <AddPrefix>_</AddPrefix>
+        <CaseMode>CamelCase</CaseMode>
+      </FieldRules>
+      <PropertyRules>
+        <CaseMode>PascalCase</CaseMode>
+      </PropertyRules>
+      <NavigationPropertyRules>
+        <IsPrefixSuffixEnabled>false</IsPrefixSuffixEnabled>
+      </NavigationPropertyRules>
+    </NamingSettings>
+    <CodeGenerationSettings>
+      <MappingDefinitionType>Xml</MappingDefinitionType>
+      <GenerateMultipleFiles>false</GenerateMultipleFiles>
+    </CodeGenerationSettings>
+    <SchemaUpdateSettings />
+    <BackendConfigurationSettings>
+      <BackendConfiguration>
+        <Backend>MsSql</Backend>
+        <ProviderName>System.Data.SqlClient</ProviderName>
+      </BackendConfiguration>
+    </BackendConfigurationSettings>
+  </ModelSettings>
+  <Types>
+    <DomainClass Id="77982a9a-1d53-46cd-87d4-faeea1d3e7f3" name="Balance" namespace="BalanceExporter" showPropertiesCompartment="true" identityMechanism="Guid" concurrencyMode="Changed" showNavigationCompartment="true" showImplementationCompartment="true" identityMechanismMember="BalanceId">
+      <Property Id="26dd1af9-7a79-4da1-8214-5eb75bb30d8f" name="BalanceId" type="Guid" label="BalanceId : Guid" kind="Persistent" identity="true" fieldName="_balanceId" />
+      <Property Id="c2ae828d-7508-457e-a1b4-21e9cb3db386" name="ApplicationUserId" type="Guid" label="ApplicationUserId : Guid" kind="Persistent" fieldName="_applicationUserId" />
+      <Property Id="1fe5d75d-bc64-4a55-8d29-67e5258f1d3a" name="BalanceText" label="BalanceText : String" kind="Persistent" fieldName="_balanceText" />
+      <Property Id="6592a107-2637-4f98-9f37-3f366471e5e7" name="DocumentSign" label="DocumentSign : String" kind="Persistent" fieldName="_documentSign" />
+      <Property Id="c6236bbb-d9e5-48d5-8979-0e5859dc47b6" name="EndDate" type="DateTime" label="EndDate : DateTime" kind="Persistent" fieldName="_endDate" />
+      <Property Id="02e8fdc0-d131-42fe-95b9-231f936cc20d" name="LastFilling" type="Guid" label="LastFilling : Guid" nullable="true" kind="Persistent" fieldName="_lastFilling" />
+      <Property Id="8fcea486-97e3-4dd5-9aa5-3a8b6596b76b" name="LastSale" type="Guid" label="LastSale : Guid" nullable="true" kind="Persistent" fieldName="_lastSale" />
+      <Property Id="915646fe-4f20-4df2-baea-a24264b62284" name="PrintDate" type="DateTime" label="PrintDate : DateTime" nullable="true" kind="Persistent" fieldName="_printDate" />
+      <Property Id="e04208e0-8e1a-4a9c-9753-96b126e2e28f" name="ResponseCode" label="ResponseCode : String" kind="Persistent" fieldName="_responseCode" />
+      <Property Id="74629596-6a78-4f80-b7d1-48f0d8fdb058" name="SentDateTime" type="DateTime" label="SentDateTime : DateTime" nullable="true" kind="Persistent" fieldName="_sentDateTime" />
+      <Property Id="35958e33-2063-44d6-ad73-b8a54fa87fdb" name="StartDate" type="DateTime" label="StartDate : DateTime" kind="Persistent" fieldName="_startDate" />
+    </DomainClass>
+  </Types>
+  <domainContext>
+    <domainModelHasDomainContext Id="81181489-1f6b-4ad8-bef2-d415bf29f316">
+      <domainContainer name="DatabaseModel" namespace="BalanceExporter" showPropertiesCompartment="true">
+        <entitySetProperty name="Balances" namespace="BalanceExporter" type="Balance" label="Balances : IQueryable&lt;BalanceExporter.Balance&gt;" />
+      </domainContainer>
+    </domainModelHasDomainContext>
+  </domainContext>
+</DomainModel>

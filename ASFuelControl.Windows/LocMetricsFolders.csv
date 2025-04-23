@@ -1,0 +1,17 @@
+Folder,Files,LOC,SLOC-P,SLOC-L,MVG,BLOC,C&SLOC,CLOC,CWORD,HCLOC,HCWORD
+Total,169,54816,41174,32418,2211,3799,51,9843,22699,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows,169,54816,41174,32418,2211,3799,51,9843,22699,0,3
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\Properties,3,2325,1137,693,192,208,2,980,4146,0,2
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\Service References,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\Service References\SmsService,1,1338,1114,573,139,216,1,8,30,0,1
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\Threads,14,9586,6773,4373,816,1021,28,1792,6873,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI,147,38861,30247,25424,891,2142,17,6472,9977,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI\Catalogs,12,4586,3133,2644,96,348,2,1105,2334,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI\Controls,29,4463,3433,2633,152,385,9,645,1276,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI\Forms,40,10764,8761,7376,260,500,2,1503,1661,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI\SelectionForms,36,6183,4860,3975,149,360,0,963,1342,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\UI\SettingForms,30,12865,10060,8796,234,549,4,2256,3364,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\obj,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\obj\x86,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\obj\x86\Debug,0,0,0,0,0,0,0,0,0,0,0
+D:\DEV\Exedron\ASFuelControl.Windows.45\ASFuelControl.Windows\obj\x86\Release,0,0,0,0,0,0,0,0,0,0,0

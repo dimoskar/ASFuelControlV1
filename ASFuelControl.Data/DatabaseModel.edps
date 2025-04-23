@@ -1,0 +1,331 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<EntityDeveloper Version="6.10.1189.0">
+  <ModelSettings xmlns:ed="http://devart.com/schemas/EntityDeveloper/1.0" AppConnectionStringName="ASFuelControlDB_Connection" ConnectionStringInAppConfig="True" RegenareteConnectionStringInAppConfig="True" TargetFramework="Net45" DetectTPTInheritance="True">
+    <Connection ConnectionString="Data Source=(local)\SQL2016;Initial Catalog=ASFuelControlDB_Voulgarakis;Integrated Security=True;Connect Timeout=100" Provider="System.Data.SqlClient" />
+    <Generation>
+      <GeneratedFiles>
+        <File Name="DatabaseModel.Designer.cs" Project="ASFuelControl.Data" DestinationFolder="D:\DEV\Exedron\2018\ASFuelControl.Windows.45\ASFuelControl.Data\DBCode" />
+      </GeneratedFiles>
+    </Generation>
+    <generator class="Default Generator" />
+    <DatabaseFirstNamingRules>
+      <EntitySet PluralizationName="Pluralize" />
+      <Class UseSchemaAsPrefix="False" PluralizeCollectionNavigationPropertyName="True" AddConstraintColumnsToNavigationPropertyName="False" RemoveUnderscores="False" AddUnderscores="False" RemoveInvalidCharacters="True" CodeCase="FirstLetterUppercase" AddPrefix="" AddSuffix="" RemovePrefixes="" RemoveSuffixes="" PluralizationName="Singularize" />
+      <Property RemoveUnderscores="False" AddUnderscores="False" RemoveInvalidCharacters="True" CodeCase="FirstLetterUppercase" AddPrefix="" AddSuffix="" RemovePrefixes="" RemoveSuffixes="" PluralizationName="Unchanged" />
+    </DatabaseFirstNamingRules>
+    <ModelFirst StorageSynchronizationEnabled="False" TargetSchema="dbo" TPHDiscriminatorColumnRule="voa_class" TargetProviderName="System.Data.SqlClient">
+      <TargetServer Server="SQL Server" ServerVersion="2016" />
+      <ModelFirstNamingRules>
+        <Table RemoveUnderscores="False" AddUnderscores="False" RemoveInvalidCharacters="True" CodeCase="Unchanged" AddPrefix="" AddSuffix="" RemovePrefixes="" RemoveSuffixes="" PluralizationName="Pluralize" />
+        <Column RemoveUnderscores="False" AddUnderscores="False" RemoveInvalidCharacters="True" CodeCase="Unchanged" AddPrefix="" AddSuffix="" RemovePrefixes="" RemoveSuffixes="" PluralizationName="Unchanged" />
+      </ModelFirstNamingRules>
+    </ModelFirst>
+    <Diagrams>
+      <Diagram Name="DatabaseModelDiagram" DefaultDiagram="True" />
+    </Diagrams>
+    <Templates>
+      <Template Name="Data Access" Enabled="True" PredefinedTemplateName="Telerik Data Access C#">
+        <ed:Property Name="ValidationFramework" Type="EntityDeveloper.TemplateEngine.ValidationFramework, EntityDeveloper.Common, Version=6.10.1189.0, Culture=neutral, PublicKeyToken=09af7300eec23701">
+          <ValidationFramework>None</ValidationFramework>
+        </ed:Property>
+        <ed:Property Name="ValidationErrorMessages" Type="EntityDeveloper.TemplateEngine.ValidationErrorMessages, EntityDeveloper.Common, Version=6.10.1189.0, Culture=neutral, PublicKeyToken=09af7300eec23701">
+          <ValidationErrorMessages xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </ed:Property>
+        <ed:Property Name="EntitiesOutput" Type="EntityDeveloper.TemplateEngine.OutputInfo, EntityDeveloper.Common, Version=6.10.1189.0, Culture=neutral, PublicKeyToken=09af7300eec23701">
+          <OutputInfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+            <Project>ASFuelControl.Data</Project>
+            <ProjectFolder>DBCode</ProjectFolder>
+            <DestinationFolder>D:\DEV\Exedron\2018\ASFuelControl.Windows.45\ASFuelControl.Data\DBCode</DestinationFolder>
+          </OutputInfo>
+        </ed:Property>
+        <ed:Property Name="ContextOutput" Type="EntityDeveloper.TemplateEngine.OutputInfo, EntityDeveloper.Common, Version=6.10.1189.0, Culture=neutral, PublicKeyToken=09af7300eec23701">
+          <OutputInfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+            <Project>ASFuelControl.Data</Project>
+            <ProjectFolder />
+            <DestinationFolder>D:\DEV\Exedron\2018\ASFuelControl.Windows.45\ASFuelControl.Data\DBCode</DestinationFolder>
+          </OutputInfo>
+        </ed:Property>
+        <ed:Property Name="MappingOutput" Type="EntityDeveloper.TemplateEngine.OutputInfo, EntityDeveloper.Common, Version=6.10.1189.0, Culture=neutral, PublicKeyToken=09af7300eec23701">
+          <OutputInfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+            <Project>ASFuelControl.Data</Project>
+            <ProjectFolder>DBCode</ProjectFolder>
+            <DestinationFolder>D:\DEV\Exedron\2018\ASFuelControl.Windows.45\ASFuelControl.Data</DestinationFolder>
+          </OutputInfo>
+        </ed:Property>
+        <ed:Property Name="FilePerClass" Type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <boolean>false</boolean>
+        </ed:Property>
+        <ed:Property Name="ModelNameAsFilesPrefix" Type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <boolean>false</boolean>
+        </ed:Property>
+        <ed:Property Name="GeneratePartialClass" Type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <boolean>true</boolean>
+        </ed:Property>
+        <ed:Property Name="HeaderTimestampVersionControlTag" Type="System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <string d6p1:nil="true" xmlns:d6p1="http://www.w3.org/2001/XMLSchema-instance" />
+        </ed:Property>
+        <ed:Property Name="ImplementINotifyPropertyChanging" Type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <boolean>false</boolean>
+        </ed:Property>
+        <ed:Property Name="ImplementINotifyPropertyChanged" Type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <boolean>true</boolean>
+        </ed:Property>
+        <ed:Property Name="PropertyChangePartialMethods" Type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <boolean>true</boolean>
+        </ed:Property>
+        <ed:Property Name="ImplementEquals" Type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <boolean>false</boolean>
+        </ed:Property>
+        <ed:Property Name="ImplementCloneable" Type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <boolean>false</boolean>
+        </ed:Property>
+        <ed:Property Name="GenerateDataContracts" Type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <boolean>false</boolean>
+        </ed:Property>
+        <ed:Property Name="GenerateDummyComments" Type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <boolean>false</boolean>
+        </ed:Property>
+        <ed:Property Name="GenerateSerializableAttributes" Type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+          <boolean>false</boolean>
+        </ed:Property>
+        <ed:Property Name="PrimitiveDefaultValueGeneration" Type="EntityDeveloper.DefaultValueBehavior, EntityDeveloper.Orm.Common, Version=6.10.1189.0, Culture=neutral, PublicKeyToken=09af7300eec23701">
+          <DefaultValueBehavior>Literal</DefaultValueBehavior>
+        </ed:Property>
+      </Template>
+    </Templates>
+    <AttributeAssemblies />
+    <Configuration DefaultMappingNullForeignKey="True" CommandTimeout="100" LogErrorsToWindowsEventLog="False" LogEvents="Errors" LogEventsToSysOut="False" LogEventsToTrace="False" MetricStoreSnapshotInterval="0" ConnectionPoolActiveConnectionTimeout="100" />
+    <UpdateFromDatabaseExcludes>
+      <Exclude Name="FinTransactionId" Table="dbo.FinTransaction" Type="Column" />
+      <Exclude Name="ApplicationUserId" Table="dbo.FinTransaction" Type="Column" />
+      <Exclude Name="TraderId" Table="dbo.FinTransaction" Type="Column" />
+      <Exclude Name="InvoiceId" Table="dbo.FinTransaction" Type="Column" />
+      <Exclude Name="TransactionDate" Table="dbo.FinTransaction" Type="Column" />
+      <Exclude Name="Amount" Table="dbo.FinTransaction" Type="Column" />
+      <Exclude Name="CreditAmount" Table="dbo.FinTransaction" Type="Column" />
+      <Exclude Name="DebitAmount" Table="dbo.FinTransaction" Type="Column" />
+      <Exclude Name="TransactionType" Table="dbo.FinTransaction" Type="Column" />
+      <Exclude Name="Notes" Table="dbo.FinTransaction" Type="Column" />
+      <Exclude Name="PK_FinTransaction" Table="dbo.FinTransaction" Type="Constraint" />
+      <Exclude Name="FK_FinTransaction_ApplicationUser" Table="dbo.FinTransaction" Type="Constraint" />
+      <Exclude Name="FK_FinTransaction_Invoice" Table="dbo.FinTransaction" Type="Constraint" />
+      <Exclude Name="InvoiceId" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="InvoiceTypeId" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="TransactionDate" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="DiscountAmount" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="NettoAmount" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="Number" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="PaymentType" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="TotalAmount" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="TraderId" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="TraderName" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="VehicleId" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="PlateNumber" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="VatExemption" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="VatAmount" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="InvoiceTypeDesc" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="IsLaserPrint" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="IsPrinted" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="TransactionSign" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="InvoiceLineCount" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="Canceled" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="Cancelation" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="ReplaceInvoicesCount" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="Replaced" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="DebitAmount" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="CreditAmount" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="FuelTypes" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="VolumeSum" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="SupplyNumber" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="VehicleOdometer" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="DeliveryAddress" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="Series" Table="dbo.InvoiceCatalogView" Type="Column" />
+      <Exclude Name="ViewId" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="MinNumber" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="MaxNumber" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="DateString" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="DateString2" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="NettoAmount" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="VatAmount" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="TotalAmount" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="TransactionType" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="Description" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="TransactionDate" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="IsInternal" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="InvoiceLineId" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="InvoiceId" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="Volume" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="VolumeNormalized" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="Temperature" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="FuelDensity" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="UnitPrice" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="TotalPrice" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="VatAmount" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="VatPercentage" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="SaleTransactionId" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="TankFillingId" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="FuelTypeId" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="DiscountAmount" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="TankId" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="InvoiceRelationId" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="UnitPriceRetail" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="DiscountAmountRetail" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="UnitPriceWhole" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="DiscountAmountWhole" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="DiscountPercentage" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="PK_InvoiceLine" Table="dbo.InvoiceLine" Type="Constraint" />
+      <Exclude Name="FK_InvoiceLine_FuelType" Table="dbo.InvoiceLine" Type="Constraint" />
+      <Exclude Name="FK_InvoiceLine_Invoice" Table="dbo.InvoiceLine" Type="Constraint" />
+      <Exclude Name="FK_InvoiceLine_SalesTransaction" Table="dbo.InvoiceLine" Type="Constraint" />
+      <Exclude Name="FK_InvoiceLine_Tank" Table="dbo.InvoiceLine" Type="Constraint" />
+      <Exclude Name="FK_InvoiceLine_TankFilling" Table="dbo.InvoiceLine" Type="Constraint" />
+      <Exclude Name="FK_InvoiceLine_InvoiceRelation" Table="dbo.InvoiceLine" Type="Constraint" />
+      <Exclude Name="CompanyName" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="CompanyOccupation" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="CompanyTIN" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="CompanyTaxOffice" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="CompanyCity" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="CompanyAddress" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="CompanyPhone" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="CompanyFax" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="TraderName" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="TraderTin" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="VehicleNumber" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="Number" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="TransactionDate" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="NettoAmount" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="VatAmount" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="TotalAmount" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="Series" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="InvoiceId" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="Description" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="Volume" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="VolumeNormalized" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="Temperature" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="UnitPrice" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="Name" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="Code" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="InvoiceLineId" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="OfficialPumpNumber" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="OfficialNozzleNumber" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="InvoiceSignature" Table="dbo.InvoicePrintView" Type="Column" />
+      <Exclude Name="ViewId" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="TotalizerStart" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="TotalizerEnd" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="Volume" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="UnitPrice" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="TotalPrice" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="TransactionTimeStamp" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="StartLevel" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="EndLevel" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="StartVolume" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="EndVolume" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="Number" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="NettoAmount" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="VatAmount" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="TotalAmount" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="InvoiceLineVolume" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="InvoiceLineId" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="ViewId" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="Volume" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="VolumeNormalized" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="UnitPrice" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="TotalPrice" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="TotalizerStart" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="TotalizerEnd" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="Name" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="OfficialNozzleNumber" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="OfficialPumpNumber" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="TransactionTimeStamp" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="UserName" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="TransactionType" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="InvoiceTypeId" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="Volume" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="VolumeNormalized" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="VolumeReal" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="VolumeRealNormalized" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="LevelStart" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="LevelEnd" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="TankTemperatureStart" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="TankTemperatureEnd" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="TransactionTime" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="TransactionTimeEnd" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="TankId" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="ViewId" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="InvoiceVolume" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="InvoiceVolumeNormalized" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="ViewId" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="StartTime" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="EndTime" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="LevelStart" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="LevelEnd" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="TempStart" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="TempEnd" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="TFVolume" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="TFVolumeNormalized" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="INVVolume" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="INVVolumeNormalized" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="INVTemp" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="FuelDensity" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="UnitPrice" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="Number" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="VehiclePlateNumber" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="Description" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="Name" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="TankNumber" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="UserName" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="Level" Table="dbo.TankLevelEndView" Type="Column" />
+      <Exclude Name="TansDate" Table="dbo.TankLevelEndView" Type="Column" />
+      <Exclude Name="TankId" Table="dbo.TankLevelEndView" Type="Column" />
+      <Exclude Name="ViewId" Table="dbo.TankLevelEndView" Type="Column" />
+      <Exclude Name="Level" Table="dbo.TankLevelStartView" Type="Column" />
+      <Exclude Name="TansDate" Table="dbo.TankLevelStartView" Type="Column" />
+      <Exclude Name="TankId" Table="dbo.TankLevelStartView" Type="Column" />
+      <Exclude Name="ViewId" Table="dbo.TankLevelStartView" Type="Column" />
+      <Exclude Name="ViewId" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="TankSaleId" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="SalesTransactionId" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="TankId" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="StartVolume" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="EndVolume" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="StartVolumeNormalized" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="EndVolumeNormalized" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="StartTemperature" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="EndTemperature" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="CRC" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="StartLevel" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="EndLevel" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="FuelDensity" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="NozzleId" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="TransactionTimeStamp" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="Volume" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="VolumeNormalized" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="UnitPrice" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="TotalPrice" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="" Table="dbo.FinTransaction" Type="Constraint" />
+      <Exclude Name="PK_InvoiceCatalogView" Table="dbo.InvoiceCatalogView" Type="Constraint" />
+      <Exclude Name="TransactionSign" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="ViewId" Table="dbo.InvoiceGroupView" Type="Column" />
+      <Exclude Name="PK_InvoiceGroupView" Table="dbo.InvoiceGroupView" Type="Constraint" />
+      <Exclude Name="DiscountAmountRetail" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="DiscountAmountWhole" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="DiscountPercentage" Table="dbo.InvoiceLine" Type="Column" />
+      <Exclude Name="PK_InvoicePrintView" Table="dbo.InvoicePrintView" Type="Constraint" />
+      <Exclude Name="ViewId" Table="dbo.SaleDataView" Type="Column" />
+      <Exclude Name="PK_SaleDataView" Table="dbo.SaleDataView" Type="Constraint" />
+      <Exclude Name="ViewId" Table="dbo.SalesView" Type="Column" />
+      <Exclude Name="PK_SalesView" Table="dbo.SalesView" Type="Constraint" />
+      <Exclude Name="ViewId" Table="dbo.TankFillingInvoiceView" Type="Column" />
+      <Exclude Name="PK_TankFillingInvoiceView" Table="dbo.TankFillingInvoiceView" Type="Constraint" />
+      <Exclude Name="ViewId" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="UnitPrice" Table="dbo.TankFillingView" Type="Column" />
+      <Exclude Name="PK_TankFillingView" Table="dbo.TankFillingView" Type="Constraint" />
+      <Exclude Name="Level" Table="dbo.TankLevelEndView" Type="Column" />
+      <Exclude Name="PK_TankLevelEndView" Table="dbo.TankLevelEndView" Type="Constraint" />
+      <Exclude Name="Level" Table="dbo.TankLevelStartView" Type="Column" />
+      <Exclude Name="PK_TankLevelStartView" Table="dbo.TankLevelStartView" Type="Constraint" />
+      <Exclude Name="ViewId" Table="dbo.TankSaleView" Type="Column" />
+      <Exclude Name="PK_TankSaleView" Table="dbo.TankSaleView" Type="Constraint" />
+    </UpdateFromDatabaseExcludes>
+  </ModelSettings>
+</EntityDeveloper>

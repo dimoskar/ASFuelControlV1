@@ -1,0 +1,12 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="TaxReplacement.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="SignFolder" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">c:\ASFuelControl\Sign</Value>
+    </Setting>
+    <Setting Name="OutFolder" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">c:\ASFuelControl\Sign\Out</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>
