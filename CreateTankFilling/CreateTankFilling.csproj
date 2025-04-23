@@ -45,16 +45,16 @@
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="Telerik.OpenAccess">
-      <HintPath>..\ASFuelControl.Windows\bin\Debug\Telerik.OpenAccess.dll</HintPath>
+      <HintPath>..\TelerikBinaries\Telerik.OpenAccess.dll</HintPath>
     </Reference>
     <Reference Include="Telerik.OpenAccess.35.Extensions">
-      <HintPath>..\ASFuelControl.Windows\bin\Debug\Telerik.OpenAccess.35.Extensions.dll</HintPath>
+      <HintPath>..\TelerikBinaries\Telerik.OpenAccess.35.Extensions.dll</HintPath>
     </Reference>
     <Reference Include="Telerik.OpenAccess.40.Extensions">
-      <HintPath>..\ASFuelControl.Windows\bin\Debug\Telerik.OpenAccess.40.Extensions.dll</HintPath>
+      <HintPath>..\TelerikBinaries\Telerik.OpenAccess.40.Extensions.dll</HintPath>
     </Reference>
     <Reference Include="Telerik.OpenAccess.Runtime">
-      <HintPath>..\ASFuelControl.Windows\bin\Debug\Telerik.OpenAccess.Runtime.dll</HintPath>
+      <HintPath>..\TelerikBinaries\Telerik.OpenAccess.Runtime.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

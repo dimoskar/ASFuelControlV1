@@ -1208,14 +1208,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\2024\ASFuelControl\ASFuelControl.SmatecTest\Samtec.WebService\Samtec.WebService.csproj">
-      <Project>{d4ff3343-4238-4652-a6ea-01ac60f3d0c6}</Project>
-      <Name>Samtec.WebService</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Exedron.Invoicing\Exedron.Invoicing.csproj">
-      <Project>{21a1350a-a84e-4601-be6f-22abcfa3517e}</Project>
-      <Name>Exedron.Invoicing</Name>
-    </ProjectReference>
     <ProjectReference Include="..\ASFuelControl.AK6\ASFuelControl.AK6.csproj">
       <Project>{2AA7C3B9-0C06-481C-9476-B05E901161E5}</Project>
       <Name>ASFuelControl.AK6</Name>
@@ -1444,9 +1436,17 @@
       <Project>{29DEF4D2-A8EE-421C-ABD8-D8433932015F}</Project>
       <Name>ASFuelControl.WorkFlow</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Exedron.Invoicing\Exedron.Invoicing.csproj">
+      <Project>{102411b9-6f49-4c47-b7cb-8df3428158f8}</Project>
+      <Name>Exedron.Invoicing</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Exedron.MyData\Exedron.MyData.csproj">
       <Project>{3cf088d4-d549-4b77-b923-4f9420bfb2d2}</Project>
       <Name>Exedron.MyData</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Samtec.WebService\Samtec.WebService.csproj">
+      <Project>{750e23d6-f44e-48ac-a89c-9f9c7b0c0e8a}</Project>
+      <Name>Samtec.WebService</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
