@@ -150,6 +150,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Samtec.WebService", "Samtec
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Exedron.Invoicing", "Exedron.Invoicing\Exedron.Invoicing.csproj", "{102411B9-6F49-4C47-B7CB-8DF3428158F8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.Unimep", "ASFuelControl.Unimep\ASFuelControl.Unimep.csproj", "{478791C3-8E21-4834-AABC-E291942CACCF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1004,6 +1006,18 @@ Global
 		{102411B9-6F49-4C47-B7CB-8DF3428158F8}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{102411B9-6F49-4C47-B7CB-8DF3428158F8}.Release|x86.ActiveCfg = Release|Any CPU
 		{102411B9-6F49-4C47-B7CB-8DF3428158F8}.Release|x86.Build.0 = Release|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Debug|x86.Build.0 = Debug|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Release|x86.ActiveCfg = Release|Any CPU
+		{478791C3-8E21-4834-AABC-E291942CACCF}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

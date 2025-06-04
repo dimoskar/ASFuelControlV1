@@ -44,7 +44,7 @@ namespace FixInvoicingPrices
             if (this.comboBox1.SelectedValue.GetType() == typeof(ASFuelControl.Data.InvoiceType))
                 invTypeId = ((ASFuelControl.Data.InvoiceType)this.comboBox1.SelectedValue).InvoiceTypeId;
             else
-                Guid.Parse(this.comboBox1.SelectedValue.ToString());
+                invTypeId = Guid.Parse(this.comboBox1.SelectedValue.ToString());
             using (var database = new DatabaseModel(Properties.Settings.Default.DBConnection))
             {
                 var date1 = this.dateTimePicker1.Value;

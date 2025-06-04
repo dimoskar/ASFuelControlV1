@@ -1404,6 +1404,10 @@
       <Project>{4c9b2ba9-29c0-4c3e-833c-dd3a7cc5ad53}</Project>
       <Name>ASFuelControl.TLS4B_Lan</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Unimep\ASFuelControl.Unimep.csproj">
+      <Project>{478791c3-8e21-4834-aabc-e291942caccf}</Project>
+      <Name>ASFuelControl.Unimep</Name>
+    </ProjectReference>
     <ProjectReference Include="..\ASFuelControl.VeederRootTLSIB\ASFuelControl.VeederRootTLSIB.csproj">
       <Project>{35097c38-30ea-4222-b525-57f1ff36b024}</Project>
       <Name>ASFuelControl.VeederRootTLSIB</Name>

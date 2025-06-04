@@ -33,6 +33,7 @@ namespace ASFuelControl.Common.Enumerators
         Petrotec,
         Prime,
         Pumalan,
+        Unimep,
         Universal,
         Schwelm,
         Dart,
