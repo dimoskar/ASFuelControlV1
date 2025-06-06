@@ -1627,6 +1627,7 @@
     <Content Include="DBScripts\UpdateDatabase50.sql" />
     <Content Include="DBScripts\UpdateDatabase51.sql" />
     <Content Include="DBScripts\UpdateDatabase52.sql" />
+    <Content Include="DBScripts\UpdateDatabase53.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />

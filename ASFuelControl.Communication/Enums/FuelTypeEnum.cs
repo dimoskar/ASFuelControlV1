@@ -18,6 +18,7 @@ namespace ASFuelControl.Communication.Enums
         Lrp = 13,
         Lpg = 40,
         Mixture = 99,
+        AdBlue = 100,
         None = -1
     }
 }

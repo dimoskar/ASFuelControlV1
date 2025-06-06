@@ -1,0 +1,1025 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSpy v2006 sp1 U (http://www.altova.com) by Administrator (gsis) -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:ff="http://www.gsis.gr/ff/1.0" 
+           targetNamespace="http://www.gsis.gr/ff/1.0" 
+           elementFormDefault="qualified" 
+           attributeFormDefault="unqualified" version="1.0">
+	<xs:include schemaLocation="common_types.xsd"/>
+	<xs:element name="Fuelflows" type="ff:Fuelflows_Type">
+		<xs:annotation>
+			<xs:documentation>Comment describing your root element</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+  
+	<xs:complexType name="Fuelflows_Type">
+		<xs:choice>
+      
+      <xs:element name="DeliveryNote">
+        <xs:annotation>
+          <xs:documentation>Δελτίο παραλαβής (Delivery Note)</xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Header" type="ff:Header_Type">
+              <xs:annotation>
+                <xs:documentation>Στοιχεία υποβάλλοντος (Submitter Detail)</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="Document">
+            <xs:complexType>
+              <xs:sequence>
+            <xs:element name="F_2151" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Ο Α.Φ.Μ. του προμηθευτή (Suppliers V.A.T. Number)</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_2151A" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Ο Α.Μ. ΔΙ.ΚΑ  του πρατηρίου (Unique ID For Each Station)</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+                <xs:element name="F_DELIVERY_TYPE" type="xs:int">
+                  <xs:annotation>
+                    <xs:documentation>Ο τύπος της Παραλαβή(0:Παραλαβή-1:Επιστροφή-2:Εξαγωγή-3:Μετάγγιση (ΕΞΟΔΟΣ)-4:Μετάγγιση (ΕΙΣΟΔΟΣ)) (Document Type)</xs:documentation>
+                  </xs:annotation>
+                </xs:element>                
+            <xs:element name="F_2152A" type="xs:int">
+              <xs:annotation>
+                <xs:documentation>Ο τύπος του παραστατικού (Document Type)</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_2152B" type="xs:int">
+              <xs:annotation>
+                <xs:documentation>Ο αριθμός παραστατικού (Document Number)</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_2152C" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>H σειρά παραστατικού (Document Series Code if available)</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_2152D" type="xs:dateTime">
+              <xs:annotation>
+                <xs:documentation>H ημερομηνία έκδοσης του φορολογικού παραστατικού παραλαβής (Document Issued Date)</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_2153" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Ο αριθμός κυκλοφορίας του οχήματος (βυτιοφόρου) μεταφοράς 
+                                 (Tank Vehicle Registration Number(Plate Number))</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+                </xs:sequence>
+                </xs:complexType>
+          </xs:element> 
+            <xs:element name="FuelData" maxOccurs="unbounded">
+              <xs:annotation>
+                <xs:documentation>Στοιχεία καυσίμου (Fuel Type)</xs:documentation>
+              </xs:annotation>
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="FUELTYPE" type="ff:Fuel_Type">
+                    <xs:annotation>
+                      <xs:documentation>Το είδος του καυσίμου (Fuel Type)</xs:documentation>
+                    </xs:annotation>
+                  </xs:element>
+                  <xs:element name="F_2154" type="xs:decimal">
+                    <xs:annotation>
+                      <xs:documentation>
+                        Η παραλαμβανόμενη ποσότητα κάθε καυσίμου (όγκος σε λίτρα) στη θερμοκρασία φόρτωσης βάσει του παραστατικού παραλαβής
+                        DOCUMENT-The quantities received of each fuel (volume in liters) at the loading temperature as listed on the Delivery document
+                      </xs:documentation>
+                    </xs:annotation>
+                  </xs:element>
+                  <xs:element name="F_2155" type="xs:decimal">
+                    <xs:annotation>
+                      <xs:documentation>Η θερμοκρασία φόρτωσης σε βαθμούς Κελσίου
+                                       DOCUMENT- Loading temp. in Celscius</xs:documentation>
+                    </xs:annotation>
+                  </xs:element>
+                  <xs:element name="F_2156" type="xs:decimal">
+                    <xs:annotation>
+                      <xs:documentation>
+                        Ο όγκος κάθε καυσίμου στους 15°C, όπως αυτά αναγράφονται στο παραστατικό παραλαβής
+                        DOCUMENT-The volume of each fuel at 15 ° C, as listed on the Delivery document
+                      </xs:documentation>
+                    </xs:annotation>
+                  </xs:element>
+                  <xs:element name="F_2157" type="xs:decimal">
+                    <xs:annotation>
+                      <xs:documentation>
+                        πυκνότητα όπως αυτά αναγράφονται στο παραστατικό παραλαβής
+                        DOCUMENT- Density as listed on the Delivery document
+                     </xs:documentation>
+                    </xs:annotation>
+                  </xs:element>
+                  <xs:element name="F_217" type="xs:decimal">
+                    <xs:annotation>
+                      <xs:documentation>
+                        Η συνολικα παραληφθεία ποσοτητα ((αθροισμα των) 2.1.6.2-(αθροισμα των) 2.1.4.2) .στην τρεχουσα θερμοκρασια (για κάθε καυσιμο)
+                        SYSTEM - The total quantity received ((sum of) 2.1.6.2-(sum of) 2.1.4.2).In  current temperature (for each fuel)
+                      </xs:documentation>
+                    </xs:annotation>
+                  </xs:element>
+                  <xs:element name="F_218" type="xs:decimal">
+                    <xs:annotation>
+                      <xs:documentation>
+                        Η συνολικώς παραληφθείσα ποσότητα (αθροισμα των)2.1.6.3-(αθροισμα των)2.1.4.3.) στους 15°C (για κάθε καυσιμο)
+                        SYSTEM-The total quantity received (combined) 2.1.6.3-(sum of) 2.1.4.3.) At 15 ° C (for each fuel)
+                      </xs:documentation>
+                    </xs:annotation>
+                  </xs:element>
+                  <xs:element name="F_219" type="xs:decimal">
+                    <xs:annotation>
+                      <xs:documentation>
+                        Η διαφορά ποσοτήτων ανα ειδος καυσιμου μεταξύ συστήματος εισροών και παραστατικού παραλαβής στους 15°C (2.1.8-2.1.5.6)
+                        SYSTEM-The difference in liters by fuel type between delivery document and system at 15 ° C (2.1.8-2.1.5.6)
+                      </xs:documentation>
+                    </xs:annotation>                 
+                    </xs:element>
+                  </xs:sequence>
+                  </xs:complexType>
+                 </xs:element>              
+            
+            <xs:element name="Reservoirs">
+              <xs:annotation>
+                <xs:documentation>Δεξαμενές (Tanks)</xs:documentation>
+              </xs:annotation>
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="Reservoir" maxOccurs="unbounded">
+                    <xs:annotation>
+                      <xs:documentation>Δεξαμενή (Tank)</xs:documentation>
+                    </xs:annotation>
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="F_211" type="ff:LimitedString100_Type">
+                          <xs:annotation>
+                            <xs:documentation>
+                              Ο α/α της δεξαμενής(κωδικός που θα έχει δοθεί κατά την αρχική  ογκομέτρηση και εισαγωγή στο Μητρώο Δεξαμενών)
+                              The Numberic ID of the tank (1,2,3, ...) as shown in Gas Station Licence Mapping. 
+                            </xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_212" type="ff:Fuel_Type">
+                          <xs:annotation>
+                            <xs:documentation>Το είδος του καυσίμου (Fuel Type)</xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_213" type="xs:dateTime">
+                          <xs:annotation>
+                            <xs:documentation>Η ημερομηνία (ΕΕΜΜΗΗ) και η ώρα (ΩΩΛΛ) (date and time (YYMMDD and HHMM Format))</xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="DataBefore">
+                          <xs:annotation>
+                            <xs:documentation>στοιχεία πριν από την παραλαβή του καυσίμου (Data before Delivery proccess starts)</xs:documentation>
+                          </xs:annotation>
+                          <xs:complexType>
+                            <xs:sequence>
+                              <xs:element name="F_2141" type="ff:PositiveDecimal_Type">
+                                <xs:annotation>
+                                  <xs:documentation>Το τρέχον ύψος της στάθμης της δεξαμενής σε mm (Product Height in mm)</xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                              <xs:element name="F_2142A" type="ff:PositiveDecimal_Type">
+                                <xs:annotation>
+                                  <xs:documentation>Ο αντίστοιχος τρέχων όγκος καυσίμου στη δεξαμενή (Volume in liters)</xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                              <xs:element name="F_2142B" type="xs:decimal">
+                                <xs:annotation>
+                                  <xs:documentation>Η θερμοκρασία του καυσίμου εντός της δεξαμενής (tank temperature in Celcius)</xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                              <xs:element name="F_2143" type="ff:PositiveDecimal_Type">
+                                <xs:annotation>
+                                  <xs:documentation>Ο ανηγμένος τρέχων όγκος καυσίμου της δεξαμενής στους 15°C (Tank volume at 15 C)</xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                              <xs:element name="F_2144" type="xs:dateTime">
+                                <xs:annotation>
+                                  <xs:documentation>Ημερομηνια εναρξης παραλαβης (Date when the delivery proccess starts)</xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                              <xs:element name="F_2145" type="xs:dateTime">
+                                <xs:annotation>
+                                  <xs:documentation>Ωρα εναρξης παραλαβης(Time when the delivery proccess starts)</xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                            </xs:sequence>
+                          </xs:complexType>
+                        </xs:element>
+                        <xs:element name="DataAfter">
+                          <xs:annotation>
+                            <xs:documentation>στοιχεία κατά την παραλαβή του/των καυσίμου (Data after delivery proccess finished)</xs:documentation>
+                          </xs:annotation>
+                          <xs:complexType>
+                            <xs:sequence>
+                              <xs:element name="F_2161" type="ff:PositiveDecimal_Type">
+                                <xs:annotation>
+                                  <xs:documentation>
+                                    Tο τρέχον ύψος της στάθμης της δεξαμενής σε mm, μετά την παρέλευση του προβλεπόμενου χρόνου ηρεμίας
+                                    Tank Height after the lapse of the time need for liquid surface to calm.
+                                  </xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                              <xs:element name="F_2162A" type="ff:PositiveDecimal_Type">
+                                <xs:annotation>
+                                  <xs:documentation>
+                                    O αντίστοιχος όγκος καυσίμου (στην τρέχουσα θερμοκρασία) στη δεξαμενή
+                                    corresponding volume of fuel (the current temperature) in the tank
+                                  </xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                              <xs:element name="F_2162B" type="xs:decimal">
+                                <xs:annotation>
+                                  <xs:documentation>
+                                    Η θερμοκρασία καυσίμου εντός αυτής
+                                    current temperature
+                                  </xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                              <xs:element name="F_2163" type="ff:PositiveDecimal_Type">
+                                <xs:annotation>
+                                  <xs:documentation>
+                                    O ανηγμένος τρέχον όγκος καυσίμου της δεξαμενής στους 15°C
+                                     reduced current fuel volume of the tank at 15 ° C
+                                  </xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                              <xs:element name="F_2164" type="xs:dateTime">
+                                <xs:annotation>
+                                  <xs:documentation>Ημερομηνια ληξης παραλαβης
+                                                   Date that Delivery finishes</xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                              <xs:element name="F_2165" type="xs:dateTime">
+                                <xs:annotation>
+                                  <xs:documentation>
+                                    Ωρα ληξης  παραλαβης
+                                    Time that Delivery finishes
+                                  </xs:documentation>
+                                </xs:annotation>
+                              </xs:element>
+                            </xs:sequence>
+                          </xs:complexType>
+                        </xs:element>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:sequence>
+                <xs:attribute name="ReservoirsNumber" type="xs:int" use="required">
+                  <xs:annotation>
+                    <xs:documentation>Πλήθος δεξαμενών(Number Of tanks)</xs:documentation>
+                  </xs:annotation>
+                </xs:attribute>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+          <xs:attribute name="F_AR_EIDOS_KAYSIMOU" type="xs:int" use="required">
+            <xs:annotation>
+              <xs:documentation>Πλήθος δεξαμενών (Number Of Tanks)</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+          
+			<xs:element name="Balance">
+				<xs:annotation>
+					<xs:documentation>Ισοζύγιο</xs:documentation>
+				</xs:annotation>
+        
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Header" type="ff:Header_Type">
+							<xs:annotation>
+								<xs:documentation>Στοιχεία υποβάλλοντος (Submmiter Details)</xs:documentation>
+							</xs:annotation>
+						</xs:element>
+
+            <xs:element name="F_AM_DIKA" type="ff:LimitedString100_Type"/>
+            
+						<xs:element name="F_HMEROMINIA_R">
+							<xs:annotation>
+								<xs:documentation>Ημερομηνία (Date)</xs:documentation>
+							</xs:annotation>
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="F_DATEDURATION" type="xs:date">
+										<xs:annotation>
+											<xs:documentation>Ημερομηνία (Date)</xs:documentation>
+										</xs:annotation>
+									</xs:element>
+									<xs:element name="F_ORA_ARXHS_R" type="xs:time">
+										<xs:annotation>
+											<xs:documentation>Ώρα Έναρξης (Time start)</xs:documentation>
+										</xs:annotation>
+									</xs:element>
+									<xs:element name="F_ORA_LIXIS" type="xs:time">
+										<xs:annotation>
+											<xs:documentation>Ώρα Λήξης (Time Stop)</xs:documentation>
+										</xs:annotation>
+									</xs:element>
+								</xs:sequence>                
+							</xs:complexType>              
+						</xs:element>
+            
+            <xs:element name="FuelMovements">
+              <xs:annotation>
+                <xs:documentation>Ημερομηνία (Date)</xs:documentation>
+              </xs:annotation>
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="FuelMovement" maxOccurs="unbounded">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="F_KAYSIMO_EIDOS" type="ff:Fuel_Type">
+                          <xs:annotation>
+                            <xs:documentation>είδος καυσίμου (βλέπε πίνακα κωδικοποίησης καυσίμων) (Fuel Type)</xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_2236A1" type="xs:decimal">
+                          <xs:annotation>
+                            <xs:documentation>
+                              2.2.3.6. α1 Ο όγκος των εισροών (παραλαβών) κατά την εν λόγω περίοδο με βάση τις ενδείξεις του συστήματος εισροών στην τρέχουσα θερμοκρασία (άθροισμα των 2.1.7)
+                              2.2.3.6. a1 The volume of inflows (deliveries) during that period by the information of the system at the current temperature (sum of 2.1.7)
+                            </xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_2236A2" type="xs:decimal">
+                          <xs:annotation>
+                            <xs:documentation>
+                              2.2.3.6. α2 ογκος επιπλεον μεταβολων (επιστροφες δ.λιτρομ+επιστροφες δ.επιστροφων-εκρ δ.εξαγωγης)
+                              2.2.3.6. a2 volume Additional changes (Pump Liter Checks notes + Fuel Returns -empty tank procedures (e.t.c. for rectifying))
+                            </xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_2236B1" type="xs:decimal">
+                          <xs:annotation>
+                            <xs:documentation>
+                              2.2.3.6.β1 ο ανηγμένος όγκος στους 15°C (άθροισμα των 2.1.8)
+                              2.2.3.6.v1 the reduced volume at 15 ° C (sum of 2.1.8)
+                            </xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_2236B2" type="xs:decimal">
+                          <xs:annotation>
+                            <xs:documentation>
+                              2.2.3.6. β2 ογκος επιπλεον μεταβολων στους 15°C ((επιστροφες δ.λιτρομ+επιστροφες δ.επιστροφων-εκρ δ.εξαγωγης)
+                              .2.3.6. b2 volume Additional changes to 15 ° C (Pump Liter Checks notes + Fuel Returns -empty tank procedures (e.t.c. for rectifying))
+                            </xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_2237" type="xs:decimal">
+                          <xs:annotation>
+                            <xs:documentation>
+                              2.2.3.7. Ο όγκος των εισροών (παραλαβών) κατά την εν λόγω περίοδο με βάση το παραστατικό παραλαβής στη θερμοκρασία φόρτωσης (άθροισμα των 2.1.5.4)
+                              2.2.3.7. The volume of inflows (deliveries) during this period based on the delivery document to temperature loading (sum of 2.1.5.4)
+                            </xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_2238" type="xs:decimal">
+                          <xs:annotation>
+                            <xs:documentation>
+                              2.2.3.8. Ο όγκος των εισροών (παραλαβών) κατά την εν λόγω περίοδο με βάση το παραστατικό παραλαβής στους 15°C (άθροισμα των 2.1.5.6)
+                              2.2.3.8. The volume of inflows (deliveries) during this period based on the delivery document at 15 ° C (sum of 2.1.5.6)
+                            </xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_2239A" type="xs:decimal">
+                          <xs:annotation>
+                            <xs:documentation>
+                              2.2.3.9 Διαφορες παραλαβων μεταξυ συστηματος εισ-εκρ και παραστατικων στην τρεχουσα θερμοκρασια(2.2.3.6.α1-2.2.3.7.)
+                              The delivery difference between system and documents in current temp. (2.2.3.6.a1-2.2.3.7.)
+                            </xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_2239B" type="xs:decimal">
+                          <xs:annotation>
+                            <xs:documentation>
+                              2.2.3.9 Διαφορες παραλαβων μεταξυ συστηματος εισ-εκρ και παραστατικων στους 15 (2.2.3.6.β1-2.2.3.8)
+                              The delivery difference between system and documents in at 15C (2.2.3.6.b1-2.2.3.8).
+                            </xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_22310" type="xs:decimal">
+                          <xs:annotation>
+                            <xs:documentation>2.2.3.10 Ημερήσια κίνηση (Dayly Move)</xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_22310A" type="xs:decimal">
+                          <xs:annotation>
+                            <xs:documentation>
+                              2.2.3.10.A. Με βάση τις ενδείξεις του συστήματος στην τρέχουσα θερμοκρασία (2.2.3.2. + 2.2.3.6.α1 + 2.2.3.6.α2 - 2.2.3.4.)
+                              2.2.3.10.A. Based on system measurments in current temp. (2.2.3.2. + 2.2.3.6.α1 + 2.2.3.6.α2 - 2.2.3.4.)
+                            </xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_22310B" type="xs:decimal">
+                          <xs:annotation>
+                            <xs:documentation>
+                              2.2.3.10.Β. Το παραπάνω με αναγωγή στους 15°C (2.2.3.3. + 2.2.3.6.β1 + 2.2.3.6.β2 - 2.2.3.5.)
+                              2.2.3.10.Β. Based on system measurments at 15°C (2.2.3.3. + 2.2.3.6.β1 + 2.2.3.6.β2 - 2.2.3.5.)
+                            </xs:documentation>
+                          </xs:annotation>
+                        </xs:element>                       
+                      </xs:sequence>
+                      </xs:complexType>
+                  </xs:element>  
+                </xs:sequence>
+                <xs:attribute name="F_KAYSIMA_NO" type="xs:int" use="required">
+                  <xs:annotation>
+                    <xs:documentation>Πλήθος δεξαμενών (Number Of Tanks)</xs:documentation>
+                  </xs:annotation>
+                </xs:attribute>
+              </xs:complexType>                 
+            </xs:element>                                 
+            
+						<xs:element name="Reservoirs">
+							<xs:annotation>
+								<xs:documentation>Δεξαμενές</xs:documentation>
+							</xs:annotation>
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="Reservoir" maxOccurs="unbounded">
+										<xs:annotation>
+											<xs:documentation>
+                        Δεξαμενή:
+
+                        F_Res_AA:	2.2.3.1. Ο α/α της δεξαμενής, (Unique Number of tank )
+                        F_Res_Capacity:	η χωρητικότητα, (Capacity / Ullage)
+                        F_Res_FuelType:	ο τύπος του καυσίμου (Fuel Typw)
+                        F_2232_MM:	2.2.3.2. Το ύψος σε mm του καυσίμου κατά την έναρξη της περιόδου και (Product Height in Tank at start.)
+                        F_2232_VOL:	2.2.3.2. Ο όγκος του καυσίμου κατά την έναρξη της περιόδου και (Product Volume at start)
+                        F_2232_TEMP:	η αντίστοιχη θερμοκρασία (Start Temp.)
+                        F_2233:		2.2.3.3. Ο ανωτέρω όγκος ανηγμένος στους 15°C (The above Volume reducted at 15C)
+                        F_2234_VOL:	2.2.3.4. Ο όγκος του καυσίμου κατά το πέρας της περιόδου (Product volume at end.)
+                        F_2234_TEMP:	και η αντίστοιχη θερμοκρασία (End Temp.)
+                        F_2235:		2.2.3.5. Ο ανωτέρω όγκος ανηγμένος στους 15°C (the above volume reducted at 15C)
+
+
+                      </xs:documentation>
+										</xs:annotation>
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="F_DEXAMENH_AA" type="xs:int"/>
+												<xs:element name="F_DEXAMENH_XORITIKOTITA" type="ff:PositiveDecimal_Type"/>
+												<xs:element name="F_KAYSIMO_EIDOS" type="ff:Fuel_Type"/>
+                        <xs:element name="F_2232_MM" type="ff:PositiveDecimal_Type"/>
+												<xs:element name="F_2232_VOL" type="ff:PositiveDecimal_Type"/>
+												<xs:element name="F_2232_TEMP" type="ff:PositiveDecimal_Type"/>
+												<xs:element name="F_2233" type="ff:PositiveDecimal_Type"/>
+                        <xs:element name="F_2234_MM" type="ff:PositiveDecimal_Type"/>
+												<xs:element name="F_2234_VOL" type="ff:PositiveDecimal_Type"/>
+												<xs:element name="F_2234_TEMP" type="ff:PositiveDecimal_Type"/>
+												<xs:element name="F_2235" type="ff:PositiveDecimal_Type"/>
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+								<xs:attribute name="ReservoirsNumber" type="xs:int" use="required">
+									<xs:annotation>
+										<xs:documentation>Πλήθος δεξαμενών(Number of Tanks)</xs:documentation>
+									</xs:annotation>
+								</xs:attribute>
+							</xs:complexType>
+						</xs:element>
+            
+						<xs:element name="PumpsPerFuelType">
+							<xs:annotation>
+								<xs:documentation>Αντλίες ανά τύπο καυσίμου (Pumps per fuel Type)</xs:documentation>
+							</xs:annotation>
+              <xs:complexType>
+                <xs:sequence>
+               <xs:element name="FuelTypes" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="F_KAYSIMO_AA" type="ff:Fuel_Type">
+                      <xs:annotation>
+                        <xs:documentation>α/α καυσίμου (Fuel Type code)</xs:documentation>
+                      </xs:annotation>
+                    </xs:element>
+                    <xs:element name="F_2244B" type="ff:PositiveDecimal_Type">
+                      <xs:annotation>
+                        <xs:documentation>
+                          Ο όγκος πωλήσεων κατά την εν λόγω περίοδο για σύνολο αντλιών με κοινό καύσιμο, ως εξής: [(άθροισμα των αντίστοιχων) 2.2.4.3. - (άθροισμα των αντίστοιχων) 2.2.4.2.]
+                          The volume of sales during that period for pump sets with a common fuel type, as follows: [(sum of the corresponding) 2.2.4.3. - (Sum of the corresponding) 2.2.4.2.]
+                        </xs:documentation>
+                      </xs:annotation>
+                    </xs:element>
+                    <xs:element name="F_2245B" type="ff:PositiveDecimal_Type">
+                      <xs:annotation>
+                        <xs:documentation>
+                          Ο ανωτέρω όγκος (2.2.4.4.β) ανηγμένος στους 15°C
+                          The above volume (2.2.4.4.b) reduced to 15 ° C (Notice that there is no ATC device at Pump, so we take the avg temp. of the connected Tank.)
+                        </xs:documentation>
+                      </xs:annotation>
+                    </xs:element>
+                    <xs:element name="FuelTypePump" maxOccurs="unbounded">
+                      <xs:annotation>
+                        <xs:documentation>Αντλίες ανά συγκεκριμένο τύπο καυσίμου (Pumps per Fuel type)</xs:documentation>
+                      </xs:annotation>
+                      <xs:complexType>
+                        <xs:sequence>                                                                      
+                                <xs:element name="FuelType" type="ff:Fuel_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>Είδος καυσίμου (Fuel Type)</xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_ANTLIA_AA" type="ff:LimitedString100_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>Ο α/α(ΚΩΔΙΚΟΣ –LABEL) της αντλίας (Pump S/N))</xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2241A" type="ff:LimitedString100_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>2.2.4.1. Ο α/α της αντλίας (Pump Unique Number (1,2,3...) based on Licensing Mapping.)</xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2241B" type="xs:int">
+                                  <xs:annotation>
+                                    <xs:documentation>2.2.4.1 Ο Αριθμός ογκομετρητή (ακροσωληνίου) της αντλίας (Pumps volumeter device number)</xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_Pump_Reservoir" type="ff:LimitedString100_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>ο α/α (ΚΩΔΙΚΟΣ –LABEL) της αντίστοιχης δεξαμενής άντλησης (Tank S/N/)</xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2242" type="ff:PositiveDecimal_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>Η ένδειξη του ολικού αθροιστή κατά την έναρξη της περιόδου (Pump totalizer readings at start)</xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2243" type="ff:PositiveDecimal_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>Η ένδειξη του ολικού αθροιστή κατά το πέρας της περιόδου(Pump Totalizer Reading at end.)</xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2244A" type="ff:PositiveDecimal_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      2.2.4.4. α) Ο όγκος πωλήσεων κατά την εν λόγω περίοδο α. ανά αντλία ως εξής:αθροιση  διακριτων κινησεων που καταγραφηκαν και εκδοθηκε αποδ. Εσοδου)
+                                      2.2.4.4. α) The sales volume per Pump as :Sum of Retail Receipts)
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2244B" type="ff:PositiveDecimal_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      2.2.4.4B. Ο όγκος των ημερήσιων κινήσεων κατά την εν λόγω περίοδο, με βάση τις αποδείξεις εσόδου και τα δελτία λιτρομέτρησης (B) για σύνολο αντλιών με κοινό καύσιμο, ως εξής: [(άθροισμα των αντίστοιχων) 2.2.4.4.α ]
+                                      2.2.4.4B. The Dayly Sales volume Based of Retail Receipt and Pump Liter check notes For all Pumps with the same Fuel Type as: [Sum of 2.2.4.4.α ]
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2244C" type="ff:PositiveDecimal_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      2.2.4.4Γ. O ανωτέρω όγκος (2.2.4.4.β) ανηγμένος στους 15οC
+                                      2.2.4.4Γ. the above volume (2.2.4.4.β) reducted at 15οC
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2244D" type="ff:PositiveDecimal_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      2.2.4.4Δ. Ανά αντλία, σύνολο ποσοτήτων λιτρομέτρησης (άθροιση διακριτών κινήσεων που καταγράφησαν και εκδόθηκε δελτίο λιτρομέτρησης)
+                                      2.2.4.4Δ. Per Pump the total volume used for Pump Liter check procedures as (Sum of Liter check notes issued)
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2244E" type="ff:PositiveDecimal_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      2.2.4.4Ε. για σύνολο αντλιών με κοινό καύσιμο, ως εξής: [(άθροισμα των αντίστοιχων) 2.2.4.4.γ ]
+                                      2.2.4.4Ε. For Pumps with same fuel Type, as: [(Sum of 2.2.4.4.Β ]
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2244F" type="ff:PositiveDecimal_Type">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      2.2.4.4ΣΤ.ο ανωτέρω όγκος (2.2.4.4.ε) ανηγμένος στους 15οC
+                                      2.2.4.4ΣΤ.The above volume (2.2.4.4.ε) reducted at 15οC
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2245A" type="xs:decimal">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      2.2.4.5A. Ο όγκος των ημερήσιων κινήσεων κατά την εν λόγω περίοδο, με βάση τους ολικούς αθροιστές των αντλιών (A) ανά αντλία (2.2.4.3 – 2.2.4.2).
+                                      2.2.4.5A. The total volume for the period, based on pump totalizer reading (A) per pump (2.2.4.3 – 2.2.4.2).
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2245B" type="xs:decimal">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      2.2.4.5B. Ο όγκος των ημερήσιων κινήσεων κατά την εν λόγω περίοδο, με βάση τους ολικούς αθροιστές των αντλιών (B) για σύνολο αντλιών με κοινό καύσιμο, ως εξής: [(άθροισμα των αντίστοιχων) 2.2.4.5.α ]
+                                      2.2.4.5B. The total volume for the period, based on pump totalizer reading (B) Sum for Pumps with the same Fuel type, as: [(sum of 2.2.4.5.α ]
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2245C" type="xs:decimal">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      2.2.4.5.γ ο ανωτέρω όγκος (2.2.4.5.β) ανηγμένος στους 15οC
+                                      2.2.4.5.γ The above volume (2.2.4.5.β) reducted at 15οC
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2246A" type="xs:decimal">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Διαφορά ημερήσιων κινήσεων κατά την εν λόγω περίοδο (Σημείωση: ανά αντλία και τύπο καυσίμου) α. στη τρέχουσα θερμοκρασία (2.2.4.5 β – 2.2.4.4.β – 2.2.4.4.ε)
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="F_2246B" type="xs:decimal">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      2Διαφορά ημερήσιων κινήσεων κατά την εν λόγω περίοδο (Σημείωση: ανά αντλία και τύπο καυσίμου) β. με αναγωγή στους 15οC (2.2.4.5 γ – 2.2.4.4.γ – 2.2.4.4.στ)
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                        </xs:sequence>
+                            </xs:complexType>
+                          </xs:element>                       
+                  </xs:sequence>
+                  <xs:attribute name="TotalPumpsNumber" type="xs:int" use="required">
+                    <xs:annotation>
+                      <xs:documentation>Συνολικός αριθμός Αντλιών (total number Of Pumps)</xs:documentation>
+                    </xs:annotation>
+                  </xs:attribute>
+                </xs:complexType>
+               </xs:element>
+                </xs:sequence>
+                <xs:attribute name="F_KAYSIMA_NO" type="xs:int" use="required">
+                  <xs:annotation>
+                    <xs:documentation>Αριθμός καυσίμων (επαναλήψεις του επόμενου record) (Number Of fuel Types)</xs:documentation>
+                  </xs:annotation>
+                </xs:attribute>
+              </xs:complexType>              
+              
+              </xs:element>
+            
+            <xs:element name="DivergencesPerFuelType">
+              <xs:annotation>
+                <xs:documentation>Αποκλίσεις για κάθε είδος καυσίμου (Divergences Per Fuel Type)</xs:documentation>
+              </xs:annotation>
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="FuelTypeDivergence" maxOccurs="unbounded">
+                    <xs:annotation>
+                      <xs:documentation>
+                        Αποκλίσεις για ένα είδος καυσίμου:
+
+                        F_2251:		2.2.5.1. Απόκλιση εισροών-εκροών ημέρας (2.2.3.10.Α – 2.2.4.4.β – 2.2.4.4.ε) (Day Divergences)
+                        F_2252:		2.2.5.2. Η παραπάνω απόκλιση (2.2.5.1) με αναγωγή στους 15οC (2.2.3.10.Β – 2.2.4.4.γ – 2.2.4.4.στ) (the Above reducted at 15c)
+                        F_2253: 	2.2.5.3. Η απόκλιση εισροών-εκροών ημέρας εκφρασμένη ως ποσοστό (2.2.5.1 / 2.2.3.10.Α.)*100 (%) (Day Divergence as percentage)
+                        F_2254:		2.2.5.4. Η απόκλιση εισροών-εκροών ημέρας με αναγωγή στους 15οC εκφρασμένη ως ποσοστό (2.2.5.2 / 2.2.3.10.Β.)*100 (%) (The above reducted at 15C)
+                    
+                      </xs:documentation>
+                    </xs:annotation>
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="FuelType" type="ff:Fuel_Type">
+                          <xs:annotation>
+                            <xs:documentation>Είδος καυσίμου</xs:documentation>
+                          </xs:annotation>
+                        </xs:element>
+                        <xs:element name="F_2251" type="xs:decimal"/>
+                        <xs:element name="F_2252" type="xs:decimal"/>
+                        <xs:element name="F_2253" type="xs:decimal"/>                       
+                        <xs:element name="F_2254" type="xs:decimal"/>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:sequence>
+                <xs:attribute name="FuelTypesNumber" type="xs:int" use="required">
+                  <xs:annotation>
+                    <xs:documentation>Αριθμός Ειδών Καυσίμου</xs:documentation>
+                  </xs:annotation>
+                </xs:attribute>
+              </xs:complexType>
+            </xs:element>
+            
+					</xs:sequence>          
+				</xs:complexType>       
+			</xs:element>
+
+			<xs:element name="IncomeReceipts">
+				<xs:annotation>
+					<xs:documentation>Αποδείξεις Εσόδου</xs:documentation>
+				</xs:annotation>
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Header" type="ff:Header_Type">
+							<xs:annotation>
+								<xs:documentation>Στοιχεία υποβάλλοντος</xs:documentation>
+							</xs:annotation>
+						</xs:element>
+            <xs:element name="NUM_OF_RECEIPTS" type="xs:int">
+              <xs:annotation>
+                <xs:documentation>Αριθμός Αποδείξεων</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+						<xs:element name="IncomeReceipt" maxOccurs="unbounded">
+							<xs:annotation>
+								<xs:documentation>
+									Απόδειξη εσόδου:
+									F_31A:	α) Τα στοιχεία του εκδότη, (Submitter Details)
+									F_31AΑ:	α) Aρ.ΑΜΔΙΚΑ, (Unique Station ID)
+									F_31B:	β) LABEL Αντλίας, (Pump S/N)
+									F_31C:	γ) LABEL Ογκομέτρητη, (Pumps Volumeters Number)
+									F_31D:	δ) Το είδος του καυσίμου, (Fuel Type)
+									F_31E:	ε) Η ημερομηνία (ΕΕΜΜΗΗ) και η ώρα έκδοσής του (ΩΩΛΛ), (date and time of the receipt)
+									F_31F:	στ) Ο όγκος (ποσότητα) του καυσίμου, (Fuel Volume)
+									F_31G:	ζ) Η τιμή μονάδας (Unit Price)
+									F_31H:	η) Ο συντελεστής Φ.Π.Α., (VAT Percentage)
+									F_31I:	θ) Η συνολική αξία. (total value)
+									F_31K:	ι) Ο όγκος (ποσότητα) του καυσίμου ανηγμένος στους 15 βαθμούς, (Fuel Volume)
+									F_31L:	κ) Η θερμοκρασίας της δεξαμενής εκροής
+									F_31M:	μ) Η πυκνότητα της δεξαμενής εκροής
+									F_32:	αριθμός κυκλοφορίας του οχήματος του αντισυμβαλλόμενου (Vehicle Registration Number)
+									F_33:	Α.Φ.Μ. του αντισυμβαλλόμενου πελάτη - επιτηδευματία. (Client VAt number)
+									F_34:	παρατηρησεις (comments)
+									F_35: Αρ.Μητρώου Δεξαμενής
+									F_36: Θερμοκρασία Δεξαμενής
+									F_37: ΑA Δεξαμενής
+									F_38: Totalizer
+
+								</xs:documentation>
+							</xs:annotation>
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="F_31A" type="ff:LimitedString100_Type"/>
+                  <xs:element name="F_31AA" type="ff:LimitedString100_Type"/>
+                  <xs:element name="F_31B" type="ff:LimitedString100_Type"/>									
+									<xs:element name="F_31C" type="ff:LimitedString100_Type"/>
+									<xs:element name="F_31D" type="ff:Fuel_Type"/>
+									<xs:element name="F_31E" type="xs:dateTime"/>
+									<xs:element name="F_31F" type="ff:PositiveDecimal_Type"/>
+									<xs:element name="F_31G" type="ff:PositiveDecimal_Type"/>
+									<xs:element name="F_31H" type="ff:PositiveDecimal_Type"/>
+									<xs:element name="F_31I" type="ff:PositiveDecimal_Type"/>
+									<xs:element name="F_31K" type="ff:PositiveDecimal_Type"/>
+									<xs:element name="F_31L" type="ff:PositiveDecimal_Type"/>
+									<xs:element name="F_31M" type="ff:PositiveDecimal_Type"/>
+									<xs:element name="F_32" type="ff:CarData_Type"/>
+									<xs:element name="F_33" type="ff:TIN_Type"/>
+									<xs:element name="F_34" type="ff:LimitedString100_Type"/>
+                  <xs:element name="F_35" type="ff:LimitedString100_Type"/>
+                  <xs:element name="F_36" type="ff:PositiveDecimal_Type"/>
+                  <xs:element name="F_37" type="xs:int"/>
+                  <xs:element name="F_38" type="ff:PositiveDecimal_Type"/>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+
+      <xs:element name="ActionRegistration">
+        <xs:annotation>
+          <xs:documentation>Ενέργειες/Επεμβάσεις/Σφραγίσεις Εγκαταστάτη</xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="F_INST_AFM" type="ff:TIN_Type">
+              <xs:annotation>
+                <xs:documentation>Α.Φ.Μ. εξουσιοδοτημένου συνεργειου /εταιρειας υπευθυνου για την ενέργεια</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_AM_DIKA" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Ο Α.Μ. ΔΙ.ΚΑ  του πρατηρίου</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_INST_ACTION_TYPE" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Κωδ.δραστηριοτητας εγκαταστάτη </xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_REASONING" type="xs:string">
+              <xs:annotation>
+                <xs:documentation>Περιγραφή σκοπού επέμβασης.</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_HM_ENARXHS" type="xs:date">
+              <xs:annotation>
+                <xs:documentation>Ημερομηνία / Ώρα έναρξης εργασιών</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_HM_LIXIS" type="xs:date">
+              <xs:annotation>
+                <xs:documentation>Ημερομηνία / Ώρα λήξης εργασιών</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_COMMEMNTS" type="xs:string">
+              <xs:annotation>
+                <xs:documentation>Περιγραφή εργασιών που εκτελέστηκαν.</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_SHIELDID" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Αρ.Σφραγίδας που χρησιμοποιήθηκε</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_PREV_SHIELDID" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Αρ.Σφραγίδας που αφαιρέθηκε</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_PLACE" type="xs:int">
+              <xs:annotation>
+                <xs:documentation>>Τύπος Εργασίας
+                        1: Αντλίες
+                        2: Δεξαμενές
+                        3: Πλατεία
+                        4: Πρόγραμμα
+                        5: Κοντρολλερ Αντλιών
+                        6: Κοντρολλερ Δεξαμενών
+                        7: Φορολογικός Μηχανισμός
+                        8: Λοιπός Εξοπλισμός Εισροών-Εκροών</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="AlertRegistration">
+        <xs:annotation>
+          <xs:documentation>Ενέργειες/Επεμβάσεις/Σφραγίσεις Εγκαταστάτη</xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Header" type="ff:Header_Type">
+              <xs:annotation>
+                <xs:documentation>Στοιχεία υποβάλλοντος</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_AM_DIKA" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Ο Α.Μ. ΔΙ.ΚΑ  του πρατηρίου</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_ALERT" type="ff:Alert_Type">
+              <xs:annotation>
+                <xs:documentation>Περιγραφή συναγερμού</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+						<!--<xs:element name="F_TAXISBRANCH" type="xs:int">
+							<xs:annotation>
+								<xs:documentation>Ο αριθμός υποκαταστήματος Taxis</xs:documentation>
+							</xs:annotation>
+						</xs:element>-->
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="LiterCheck">
+        <xs:annotation>
+          <xs:documentation>Δελτίο Λιτρομέτρησης</xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Header" type="ff:Header_Type">
+              <xs:annotation>
+                <xs:documentation>Στοιχεία υποβάλλοντος</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_AM_DIKA" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Ο Α.Μ. ΔΙ.ΚΑ  του πρατηρίου</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_231_1" type="xs:dateTime">
+              <xs:annotation>
+                <xs:documentation>H ημερομηνία και ώρα έκδοσης του Δελτίου Λιτρομέτρησης (Document Issued Datetime)</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_FUEL_CODE" type="ff:Fuel_Type">
+              <xs:annotation>
+                <xs:documentation>Το είδος του καυσίμου (Fuel Type)</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_LABEL_OGKOMETR" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Ταυτότητα Ογκομετρητή</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_LABEL_POOL" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Ταυτότητα  δεξαμενης επιστροφής</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_CAPACITY" type="ff:PositiveDecimal_Type">
+              <xs:annotation>
+                <xs:documentation>Όγκος</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_CAPACITY_15" type="ff:PositiveDecimal_Type">
+              <xs:annotation>
+                <xs:documentation>Όγκος στους 15°</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="TankCheck">
+        <xs:annotation>
+          <xs:documentation>Δελτίο Λιτρομέτρησης</xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Header" type="ff:Header_Type">
+              <xs:annotation>
+                <xs:documentation>Στοιχεία υποβάλλοντος</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_AM_DIKA" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Ο Α.Μ. ΔΙ.ΚΑ  του πρατηρίου</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_3001" type="xs:dateTime">
+              <xs:annotation>
+                <xs:documentation>H ημερομηνία και ώρα  δείγματος</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_LABEL" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>O Αρ.Μητρώου της Δεξαμενής.</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_3002" type="ff:PositiveDecimal_Type">
+              <xs:annotation>
+                <xs:documentation>Η Σταθμη καυσιμου</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_3003" type="ff:PositiveDecimal_Type">
+              <xs:annotation>
+                <xs:documentation>Ο Ογκος στην σταθμη αυτή στην φυσίκή θερμοκρασία</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_3004" type="ff:PositiveDecimal_Type">
+              <xs:annotation>
+                <xs:documentation>Η θερμοκρασία της Δεξαμενής</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_3005" type="ff:PositiveDecimal_Type">
+              <xs:annotation>
+                <xs:documentation>Η μεσοσταθμική πυκνότητα της Δεξαμενής βάση παραλαβών</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+						<xs:element name="F_3006" type="ff:PositiveDecimal_Type">
+							<xs:annotation>
+								<xs:documentation>Ο Ογκος στην σταθμη αυτή στους 15 βαθμούς</xs:documentation>
+							</xs:annotation>
+						</xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+
+      <xs:element name="PriceChange">
+        <xs:annotation>
+          <xs:documentation>Αλλαγή Τιμών</xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Header" type="ff:Header_Type">
+              <xs:annotation>
+                <xs:documentation>Στοιχεία υποβάλλοντος</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_AM_DIKA" type="ff:LimitedString100_Type">
+              <xs:annotation>
+                <xs:documentation>Ο Α.Μ. ΔΙ.ΚΑ  του πρατηρίου</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_4001" type="xs:dateTime">
+              <xs:annotation>
+                <xs:documentation>H ημερομηνία/ ώρα Εφαρμογής νέων τιμών (Document Issued Date)</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            <xs:element name="F_4002" type="ff:Fuel_Type">
+              <xs:annotation>
+                <xs:documentation>Τύπος καυσίμου</xs:documentation>
+              </xs:annotation>
+            </xs:element>            
+            <xs:element name="F_4003" type="ff:PositiveDecimal_Type">
+              <xs:annotation>
+                <xs:documentation>Τιμή πώλησης</xs:documentation>
+              </xs:annotation>
+            </xs:element>
+            
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      
+		</xs:choice>
+	</xs:complexType>
+</xs:schema>

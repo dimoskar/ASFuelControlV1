@@ -2400,7 +2400,8 @@ namespace ASFuelControl.Windows.Threads
                 {
                     var trans = new Samtec.WebService.Models.Transactionline();
                     trans.ClassCategory = 1;
-                    trans.FuelCode = invLine.FuelType.EnumeratorValue;
+                    if (invLine.FuelType.EnumeratorValue != 100)
+                        trans.FuelCode = invLine.FuelType.EnumeratorValue;
                     trans.Description = invLine.FuelType.Name;
                     int decimalPlaces = 3;
 

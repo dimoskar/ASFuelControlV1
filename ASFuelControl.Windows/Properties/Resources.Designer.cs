@@ -2454,6 +2454,18 @@ namespace ASFuelControl.Windows.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to INSERT [dbo].[FuelType] ([FuelTypeId], [Name], [Code], [Color], [ThermalCoeficient], [EnumeratorValue], [BaseDensity], [SupportsSupplyNumber], [ExcludeFromBalance]) 
+        ///VALUES (N&apos;37dcf19f-26e2-4303-a703-09ef68b86f5d&apos;, N&apos;Ad Blue&apos;, N&apos;AdBlue&apos;, 16711680, CAST(1.000000000 AS Decimal(18, 9)), 100, CAST(1000.000 AS Decimal(18, 3)), NULL, 1)
+        ///GO
+        ///.
+        /// </summary>
+        internal static string UpdateDatabase53 {
+            get {
+                return ResourceManager.GetString("UpdateDatabase53", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to ALTER TABLE dbo.InvoiceType ADD
         ///	IsInternal bit NULL
         ///GO
