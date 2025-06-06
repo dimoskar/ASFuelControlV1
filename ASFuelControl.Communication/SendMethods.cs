@@ -14,25 +14,27 @@ namespace ASFuelControl.Communication
 
         public string SendTankCheck(ClientHeader header, TankCheckClass tank)
         {
-            FuelFlowService.Fuelflows_TypeTankCheck tankCheck = new FuelFlowService.Fuelflows_TypeTankCheck();
+            FuelFlowService.SendTankCheckDS tankCheck = new FuelFlowService.SendTankCheckDS();
             tankCheck.F_3001 = tank.TransactionDate;
             tankCheck.F_3002 = tank.TankLevel;
             tankCheck.F_3003 = tank.TankVolume;
             tankCheck.F_3004 = tank.TankTemperature;
             tankCheck.F_3005 = tank.FuelDensity;
+            tankCheck.F_3006 = tank.TankVolume15;
             tankCheck.F_AM_DIKA = etoken.AMDIKA_ID;
             tankCheck.F_LABEL = tank.TankId; //A.M Dejamenhs
             tankCheck.Header = new FuelFlowService.Header_Type();
             tankCheck.Header.CompanyTIN = header.CompanyTIN;
             tankCheck.Header.SubmissionDate = header.SubmissionDate;
             tankCheck.Header.SubmitterTIN = header.SubmitterTIN;
+            tankCheck.Header.F_TAXISBRANCH = header.TaxisBranch;
 
             try
             {
                 string returnStr = "";
                 if (!Simulation)
                 {
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+                    ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
                     client.Open();
                     tankCheck.Header.eToken = etoken.GetOTP();
                     string ret = client.SendTankCheck(tankCheck);
@@ -52,16 +54,17 @@ namespace ASFuelControl.Communication
         public string SendAlert(ClientHeader header, AlertClass alertClass)
         {
             
-            FuelFlowService.Fuelflows_TypeAlertRegistration alert = new FuelFlowService.Fuelflows_TypeAlertRegistration();
+            FuelFlowService.SendAlertDS alert = new FuelFlowService.SendAlertDS();
             alert.Header = new FuelFlowService.Header_Type();
             alert.Header.CompanyTIN = header.CompanyTIN;
             alert.Header.SubmissionDate = header.SubmissionDate;
             alert.Header.SubmitterTIN = header.SubmitterTIN;
+            alert.Header.F_TAXISBRANCH = header.TaxisBranch;
             alert.F_AM_DIKA = etoken.AMDIKA_ID;
             alert.F_ALERT = new FuelFlowService.Alert_Type();
             alert.F_ALERT.F_ALERTID = (int)alertClass.Alert;
             alert.F_ALERT.F_DATE = alertClass.AlertTime;
-            alert.F_ALERT.F_DEVICE_LABEL = alertClass.DeviceId;
+            alert.F_ALERT.F_DEVICE_LABEL = alertClass.DeviceId;           
             string reason = alertClass.Description;
             if (reason.Length > 99)
                 reason = reason.Substring(0, 99);
@@ -72,7 +75,7 @@ namespace ASFuelControl.Communication
                 string returnStr = "";
                 if (!Simulation)
                 {
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+                    ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
                     client.Open();
                     alert.Header.eToken = etoken.GetOTP();
                     string ret = client.SendAlert(alert);
@@ -91,7 +94,7 @@ namespace ASFuelControl.Communication
 
         public string SendChangePrice(ClientHeader header, ChangePriceClass changeClass)
         {
-            FuelFlowService.Fuelflows_TypePriceChange change = new FuelFlowService.Fuelflows_TypePriceChange();
+            FuelFlowService.PriceChangeDS change = new FuelFlowService.PriceChangeDS();
             FuelFlowService.Fuel_Type ft = new FuelFlowService.Fuel_Type();
             ft.Code = (int)changeClass.FuelType;
             ft.Description = Enums.LocalizedEnumExtensions.GetLocalizedName(changeClass.FuelType);
@@ -103,13 +106,13 @@ namespace ASFuelControl.Communication
             change.Header.CompanyTIN = header.CompanyTIN;
             change.Header.SubmissionDate = header.SubmissionDate;
             change.Header.SubmitterTIN = header.SubmitterTIN;
-            
+            change.Header.F_TAXISBRANCH = header.TaxisBranch;
             try
             {
                 string returnStr = "";
                 if (!Simulation)
                 {
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+                    ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
                     client.Open();
                     change.Header.eToken = etoken.GetOTP();
                     string ret = client.PriceChange(change);
@@ -135,15 +138,16 @@ namespace ASFuelControl.Communication
                 list.Reciepts = new List<IncomeRecieptClass>();
                 list.Reciepts.Add(income);
 
-                FuelFlowService.Fuelflows_TypeIncomeReceipts reciept = list.GetElement();
+                FuelFlowService.SendReceiptDS reciept = list.GetElement();
                 reciept.Header = new FuelFlowService.Header_Type();
                 reciept.Header.CompanyTIN = header.CompanyTIN;
                 reciept.Header.SubmissionDate = header.SubmissionDate;
                 reciept.Header.SubmitterTIN = header.SubmitterTIN;
+                reciept.Header.F_TAXISBRANCH = header.TaxisBranch;
                 string returnStr = "";
                 if (!Simulation)
                 {
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+                    ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
                     client.Open();
                     reciept.Header.eToken = etoken.GetOTP();
                     string ret = client.SendReceipt(reciept);
@@ -162,15 +166,17 @@ namespace ASFuelControl.Communication
 
         public string SendDelivery(ClientHeader header, DeliveryNoteClass delivery)
         {
-            FuelFlowService.Fuelflows_TypeDeliveryNote deliveryNote = delivery.GetElement();
+            FuelFlowService.SendDeliveryDS deliveryNote = delivery.GetElement();
 
             deliveryNote.Header.CompanyTIN = header.CompanyTIN;
             deliveryNote.Header.SubmissionDate = DateTime.Now;
             deliveryNote.Header.SubmitterTIN = header.SubmitterTIN;
+            deliveryNote.Header.F_TAXISBRANCH = header.TaxisBranch;
+            
             string returnStr = "";
             if (!Simulation)
             {
-                ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+                ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
                 client.Open();
                 deliveryNote.Header.eToken = etoken.GetOTP();
                 string ret = client.SendDelivery(deliveryNote);
@@ -185,18 +191,19 @@ namespace ASFuelControl.Communication
         public string SendLiterCheck(ClientHeader header, Communication.LiterCheckClass lc)
         {
             
-            FuelFlowService.Fuelflows_TypeLiterCheck literCheck = lc.GetElement();
+            FuelFlowService.SendLiterCheckDS literCheck = lc.GetElement();
             try
             {
                 literCheck.F_AM_DIKA = etoken.AMDIKA_ID;
                 string returnStr = "";
                 if (!Simulation)
                 {
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+                    ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
                     client.Open();
                     literCheck.Header = new FuelFlowService.Header_Type();
                     literCheck.Header.CompanyTIN = header.CompanyTIN;
                     literCheck.Header.SubmitterTIN = header.SubmitterTIN;
+                    literCheck.Header.F_TAXISBRANCH = header.TaxisBranch;
                     literCheck.Header.SubmissionDate = DateTime.Now;
                     literCheck.Header.eToken = etoken.GetOTP();
                     string ret = client.SendLiterCheck(literCheck);
@@ -215,18 +222,19 @@ namespace ASFuelControl.Communication
 
         public string SendBalance(ClientHeader header, BalanceClass bc)
         {
-            FuelFlowService.Fuelflows_TypeBalance balance = bc.GetElement();
+            FuelFlowService.SendBalanceDS balance = bc.GetElement();
             try
             {
                 balance.F_AM_DIKA = etoken.AMDIKA_ID;
                 balance.Header = new FuelFlowService.Header_Type();
                 balance.Header.CompanyTIN = header.CompanyTIN;
                 balance.Header.SubmitterTIN = header.SubmitterTIN;
+                balance.Header.F_TAXISBRANCH = header.TaxisBranch;
                 balance.Header.SubmissionDate = DateTime.Now;
                 string returnStr = "";
                 if (!Simulation)
                 {
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+                    ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
                     client.Open();
                     balance.Header.eToken = etoken.GetOTP();
                     string ret = client.SendBalance(balance);
@@ -254,7 +262,7 @@ namespace ASFuelControl.Communication
 
         public string GetSationRecord()
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+            ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
             string xml = client.GetRegNums(etoken.AMDIKA_ID, etoken.GetOTP());
             return xml;
         }

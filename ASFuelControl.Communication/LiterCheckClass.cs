@@ -15,9 +15,9 @@ namespace ASFuelControl.Communication
         public string TankSN { set; get; }
         public DateTime TransactionDate { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeLiterCheck GetElement()
+        public FuelFlowService.SendLiterCheckDS GetElement()
         {
-            FuelFlowService.Fuelflows_TypeLiterCheck literCheck = new FuelFlowService.Fuelflows_TypeLiterCheck();
+            FuelFlowService.SendLiterCheckDS literCheck = new FuelFlowService.SendLiterCheckDS();
             literCheck.F_231_1 = this.TransactionDate;
             literCheck.F_CAPACITY = this.Capacity == 0 ? (decimal)0.01 : this.Capacity;
             literCheck.F_CAPACITY_15 = this.Capacity15 == 0 ? (decimal)0.01 : this.Capacity15;

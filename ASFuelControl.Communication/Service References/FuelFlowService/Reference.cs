@@ -12,56 +12,60 @@ namespace ASFuelControl.Communication.FuelFlowService {
     
     
     [System.CodeDom.Compiler.GeneratedCodeAttribute("System.ServiceModel", "4.0.0.0")]
-    [System.ServiceModel.ServiceContractAttribute(Namespace="http://mygsi.eu/", ConfigurationName="FuelFlowService.achilleas_fuelflow_receiptSoap")]
-    public interface achilleas_fuelflow_receiptSoap {
+    [System.ServiceModel.ServiceContractAttribute(Namespace="http://mygsi.eu/", ConfigurationName="FuelFlowService.IPykServices")]
+    public interface IPykServices {
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/SendReceipt", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/SendReceipt", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
-        string SendReceipt(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeIncomeReceipts DS);
+        string SendReceipt(ASFuelControl.Communication.FuelFlowService.SendReceiptDS DS);
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/SendBalance", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/SendDelivery", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
-        string SendBalance(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeBalance DS);
+        string SendDelivery(ASFuelControl.Communication.FuelFlowService.SendDeliveryDS DS);
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/SendDelivery", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/SendBalance", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
-        string SendDelivery(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeDeliveryNote DS);
+        string SendBalance(ASFuelControl.Communication.FuelFlowService.SendBalanceDS DS);
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/SendAlert", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/SendAlert", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
-        string SendAlert(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeAlertRegistration DS);
+        string SendAlert(ASFuelControl.Communication.FuelFlowService.SendAlertDS DS);
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/SendLiterCheck", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/SendLiterCheck", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
-        string SendLiterCheck(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeLiterCheck DS);
+        string SendLiterCheck(ASFuelControl.Communication.FuelFlowService.SendLiterCheckDS DS);
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/SendTankCheck", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/SendTankCheck", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
-        string SendTankCheck(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeTankCheck DS);
+        string SendTankCheck(ASFuelControl.Communication.FuelFlowService.SendTankCheckDS DS);
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/PriceChange", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/PriceChange", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
-        string PriceChange(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypePriceChange DS);
+        string PriceChange(ASFuelControl.Communication.FuelFlowService.PriceChangeDS DS);
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/CheckOTP", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/CheckOTP", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
         string CheckOTP(string ADMIKA, string preKey);
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/UpdateSoftWare", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/UpdateSoftWare", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
         string UpdateSoftWare(string ADMIKA, string preKey, string _sData);
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/RegisterOTP", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/RegisterOTP", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
         string RegisterOTP(string ADMIKA, string preKey);
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/SWUpdate", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/SWUpdate", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
         string SWUpdate(string ADMIKA, string preKey, string SData);
         
-        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/GetRegNums", ReplyAction="*")]
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/GetRegNums", ReplyAction="*")]
         [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
         string GetRegNums(string AMDIKA, string Token);
+        
+        [System.ServiceModel.OperationContractAttribute(Action="http://mygsi.eu/IPykServices/GetTankStripeTable", ReplyAction="*")]
+        [System.ServiceModel.XmlSerializerFormatAttribute(SupportFaults=true)]
+        string GetTankStripeTable(string ADMIKA, string preKey, string tankCode);
     }
     
     /// <remarks/>
@@ -69,14 +73,14 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeIncomeReceipts : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendReceiptDS : object, System.ComponentModel.INotifyPropertyChanged {
         
         private Header_Type headerField;
         
         private int nUM_OF_RECEIPTSField;
         
-        private Fuelflows_TypeIncomeReceiptsIncomeReceipt[] incomeReceiptField;
+        private ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt[][] incomeReceiptField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=0)]
@@ -103,8 +107,9 @@ namespace ASFuelControl.Communication.FuelFlowService {
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("IncomeReceipt", Order=2)]
-        public Fuelflows_TypeIncomeReceiptsIncomeReceipt[] IncomeReceipt {
+        [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=2)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("IncomeReceipt", typeof(ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt))]
+        public ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt[][] IncomeReceipt {
             get {
                 return this.incomeReceiptField;
             }
@@ -129,7 +134,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://www.gsis.gr/ff/1.0")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://mygsi.eu/")]
     public partial class Header_Type : object, System.ComponentModel.INotifyPropertyChanged {
         
         private string companyTINField;
@@ -139,6 +144,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
         private string eTokenField;
         
         private System.DateTime submissionDateField;
+        
+        private int f_TAXISBRANCHField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=0)]
@@ -188,91 +195,15 @@ namespace ASFuelControl.Communication.FuelFlowService {
             }
         }
         
-        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
-        
-        protected void RaisePropertyChanged(string propertyName) {
-            System.ComponentModel.PropertyChangedEventHandler propertyChanged = this.PropertyChanged;
-            if ((propertyChanged != null)) {
-                propertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
-            }
-        }
-    }
-    
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Xml", "4.8.9032.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypePriceChange : object, System.ComponentModel.INotifyPropertyChanged {
-        
-        private Header_Type headerField;
-        
-        private string f_AM_DIKAField;
-        
-        private System.DateTime f_4001Field;
-        
-        private Fuel_Type f_4002Field;
-        
-        private decimal f_4003Field;
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=0)]
-        public Header_Type Header {
-            get {
-                return this.headerField;
-            }
-            set {
-                this.headerField = value;
-                this.RaisePropertyChanged("Header");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=1)]
-        public string F_AM_DIKA {
-            get {
-                return this.f_AM_DIKAField;
-            }
-            set {
-                this.f_AM_DIKAField = value;
-                this.RaisePropertyChanged("F_AM_DIKA");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=2)]
-        public System.DateTime F_4001 {
-            get {
-                return this.f_4001Field;
-            }
-            set {
-                this.f_4001Field = value;
-                this.RaisePropertyChanged("F_4001");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=3)]
-        public Fuel_Type F_4002 {
-            get {
-                return this.f_4002Field;
-            }
-            set {
-                this.f_4002Field = value;
-                this.RaisePropertyChanged("F_4002");
-            }
-        }
-        
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=4)]
-        public decimal F_4003 {
+        public int F_TAXISBRANCH {
             get {
-                return this.f_4003Field;
+                return this.f_TAXISBRANCHField;
             }
             set {
-                this.f_4003Field = value;
-                this.RaisePropertyChanged("F_4003");
+                this.f_TAXISBRANCHField = value;
+                this.RaisePropertyChanged("F_TAXISBRANCH");
             }
         }
         
@@ -291,313 +222,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuel_Type : object, System.ComponentModel.INotifyPropertyChanged {
-        
-        private int codeField;
-        
-        private string descriptionField;
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=0)]
-        public int Code {
-            get {
-                return this.codeField;
-            }
-            set {
-                this.codeField = value;
-                this.RaisePropertyChanged("Code");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=1)]
-        public string Description {
-            get {
-                return this.descriptionField;
-            }
-            set {
-                this.descriptionField = value;
-                this.RaisePropertyChanged("Description");
-            }
-        }
-        
-        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
-        
-        protected void RaisePropertyChanged(string propertyName) {
-            System.ComponentModel.PropertyChangedEventHandler propertyChanged = this.PropertyChanged;
-            if ((propertyChanged != null)) {
-                propertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
-            }
-        }
-    }
-    
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Xml", "4.8.9032.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeTankCheck : object, System.ComponentModel.INotifyPropertyChanged {
-        
-        private Header_Type headerField;
-        
-        private string f_AM_DIKAField;
-        
-        private System.DateTime f_3001Field;
-        
-        private string f_LABELField;
-        
-        private decimal f_3002Field;
-        
-        private decimal f_3003Field;
-        
-        private decimal f_3004Field;
-        
-        private decimal f_3005Field;
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=0)]
-        public Header_Type Header {
-            get {
-                return this.headerField;
-            }
-            set {
-                this.headerField = value;
-                this.RaisePropertyChanged("Header");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=1)]
-        public string F_AM_DIKA {
-            get {
-                return this.f_AM_DIKAField;
-            }
-            set {
-                this.f_AM_DIKAField = value;
-                this.RaisePropertyChanged("F_AM_DIKA");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=2)]
-        public System.DateTime F_3001 {
-            get {
-                return this.f_3001Field;
-            }
-            set {
-                this.f_3001Field = value;
-                this.RaisePropertyChanged("F_3001");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=3)]
-        public string F_LABEL {
-            get {
-                return this.f_LABELField;
-            }
-            set {
-                this.f_LABELField = value;
-                this.RaisePropertyChanged("F_LABEL");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=4)]
-        public decimal F_3002 {
-            get {
-                return this.f_3002Field;
-            }
-            set {
-                this.f_3002Field = value;
-                this.RaisePropertyChanged("F_3002");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=5)]
-        public decimal F_3003 {
-            get {
-                return this.f_3003Field;
-            }
-            set {
-                this.f_3003Field = value;
-                this.RaisePropertyChanged("F_3003");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=6)]
-        public decimal F_3004 {
-            get {
-                return this.f_3004Field;
-            }
-            set {
-                this.f_3004Field = value;
-                this.RaisePropertyChanged("F_3004");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=7)]
-        public decimal F_3005 {
-            get {
-                return this.f_3005Field;
-            }
-            set {
-                this.f_3005Field = value;
-                this.RaisePropertyChanged("F_3005");
-            }
-        }
-        
-        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
-        
-        protected void RaisePropertyChanged(string propertyName) {
-            System.ComponentModel.PropertyChangedEventHandler propertyChanged = this.PropertyChanged;
-            if ((propertyChanged != null)) {
-                propertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
-            }
-        }
-    }
-    
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Xml", "4.8.9032.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeLiterCheck : object, System.ComponentModel.INotifyPropertyChanged {
-        
-        private Header_Type headerField;
-        
-        private string f_AM_DIKAField;
-        
-        private System.DateTime f_231_1Field;
-        
-        private Fuel_Type f_FUEL_CODEField;
-        
-        private string f_LABEL_OGKOMETRField;
-        
-        private string f_LABEL_POOLField;
-        
-        private decimal f_CAPACITYField;
-        
-        private decimal f_CAPACITY_15Field;
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=0)]
-        public Header_Type Header {
-            get {
-                return this.headerField;
-            }
-            set {
-                this.headerField = value;
-                this.RaisePropertyChanged("Header");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=1)]
-        public string F_AM_DIKA {
-            get {
-                return this.f_AM_DIKAField;
-            }
-            set {
-                this.f_AM_DIKAField = value;
-                this.RaisePropertyChanged("F_AM_DIKA");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=2)]
-        public System.DateTime F_231_1 {
-            get {
-                return this.f_231_1Field;
-            }
-            set {
-                this.f_231_1Field = value;
-                this.RaisePropertyChanged("F_231_1");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=3)]
-        public Fuel_Type F_FUEL_CODE {
-            get {
-                return this.f_FUEL_CODEField;
-            }
-            set {
-                this.f_FUEL_CODEField = value;
-                this.RaisePropertyChanged("F_FUEL_CODE");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=4)]
-        public string F_LABEL_OGKOMETR {
-            get {
-                return this.f_LABEL_OGKOMETRField;
-            }
-            set {
-                this.f_LABEL_OGKOMETRField = value;
-                this.RaisePropertyChanged("F_LABEL_OGKOMETR");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=5)]
-        public string F_LABEL_POOL {
-            get {
-                return this.f_LABEL_POOLField;
-            }
-            set {
-                this.f_LABEL_POOLField = value;
-                this.RaisePropertyChanged("F_LABEL_POOL");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=6)]
-        public decimal F_CAPACITY {
-            get {
-                return this.f_CAPACITYField;
-            }
-            set {
-                this.f_CAPACITYField = value;
-                this.RaisePropertyChanged("F_CAPACITY");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=7)]
-        public decimal F_CAPACITY_15 {
-            get {
-                return this.f_CAPACITY_15Field;
-            }
-            set {
-                this.f_CAPACITY_15Field = value;
-                this.RaisePropertyChanged("F_CAPACITY_15");
-            }
-        }
-        
-        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
-        
-        protected void RaisePropertyChanged(string propertyName) {
-            System.ComponentModel.PropertyChangedEventHandler propertyChanged = this.PropertyChanged;
-            if ((propertyChanged != null)) {
-                propertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
-            }
-        }
-    }
-    
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Xml", "4.8.9032.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://www.gsis.gr/ff/1.0")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://mygsi.eu/")]
     public partial class Alert_Type : object, System.ComponentModel.INotifyPropertyChanged {
         
         private int f_ALERTIDField;
@@ -671,48 +296,34 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeAlertRegistration : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://mygsi.eu/")]
+    public partial class CarData_Type : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private Header_Type headerField;
+        private string plateLettersField;
         
-        private string f_AM_DIKAField;
-        
-        private Alert_Type f_ALERTField;
+        private string plateNumberField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=0)]
-        public Header_Type Header {
+        public string plateLetters {
             get {
-                return this.headerField;
+                return this.plateLettersField;
             }
             set {
-                this.headerField = value;
-                this.RaisePropertyChanged("Header");
+                this.plateLettersField = value;
+                this.RaisePropertyChanged("plateLetters");
             }
         }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=1)]
-        public string F_AM_DIKA {
+        public string plateNumber {
             get {
-                return this.f_AM_DIKAField;
+                return this.plateNumberField;
             }
             set {
-                this.f_AM_DIKAField = value;
-                this.RaisePropertyChanged("F_AM_DIKA");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=2)]
-        public Alert_Type F_ALERT {
-            get {
-                return this.f_ALERTField;
-            }
-            set {
-                this.f_ALERTField = value;
-                this.RaisePropertyChanged("F_ALERT");
+                this.plateNumberField = value;
+                this.RaisePropertyChanged("plateNumber");
             }
         }
         
@@ -731,16 +342,360 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeDeliveryNote : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://mygsi.eu/")]
+    public partial class Fuel_Type : object, System.ComponentModel.INotifyPropertyChanged {
+        
+        private int codeField;
+        
+        private string descriptionField;
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=0)]
+        public int Code {
+            get {
+                return this.codeField;
+            }
+            set {
+                this.codeField = value;
+                this.RaisePropertyChanged("Code");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=1)]
+        public string Description {
+            get {
+                return this.descriptionField;
+            }
+            set {
+                this.descriptionField = value;
+                this.RaisePropertyChanged("Description");
+            }
+        }
+        
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        
+        protected void RaisePropertyChanged(string propertyName) {
+            System.ComponentModel.PropertyChangedEventHandler propertyChanged = this.PropertyChanged;
+            if ((propertyChanged != null)) {
+                propertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+            }
+        }
+    }
+    
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Xml", "4.8.9032.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt : object, System.ComponentModel.INotifyPropertyChanged {
+        
+        private string f_31AField;
+        
+        private string f_31AAField;
+        
+        private string f_31BField;
+        
+        private string f_31CField;
+        
+        private Fuel_Type f_31DField;
+        
+        private System.DateTime f_31EField;
+        
+        private decimal f_31FField;
+        
+        private decimal f_31GField;
+        
+        private decimal f_31HField;
+        
+        private decimal f_31IField;
+        
+        private decimal f_31KField;
+        
+        private decimal f_31LField;
+        
+        private decimal f_31MField;
+        
+        private CarData_Type f_32Field;
+        
+        private string f_33Field;
+        
+        private string f_34Field;
+        
+        private string f_35Field;
+        
+        private decimal f_36Field;
+        
+        private int f_37Field;
+        
+        private decimal f_38Field;
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=0)]
+        public string F_31A {
+            get {
+                return this.f_31AField;
+            }
+            set {
+                this.f_31AField = value;
+                this.RaisePropertyChanged("F_31A");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=1)]
+        public string F_31AA {
+            get {
+                return this.f_31AAField;
+            }
+            set {
+                this.f_31AAField = value;
+                this.RaisePropertyChanged("F_31AA");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=2)]
+        public string F_31B {
+            get {
+                return this.f_31BField;
+            }
+            set {
+                this.f_31BField = value;
+                this.RaisePropertyChanged("F_31B");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=3)]
+        public string F_31C {
+            get {
+                return this.f_31CField;
+            }
+            set {
+                this.f_31CField = value;
+                this.RaisePropertyChanged("F_31C");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=4)]
+        public Fuel_Type F_31D {
+            get {
+                return this.f_31DField;
+            }
+            set {
+                this.f_31DField = value;
+                this.RaisePropertyChanged("F_31D");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=5)]
+        public System.DateTime F_31E {
+            get {
+                return this.f_31EField;
+            }
+            set {
+                this.f_31EField = value;
+                this.RaisePropertyChanged("F_31E");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=6)]
+        public decimal F_31F {
+            get {
+                return this.f_31FField;
+            }
+            set {
+                this.f_31FField = value;
+                this.RaisePropertyChanged("F_31F");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=7)]
+        public decimal F_31G {
+            get {
+                return this.f_31GField;
+            }
+            set {
+                this.f_31GField = value;
+                this.RaisePropertyChanged("F_31G");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=8)]
+        public decimal F_31H {
+            get {
+                return this.f_31HField;
+            }
+            set {
+                this.f_31HField = value;
+                this.RaisePropertyChanged("F_31H");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=9)]
+        public decimal F_31I {
+            get {
+                return this.f_31IField;
+            }
+            set {
+                this.f_31IField = value;
+                this.RaisePropertyChanged("F_31I");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=10)]
+        public decimal F_31K {
+            get {
+                return this.f_31KField;
+            }
+            set {
+                this.f_31KField = value;
+                this.RaisePropertyChanged("F_31K");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=11)]
+        public decimal F_31L {
+            get {
+                return this.f_31LField;
+            }
+            set {
+                this.f_31LField = value;
+                this.RaisePropertyChanged("F_31L");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=12)]
+        public decimal F_31M {
+            get {
+                return this.f_31MField;
+            }
+            set {
+                this.f_31MField = value;
+                this.RaisePropertyChanged("F_31M");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=13)]
+        public CarData_Type F_32 {
+            get {
+                return this.f_32Field;
+            }
+            set {
+                this.f_32Field = value;
+                this.RaisePropertyChanged("F_32");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=14)]
+        public string F_33 {
+            get {
+                return this.f_33Field;
+            }
+            set {
+                this.f_33Field = value;
+                this.RaisePropertyChanged("F_33");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=15)]
+        public string F_34 {
+            get {
+                return this.f_34Field;
+            }
+            set {
+                this.f_34Field = value;
+                this.RaisePropertyChanged("F_34");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=16)]
+        public string F_35 {
+            get {
+                return this.f_35Field;
+            }
+            set {
+                this.f_35Field = value;
+                this.RaisePropertyChanged("F_35");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=17)]
+        public decimal F_36 {
+            get {
+                return this.f_36Field;
+            }
+            set {
+                this.f_36Field = value;
+                this.RaisePropertyChanged("F_36");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=18)]
+        public int F_37 {
+            get {
+                return this.f_37Field;
+            }
+            set {
+                this.f_37Field = value;
+                this.RaisePropertyChanged("F_37");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=19)]
+        public decimal F_38 {
+            get {
+                return this.f_38Field;
+            }
+            set {
+                this.f_38Field = value;
+                this.RaisePropertyChanged("F_38");
+            }
+        }
+        
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        
+        protected void RaisePropertyChanged(string propertyName) {
+            System.ComponentModel.PropertyChangedEventHandler propertyChanged = this.PropertyChanged;
+            if ((propertyChanged != null)) {
+                propertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+            }
+        }
+    }
+    
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Xml", "4.8.9032.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendDeliveryDS : object, System.ComponentModel.INotifyPropertyChanged {
         
         private Header_Type headerField;
         
-        private Fuelflows_TypeDeliveryNoteDocument documentField;
+        private SendDeliveryDSDocument documentField;
         
-        private Fuelflows_TypeDeliveryNoteFuelData[] fuelDataField;
+        private ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData[][] fuelDataField;
         
-        private Fuelflows_TypeDeliveryNoteReservoirs reservoirsField;
+        private SendDeliveryDSReservoirs reservoirsField;
         
         private int f_AR_EIDOS_KAYSIMOUField;
         
@@ -758,7 +713,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=1)]
-        public Fuelflows_TypeDeliveryNoteDocument Document {
+        public SendDeliveryDSDocument Document {
             get {
                 return this.documentField;
             }
@@ -769,8 +724,9 @@ namespace ASFuelControl.Communication.FuelFlowService {
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("FuelData", Order=2)]
-        public Fuelflows_TypeDeliveryNoteFuelData[] FuelData {
+        [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=2)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("FuelData", typeof(ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData))]
+        public ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData[][] FuelData {
             get {
                 return this.fuelDataField;
             }
@@ -782,7 +738,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=3)]
-        public Fuelflows_TypeDeliveryNoteReservoirs Reservoirs {
+        public SendDeliveryDSReservoirs Reservoirs {
             get {
                 return this.reservoirsField;
             }
@@ -819,8 +775,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeDeliveryNoteDocument : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendDeliveryDSDocument : object, System.ComponentModel.INotifyPropertyChanged {
         
         private string f_2151Field;
         
@@ -949,8 +905,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeDeliveryNoteFuelData : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData : object, System.ComponentModel.INotifyPropertyChanged {
         
         private Fuel_Type fUELTYPEField;
         
@@ -1079,16 +1035,17 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeDeliveryNoteReservoirs : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendDeliveryDSReservoirs : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private Fuelflows_TypeDeliveryNoteReservoirsReservoir[] reservoirField;
+        private ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir[][] reservoirField;
         
         private int reservoirsNumberField;
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("Reservoir", Order=0)]
-        public Fuelflows_TypeDeliveryNoteReservoirsReservoir[] Reservoir {
+        [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=0)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("Reservoir", typeof(ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir))]
+        public ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir[][] Reservoir {
             get {
                 return this.reservoirField;
             }
@@ -1125,8 +1082,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeDeliveryNoteReservoirsReservoir : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir : object, System.ComponentModel.INotifyPropertyChanged {
         
         private string f_211Field;
         
@@ -1134,9 +1091,9 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         private System.DateTime f_213Field;
         
-        private Fuelflows_TypeDeliveryNoteReservoirsReservoirDataBefore dataBeforeField;
+        private ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoirDataBefore dataBeforeField;
         
-        private Fuelflows_TypeDeliveryNoteReservoirsReservoirDataAfter dataAfterField;
+        private ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoirDataAfter dataAfterField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=0)]
@@ -1176,7 +1133,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=3)]
-        public Fuelflows_TypeDeliveryNoteReservoirsReservoirDataBefore DataBefore {
+        public ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoirDataBefore DataBefore {
             get {
                 return this.dataBeforeField;
             }
@@ -1188,7 +1145,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=4)]
-        public Fuelflows_TypeDeliveryNoteReservoirsReservoirDataAfter DataAfter {
+        public ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoirDataAfter DataAfter {
             get {
                 return this.dataAfterField;
             }
@@ -1213,8 +1170,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeDeliveryNoteReservoirsReservoirDataBefore : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoirDataBefore : object, System.ComponentModel.INotifyPropertyChanged {
         
         private decimal f_2141Field;
         
@@ -1315,8 +1272,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeDeliveryNoteReservoirsReservoirDataAfter : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoirDataAfter : object, System.ComponentModel.INotifyPropertyChanged {
         
         private decimal f_2161Field;
         
@@ -1417,22 +1374,22 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeBalance : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendBalanceDS : object, System.ComponentModel.INotifyPropertyChanged {
         
         private Header_Type headerField;
         
         private string f_AM_DIKAField;
         
-        private Fuelflows_TypeBalanceF_HMEROMINIA_R f_HMEROMINIA_RField;
+        private SendBalanceDSF_HMEROMINIA_R f_HMEROMINIA_RField;
         
-        private Fuelflows_TypeBalanceFuelMovements fuelMovementsField;
+        private SendBalanceDSFuelMovements fuelMovementsField;
         
-        private Fuelflows_TypeBalanceReservoirs reservoirsField;
+        private SendBalanceDSReservoirs reservoirsField;
         
-        private Fuelflows_TypeBalancePumpsPerFuelType pumpsPerFuelTypeField;
+        private SendBalanceDSPumpsPerFuelType pumpsPerFuelTypeField;
         
-        private Fuelflows_TypeBalanceDivergencesPerFuelType divergencesPerFuelTypeField;
+        private SendBalanceDSDivergencesPerFuelType divergencesPerFuelTypeField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=0)]
@@ -1460,7 +1417,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=2)]
-        public Fuelflows_TypeBalanceF_HMEROMINIA_R F_HMEROMINIA_R {
+        public SendBalanceDSF_HMEROMINIA_R F_HMEROMINIA_R {
             get {
                 return this.f_HMEROMINIA_RField;
             }
@@ -1472,7 +1429,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=3)]
-        public Fuelflows_TypeBalanceFuelMovements FuelMovements {
+        public SendBalanceDSFuelMovements FuelMovements {
             get {
                 return this.fuelMovementsField;
             }
@@ -1484,7 +1441,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=4)]
-        public Fuelflows_TypeBalanceReservoirs Reservoirs {
+        public SendBalanceDSReservoirs Reservoirs {
             get {
                 return this.reservoirsField;
             }
@@ -1496,7 +1453,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=5)]
-        public Fuelflows_TypeBalancePumpsPerFuelType PumpsPerFuelType {
+        public SendBalanceDSPumpsPerFuelType PumpsPerFuelType {
             get {
                 return this.pumpsPerFuelTypeField;
             }
@@ -1508,7 +1465,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=6)]
-        public Fuelflows_TypeBalanceDivergencesPerFuelType DivergencesPerFuelType {
+        public SendBalanceDSDivergencesPerFuelType DivergencesPerFuelType {
             get {
                 return this.divergencesPerFuelTypeField;
             }
@@ -1533,8 +1490,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeBalanceF_HMEROMINIA_R : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendBalanceDSF_HMEROMINIA_R : object, System.ComponentModel.INotifyPropertyChanged {
         
         private System.DateTime f_DATEDURATIONField;
         
@@ -1543,7 +1500,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         private System.DateTime f_ORA_LIXISField;
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(DataType="date", Order=0)]
+        [System.Xml.Serialization.XmlElementAttribute(Order=0)]
         public System.DateTime F_DATEDURATION {
             get {
                 return this.f_DATEDURATIONField;
@@ -1555,7 +1512,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(DataType="time", Order=1)]
+        [System.Xml.Serialization.XmlElementAttribute(Order=1)]
         public System.DateTime F_ORA_ARXHS_R {
             get {
                 return this.f_ORA_ARXHS_RField;
@@ -1567,7 +1524,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(DataType="time", Order=2)]
+        [System.Xml.Serialization.XmlElementAttribute(Order=2)]
         public System.DateTime F_ORA_LIXIS {
             get {
                 return this.f_ORA_LIXISField;
@@ -1593,16 +1550,17 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeBalanceFuelMovements : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendBalanceDSFuelMovements : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private Fuelflows_TypeBalanceFuelMovementsFuelMovement[] fuelMovementField;
+        private ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement[][] fuelMovementField;
         
         private int f_KAYSIMA_NOField;
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("FuelMovement", Order=0)]
-        public Fuelflows_TypeBalanceFuelMovementsFuelMovement[] FuelMovement {
+        [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=0)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("FuelMovement", typeof(ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement))]
+        public ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement[][] FuelMovement {
             get {
                 return this.fuelMovementField;
             }
@@ -1639,8 +1597,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeBalanceFuelMovementsFuelMovement : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement : object, System.ComponentModel.INotifyPropertyChanged {
         
         private Fuel_Type f_KAYSIMO_EIDOSField;
         
@@ -1825,16 +1783,17 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeBalanceReservoirs : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendBalanceDSReservoirs : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private Fuelflows_TypeBalanceReservoirsReservoir[] reservoirField;
+        private ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir[][] reservoirField;
         
         private int reservoirsNumberField;
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("Reservoir", Order=0)]
-        public Fuelflows_TypeBalanceReservoirsReservoir[] Reservoir {
+        [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=0)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("Reservoir", typeof(ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir))]
+        public ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir[][] Reservoir {
             get {
                 return this.reservoirField;
             }
@@ -1871,8 +1830,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeBalanceReservoirsReservoir : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir : object, System.ComponentModel.INotifyPropertyChanged {
         
         private int f_DEXAMENH_AAField;
         
@@ -2043,16 +2002,17 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeBalancePumpsPerFuelType : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendBalanceDSPumpsPerFuelType : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypes[] fuelTypesField;
+        private ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes[][] fuelTypesField;
         
         private int f_KAYSIMA_NOField;
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("FuelTypes", Order=0)]
-        public Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypes[] FuelTypes {
+        [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=0)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("FuelTypes", typeof(ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes))]
+        public ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes[][] FuelTypes {
             get {
                 return this.fuelTypesField;
             }
@@ -2089,8 +2049,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypes : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes : object, System.ComponentModel.INotifyPropertyChanged {
         
         private Fuel_Type f_KAYSIMO_AAField;
         
@@ -2098,7 +2058,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         private decimal f_2245BField;
         
-        private Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePump[] fuelTypePumpField;
+        private ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump[][] fuelTypePumpField;
         
         private int totalPumpsNumberField;
         
@@ -2139,8 +2099,9 @@ namespace ASFuelControl.Communication.FuelFlowService {
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("FuelTypePump", Order=3)]
-        public Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePump[] FuelTypePump {
+        [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=3)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("FuelTypePump", typeof(ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump))]
+        public ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump[][] FuelTypePump {
             get {
                 return this.fuelTypePumpField;
             }
@@ -2177,8 +2138,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePump : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump : object, System.ComponentModel.INotifyPropertyChanged {
         
         private Fuel_Type fuelTypeField;
         
@@ -2419,16 +2380,17 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeBalanceDivergencesPerFuelType : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendBalanceDSDivergencesPerFuelType : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private Fuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergence[] fuelTypeDivergenceField;
+        private ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence[][] fuelTypeDivergenceField;
         
         private int fuelTypesNumberField;
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("FuelTypeDivergence", Order=0)]
-        public Fuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergence[] FuelTypeDivergence {
+        [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=0)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("FuelTypeDivergence", typeof(ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence))]
+        public ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence[][] FuelTypeDivergence {
             get {
                 return this.fuelTypeDivergenceField;
             }
@@ -2465,8 +2427,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergence : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence : object, System.ComponentModel.INotifyPropertyChanged {
         
         private Fuel_Type fuelTypeField;
         
@@ -2553,34 +2515,48 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class CarData_Type : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendAlertDS : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private string plateLettersField;
+        private Header_Type headerField;
         
-        private string plateNumberField;
+        private string f_AM_DIKAField;
+        
+        private Alert_Type f_ALERTField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=0)]
-        public string plateLetters {
+        public Header_Type Header {
             get {
-                return this.plateLettersField;
+                return this.headerField;
             }
             set {
-                this.plateLettersField = value;
-                this.RaisePropertyChanged("plateLetters");
+                this.headerField = value;
+                this.RaisePropertyChanged("Header");
             }
         }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=1)]
-        public string plateNumber {
+        public string F_AM_DIKA {
             get {
-                return this.plateNumberField;
+                return this.f_AM_DIKAField;
             }
             set {
-                this.plateNumberField = value;
-                this.RaisePropertyChanged("plateNumber");
+                this.f_AM_DIKAField = value;
+                this.RaisePropertyChanged("F_AM_DIKA");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=2)]
+        public Alert_Type F_ALERT {
+            get {
+                return this.f_ALERTField;
+            }
+            set {
+                this.f_ALERTField = value;
+                this.RaisePropertyChanged("F_ALERT");
             }
         }
         
@@ -2599,244 +2575,350 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://www.gsis.gr/ff/1.0")]
-    public partial class Fuelflows_TypeIncomeReceiptsIncomeReceipt : object, System.ComponentModel.INotifyPropertyChanged {
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendLiterCheckDS : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private string f_31AField;
+        private Header_Type headerField;
         
-        private string f_31AAField;
+        private string f_AM_DIKAField;
         
-        private string f_31BField;
+        private System.DateTime f_231_1Field;
         
-        private string f_31CField;
+        private Fuel_Type f_FUEL_CODEField;
         
-        private Fuel_Type f_31DField;
+        private string f_LABEL_OGKOMETRField;
         
-        private System.DateTime f_31EField;
+        private string f_LABEL_POOLField;
         
-        private decimal f_31FField;
+        private decimal f_CAPACITYField;
         
-        private decimal f_31GField;
-        
-        private decimal f_31HField;
-        
-        private decimal f_31IField;
-        
-        private CarData_Type f_32Field;
-        
-        private string f_33Field;
-        
-        private string f_34Field;
-        
-        private string f_35Field;
-        
-        private decimal f_36Field;
-        
-        private int f_37Field;
-        
-        private decimal f_38Field;
+        private decimal f_CAPACITY_15Field;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=0)]
-        public string F_31A {
+        public Header_Type Header {
             get {
-                return this.f_31AField;
+                return this.headerField;
             }
             set {
-                this.f_31AField = value;
-                this.RaisePropertyChanged("F_31A");
+                this.headerField = value;
+                this.RaisePropertyChanged("Header");
             }
         }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=1)]
-        public string F_31AA {
+        public string F_AM_DIKA {
             get {
-                return this.f_31AAField;
+                return this.f_AM_DIKAField;
             }
             set {
-                this.f_31AAField = value;
-                this.RaisePropertyChanged("F_31AA");
+                this.f_AM_DIKAField = value;
+                this.RaisePropertyChanged("F_AM_DIKA");
             }
         }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=2)]
-        public string F_31B {
+        public System.DateTime F_231_1 {
             get {
-                return this.f_31BField;
+                return this.f_231_1Field;
             }
             set {
-                this.f_31BField = value;
-                this.RaisePropertyChanged("F_31B");
+                this.f_231_1Field = value;
+                this.RaisePropertyChanged("F_231_1");
             }
         }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=3)]
-        public string F_31C {
+        public Fuel_Type F_FUEL_CODE {
             get {
-                return this.f_31CField;
+                return this.f_FUEL_CODEField;
             }
             set {
-                this.f_31CField = value;
-                this.RaisePropertyChanged("F_31C");
+                this.f_FUEL_CODEField = value;
+                this.RaisePropertyChanged("F_FUEL_CODE");
             }
         }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=4)]
-        public Fuel_Type F_31D {
+        public string F_LABEL_OGKOMETR {
             get {
-                return this.f_31DField;
+                return this.f_LABEL_OGKOMETRField;
             }
             set {
-                this.f_31DField = value;
-                this.RaisePropertyChanged("F_31D");
+                this.f_LABEL_OGKOMETRField = value;
+                this.RaisePropertyChanged("F_LABEL_OGKOMETR");
             }
         }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=5)]
-        public System.DateTime F_31E {
+        public string F_LABEL_POOL {
             get {
-                return this.f_31EField;
+                return this.f_LABEL_POOLField;
             }
             set {
-                this.f_31EField = value;
-                this.RaisePropertyChanged("F_31E");
+                this.f_LABEL_POOLField = value;
+                this.RaisePropertyChanged("F_LABEL_POOL");
             }
         }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=6)]
-        public decimal F_31F {
+        public decimal F_CAPACITY {
             get {
-                return this.f_31FField;
+                return this.f_CAPACITYField;
             }
             set {
-                this.f_31FField = value;
-                this.RaisePropertyChanged("F_31F");
+                this.f_CAPACITYField = value;
+                this.RaisePropertyChanged("F_CAPACITY");
             }
         }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=7)]
-        public decimal F_31G {
+        public decimal F_CAPACITY_15 {
             get {
-                return this.f_31GField;
+                return this.f_CAPACITY_15Field;
             }
             set {
-                this.f_31GField = value;
-                this.RaisePropertyChanged("F_31G");
+                this.f_CAPACITY_15Field = value;
+                this.RaisePropertyChanged("F_CAPACITY_15");
+            }
+        }
+        
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        
+        protected void RaisePropertyChanged(string propertyName) {
+            System.ComponentModel.PropertyChangedEventHandler propertyChanged = this.PropertyChanged;
+            if ((propertyChanged != null)) {
+                propertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+            }
+        }
+    }
+    
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Xml", "4.8.9032.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class SendTankCheckDS : object, System.ComponentModel.INotifyPropertyChanged {
+        
+        private Header_Type headerField;
+        
+        private string f_AM_DIKAField;
+        
+        private System.DateTime f_3001Field;
+        
+        private string f_LABELField;
+        
+        private decimal f_3002Field;
+        
+        private decimal f_3003Field;
+        
+        private decimal f_3004Field;
+        
+        private decimal f_3005Field;
+        
+        private decimal f_3006Field;
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=0)]
+        public Header_Type Header {
+            get {
+                return this.headerField;
+            }
+            set {
+                this.headerField = value;
+                this.RaisePropertyChanged("Header");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=1)]
+        public string F_AM_DIKA {
+            get {
+                return this.f_AM_DIKAField;
+            }
+            set {
+                this.f_AM_DIKAField = value;
+                this.RaisePropertyChanged("F_AM_DIKA");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=2)]
+        public System.DateTime F_3001 {
+            get {
+                return this.f_3001Field;
+            }
+            set {
+                this.f_3001Field = value;
+                this.RaisePropertyChanged("F_3001");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=3)]
+        public string F_LABEL {
+            get {
+                return this.f_LABELField;
+            }
+            set {
+                this.f_LABELField = value;
+                this.RaisePropertyChanged("F_LABEL");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=4)]
+        public decimal F_3002 {
+            get {
+                return this.f_3002Field;
+            }
+            set {
+                this.f_3002Field = value;
+                this.RaisePropertyChanged("F_3002");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=5)]
+        public decimal F_3003 {
+            get {
+                return this.f_3003Field;
+            }
+            set {
+                this.f_3003Field = value;
+                this.RaisePropertyChanged("F_3003");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=6)]
+        public decimal F_3004 {
+            get {
+                return this.f_3004Field;
+            }
+            set {
+                this.f_3004Field = value;
+                this.RaisePropertyChanged("F_3004");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=7)]
+        public decimal F_3005 {
+            get {
+                return this.f_3005Field;
+            }
+            set {
+                this.f_3005Field = value;
+                this.RaisePropertyChanged("F_3005");
             }
         }
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=8)]
-        public decimal F_31H {
+        public decimal F_3006 {
             get {
-                return this.f_31HField;
+                return this.f_3006Field;
             }
             set {
-                this.f_31HField = value;
-                this.RaisePropertyChanged("F_31H");
+                this.f_3006Field = value;
+                this.RaisePropertyChanged("F_3006");
+            }
+        }
+        
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+        
+        protected void RaisePropertyChanged(string propertyName) {
+            System.ComponentModel.PropertyChangedEventHandler propertyChanged = this.PropertyChanged;
+            if ((propertyChanged != null)) {
+                propertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+            }
+        }
+    }
+    
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Xml", "4.8.9032.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
+    public partial class PriceChangeDS : object, System.ComponentModel.INotifyPropertyChanged {
+        
+        private Header_Type headerField;
+        
+        private string f_AM_DIKAField;
+        
+        private System.DateTime f_4001Field;
+        
+        private Fuel_Type f_4002Field;
+        
+        private decimal f_4003Field;
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=0)]
+        public Header_Type Header {
+            get {
+                return this.headerField;
+            }
+            set {
+                this.headerField = value;
+                this.RaisePropertyChanged("Header");
             }
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=9)]
-        public decimal F_31I {
+        [System.Xml.Serialization.XmlElementAttribute(Order=1)]
+        public string F_AM_DIKA {
             get {
-                return this.f_31IField;
+                return this.f_AM_DIKAField;
             }
             set {
-                this.f_31IField = value;
-                this.RaisePropertyChanged("F_31I");
+                this.f_AM_DIKAField = value;
+                this.RaisePropertyChanged("F_AM_DIKA");
             }
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=10)]
-        public CarData_Type F_32 {
+        [System.Xml.Serialization.XmlElementAttribute(Order=2)]
+        public System.DateTime F_4001 {
             get {
-                return this.f_32Field;
+                return this.f_4001Field;
             }
             set {
-                this.f_32Field = value;
-                this.RaisePropertyChanged("F_32");
+                this.f_4001Field = value;
+                this.RaisePropertyChanged("F_4001");
             }
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=11)]
-        public string F_33 {
+        [System.Xml.Serialization.XmlElementAttribute(Order=3)]
+        public Fuel_Type F_4002 {
             get {
-                return this.f_33Field;
+                return this.f_4002Field;
             }
             set {
-                this.f_33Field = value;
-                this.RaisePropertyChanged("F_33");
+                this.f_4002Field = value;
+                this.RaisePropertyChanged("F_4002");
             }
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=12)]
-        public string F_34 {
+        [System.Xml.Serialization.XmlElementAttribute(Order=4)]
+        public decimal F_4003 {
             get {
-                return this.f_34Field;
+                return this.f_4003Field;
             }
             set {
-                this.f_34Field = value;
-                this.RaisePropertyChanged("F_34");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=13)]
-        public string F_35 {
-            get {
-                return this.f_35Field;
-            }
-            set {
-                this.f_35Field = value;
-                this.RaisePropertyChanged("F_35");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=14)]
-        public decimal F_36 {
-            get {
-                return this.f_36Field;
-            }
-            set {
-                this.f_36Field = value;
-                this.RaisePropertyChanged("F_36");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=15)]
-        public int F_37 {
-            get {
-                return this.f_37Field;
-            }
-            set {
-                this.f_37Field = value;
-                this.RaisePropertyChanged("F_37");
-            }
-        }
-        
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=16)]
-        public decimal F_38 {
-            get {
-                return this.f_38Field;
-            }
-            set {
-                this.f_38Field = value;
-                this.RaisePropertyChanged("F_38");
+                this.f_4003Field = value;
+                this.RaisePropertyChanged("F_4003");
             }
         }
         
@@ -2851,57 +2933,57 @@ namespace ASFuelControl.Communication.FuelFlowService {
     }
     
     [System.CodeDom.Compiler.GeneratedCodeAttribute("System.ServiceModel", "4.0.0.0")]
-    public interface achilleas_fuelflow_receiptSoapChannel : ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoap, System.ServiceModel.IClientChannel {
+    public interface IPykServicesChannel : ASFuelControl.Communication.FuelFlowService.IPykServices, System.ServiceModel.IClientChannel {
     }
     
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.CodeDom.Compiler.GeneratedCodeAttribute("System.ServiceModel", "4.0.0.0")]
-    public partial class achilleas_fuelflow_receiptSoapClient : System.ServiceModel.ClientBase<ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoap>, ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoap {
+    public partial class PykServicesClient : System.ServiceModel.ClientBase<ASFuelControl.Communication.FuelFlowService.IPykServices>, ASFuelControl.Communication.FuelFlowService.IPykServices {
         
-        public achilleas_fuelflow_receiptSoapClient() {
+        public PykServicesClient() {
         }
         
-        public achilleas_fuelflow_receiptSoapClient(string endpointConfigurationName) : 
+        public PykServicesClient(string endpointConfigurationName) : 
                 base(endpointConfigurationName) {
         }
         
-        public achilleas_fuelflow_receiptSoapClient(string endpointConfigurationName, string remoteAddress) : 
+        public PykServicesClient(string endpointConfigurationName, string remoteAddress) : 
                 base(endpointConfigurationName, remoteAddress) {
         }
         
-        public achilleas_fuelflow_receiptSoapClient(string endpointConfigurationName, System.ServiceModel.EndpointAddress remoteAddress) : 
+        public PykServicesClient(string endpointConfigurationName, System.ServiceModel.EndpointAddress remoteAddress) : 
                 base(endpointConfigurationName, remoteAddress) {
         }
         
-        public achilleas_fuelflow_receiptSoapClient(System.ServiceModel.Channels.Binding binding, System.ServiceModel.EndpointAddress remoteAddress) : 
+        public PykServicesClient(System.ServiceModel.Channels.Binding binding, System.ServiceModel.EndpointAddress remoteAddress) : 
                 base(binding, remoteAddress) {
         }
         
-        public string SendReceipt(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeIncomeReceipts DS) {
+        public string SendReceipt(ASFuelControl.Communication.FuelFlowService.SendReceiptDS DS) {
             return base.Channel.SendReceipt(DS);
         }
         
-        public string SendBalance(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeBalance DS) {
-            return base.Channel.SendBalance(DS);
-        }
-        
-        public string SendDelivery(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeDeliveryNote DS) {
+        public string SendDelivery(ASFuelControl.Communication.FuelFlowService.SendDeliveryDS DS) {
             return base.Channel.SendDelivery(DS);
         }
         
-        public string SendAlert(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeAlertRegistration DS) {
+        public string SendBalance(ASFuelControl.Communication.FuelFlowService.SendBalanceDS DS) {
+            return base.Channel.SendBalance(DS);
+        }
+        
+        public string SendAlert(ASFuelControl.Communication.FuelFlowService.SendAlertDS DS) {
             return base.Channel.SendAlert(DS);
         }
         
-        public string SendLiterCheck(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeLiterCheck DS) {
+        public string SendLiterCheck(ASFuelControl.Communication.FuelFlowService.SendLiterCheckDS DS) {
             return base.Channel.SendLiterCheck(DS);
         }
         
-        public string SendTankCheck(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypeTankCheck DS) {
+        public string SendTankCheck(ASFuelControl.Communication.FuelFlowService.SendTankCheckDS DS) {
             return base.Channel.SendTankCheck(DS);
         }
         
-        public string PriceChange(ASFuelControl.Communication.FuelFlowService.Fuelflows_TypePriceChange DS) {
+        public string PriceChange(ASFuelControl.Communication.FuelFlowService.PriceChangeDS DS) {
             return base.Channel.PriceChange(DS);
         }
         
@@ -2923,6 +3005,10 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         public string GetRegNums(string AMDIKA, string Token) {
             return base.Channel.GetRegNums(AMDIKA, Token);
+        }
+        
+        public string GetTankStripeTable(string ADMIKA, string preKey, string tankCode) {
+            return base.Channel.GetTankStripeTable(ADMIKA, preKey, tankCode);
         }
     }
 }

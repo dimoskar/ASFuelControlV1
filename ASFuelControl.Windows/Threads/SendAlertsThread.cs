@@ -282,6 +282,9 @@ namespace ASFuelControl.Windows.Threads
             income.FuelType = (Communication.Enums.FuelTypeEnum)tank.FuelType.EnumeratorValue;
 
             income.Volume = sign * sale.Volume;
+            income.Volume15 = sign * sale.VolumeNormalized;
+            income.TankTemperature = sale.TemperatureStart;
+            income.FuelDensity = sale.AvgDencity;
             income.Totalizer = sale.TotalizerEnd;
 
             return income;
@@ -302,6 +305,7 @@ namespace ASFuelControl.Windows.Threads
                     tankCheck.TankLevel = tc.TankLevel;
                     tankCheck.TankTemperature = tc.Temperature.Value;
                     tankCheck.TankVolume = tc.Tank.GetTankVolume(tc.TankLevel);
+                    tankCheck.TankVolume15 = tc.Tank.GetTankVolumeNormalized(tc.TankLevel);
                     tankCheck.TransactionDate = DateTime.Now;
                     tankCheck.FuelDensity = tc.Tank.CurrentDensity;
                     tankChecks.Add(tankCheck);
@@ -876,6 +880,7 @@ namespace ASFuelControl.Windows.Threads
                                 continue;
                             if (se.InvoiceLines.Count == 0)
                                 continue;
+                            
                             object obj = this.CreateDeliveryNote(se);
                             if (this.SendObject(obj))
                             {
@@ -1253,6 +1258,7 @@ namespace ASFuelControl.Windows.Threads
                 
                 Communication.CommunicationMethods.CompanyTin = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN");
                 header.SubmitterTIN = Data.Implementation.OptionHandler.Instance.GetOption("SenderTIN");
+                header.TaxisBranch = Data.Implementation.OptionHandler.Instance.GetIntOption("CompanyBranch", 0);
                 switch (typeName)
                 {
                     case "TankCheckClass":
@@ -1276,6 +1282,7 @@ namespace ASFuelControl.Windows.Threads
                         tankCheck.TankLevel = tcc.TankLevel == 0 ? (decimal)0.01 : tcc.TankLevel;
                         tankCheck.TankTemperature = tcc.Temperature.Value;
                         tankCheck.TankVolume = volume == 0 ? (decimal)0.01 : volume;
+                        tankCheck.TankVolume15 = volume == 0 ? (decimal)0.01 : volume;
                         tankCheck.TransactionDate = DateTime.Now;
                         tankCheck.FuelDensity = tcc.Tank.CurrentDensity;
                         if (tcc.Tank.CurrentDensity >= 900 || tcc.Tank.CurrentDensity <= 500)
@@ -1381,6 +1388,7 @@ namespace ASFuelControl.Windows.Threads
 
                     case "DeliveryNoteClass":
                         DeliveryNoteClass del = obj as DeliveryNoteClass;
+                        
                         seriallizedData = sendMethods.SendDelivery(header, del);
 
                         bool sendDelivery = Data.Implementation.OptionHandler.Instance.GetBoolOption("SmsSendDelivery", false);

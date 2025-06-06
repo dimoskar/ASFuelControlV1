@@ -21,9 +21,9 @@ namespace ASFuelControl.Communication
         public decimal TemperatureEnd { set; get; }
         public decimal VolumeEndNormalized { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeBalanceReservoirsReservoir GetElement()
+        public FuelFlowService.ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir GetElement()
         {
-            FuelFlowService.Fuelflows_TypeBalanceReservoirsReservoir res = new FuelFlowService.Fuelflows_TypeBalanceReservoirsReservoir();
+            FuelFlowService.ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir res = new FuelFlowService.ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir();
             res.F_2232_MM = this.LevelStart;
             res.F_2232_TEMP = this.TemperatureEnd;
             res.F_2232_VOL = this.VolumeStart;
@@ -46,10 +46,10 @@ namespace ASFuelControl.Communication
     {
         public List<ReservoirClass> Reservoirs { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeBalanceReservoirs GetElement()
+        public FuelFlowService.SendBalanceDSReservoirs GetElement()
         {
-            FuelFlowService.Fuelflows_TypeBalanceReservoirs res = new FuelFlowService.Fuelflows_TypeBalanceReservoirs();
-            res.Reservoir = this.Reservoirs.Select(fmc => fmc.GetElement()).ToArray();
+            FuelFlowService.SendBalanceDSReservoirs res = new FuelFlowService.SendBalanceDSReservoirs();
+            res.Reservoir = new FuelFlowService.ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir[][] { this.Reservoirs.Select(fmc => fmc.GetElement()).ToArray() };
             res.ReservoirsNumber = this.Reservoirs.Count;
             return res;
         }
@@ -74,9 +74,9 @@ namespace ASFuelControl.Communication
         {
         }
 
-        public FuelFlowService.Fuelflows_TypeBalanceFuelMovementsFuelMovement GetElement()
+        public FuelFlowService.ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement GetElement()
         {
-            FuelFlowService.Fuelflows_TypeBalanceFuelMovementsFuelMovement fm = new FuelFlowService.Fuelflows_TypeBalanceFuelMovementsFuelMovement();
+            FuelFlowService.ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement fm = new FuelFlowService.ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement();
             fm.F_KAYSIMO_EIDOS = new FuelFlowService.Fuel_Type();
             fm.F_KAYSIMO_EIDOS.Code = (int)this.FuelType;
             fm.F_KAYSIMO_EIDOS.Description = Enums.LocalizedEnumExtensions.GetLocalizedName(this.FuelType);
@@ -101,10 +101,10 @@ namespace ASFuelControl.Communication
     {
         public List<FuelMovementClass> FuelMovements { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeBalanceFuelMovements GetElement()
+        public FuelFlowService.SendBalanceDSFuelMovements GetElement()
         {
-            FuelFlowService.Fuelflows_TypeBalanceFuelMovements fm = new FuelFlowService.Fuelflows_TypeBalanceFuelMovements();
-            fm.FuelMovement = this.FuelMovements.Select(fmc => fmc.GetElement()).ToArray();
+            FuelFlowService.SendBalanceDSFuelMovements fm = new FuelFlowService.SendBalanceDSFuelMovements();
+            fm.FuelMovement = new FuelFlowService.ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement[][] { this.FuelMovements.Select(fmc => fmc.GetElement()).ToArray() };
             fm.F_KAYSIMA_NO = this.FuelMovements.Count;
             return fm;
         }
@@ -119,9 +119,9 @@ namespace ASFuelControl.Communication
         public decimal Percentage { set; get; }
         public decimal PercentageNormalized { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergence GetElement()
+        public FuelFlowService.ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence GetElement()
         {
-            FuelFlowService.Fuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergence div = new FuelFlowService.Fuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergence();
+            FuelFlowService.ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence div = new FuelFlowService.ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence();
             div.FuelType = new FuelFlowService.Fuel_Type();
             div.FuelType.Code = (int)this.FuelType;
             div.FuelType.Description = Enums.LocalizedEnumExtensions.GetLocalizedName(this.FuelType);
@@ -139,10 +139,10 @@ namespace ASFuelControl.Communication
     {
         public List<FuelTypeDivClass> Divergences { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeBalanceDivergencesPerFuelType GetElement()
+        public FuelFlowService.SendBalanceDSDivergencesPerFuelType GetElement()
         {
-            FuelFlowService.Fuelflows_TypeBalanceDivergencesPerFuelType div = new FuelFlowService.Fuelflows_TypeBalanceDivergencesPerFuelType();
-            div.FuelTypeDivergence = this.Divergences.Select(fmc => fmc.GetElement()).ToArray();
+            FuelFlowService.SendBalanceDSDivergencesPerFuelType div = new FuelFlowService.SendBalanceDSDivergencesPerFuelType();
+            div.FuelTypeDivergence = new FuelFlowService.ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence[][] { this.Divergences.Select(fmc => fmc.GetElement()).ToArray() };
             div.FuelTypesNumber = this.Divergences.Count;
             return div;
         }
@@ -160,14 +160,14 @@ namespace ASFuelControl.Communication
         public FuelTypeBalances PumpsPerFuel { set; get; }
         public ReservoirsClass Reservoirs { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeBalance GetElement()
+        public FuelFlowService.SendBalanceDS GetElement()
         {
-            FuelFlowService.Fuelflows_TypeBalance balance = new FuelFlowService.Fuelflows_TypeBalance();
+            FuelFlowService.SendBalanceDS balance = new FuelFlowService.SendBalanceDS();
             balance.DivergencesPerFuelType = this.Divergences.GetElement();
             balance.FuelMovements = this.Movements.GetElement();
             balance.PumpsPerFuelType = this.PumpsPerFuel.GetElement();
             balance.Reservoirs = this.Reservoirs.GetElement();
-            balance.F_HMEROMINIA_R = new FuelFlowService.Fuelflows_TypeBalanceF_HMEROMINIA_R();
+            balance.F_HMEROMINIA_R = new FuelFlowService.SendBalanceDSF_HMEROMINIA_R();
             balance.F_HMEROMINIA_R.F_DATEDURATION = this.Date;
             balance.F_HMEROMINIA_R.F_ORA_ARXHS_R = this.TimeStart;
             balance.F_HMEROMINIA_R.F_ORA_LIXIS = this.TimeEnd;

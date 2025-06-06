@@ -15,6 +15,8 @@ namespace ASFuelControl.Communication
         public Enums.FuelTypeEnum FuelType { set; get; }
         public DateTime PublishDateTime { set; get; }
         public decimal Volume { set; get; }
+        public decimal Volume15 { set; get; }
+        public decimal FuelDensity { set; get; }
         public decimal UnitPrice { set; get; }
         public decimal VatPercentage { set; get; }
         public decimal TotalValue { set; get; }
@@ -26,9 +28,9 @@ namespace ASFuelControl.Communication
         public decimal Totalizer { set; get; }
         public int TankId { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeIncomeReceiptsIncomeReceipt GetElement()
+        public FuelFlowService.ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt GetElement()
         {
-            FuelFlowService.Fuelflows_TypeIncomeReceiptsIncomeReceipt inc = new FuelFlowService.Fuelflows_TypeIncomeReceiptsIncomeReceipt();
+            FuelFlowService.ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt inc = new FuelFlowService.ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt();
             inc.F_31A = this.SubmitterDetails == null ? "" : this.SubmitterDetails;
             inc.F_31AA = this.Amdika;
             inc.F_31B = this.PumpSerialNumber == null ? "" : this.PumpSerialNumber;
@@ -41,6 +43,9 @@ namespace ASFuelControl.Communication
             inc.F_31G = this.UnitPrice;
             inc.F_31H = this.VatPercentage;
             inc.F_31I = this.TotalValue;
+            inc.F_31K = this.Volume15;
+            inc.F_31L = this.TankTemperature;
+            inc.F_31M = this.FuelDensity;
             inc.F_32 = new FuelFlowService.CarData_Type();
             inc.F_32.plateLetters = "";
             inc.F_32.plateNumber = "";
@@ -75,10 +80,10 @@ namespace ASFuelControl.Communication
     {
         public List<IncomeRecieptClass> Reciepts { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeIncomeReceipts GetElement()
+        public FuelFlowService.SendReceiptDS GetElement()
         {
-            FuelFlowService.Fuelflows_TypeIncomeReceipts inc = new FuelFlowService.Fuelflows_TypeIncomeReceipts();
-            inc.IncomeReceipt = this.Reciepts.Select(fmc => fmc.GetElement()).ToArray();
+            FuelFlowService.SendReceiptDS inc = new FuelFlowService.SendReceiptDS();
+            inc.IncomeReceipt = new FuelFlowService.ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt[][] { this.Reciepts.Select(fmc => fmc.GetElement()).ToArray() };
             inc.NUM_OF_RECEIPTS = this.Reciepts.Count;
             
             return inc;

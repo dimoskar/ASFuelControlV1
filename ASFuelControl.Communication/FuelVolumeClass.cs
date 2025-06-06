@@ -36,6 +36,7 @@ namespace ASFuelControl.Communication
             get { return decimal.Round(this.tankLevel, 2); } 
         }
         public decimal TankVolume { set; get; }
+        public decimal TankVolume15 { set; get; }
         public decimal TankTemperature { set; get; }
         public decimal FuelDensity { set; get; }
         public string TankId { set; get; }
@@ -69,10 +70,13 @@ namespace ASFuelControl.Communication
         }
         public string SubmitterTIN { set; get; }
         public string EToken { set; get; }
+        public int TaxisBranch { set; get; }
         public DateTime SubmissionDate { set; get; }
+
 
         public ClientHeader()
         {
+            this.TaxisBranch = CommunicationMethods.TaxisBranch;
             this.SubmitterTIN = CommunicationMethods.SubmitterTin;
             this.SubmissionDate = DateTime.Now;
         }

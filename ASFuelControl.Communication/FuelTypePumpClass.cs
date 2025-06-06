@@ -33,9 +33,9 @@ namespace ASFuelControl.Communication
         {
         }
 
-        public FuelFlowService.Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePump GetElement()
+        public FuelFlowService.ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump GetElement()
         {
-            FuelFlowService.Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePump fp = new FuelFlowService.Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePump();
+            FuelFlowService.ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump fp = new FuelFlowService.ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump();
             fp.FuelType = new FuelFlowService.Fuel_Type();
             fp.FuelType.Code = (int)this.FuelType;
             fp.FuelType.Description = Enums.LocalizedEnumExtensions.GetLocalizedName(this.FuelType);
@@ -66,15 +66,15 @@ namespace ASFuelControl.Communication
         public int TotalPumpsNumber { set; get; }
         public List<FuelTypePumpClass> FuelPumps { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypes GetElement()
+        public FuelFlowService.ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes GetElement()
         {
-            FuelFlowService.Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypes ftype = new FuelFlowService.Fuelflows_TypeBalancePumpsPerFuelTypeFuelTypes();
+            FuelFlowService.ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes ftype = new FuelFlowService.ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes();
             ftype.F_KAYSIMO_AA = new FuelFlowService.Fuel_Type();
             ftype.F_KAYSIMO_AA.Code = (int)this.FuelType;
             ftype.F_KAYSIMO_AA.Description = Enums.LocalizedEnumExtensions.GetLocalizedName(this.FuelType);
             ftype.F_2244B = this.SumTotalizerDifference;
             ftype.F_2245B = this.SumTotalizerDifferenceNormalized;
-            ftype.FuelTypePump = this.FuelPumps.Select(fpc => fpc.GetElement()).ToArray();
+            ftype.FuelTypePump = new FuelFlowService.ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump[][] { this.FuelPumps.Select(fpc => fpc.GetElement()).ToArray() };
             ftype.TotalPumpsNumber = ftype.FuelTypePump.Length;
             return ftype;
         }
@@ -85,10 +85,10 @@ namespace ASFuelControl.Communication
         public int FuelTypeCount { set; get; }
         public List<FuelTypeClass> FuelTypes { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeBalancePumpsPerFuelType GetElement()
+        public FuelFlowService.SendBalanceDSPumpsPerFuelType GetElement()
         {
-            FuelFlowService.Fuelflows_TypeBalancePumpsPerFuelType ff = new FuelFlowService.Fuelflows_TypeBalancePumpsPerFuelType();
-            ff.FuelTypes = this.FuelTypes.Select(fpc => fpc.GetElement()).ToArray();
+            FuelFlowService.SendBalanceDSPumpsPerFuelType ff = new FuelFlowService.SendBalanceDSPumpsPerFuelType();
+            ff.FuelTypes = new FuelFlowService.ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes[][] { this.FuelTypes.Select(fpc => fpc.GetElement()).ToArray() };
             ff.F_KAYSIMA_NO = ff.FuelTypes.Length;
             return ff;
         }

@@ -103,13 +103,9 @@
     <None Include="app.config">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Service References\FuelFlowService\achilleas-fuelflow.wsdl" />
   </ItemGroup>
   <ItemGroup>
     <WCFMetadataStorage Include="Service References\FuelFlowService\" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Service References\FuelFlowService\achilleas-fuelflow.disco" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Service References\FuelFlowService\configuration91.svcinfo" />
@@ -118,6 +114,7 @@
     <None Include="Service References\FuelFlowService\configuration.svcinfo" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Service References\FuelFlowService\IPykServices1.wsdl" />
     <None Include="Service References\FuelFlowService\Reference.svcmap">
       <Generator>WCF Proxy Generator</Generator>
       <LastGenOutput>Reference.cs</LastGenOutput>

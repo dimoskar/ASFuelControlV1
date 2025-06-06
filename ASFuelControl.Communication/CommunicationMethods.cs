@@ -26,6 +26,7 @@ namespace ASFuelControl.Communication
         public static string CompanyTin { set; get; }
         public static string SubmitterTin { set; get; }
         public static string InstallatorTin { set; get; }
+        public static int TaxisBranch { set; get; }
         public static string Amdika { set; get; }
 
         public decimal NormalizeVolume(Enums.FuelTypeEnum ft, decimal volume, decimal temperature)
@@ -57,9 +58,9 @@ namespace ASFuelControl.Communication
 
         public bool SendChangePrice(ClientHeader header, Enums.FuelTypeEnum ftype, decimal newPrice)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+            ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
             
-            FuelFlowService.Fuelflows_TypePriceChange change = new FuelFlowService.Fuelflows_TypePriceChange();
+            FuelFlowService.PriceChangeDS change = new FuelFlowService.PriceChangeDS();
             FuelFlowService.Fuel_Type ft = new FuelFlowService.Fuel_Type();
             ft.Code = (int)ftype;
             ft.Description = Enums.LocalizedEnumExtensions.GetLocalizedName(ftype);
@@ -71,7 +72,7 @@ namespace ASFuelControl.Communication
             change.Header.CompanyTIN = header.CompanyTIN;
             change.Header.SubmissionDate = header.SubmissionDate;
             change.Header.SubmitterTIN = header.SubmitterTIN;
-
+            change.Header.F_TAXISBRANCH = header.TaxisBranch;
             try
             {
                 
@@ -95,12 +96,13 @@ namespace ASFuelControl.Communication
 
         public bool SendAlert(ClientHeader header, Enums.AlertIdEnum alertId, string deviceLabel, DateTime dt, string reason)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-            FuelFlowService.Fuelflows_TypeAlertRegistration alert = new FuelFlowService.Fuelflows_TypeAlertRegistration();
+            ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
+            FuelFlowService.SendAlertDS alert = new FuelFlowService.SendAlertDS();
             alert.Header = new FuelFlowService.Header_Type();
             alert.Header.CompanyTIN = header.CompanyTIN;
             alert.Header.SubmissionDate = header.SubmissionDate;
             alert.Header.SubmitterTIN = header.SubmitterTIN;
+            alert.Header.F_TAXISBRANCH = header.TaxisBranch;
             alert.F_AM_DIKA = etoken.AMDIKA_ID;
             alert.F_ALERT = new FuelFlowService.Alert_Type();
             alert.F_ALERT.F_ALERTID = (int)alertId;
@@ -129,22 +131,22 @@ namespace ASFuelControl.Communication
 
         public bool SendActionRegistration(ClientHeader header)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+            ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
             return true;
             //client.SendAlert
         }
 
         public bool SendBalance(ClientHeader header, Communication.BalanceClass balanceClass)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+            ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
 
-            FuelFlowService.Fuelflows_TypeBalance balance =  balanceClass.GetElement();
+            FuelFlowService.SendBalanceDS balance =  balanceClass.GetElement();
             balance.F_AM_DIKA = etoken.AMDIKA_ID;
             balance.Header = new FuelFlowService.Header_Type();
             balance.Header.CompanyTIN = CommunicationMethods.CompanyTin;
             balance.Header.SubmissionDate = DateTime.Now;
             balance.Header.SubmitterTIN = SubmitterTin;
-
+            balance.Header.F_TAXISBRANCH = header.TaxisBranch;
 
             this.LogObject(balance, balance.Header.SubmissionDate);
             try
@@ -172,16 +174,16 @@ namespace ASFuelControl.Communication
 
         public bool SendDelievery(ClientHeader header, Communication.DeliveryNoteClass delivery)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+            ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
             
 
             delivery.Document.Amdika = etoken.AMDIKA_ID;
-            FuelFlowService.Fuelflows_TypeDeliveryNote deliveryNote = delivery.GetElement();
+            FuelFlowService.SendDeliveryDS deliveryNote = delivery.GetElement();
 
             deliveryNote.Header.CompanyTIN = CommunicationMethods.CompanyTin;
             deliveryNote.Header.SubmissionDate = DateTime.Now;
             deliveryNote.Header.SubmitterTIN = SubmitterTin;
-
+            deliveryNote.Header.F_TAXISBRANCH = header.TaxisBranch;
             try
             {
                 if (!Simulation)
@@ -203,12 +205,13 @@ namespace ASFuelControl.Communication
 
         public bool SendLiterCheck(ClientHeader header, Communication.LiterCheckClass lc)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-            FuelFlowService.Fuelflows_TypeLiterCheck literCheck = lc.GetElement();
+            ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
+            FuelFlowService.SendLiterCheckDS literCheck = lc.GetElement();
             literCheck.Header = new FuelFlowService.Header_Type();
             literCheck.Header.CompanyTIN = CommunicationMethods.CompanyTin;
             literCheck.Header.SubmissionDate = DateTime.Now;
             literCheck.Header.SubmitterTIN = SubmitterTin;
+            literCheck.Header.F_TAXISBRANCH = header.TaxisBranch;
             try
             {
                 literCheck.F_AM_DIKA = etoken.AMDIKA_ID;
@@ -232,7 +235,7 @@ namespace ASFuelControl.Communication
 
         public bool SendReciept(ClientHeader header, List<Communication.IncomeRecieptClass> recs)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+            ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
             
 
             Communication.IncomeRecieptsClass reciepts = new IncomeRecieptsClass();
@@ -240,11 +243,12 @@ namespace ASFuelControl.Communication
                 rec.Amdika = etoken.AMDIKA_ID;
 
             reciepts.Reciepts = recs;
-            FuelFlowService.Fuelflows_TypeIncomeReceipts reciept = reciepts.GetElement();
+            FuelFlowService.SendReceiptDS reciept = reciepts.GetElement();
             reciept.Header = new FuelFlowService.Header_Type();
             reciept.Header.CompanyTIN = header.CompanyTIN;
             reciept.Header.SubmissionDate = header.SubmissionDate;
             reciept.Header.SubmitterTIN = header.SubmitterTIN;
+            reciept.Header.F_TAXISBRANCH = header.TaxisBranch;
             try
             {
                 if (!Simulation)
@@ -268,9 +272,9 @@ namespace ASFuelControl.Communication
 
         public bool SendTankCheck(ClientHeader header, TankCheckClass tank)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+            ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
 
-            FuelFlowService.Fuelflows_TypeTankCheck tankCheck = new FuelFlowService.Fuelflows_TypeTankCheck();
+            FuelFlowService.SendTankCheckDS tankCheck = new FuelFlowService.SendTankCheckDS();
             tankCheck.F_3001 = tank.TransactionDate;
             tankCheck.F_3002 = tank.TankLevel == 0 ? 1 : tank.TankLevel;
             tankCheck.F_3003 = (tank.TankLevel == 0 ? 1 : tank.TankLevel) * (tank.TankVolume == 0 ? 1 : tank.TankVolume);
@@ -282,7 +286,7 @@ namespace ASFuelControl.Communication
             tankCheck.Header.CompanyTIN = header.CompanyTIN;
             tankCheck.Header.SubmissionDate = header.SubmissionDate;
             tankCheck.Header.SubmitterTIN = header.SubmitterTIN;
-
+            tankCheck.Header.F_TAXISBRANCH = header.TaxisBranch;
             try
             {
                 if (!Simulation)
@@ -323,18 +327,20 @@ namespace ASFuelControl.Communication
                     this.LogToText(obj, fileName + "\\TankChecks.txt");
                     break;
                 case "Fuelflows_TypeIncomeReceipts":
-                    FuelFlowService.Fuelflows_TypeIncomeReceipts reciepts = obj as FuelFlowService.Fuelflows_TypeIncomeReceipts;
-                    foreach(FuelFlowService.Fuelflows_TypeIncomeReceiptsIncomeReceipt reciept in reciepts.IncomeReceipt)
-                        this.LogToText(reciept, fileName + "\\Reciepts.txt");
+                    FuelFlowService.SendReceiptDS reciepts = obj as FuelFlowService.SendReceiptDS;
+                    foreach(var reciept in reciepts.IncomeReceipt)
+                        foreach (var reciept2 in reciepts.IncomeReceipt)
+                            this.LogToText(reciept2, fileName + "\\Reciepts.txt");
                     break;
                 case "Fuelflows_TypeLiterCheck":
                     this.LogToText(obj, fileName + "\\LiterChecks.txt");
                     break;
                 case "Fuelflows_TypeDeliveryNote":
-                    FuelFlowService.Fuelflows_TypeDeliveryNote delivery = obj as FuelFlowService.Fuelflows_TypeDeliveryNote;
-                    foreach (FuelFlowService.Fuelflows_TypeDeliveryNoteFuelData fuelData in delivery.FuelData)
+                    FuelFlowService.SendDeliveryDS delivery = obj as FuelFlowService.SendDeliveryDS;
+                    foreach (var fuelData in delivery.FuelData)
                     {
-                        this.LogToText(fuelData, fileName + "\\Deliveries.txt");
+                        foreach (var fuelData2 in delivery.FuelData)
+                            this.LogToText(fuelData2, fileName + "\\Deliveries.txt");
                     }
                     break;
                 case "Fuelflows_TypeAlertRegistration":

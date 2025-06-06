@@ -12,6 +12,7 @@ namespace ASFuelControl.Communication
         public DateTime AlertTime { set; get; }
         public string DeviceId { set; get; }
         public string Description { set; get; }
+        public int AlertCode { set; get; }
 
         public void SetAlertType(int alertType)
         {

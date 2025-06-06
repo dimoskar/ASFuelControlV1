@@ -18,11 +18,10 @@
     <ServiceContractMappings />
   </ClientOptions>
   <MetadataSources>
-    <MetadataSource Address="http://eisrek.mygsi.eu/achilleas-fuelflow.asmx" Protocol="http" SourceId="1" />
+    <MetadataSource Address="https://pratiria-ws.aade.gr/achilleas-fuelflow.asmx" Protocol="http" SourceId="1" />
   </MetadataSources>
   <Metadata>
-    <MetadataFile FileName="achilleas-fuelflow.disco" MetadataType="Disco" ID="2478bb89-35ac-43b3-b970-4e2eb28626c2" SourceId="1" SourceUrl="http://eisrek.mygsi.eu/achilleas-fuelflow.asmx?disco" />
-    <MetadataFile FileName="achilleas-fuelflow.wsdl" MetadataType="Wsdl" ID="257786aa-d993-42df-94e2-b7ff2db835f7" SourceId="1" SourceUrl="http://eisrek.mygsi.eu/achilleas-fuelflow.asmx?wsdl" />
+    <MetadataFile FileName="IPykServices1.wsdl" MetadataType="Wsdl" ID="036dfd41-a1f3-4f4f-a079-d87b13f72cb2" SourceId="1" SourceUrl="https://pratiria-ws.aade.gr/achilleas-fuelflow.asmx" />
   </Metadata>
   <Extensions>
     <ExtensionFile FileName="configuration91.svcinfo" Name="configuration91.svcinfo" />

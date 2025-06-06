@@ -17,9 +17,9 @@ namespace ASFuelControl.Communication
         public decimal TotalVolumeNormalized { set; get; }
         public decimal Diff { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeDeliveryNoteFuelData GetElement()
+        public FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData GetElement()
         {
-            FuelFlowService.Fuelflows_TypeDeliveryNoteFuelData dnfd = new FuelFlowService.Fuelflows_TypeDeliveryNoteFuelData();
+            FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData dnfd = new FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData();
             dnfd.FUELTYPE = new FuelFlowService.Fuel_Type();
             dnfd.FUELTYPE.Code = (int)this.FuelType;
             dnfd.FUELTYPE.Description = Enums.LocalizedEnumExtensions.GetLocalizedName(this.FuelType);
@@ -46,10 +46,11 @@ namespace ASFuelControl.Communication
         public string InvoiceSeries { set; get; }
         public DateTime DocumentDate { set; get; }
         public string PlateNumber { set; get; }
+        public string Mark { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeDeliveryNoteDocument GetElement()
+        public FuelFlowService.SendDeliveryDSDocument GetElement()
         {
-            FuelFlowService.Fuelflows_TypeDeliveryNoteDocument dfd = new FuelFlowService.Fuelflows_TypeDeliveryNoteDocument();
+            FuelFlowService.SendDeliveryDSDocument dfd = new FuelFlowService.SendDeliveryDSDocument();
             dfd.F_2151 = this.SupplyerTin;
             dfd.F_2151A = this.Amdika;
             dfd.F_2152A = this.DocumentType;
@@ -82,11 +83,11 @@ namespace ASFuelControl.Communication
         public DateTime TimeEnd { set; get; }
 
 
-        public FuelFlowService.Fuelflows_TypeDeliveryNoteReservoirsReservoir GetElement()
+        public FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir GetElement()
         {
-            FuelFlowService.Fuelflows_TypeDeliveryNoteReservoirsReservoir res = new FuelFlowService.Fuelflows_TypeDeliveryNoteReservoirsReservoir();
+            FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir res = new FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir();
 
-            res.DataBefore = new FuelFlowService.Fuelflows_TypeDeliveryNoteReservoirsReservoirDataBefore();
+            res.DataBefore = new FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoirDataBefore();
             res.DataBefore.F_2141 = this.LevelBefore;
             res.DataBefore.F_2142A = this.VolumeBefore;
             res.DataBefore.F_2142B = this.TemperatureBefore;
@@ -94,7 +95,7 @@ namespace ASFuelControl.Communication
             res.DataBefore.F_2144 = this.DateStart;
             res.DataBefore.F_2145 = this.TimeStart;
 
-            res.DataAfter = new FuelFlowService.Fuelflows_TypeDeliveryNoteReservoirsReservoirDataAfter();
+            res.DataAfter = new FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoirDataAfter();
             res.DataAfter.F_2161 = this.LevelAfter;
             res.DataAfter.F_2162A = this.VolumeAfter;
             res.DataAfter.F_2162B = this.TemperatureAfter;
@@ -119,21 +120,22 @@ namespace ASFuelControl.Communication
         public List<DeliveryNoteFuelDataClass> FuelData { set; get; }
         public List<DeliveryNoteReservoir> Reservoirs { set; get; }
 
-        public FuelFlowService.Fuelflows_TypeDeliveryNote GetElement()
+        public FuelFlowService.SendDeliveryDS GetElement()
         {
-            FuelFlowService.Fuelflows_TypeDeliveryNote dn = new FuelFlowService.Fuelflows_TypeDeliveryNote();
+            FuelFlowService.SendDeliveryDS dn = new FuelFlowService.SendDeliveryDS();
             dn.Header = new FuelFlowService.Header_Type();
             dn.Header.CompanyTIN = Communication.CommunicationMethods.CompanyTin;
             dn.Header.SubmitterTIN = Communication.CommunicationMethods.SubmitterTin;
+            dn.Header.F_TAXISBRANCH = Communication.CommunicationMethods.TaxisBranch;
             dn.Header.SubmissionDate = DateTime.Now;
 
             dn.Document = this.Document.GetElement();
-            dn.Reservoirs = new FuelFlowService.Fuelflows_TypeDeliveryNoteReservoirs();
-            dn.Reservoirs.Reservoir = this.Reservoirs.Select(fmc => fmc.GetElement()).ToArray();
+            dn.Reservoirs = new FuelFlowService.SendDeliveryDSReservoirs();
+            dn.Reservoirs.Reservoir = new FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir[][] { this.Reservoirs.Select(fmc => fmc.GetElement()).ToArray() };
             dn.Reservoirs.ReservoirsNumber = this.Reservoirs.Count;
             dn.Header = new FuelFlowService.Header_Type();
-            
-            dn.FuelData = this.FuelData.Select(fmc => fmc.GetElement()).ToArray();
+
+            dn.FuelData = new FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData[][] { this.FuelData.Select(fmc => fmc.GetElement()).ToArray() };
             dn.F_AR_EIDOS_KAYSIMOU = this.FuelData.Count;
             
             return dn;
