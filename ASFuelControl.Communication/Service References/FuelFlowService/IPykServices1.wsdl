@@ -331,6 +331,7 @@
           <xsd:element minOccurs="0" maxOccurs="1" name="eToken" type="xsd:string" />
           <xsd:element minOccurs="1" maxOccurs="1" name="SubmissionDate" type="xsd:dateTime" />
           <xsd:element minOccurs="1" maxOccurs="1" name="F_TAXISBRANCH" type="xsd:int" />
+          <xsd:element minOccurs="0" maxOccurs="1" name="F_MARK" type="xsd:string" />
         </xsd:sequence>
       </xsd:complexType>
       <xsd:complexType name="ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceipt">
@@ -469,6 +470,8 @@
                 <xsd:element minOccurs="0" maxOccurs="1" name="F_KAYSIMO_AA" type="tns:Fuel_Type" />
                 <xsd:element minOccurs="1" maxOccurs="1" name="F_2244B" type="xsd:decimal" />
                 <xsd:element minOccurs="1" maxOccurs="1" name="F_2245B" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246A" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246B" type="xsd:decimal" />
                 <xsd:element minOccurs="0" maxOccurs="unbounded" name="FuelTypePump" nillable="true" type="tns:ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePump" />
               </xsd:sequence>
               <xsd:attribute name="TotalPumpsNumber" type="xsd:int" use="required" />
@@ -494,6 +497,7 @@
       <xsd:complexType name="Alert_Type">
         <xsd:sequence>
           <xsd:element minOccurs="1" maxOccurs="1" name="F_ALERTID" type="xsd:int" />
+          <xsd:element minOccurs="0" maxOccurs="1" name="F_ALERTCODE" type="xsd:string" />
           <xsd:element minOccurs="1" maxOccurs="1" name="F_DATE" type="xsd:dateTime" />
           <xsd:element minOccurs="0" maxOccurs="1" name="F_REASONING" type="xsd:string" />
           <xsd:element minOccurs="0" maxOccurs="1" name="F_DEVICE_LABEL" type="xsd:string" />
@@ -532,6 +536,8 @@
                 <xsd:element minOccurs="1" maxOccurs="1" name="F_2245A" type="xsd:decimal" />
                 <xsd:element minOccurs="1" maxOccurs="1" name="F_2245B" type="xsd:decimal" />
                 <xsd:element minOccurs="1" maxOccurs="1" name="F_2245C" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246A" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246B" type="xsd:decimal" />
               </xsd:sequence>
             </xsd:complexType>
           </xsd:element>
@@ -793,7 +799,7 @@
   </wsdl:binding>
   <wsdl:service name="IPykServices">
     <wsdl:port name="BasicHttpBinding_IPykServices_soap" binding="tns:BasicHttpBinding_IPykServices_soap">
-      <soap:address location="http://ca-pykserver-prod.calmocean-945e178e.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx" />
+      <soap:address location="http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx" />
     </wsdl:port>
   </wsdl:service>
 </wsdl:definitions>

@@ -69,7 +69,7 @@ namespace ASFuelControl.Communication
             if (reason.Length > 99)
                 reason = reason.Substring(0, 99);
             alert.F_ALERT.F_REASONING = reason;
-
+            alert.F_ALERT.F_ALERTCODE = alertClass.AlertCode;
             try
             {
                 string returnStr = "";

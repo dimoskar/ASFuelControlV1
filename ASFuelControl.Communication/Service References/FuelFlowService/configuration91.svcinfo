@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<SavedWcfConfigurationInformation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Version="9.1" CheckSum="mQTaG6w1o9wmOwjCc/mVhsUb2SY=">
+<SavedWcfConfigurationInformation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Version="9.1" CheckSum="1RDgMUELV1SNPbnaDWIpa4eB4pQ=">
   <bindingConfigurations>
     <bindingConfiguration bindingType="basicHttpBinding" name="BasicHttpBinding_IPykServices_soap">
       <properties>
@@ -112,10 +112,10 @@
     </bindingConfiguration>
   </bindingConfigurations>
   <endpoints>
-    <endpoint name="BasicHttpBinding_IPykServices_soap" contract="FuelFlowService.IPykServices" bindingType="basicHttpBinding" address="http://ca-pykserver-prod.calmocean-945e178e.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx" bindingConfiguration="BasicHttpBinding_IPykServices_soap">
+    <endpoint name="BasicHttpBinding_IPykServices_soap" contract="FuelFlowService.IPykServices" bindingType="basicHttpBinding" address="http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx" bindingConfiguration="BasicHttpBinding_IPykServices_soap">
       <properties>
         <property path="/address" isComplexType="false" isExplicitlyDefined="true" clrType="System.Uri, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
-          <serializedValue>http://ca-pykserver-prod.calmocean-945e178e.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</serializedValue>
+          <serializedValue>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</serializedValue>
         </property>
         <property path="/behaviorConfiguration" isComplexType="false" isExplicitlyDefined="false" clrType="System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
           <serializedValue />

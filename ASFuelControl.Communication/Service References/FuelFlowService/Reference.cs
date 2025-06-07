@@ -147,6 +147,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         private int f_TAXISBRANCHField;
         
+        private string f_MARKField;
+        
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=0)]
         public string CompanyTIN {
@@ -207,6 +209,18 @@ namespace ASFuelControl.Communication.FuelFlowService {
             }
         }
         
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=5)]
+        public string F_MARK {
+            get {
+                return this.f_MARKField;
+            }
+            set {
+                this.f_MARKField = value;
+                this.RaisePropertyChanged("F_MARK");
+            }
+        }
+        
         public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
         
         protected void RaisePropertyChanged(string propertyName) {
@@ -226,6 +240,8 @@ namespace ASFuelControl.Communication.FuelFlowService {
     public partial class Alert_Type : object, System.ComponentModel.INotifyPropertyChanged {
         
         private int f_ALERTIDField;
+        
+        private string f_ALERTCODEField;
         
         private System.DateTime f_DATEField;
         
@@ -247,6 +263,18 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=1)]
+        public string F_ALERTCODE {
+            get {
+                return this.f_ALERTCODEField;
+            }
+            set {
+                this.f_ALERTCODEField = value;
+                this.RaisePropertyChanged("F_ALERTCODE");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=2)]
         public System.DateTime F_DATE {
             get {
                 return this.f_DATEField;
@@ -258,7 +286,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=2)]
+        [System.Xml.Serialization.XmlElementAttribute(Order=3)]
         public string F_REASONING {
             get {
                 return this.f_REASONINGField;
@@ -270,7 +298,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(Order=3)]
+        [System.Xml.Serialization.XmlElementAttribute(Order=4)]
         public string F_DEVICE_LABEL {
             get {
                 return this.f_DEVICE_LABELField;
@@ -2058,6 +2086,10 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         private decimal f_2245BField;
         
+        private decimal f_2246AField;
+        
+        private decimal f_2246BField;
+        
         private ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump[][] fuelTypePumpField;
         
         private int totalPumpsNumberField;
@@ -2099,7 +2131,31 @@ namespace ASFuelControl.Communication.FuelFlowService {
         }
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=3)]
+        [System.Xml.Serialization.XmlElementAttribute(Order=3)]
+        public decimal F_2246A {
+            get {
+                return this.f_2246AField;
+            }
+            set {
+                this.f_2246AField = value;
+                this.RaisePropertyChanged("F_2246A");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=4)]
+        public decimal F_2246B {
+            get {
+                return this.f_2246BField;
+            }
+            set {
+                this.f_2246BField = value;
+                this.RaisePropertyChanged("F_2246B");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=5)]
         [System.Xml.Serialization.XmlArrayItemAttribute("FuelTypePump", typeof(ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump))]
         public ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump[][] FuelTypePump {
             get {
@@ -2172,6 +2228,10 @@ namespace ASFuelControl.Communication.FuelFlowService {
         private decimal f_2245BField;
         
         private decimal f_2245CField;
+        
+        private decimal f_2246AField;
+        
+        private decimal f_2246BField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=0)]
@@ -2362,6 +2422,30 @@ namespace ASFuelControl.Communication.FuelFlowService {
             set {
                 this.f_2245CField = value;
                 this.RaisePropertyChanged("F_2245C");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=16)]
+        public decimal F_2246A {
+            get {
+                return this.f_2246AField;
+            }
+            set {
+                this.f_2246AField = value;
+                this.RaisePropertyChanged("F_2246A");
+            }
+        }
+        
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(Order=17)]
+        public decimal F_2246B {
+            get {
+                return this.f_2246BField;
+            }
+            set {
+                this.f_2246BField = value;
+                this.RaisePropertyChanged("F_2246B");
             }
         }
         

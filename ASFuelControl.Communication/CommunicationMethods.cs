@@ -94,7 +94,7 @@ namespace ASFuelControl.Communication
             }
         }
 
-        public bool SendAlert(ClientHeader header, Enums.AlertIdEnum alertId, string deviceLabel, DateTime dt, string reason)
+        public bool SendAlert(ClientHeader header, Enums.AlertIdEnum alertId, string deviceLabel, DateTime dt, string reason, string alertCode)
         {
             ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
             FuelFlowService.SendAlertDS alert = new FuelFlowService.SendAlertDS();
@@ -109,7 +109,7 @@ namespace ASFuelControl.Communication
             alert.F_ALERT.F_DATE = dt;
             alert.F_ALERT.F_DEVICE_LABEL = deviceLabel;
             alert.F_ALERT.F_REASONING = reason;
-
+            alert.F_ALERT.F_ALERTCODE = alertCode;
             try
             {
                 if (!Simulation)
