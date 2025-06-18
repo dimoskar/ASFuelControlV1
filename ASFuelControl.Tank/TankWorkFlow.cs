@@ -303,19 +303,29 @@ namespace ASFuelControl.Tank
             if (this.Process.CurrentState == this.idleState)
                 return false;
 
-            decimal currentVolume = this.Tank.GetTankVolume(this.Tank.CurrentFuelLevel);
-            decimal lastVolume = this.Tank.GetTankVolume(this.Tank.LastFuelHeight);
-            decimal currentNormalizedVol = this.Tank.NormalizeVolume(currentVolume, this.Tank.CurrentTemperature, this.Tank.CurrentDensity);
-            decimal lastNormalizedVol = this.Tank.NormalizeVolume(lastVolume, this.Tank.LastTemperature, this.Tank.CurrentDensity);
-
             if (this.Tank.Alerts.Where(ta => ta.AlertType == Common.Enumerators.AlarmEnum.FuelDecrease).Count() > 0 && this.Process.CurrentState == this.extractionInitializedState)
             {
                 return true;
             }
 
-            if (currentNormalizedVol < lastNormalizedVol && lastNormalizedVol - currentNormalizedVol > 10)
+            if (this.Tank.FuelLevelFlow < -1 && this.Tank.FuelVolumeFlow < -20)
+            {
+                return true;
+            }
+            if (this.Tank.FuelVolumeFlow < (decimal)-0.75)
                 return true;
             return false;
+
+            //decimal currentVolume = this.Tank.GetTankVolume(this.Tank.CurrentFuelLevel);
+            //decimal lastVolume = this.Tank.GetTankVolume(this.Tank.LastFuelHeight);
+            //decimal currentNormalizedVol = this.Tank.NormalizeVolume(currentVolume, this.Tank.CurrentTemperature, this.Tank.CurrentDensity);
+            //decimal lastNormalizedVol = this.Tank.NormalizeVolume(lastVolume, this.Tank.LastTemperature, this.Tank.CurrentDensity);
+
+            
+
+            //if (currentNormalizedVol < lastNormalizedVol && lastNormalizedVol - currentNormalizedVol > 10)
+            //    return true;
+            //return false;
 
             //decimal errorThreshhold = this.Tank.CalculateStatisticalErrors(this.Tank.CurrentFuelLevel);
             //if (Math.Abs(currentNormalizedVol - lastNormalizedVol) > errorThreshhold &&
@@ -333,28 +343,36 @@ namespace ASFuelControl.Tank
                 return true;
             if (this.Process.CurrentState == this.idleState)
                 return false;
-
-            decimal currentVolume = this.Tank.GetTankVolume(this.Tank.CurrentFuelLevel);
-            decimal lastVolume = this.Tank.GetTankVolume(this.Tank.LastFuelHeight);
-            decimal currentNormalizedVol = this.Tank.NormalizeVolume(currentVolume, this.Tank.CurrentTemperature, this.Tank.CurrentDensity);
-            decimal lastNormalizedVol = this.Tank.NormalizeVolume(lastVolume, this.Tank.LastTemperature, this.Tank.CurrentDensity);
-
-            decimal errorThreshhold = this.Tank.CalculateStatisticalErrors(this.Tank.CurrentFuelLevel);
-
             if (this.Tank.IsLiterCheck && this.Process.CurrentState == this.fillingInitializedState)
             {
                 return true;
             }
 
-            //if (this.Tank.Alerts.Where(ta => ta.AlertType == Common.Enumerators.AlarmEnum.FuelIncrease).Count() > 0 && this.Process.CurrentState == this.fillingInitializedState)
-            //{
-            //    return true;
-            //}
-
-            if (currentNormalizedVol > lastNormalizedVol && currentNormalizedVol - lastNormalizedVol > 10)
+            if (this.Tank.FuelVolumeFlow > 20 && this.Tank.FuelLevelFlow > 1)
+            {
+                return true;
+            }
+            if(this.Tank.FuelVolumeFlow > (decimal)0.75)
                 return true;
 
-            
+            //decimal currentVolume = this.Tank.GetTankVolume(this.Tank.CurrentFuelLevel);
+            //decimal lastVolume = this.Tank.GetTankVolume(this.Tank.LastFuelHeight);
+            //decimal currentNormalizedVol = this.Tank.NormalizeVolume(currentVolume, this.Tank.CurrentTemperature, this.Tank.CurrentDensity);
+            //decimal lastNormalizedVol = this.Tank.NormalizeVolume(lastVolume, this.Tank.LastTemperature, this.Tank.CurrentDensity);
+
+            //decimal errorThreshhold = this.Tank.CalculateStatisticalErrors(this.Tank.CurrentFuelLevel);
+
+
+
+            ////if (this.Tank.Alerts.Where(ta => ta.AlertType == Common.Enumerators.AlarmEnum.FuelIncrease).Count() > 0 && this.Process.CurrentState == this.fillingInitializedState)
+            ////{
+            ////    return true;
+            ////}
+
+            //if (currentNormalizedVol > lastNormalizedVol && currentNormalizedVol - lastNormalizedVol > 10)
+            //    return true;
+
+
             return false;
 
             //if (Math.Abs(currentNormalizedVol - lastNormalizedVol) > errorThreshhold &&

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ReferenceGroup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" ID="6ec81dcd-9608-4538-ab5f-470440ea007f" xmlns="urn:schemas-microsoft-com:xml-wcfservicemap">
+<ReferenceGroup xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ID="6ec81dcd-9608-4538-ab5f-470440ea007f" xmlns="urn:schemas-microsoft-com:xml-wcfservicemap">
   <ClientOptions>
     <GenerateAsynchronousMethods>false</GenerateAsynchronousMethods>
     <EnableDataBinding>true</EnableDataBinding>
@@ -18,10 +18,10 @@
     <ServiceContractMappings />
   </ClientOptions>
   <MetadataSources>
-    <MetadataSource Address="https://test-pratiria-ws.aade.gr/achilleas-fuelflow.asmx" Protocol="http" SourceId="1" />
+    <MetadataSource Address="https://pratiria-ws.aade.gr/achilleas-fuelflow.asmx" Protocol="http" SourceId="1" />
   </MetadataSources>
   <Metadata>
-    <MetadataFile FileName="IPykServices1.wsdl" MetadataType="Wsdl" ID="9e3bf05f-53bb-4766-b3ac-0f1d54ad149c" SourceId="1" SourceUrl="https://test-pratiria-ws.aade.gr/achilleas-fuelflow.asmx" />
+    <MetadataFile FileName="IPykServices.wsdl" MetadataType="Wsdl" ID="779784fc-17e5-4d63-82ad-adb9370bbeb9" SourceId="1" SourceUrl="https://pratiria-ws.aade.gr/achilleas-fuelflow.asmx" />
   </Metadata>
   <Extensions>
     <ExtensionFile FileName="configuration91.svcinfo" Name="configuration91.svcinfo" />

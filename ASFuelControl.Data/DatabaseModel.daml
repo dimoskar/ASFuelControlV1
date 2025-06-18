@@ -989,6 +989,9 @@
     <property name="NettoAfterDiscount" type="Decimal" p1:ValidateRequired="true" p1:Guid="2bcf5f4b-e4c6-41e0-82f0-1b1dc0882fa8">
       <column name="NettoAfterDiscount" default="0" not-null="True" precision="18" scale="2" sql-type="decimal" p1:unicode="False" />
     </property>
+    <property name="Mark" type="Varchar" p1:nullable="True" p1:ValidateRequired="false" p1:Guid="779746a5-20c9-4217-b24e-35f8e9f1918d">
+      <column name="Mark" not-null="False" length="100" sql-type="nvarchar" p1:unicode="True"  />
+    </property>
   </class>
   <class name="FuelTypePrice" entity-set="FuelTypePrices" table="FuelTypePrice" concurrency-mode="Changed" p1:Guid="ea75ff64-e7c2-4b0e-8e24-41882d2bc533">
     <id name="FuelTypePriceId" type="Guid" access="ReadWrite" p1:ValidateRequired="true" p1:Guid="b734b9e1-a7a9-4b6c-ab1b-721ed77a0c8d">

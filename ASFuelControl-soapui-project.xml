@@ -1,0 +1,1298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<con:soapui-project id="f1b75d0c-5568-4cb2-b2a9-6434cf2d8603" activeEnvironment="Default" name="ASFuelControl" resourceRoot="" soapui-version="5.7.2" abortOnError="false" runType="SEQUENTIAL" xmlns:con="http://eviware.com/soapui/config"><con:settings/><con:interface xsi:type="con:WsdlInterface" id="126e1686-4071-47c7-86c4-890fcc60d19d" wsaVersion="NONE" name="BasicHttpBinding_IPykServices_soap" type="wsdl" bindingName="{http://mygsi.eu/}BasicHttpBinding_IPykServices_soap" soapVersion="1_1" anonymous="optional" definition="https://test-pratiria-ws.aade.gr/achilleas-fuelflow.asmx" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><con:settings/><con:definitionCache type="TEXT" rootPart="https://test-pratiria-ws.aade.gr/achilleas-fuelflow.asmx"><con:part><con:url>https://test-pratiria-ws.aade.gr/achilleas-fuelflow.asmx</con:url><con:content><![CDATA[<wsdl:definitions targetNamespace="http://mygsi.eu/" name="IPykServices" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://mygsi.eu/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:http="http://schemas.microsoft.com/ws/06/2004/policy/http" xmlns:msc="http://schemas.microsoft.com/ws/2005/12/wsdl/contract" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsam="http://www.w3.org/2007/05/addressing/metadata" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+  <wsdl:types>
+    <xsd:schema elementFormDefault="qualified" targetNamespace="http://mygsi.eu/">
+      <xsd:element name="SendReceipt">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="NUM_OF_RECEIPTS" type="xsd:int"/>
+                  <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="IncomeReceipt" type="tns:ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceipt"/>
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendReceiptResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendReceiptResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendDelivery">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Document">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="1" name="F_2151" type="xsd:string"/>
+                        <xsd:element minOccurs="0" maxOccurs="1" name="F_2151A" type="xsd:string"/>
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_DELIVERY_TYPE" type="xsd:int"/>
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_2152A" type="xsd:int"/>
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_2152B" type="xsd:int"/>
+                        <xsd:element minOccurs="0" maxOccurs="1" name="F_2152C" type="xsd:string"/>
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_2152D" type="xsd:dateTime"/>
+                        <xsd:element minOccurs="0" maxOccurs="1" name="F_2153" type="xsd:string"/>
+                      </xsd:sequence>
+                    </xsd:complexType>
+                  </xsd:element>
+                  <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelData" type="tns:ArrayOfFuelflows_TypeDeliveryNoteFuelData"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Reservoirs">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="Reservoir" type="tns:ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoir"/>
+                      </xsd:sequence>
+                      <xsd:attribute name="ReservoirsNumber" type="xsd:int" use="required"/>
+                    </xsd:complexType>
+                  </xsd:element>
+                </xsd:sequence>
+                <xsd:attribute name="F_AR_EIDOS_KAYSIMOU" type="xsd:int" use="required"/>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendDeliveryResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendDeliveryResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendBalance">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="xsd:string"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_HMEROMINIA_R">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_DATEDURATION" type="xsd:dateTime"/>
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_ORA_ARXHS_R" type="xsd:dateTime"/>
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_ORA_LIXIS" type="xsd:dateTime"/>
+                      </xsd:sequence>
+                    </xsd:complexType>
+                  </xsd:element>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="FuelMovements">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelMovement" type="tns:ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovement"/>
+                      </xsd:sequence>
+                      <xsd:attribute name="F_KAYSIMA_NO" type="xsd:int" use="required"/>
+                    </xsd:complexType>
+                  </xsd:element>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Reservoirs">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="Reservoir" type="tns:ArrayOfFuelflows_TypeBalanceReservoirsReservoir"/>
+                      </xsd:sequence>
+                      <xsd:attribute name="ReservoirsNumber" type="xsd:int" use="required"/>
+                    </xsd:complexType>
+                  </xsd:element>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="PumpsPerFuelType">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypes" type="tns:ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypes"/>
+                      </xsd:sequence>
+                      <xsd:attribute name="F_KAYSIMA_NO" type="xsd:int" use="required"/>
+                    </xsd:complexType>
+                  </xsd:element>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="DivergencesPerFuelType">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypeDivergence" type="tns:ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergence"/>
+                      </xsd:sequence>
+                      <xsd:attribute name="FuelTypesNumber" type="xsd:int" use="required"/>
+                    </xsd:complexType>
+                  </xsd:element>
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendBalanceResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendBalanceResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendAlert">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="xsd:string"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_ALERT" type="tns:Alert_Type"/>
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendAlertResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendAlertResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendLiterCheck">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="xsd:string"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_231_1" type="xsd:dateTime"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_FUEL_CODE" type="tns:Fuel_Type"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_LABEL_OGKOMETR" type="xsd:string"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_LABEL_POOL" type="xsd:string"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_CAPACITY" type="xsd:decimal"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_CAPACITY_15" type="xsd:decimal"/>
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendLiterCheckResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendLiterCheckResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendTankCheck">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="xsd:string"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3001" type="xsd:dateTime"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_LABEL" type="xsd:string"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3002" type="xsd:decimal"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3003" type="xsd:decimal"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3004" type="xsd:decimal"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3005" type="xsd:decimal"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3006" type="xsd:decimal"/>
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendTankCheckResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendTankCheckResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="PriceChange">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="xsd:string"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_4001" type="xsd:dateTime"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_4002" type="tns:Fuel_Type"/>
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_4003" type="xsd:decimal"/>
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="PriceChangeResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="PriceChangeResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="CheckOTP">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="xsd:string"/>
+            <xsd:element minOccurs="0" maxOccurs="1" name="preKey" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="CheckOTPResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="CheckOTPResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="UpdateSoftWare">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="xsd:string"/>
+            <xsd:element minOccurs="0" maxOccurs="1" name="preKey" type="xsd:string"/>
+            <xsd:element minOccurs="0" maxOccurs="1" name="_sData" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="UpdateSoftWareResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="UpdateSoftWareResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="RegisterOTP">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="xsd:string"/>
+            <xsd:element minOccurs="0" maxOccurs="1" name="preKey" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="RegisterOTPResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="RegisterOTPResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SWUpdate">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="xsd:string"/>
+            <xsd:element minOccurs="0" maxOccurs="1" name="preKey" type="xsd:string"/>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SData" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SWUpdateResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SWUpdateResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetRegNums">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="AMDIKA" type="xsd:string"/>
+            <xsd:element minOccurs="0" maxOccurs="1" name="Token" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetRegNumsResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="GetRegNumsResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetTankStripeTable">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="xsd:string"/>
+            <xsd:element minOccurs="0" maxOccurs="1" name="preKey" type="xsd:string"/>
+            <xsd:element minOccurs="0" maxOccurs="1" name="tankCode" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetTankStripeTableResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="GetTankStripeTableResult" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:complexType name="Header_Type">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="1" name="CompanyTIN" type="xsd:string"/>
+          <xsd:element minOccurs="0" maxOccurs="1" name="SubmitterTIN" type="xsd:string"/>
+          <xsd:element minOccurs="0" maxOccurs="1" name="eToken" type="xsd:string"/>
+          <xsd:element minOccurs="1" maxOccurs="1" name="SubmissionDate" type="xsd:dateTime"/>
+          <xsd:element minOccurs="1" maxOccurs="1" name="F_TAXISBRANCH" type="xsd:int"/>
+          <xsd:element minOccurs="0" maxOccurs="1" name="F_MARK" type="xsd:string"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceipt">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="IncomeReceipt">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_31A" type="xsd:string"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_31AA" type="xsd:string"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_31B" type="xsd:string"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_31C" type="xsd:string"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_31D" type="tns:Fuel_Type"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31E" type="xsd:dateTime"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31F" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31G" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31H" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31I" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31K" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31L" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31M" type="xsd:decimal"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_32" type="tns:CarData_Type"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_33" type="xsd:string"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_34" type="xsd:string"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_35" type="xsd:string"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_36" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_37" type="xsd:int"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_38" type="xsd:decimal"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeDeliveryNoteFuelData">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelData">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="FUELTYPE" type="tns:Fuel_Type"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2154" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2155" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2156" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2157" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_217" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_218" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_219" type="xsd:decimal"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoir">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="Reservoir">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_211" type="xsd:string"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_212" type="tns:Fuel_Type"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_213" type="xsd:dateTime"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="DataBefore">
+                  <xsd:complexType>
+                    <xsd:sequence>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2141" type="xsd:decimal"/>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2142A" type="xsd:decimal"/>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2142B" type="xsd:decimal"/>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2143" type="xsd:decimal"/>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2144" type="xsd:dateTime"/>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2145" type="xsd:dateTime"/>
+                    </xsd:sequence>
+                  </xsd:complexType>
+                </xsd:element>
+                <xsd:element minOccurs="0" maxOccurs="1" name="DataAfter">
+                  <xsd:complexType>
+                    <xsd:sequence>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2161" type="xsd:decimal"/>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2162A" type="xsd:decimal"/>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2162B" type="xsd:decimal"/>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2163" type="xsd:decimal"/>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2164" type="xsd:dateTime"/>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2165" type="xsd:dateTime"/>
+                    </xsd:sequence>
+                  </xsd:complexType>
+                </xsd:element>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovement">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelMovement">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_KAYSIMO_EIDOS" type="tns:Fuel_Type"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2236A1" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2236A2" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2236B1" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2236B2" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2237" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2238" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2239A" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2239B" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_22310" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_22310A" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_22310B" type="xsd:decimal"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeBalanceReservoirsReservoir">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="Reservoir">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_DEXAMENH_AA" type="xsd:int"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_DEXAMENH_XORITIKOTITA" type="xsd:decimal"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_KAYSIMO_EIDOS" type="tns:Fuel_Type"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2232_MM" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2232_VOL" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2232_TEMP" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2233" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2234_MM" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2234_VOL" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2234_TEMP" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2235" type="xsd:decimal"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypes">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypes">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_KAYSIMO_AA" type="tns:Fuel_Type"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244B" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2245B" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246A" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246B" type="xsd:decimal"/>
+                <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypePump" type="tns:ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePump"/>
+              </xsd:sequence>
+              <xsd:attribute name="TotalPumpsNumber" type="xsd:int" use="required"/>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergence">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypeDivergence">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="FuelType" type="tns:Fuel_Type"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2251" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2252" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2253" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2254" type="xsd:decimal"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="Alert_Type">
+        <xsd:sequence>
+          <xsd:element minOccurs="1" maxOccurs="1" name="F_ALERTID" type="xsd:int"/>
+          <xsd:element minOccurs="0" maxOccurs="1" name="F_ALERTCODE" type="xsd:string"/>
+          <xsd:element minOccurs="1" maxOccurs="1" name="F_DATE" type="xsd:dateTime"/>
+          <xsd:element minOccurs="0" maxOccurs="1" name="F_REASONING" type="xsd:string"/>
+          <xsd:element minOccurs="0" maxOccurs="1" name="F_DEVICE_LABEL" type="xsd:string"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="Fuel_Type">
+        <xsd:sequence>
+          <xsd:element minOccurs="1" maxOccurs="1" name="Code" type="xsd:int"/>
+          <xsd:element minOccurs="0" maxOccurs="1" name="Description" type="xsd:string"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="CarData_Type">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="1" name="plateLetters" type="xsd:string"/>
+          <xsd:element minOccurs="0" maxOccurs="1" name="plateNumber" type="xsd:string"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePump">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypePump">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="FuelType" type="tns:Fuel_Type"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_ANTLIA_AA" type="xsd:string"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_2241A" type="xsd:string"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2241B" type="xsd:int"/>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_Pump_Reservoir" type="xsd:string"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2242" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2243" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244A" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244B" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244C" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244D" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244E" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244F" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2245A" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2245B" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2245C" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246A" type="xsd:decimal"/>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246B" type="xsd:decimal"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="IPykServices_SendReceipt_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendReceipt"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendReceipt_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendReceiptResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendDelivery_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendDelivery"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendDelivery_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendDeliveryResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendBalance_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendBalance"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendBalance_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendBalanceResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendAlert_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendAlert"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendAlert_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendAlertResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendLiterCheck_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendLiterCheck"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendLiterCheck_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendLiterCheckResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendTankCheck_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendTankCheck"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendTankCheck_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendTankCheckResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_PriceChange_InputMessage">
+    <wsdl:part name="parameters" element="tns:PriceChange"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_PriceChange_OutputMessage">
+    <wsdl:part name="parameters" element="tns:PriceChangeResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_CheckOTP_InputMessage">
+    <wsdl:part name="parameters" element="tns:CheckOTP"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_CheckOTP_OutputMessage">
+    <wsdl:part name="parameters" element="tns:CheckOTPResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_UpdateSoftWare_InputMessage">
+    <wsdl:part name="parameters" element="tns:UpdateSoftWare"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_UpdateSoftWare_OutputMessage">
+    <wsdl:part name="parameters" element="tns:UpdateSoftWareResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_RegisterOTP_InputMessage">
+    <wsdl:part name="parameters" element="tns:RegisterOTP"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_RegisterOTP_OutputMessage">
+    <wsdl:part name="parameters" element="tns:RegisterOTPResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SWUpdate_InputMessage">
+    <wsdl:part name="parameters" element="tns:SWUpdate"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SWUpdate_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SWUpdateResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_GetRegNums_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetRegNums"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_GetRegNums_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetRegNumsResponse"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_GetTankStripeTable_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetTankStripeTable"/>
+  </wsdl:message>
+  <wsdl:message name="IPykServices_GetTankStripeTable_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetTankStripeTableResponse"/>
+  </wsdl:message>
+  <wsdl:portType name="IPykServices">
+    <wsdl:operation name="SendReceipt">
+      <wsdl:input message="tns:IPykServices_SendReceipt_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_SendReceipt_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="SendDelivery">
+      <wsdl:input message="tns:IPykServices_SendDelivery_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_SendDelivery_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="SendBalance">
+      <wsdl:input message="tns:IPykServices_SendBalance_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_SendBalance_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="SendAlert">
+      <wsdl:input message="tns:IPykServices_SendAlert_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_SendAlert_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="SendLiterCheck">
+      <wsdl:input message="tns:IPykServices_SendLiterCheck_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_SendLiterCheck_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="SendTankCheck">
+      <wsdl:input message="tns:IPykServices_SendTankCheck_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_SendTankCheck_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="PriceChange">
+      <wsdl:input message="tns:IPykServices_PriceChange_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_PriceChange_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="CheckOTP">
+      <wsdl:input message="tns:IPykServices_CheckOTP_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_CheckOTP_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="UpdateSoftWare">
+      <wsdl:input message="tns:IPykServices_UpdateSoftWare_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_UpdateSoftWare_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="RegisterOTP">
+      <wsdl:input message="tns:IPykServices_RegisterOTP_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_RegisterOTP_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="SWUpdate">
+      <wsdl:input message="tns:IPykServices_SWUpdate_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_SWUpdate_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="GetRegNums">
+      <wsdl:input message="tns:IPykServices_GetRegNums_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_GetRegNums_OutputMessage"/>
+    </wsdl:operation>
+    <wsdl:operation name="GetTankStripeTable">
+      <wsdl:input message="tns:IPykServices_GetTankStripeTable_InputMessage"/>
+      <wsdl:output message="tns:IPykServices_GetTankStripeTable_OutputMessage"/>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="BasicHttpBinding_IPykServices_soap" type="tns:IPykServices">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="SendReceipt">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendReceipt" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendDelivery">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendDelivery" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendBalance">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendBalance" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendAlert">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendAlert" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendLiterCheck">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendLiterCheck" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendTankCheck">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendTankCheck" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="PriceChange">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/PriceChange" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="CheckOTP">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/CheckOTP" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="UpdateSoftWare">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/UpdateSoftWare" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="RegisterOTP">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/RegisterOTP" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SWUpdate">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SWUpdate" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetRegNums">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/GetRegNums" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetTankStripeTable">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/GetTankStripeTable" style="document"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="IPykServices">
+    <wsdl:port name="BasicHttpBinding_IPykServices_soap" binding="tns:BasicHttpBinding_IPykServices_soap">
+      <soap:address location="http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>]]></con:content><con:type>http://schemas.xmlsoap.org/wsdl/</con:type></con:part></con:definitionCache><con:endpoints><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint></con:endpoints><con:operation id="e7da85fc-ca9d-4764-b698-dfbefe1fcdde" isOneWay="false" action="http://mygsi.eu/IPykServices/CheckOTP" name="CheckOTP" bindingOperationName="CheckOTP" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="0668e280-e557-4563-baff-8498a66be29b" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+   <soapenv:Header/>\r
+   <soapenv:Body>\r
+      <myg:CheckOTP>\r
+         <!--Optional:-->\r
+         <myg:ADMIKA>?</myg:ADMIKA>\r
+         <!--Optional:-->\r
+         <myg:preKey>?</myg:preKey>\r
+      </myg:CheckOTP>\r
+   </soapenv:Body>\r
+</soapenv:Envelope>]]></con:request><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/CheckOTP"/></con:call></con:operation><con:operation id="7a60b182-5e59-414f-b355-1c96cce1330c" isOneWay="false" action="http://mygsi.eu/IPykServices/GetRegNums" name="GetRegNums" bindingOperationName="GetRegNums" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="13bfe1ac-55e5-47b4-8caa-b480af165888" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+   <soapenv:Header/>\r
+   <soapenv:Body>\r
+      <myg:GetRegNums>\r
+         <!--Optional:-->\r
+         <myg:AMDIKA>?</myg:AMDIKA>\r
+         <!--Optional:-->\r
+         <myg:Token>?</myg:Token>\r
+      </myg:GetRegNums>\r
+   </soapenv:Body>\r
+</soapenv:Envelope>]]></con:request><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/GetRegNums"/></con:call></con:operation><con:operation id="2cd50cc8-4a23-4746-a560-560e7f84600c" isOneWay="false" action="http://mygsi.eu/IPykServices/GetTankStripeTable" name="GetTankStripeTable" bindingOperationName="GetTankStripeTable" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="89b38c4e-8ec6-430e-b81a-8605e8afd5b1" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+   <soapenv:Header/>\r
+   <soapenv:Body>\r
+      <myg:GetTankStripeTable>\r
+         <!--Optional:-->\r
+         <myg:ADMIKA>?</myg:ADMIKA>\r
+         <!--Optional:-->\r
+         <myg:preKey>?</myg:preKey>\r
+         <!--Optional:-->\r
+         <myg:tankCode>?</myg:tankCode>\r
+      </myg:GetTankStripeTable>\r
+   </soapenv:Body>\r
+</soapenv:Envelope>]]></con:request><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/GetTankStripeTable"/></con:call></con:operation><con:operation id="5c9410df-237a-4d1c-b750-073e53e11269" isOneWay="false" action="http://mygsi.eu/IPykServices/PriceChange" name="PriceChange" bindingOperationName="PriceChange" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="7f7219ba-e787-43d5-b12e-6c7f78c531c4" name="Request 1"><con:settings><con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment/></con:setting></con:settings><con:encoding>UTF-8</con:encoding><con:endpoint>https://test-pratiria-ws.aade.gr/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <myg:PriceChange>
+         <myg:DS>
+            <myg:Header>
+               <myg:CompanyTIN>098120800</myg:CompanyTIN>
+               <myg:SubmitterTIN>126894985</myg:SubmitterTIN>
+               <myg:eToken>5143132506161DC9B4AEA2ED71590FE44C761F0BE858D1696AAE</myg:eToken>
+               <myg:SubmissionDate>2025-06-16T10:02:26.0505494+03:00</myg:SubmissionDate>
+               <myg:F_TAXISBRANCH>0</myg:F_TAXISBRANCH>
+               <myg:F_MARK></myg:F_MARK>
+            </myg:Header>
+            <myg:F_AM_DIKA>0981208000515</myg:F_AM_DIKA>
+            <myg:F_4001>2025-06-16T10:02:26.0505494+03:00</myg:F_4001>
+            <myg:F_4002>
+               <myg:Code>10</myg:Code>
+               <myg:Description>Αμόλυβδη 95</myg:Description>
+            </myg:F_4002>
+            <myg:F_4003>0.2010</myg:F_4003>
+         </myg:DS>
+      </myg:PriceChange>
+   </soapenv:Body>
+</soapenv:Envelope>]]></con:request><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/PriceChange"/><con:wsrmConfig version="1.2"/></con:call></con:operation><con:operation id="a28f6a3e-4925-4850-987f-8e3c0c91f2cd" isOneWay="false" action="http://mygsi.eu/IPykServices/RegisterOTP" name="RegisterOTP" bindingOperationName="RegisterOTP" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="9c3271b2-ca55-40ac-9dad-e963e5194175" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+   <soapenv:Header/>\r
+   <soapenv:Body>\r
+      <myg:RegisterOTP>\r
+         <!--Optional:-->\r
+         <myg:ADMIKA>?</myg:ADMIKA>\r
+         <!--Optional:-->\r
+         <myg:preKey>?</myg:preKey>\r
+      </myg:RegisterOTP>\r
+   </soapenv:Body>\r
+</soapenv:Envelope>]]></con:request><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/RegisterOTP"/></con:call></con:operation><con:operation id="0a349aee-71ab-4602-8ea2-dcd7bb619a70" isOneWay="false" action="http://mygsi.eu/IPykServices/SendAlert" name="SendAlert" bindingOperationName="SendAlert" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="646e7637-f258-46a5-a61e-1993e7f8b83c" name="Request 1"><con:settings><con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment/></con:setting></con:settings><con:encoding>UTF-8</con:encoding><con:endpoint>https://test-pratiria-ws.aade.gr/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+  <s:Header>
+    <Action s:mustUnderstand="1" xmlns="http://schemas.microsoft.com/ws/2005/05/addressing/none">http://mygsi.eu/IPykServices/SendAlert</Action>
+  </s:Header>
+  <s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <SendAlert xmlns="http://mygsi.eu/">
+      <DS>
+        <Header>
+          <CompanyTIN>098120800</CompanyTIN>
+          <SubmitterTIN>126894985</SubmitterTIN>
+          <eToken>1314202506167EC22649424CF31BDFAD357CB9E7D1F97CD45A91</eToken>
+          <SubmissionDate>2025-06-16T20:14:04.5208097+03:00</SubmissionDate>
+          <F_TAXISBRANCH>6</F_TAXISBRANCH>
+        </Header>
+        <F_AM_DIKA>0981208000515</F_AM_DIKA>
+        <F_ALERT>
+          <F_ALERTID>1</F_ALERTID>
+          <F_ALERTCODE>H01</F_ALERTCODE>
+          <F_DATE>2025-06-12T20:26:06.153</F_DATE>
+          <F_REASONING>Αντλία : 1</F_REASONING>
+          <F_DEVICE_LABEL>08000515-P-3130-00061</F_DEVICE_LABEL>
+        </F_ALERT>
+      </DS>
+    </SendAlert>
+  </s:Body>
+</s:Envelope>]]></con:request><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/SendAlert"/><con:wsrmConfig version="1.2"/></con:call></con:operation><con:operation id="bdef363d-6d81-437a-a1f0-eeba2ae6181d" isOneWay="false" action="http://mygsi.eu/IPykServices/SendBalance" name="SendBalance" bindingOperationName="SendBalance" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="14672c88-b0da-4858-80e3-a9f529f5847a" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+   <soapenv:Header/>\r
+   <soapenv:Body>\r
+      <myg:SendBalance>\r
+         <!--Optional:-->\r
+         <myg:DS>\r
+            <!--Optional:-->\r
+            <myg:Header>\r
+               <!--Optional:-->\r
+               <myg:CompanyTIN>?</myg:CompanyTIN>\r
+               <!--Optional:-->\r
+               <myg:SubmitterTIN>?</myg:SubmitterTIN>\r
+               <!--Optional:-->\r
+               <myg:eToken>?</myg:eToken>\r
+               <myg:SubmissionDate>?</myg:SubmissionDate>\r
+               <myg:F_TAXISBRANCH>?</myg:F_TAXISBRANCH>\r
+               <!--Optional:-->\r
+               <myg:F_MARK>?</myg:F_MARK>\r
+            </myg:Header>\r
+            <!--Optional:-->\r
+            <myg:F_AM_DIKA>?</myg:F_AM_DIKA>\r
+            <!--Optional:-->\r
+            <myg:F_HMEROMINIA_R>\r
+               <myg:F_DATEDURATION>?</myg:F_DATEDURATION>\r
+               <myg:F_ORA_ARXHS_R>?</myg:F_ORA_ARXHS_R>\r
+               <myg:F_ORA_LIXIS>?</myg:F_ORA_LIXIS>\r
+            </myg:F_HMEROMINIA_R>\r
+            <!--Optional:-->\r
+            <myg:FuelMovements F_KAYSIMA_NO="?">\r
+               <!--Zero or more repetitions:-->\r
+               <myg:FuelMovement>\r
+                  <!--Zero or more repetitions:-->\r
+                  <myg:FuelMovement>\r
+                     <!--Optional:-->\r
+                     <myg:F_KAYSIMO_EIDOS>\r
+                        <myg:Code>?</myg:Code>\r
+                        <!--Optional:-->\r
+                        <myg:Description>?</myg:Description>\r
+                     </myg:F_KAYSIMO_EIDOS>\r
+                     <myg:F_2236A1>?</myg:F_2236A1>\r
+                     <myg:F_2236A2>?</myg:F_2236A2>\r
+                     <myg:F_2236B1>?</myg:F_2236B1>\r
+                     <myg:F_2236B2>?</myg:F_2236B2>\r
+                     <myg:F_2237>?</myg:F_2237>\r
+                     <myg:F_2238>?</myg:F_2238>\r
+                     <myg:F_2239A>?</myg:F_2239A>\r
+                     <myg:F_2239B>?</myg:F_2239B>\r
+                     <myg:F_22310>?</myg:F_22310>\r
+                     <myg:F_22310A>?</myg:F_22310A>\r
+                     <myg:F_22310B>?</myg:F_22310B>\r
+                  </myg:FuelMovement>\r
+               </myg:FuelMovement>\r
+            </myg:FuelMovements>\r
+            <!--Optional:-->\r
+            <myg:Reservoirs ReservoirsNumber="?">\r
+               <!--Zero or more repetitions:-->\r
+               <myg:Reservoir>\r
+                  <!--Zero or more repetitions:-->\r
+                  <myg:Reservoir>\r
+                     <myg:F_DEXAMENH_AA>?</myg:F_DEXAMENH_AA>\r
+                     <myg:F_DEXAMENH_XORITIKOTITA>?</myg:F_DEXAMENH_XORITIKOTITA>\r
+                     <!--Optional:-->\r
+                     <myg:F_KAYSIMO_EIDOS>\r
+                        <myg:Code>?</myg:Code>\r
+                        <!--Optional:-->\r
+                        <myg:Description>?</myg:Description>\r
+                     </myg:F_KAYSIMO_EIDOS>\r
+                     <myg:F_2232_MM>?</myg:F_2232_MM>\r
+                     <myg:F_2232_VOL>?</myg:F_2232_VOL>\r
+                     <myg:F_2232_TEMP>?</myg:F_2232_TEMP>\r
+                     <myg:F_2233>?</myg:F_2233>\r
+                     <myg:F_2234_MM>?</myg:F_2234_MM>\r
+                     <myg:F_2234_VOL>?</myg:F_2234_VOL>\r
+                     <myg:F_2234_TEMP>?</myg:F_2234_TEMP>\r
+                     <myg:F_2235>?</myg:F_2235>\r
+                  </myg:Reservoir>\r
+               </myg:Reservoir>\r
+            </myg:Reservoirs>\r
+            <!--Optional:-->\r
+            <myg:PumpsPerFuelType F_KAYSIMA_NO="?">\r
+               <!--Zero or more repetitions:-->\r
+               <myg:FuelTypes>\r
+                  <!--Zero or more repetitions:-->\r
+                  <myg:FuelTypes TotalPumpsNumber="?">\r
+                     <!--Optional:-->\r
+                     <myg:F_KAYSIMO_AA>\r
+                        <myg:Code>?</myg:Code>\r
+                        <!--Optional:-->\r
+                        <myg:Description>?</myg:Description>\r
+                     </myg:F_KAYSIMO_AA>\r
+                     <myg:F_2244B>?</myg:F_2244B>\r
+                     <myg:F_2245B>?</myg:F_2245B>\r
+                     <myg:F_2246A>?</myg:F_2246A>\r
+                     <myg:F_2246B>?</myg:F_2246B>\r
+                     <!--Zero or more repetitions:-->\r
+                     <myg:FuelTypePump>\r
+                        <!--Zero or more repetitions:-->\r
+                        <myg:FuelTypePump>\r
+                           <!--Optional:-->\r
+                           <myg:FuelType>\r
+                              <myg:Code>?</myg:Code>\r
+                              <!--Optional:-->\r
+                              <myg:Description>?</myg:Description>\r
+                           </myg:FuelType>\r
+                           <!--Optional:-->\r
+                           <myg:F_ANTLIA_AA>?</myg:F_ANTLIA_AA>\r
+                           <!--Optional:-->\r
+                           <myg:F_2241A>?</myg:F_2241A>\r
+                           <myg:F_2241B>?</myg:F_2241B>\r
+                           <!--Optional:-->\r
+                           <myg:F_Pump_Reservoir>?</myg:F_Pump_Reservoir>\r
+                           <myg:F_2242>?</myg:F_2242>\r
+                           <myg:F_2243>?</myg:F_2243>\r
+                           <myg:F_2244A>?</myg:F_2244A>\r
+                           <myg:F_2244B>?</myg:F_2244B>\r
+                           <myg:F_2244C>?</myg:F_2244C>\r
+                           <myg:F_2244D>?</myg:F_2244D>\r
+                           <myg:F_2244E>?</myg:F_2244E>\r
+                           <myg:F_2244F>?</myg:F_2244F>\r
+                           <myg:F_2245A>?</myg:F_2245A>\r
+                           <myg:F_2245B>?</myg:F_2245B>\r
+                           <myg:F_2245C>?</myg:F_2245C>\r
+                           <myg:F_2246A>?</myg:F_2246A>\r
+                           <myg:F_2246B>?</myg:F_2246B>\r
+                        </myg:FuelTypePump>\r
+                     </myg:FuelTypePump>\r
+                  </myg:FuelTypes>\r
+               </myg:FuelTypes>\r
+            </myg:PumpsPerFuelType>\r
+            <!--Optional:-->\r
+            <myg:DivergencesPerFuelType FuelTypesNumber="?">\r
+               <!--Zero or more repetitions:-->\r
+               <myg:FuelTypeDivergence>\r
+                  <!--Zero or more repetitions:-->\r
+                  <myg:FuelTypeDivergence>\r
+                     <!--Optional:-->\r
+                     <myg:FuelType>\r
+                        <myg:Code>?</myg:Code>\r
+                        <!--Optional:-->\r
+                        <myg:Description>?</myg:Description>\r
+                     </myg:FuelType>\r
+                     <myg:F_2251>?</myg:F_2251>\r
+                     <myg:F_2252>?</myg:F_2252>\r
+                     <myg:F_2253>?</myg:F_2253>\r
+                     <myg:F_2254>?</myg:F_2254>\r
+                  </myg:FuelTypeDivergence>\r
+               </myg:FuelTypeDivergence>\r
+            </myg:DivergencesPerFuelType>\r
+         </myg:DS>\r
+      </myg:SendBalance>\r
+   </soapenv:Body>\r
+</soapenv:Envelope>]]></con:request><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/SendBalance"/><con:wsrmConfig version="1.2"/></con:call></con:operation><con:operation id="77a5d76d-d5fe-44e6-bb97-e31fda976a4b" isOneWay="false" action="http://mygsi.eu/IPykServices/SendDelivery" name="SendDelivery" bindingOperationName="SendDelivery" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="d00cd3ec-c883-47b1-bd59-8758a4eb948f" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+   <soapenv:Header/>\r
+   <soapenv:Body>\r
+      <myg:SendDelivery>\r
+         <!--Optional:-->\r
+         <myg:DS F_AR_EIDOS_KAYSIMOU="?">\r
+            <!--Optional:-->\r
+            <myg:Header>\r
+               <!--Optional:-->\r
+               <myg:CompanyTIN>?</myg:CompanyTIN>\r
+               <!--Optional:-->\r
+               <myg:SubmitterTIN>?</myg:SubmitterTIN>\r
+               <!--Optional:-->\r
+               <myg:eToken>?</myg:eToken>\r
+               <myg:SubmissionDate>?</myg:SubmissionDate>\r
+               <myg:F_TAXISBRANCH>?</myg:F_TAXISBRANCH>\r
+               <!--Optional:-->\r
+               <myg:F_MARK>?</myg:F_MARK>\r
+            </myg:Header>\r
+            <!--Optional:-->\r
+            <myg:Document>\r
+               <!--Optional:-->\r
+               <myg:F_2151>?</myg:F_2151>\r
+               <!--Optional:-->\r
+               <myg:F_2151A>?</myg:F_2151A>\r
+               <myg:F_DELIVERY_TYPE>?</myg:F_DELIVERY_TYPE>\r
+               <myg:F_2152A>?</myg:F_2152A>\r
+               <myg:F_2152B>?</myg:F_2152B>\r
+               <!--Optional:-->\r
+               <myg:F_2152C>?</myg:F_2152C>\r
+               <myg:F_2152D>?</myg:F_2152D>\r
+               <!--Optional:-->\r
+               <myg:F_2153>?</myg:F_2153>\r
+            </myg:Document>\r
+            <!--Zero or more repetitions:-->\r
+            <myg:FuelData>\r
+               <!--Zero or more repetitions:-->\r
+               <myg:FuelData>\r
+                  <!--Optional:-->\r
+                  <myg:FUELTYPE>\r
+                     <myg:Code>?</myg:Code>\r
+                     <!--Optional:-->\r
+                     <myg:Description>?</myg:Description>\r
+                  </myg:FUELTYPE>\r
+                  <myg:F_2154>?</myg:F_2154>\r
+                  <myg:F_2155>?</myg:F_2155>\r
+                  <myg:F_2156>?</myg:F_2156>\r
+                  <myg:F_2157>?</myg:F_2157>\r
+                  <myg:F_217>?</myg:F_217>\r
+                  <myg:F_218>?</myg:F_218>\r
+                  <myg:F_219>?</myg:F_219>\r
+               </myg:FuelData>\r
+            </myg:FuelData>\r
+            <!--Optional:-->\r
+            <myg:Reservoirs ReservoirsNumber="?">\r
+               <!--Zero or more repetitions:-->\r
+               <myg:Reservoir>\r
+                  <!--Zero or more repetitions:-->\r
+                  <myg:Reservoir>\r
+                     <!--Optional:-->\r
+                     <myg:F_211>?</myg:F_211>\r
+                     <!--Optional:-->\r
+                     <myg:F_212>\r
+                        <myg:Code>?</myg:Code>\r
+                        <!--Optional:-->\r
+                        <myg:Description>?</myg:Description>\r
+                     </myg:F_212>\r
+                     <myg:F_213>?</myg:F_213>\r
+                     <!--Optional:-->\r
+                     <myg:DataBefore>\r
+                        <myg:F_2141>?</myg:F_2141>\r
+                        <myg:F_2142A>?</myg:F_2142A>\r
+                        <myg:F_2142B>?</myg:F_2142B>\r
+                        <myg:F_2143>?</myg:F_2143>\r
+                        <myg:F_2144>?</myg:F_2144>\r
+                        <myg:F_2145>?</myg:F_2145>\r
+                     </myg:DataBefore>\r
+                     <!--Optional:-->\r
+                     <myg:DataAfter>\r
+                        <myg:F_2161>?</myg:F_2161>\r
+                        <myg:F_2162A>?</myg:F_2162A>\r
+                        <myg:F_2162B>?</myg:F_2162B>\r
+                        <myg:F_2163>?</myg:F_2163>\r
+                        <myg:F_2164>?</myg:F_2164>\r
+                        <myg:F_2165>?</myg:F_2165>\r
+                     </myg:DataAfter>\r
+                  </myg:Reservoir>\r
+               </myg:Reservoir>\r
+            </myg:Reservoirs>\r
+         </myg:DS>\r
+      </myg:SendDelivery>\r
+   </soapenv:Body>\r
+</soapenv:Envelope>]]></con:request><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/SendDelivery"/></con:call></con:operation><con:operation id="c5d7d2cf-55e1-4ebc-b302-d4a04a0f047e" isOneWay="false" action="http://mygsi.eu/IPykServices/SendLiterCheck" name="SendLiterCheck" bindingOperationName="SendLiterCheck" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="7efd53ed-8a51-4e5d-ac0a-049a4ec4bbc7" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+   <soapenv:Header/>\r
+   <soapenv:Body>\r
+      <myg:SendLiterCheck>\r
+         <!--Optional:-->\r
+         <myg:DS>\r
+            <!--Optional:-->\r
+            <myg:Header>\r
+               <!--Optional:-->\r
+               <myg:CompanyTIN>?</myg:CompanyTIN>\r
+               <!--Optional:-->\r
+               <myg:SubmitterTIN>?</myg:SubmitterTIN>\r
+               <!--Optional:-->\r
+               <myg:eToken>?</myg:eToken>\r
+               <myg:SubmissionDate>?</myg:SubmissionDate>\r
+               <myg:F_TAXISBRANCH>?</myg:F_TAXISBRANCH>\r
+               <!--Optional:-->\r
+               <myg:F_MARK>?</myg:F_MARK>\r
+            </myg:Header>\r
+            <!--Optional:-->\r
+            <myg:F_AM_DIKA>?</myg:F_AM_DIKA>\r
+            <myg:F_231_1>?</myg:F_231_1>\r
+            <!--Optional:-->\r
+            <myg:F_FUEL_CODE>\r
+               <myg:Code>?</myg:Code>\r
+               <!--Optional:-->\r
+               <myg:Description>?</myg:Description>\r
+            </myg:F_FUEL_CODE>\r
+            <!--Optional:-->\r
+            <myg:F_LABEL_OGKOMETR>?</myg:F_LABEL_OGKOMETR>\r
+            <!--Optional:-->\r
+            <myg:F_LABEL_POOL>?</myg:F_LABEL_POOL>\r
+            <myg:F_CAPACITY>?</myg:F_CAPACITY>\r
+            <myg:F_CAPACITY_15>?</myg:F_CAPACITY_15>\r
+         </myg:DS>\r
+      </myg:SendLiterCheck>\r
+   </soapenv:Body>\r
+</soapenv:Envelope>]]></con:request><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/SendLiterCheck"/></con:call></con:operation><con:operation id="ac8c2331-e201-4ea2-8150-ab217db435ec" isOneWay="false" action="http://mygsi.eu/IPykServices/SendReceipt" name="SendReceipt" bindingOperationName="SendReceipt" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="83505614-eb71-4c43-9399-0569893b8fc3" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+   <soapenv:Header/>\r
+   <soapenv:Body>\r
+      <myg:SendReceipt>\r
+         <!--Optional:-->\r
+         <myg:DS>\r
+            <!--Optional:-->\r
+            <myg:Header>\r
+               <!--Optional:-->\r
+               <myg:CompanyTIN>?</myg:CompanyTIN>\r
+               <!--Optional:-->\r
+               <myg:SubmitterTIN>?</myg:SubmitterTIN>\r
+               <!--Optional:-->\r
+               <myg:eToken>?</myg:eToken>\r
+               <myg:SubmissionDate>?</myg:SubmissionDate>\r
+               <myg:F_TAXISBRANCH>?</myg:F_TAXISBRANCH>\r
+               <!--Optional:-->\r
+               <myg:F_MARK>?</myg:F_MARK>\r
+            </myg:Header>\r
+            <myg:NUM_OF_RECEIPTS>?</myg:NUM_OF_RECEIPTS>\r
+            <!--Zero or more repetitions:-->\r
+            <myg:IncomeReceipt>\r
+               <!--Zero or more repetitions:-->\r
+               <myg:IncomeReceipt>\r
+                  <!--Optional:-->\r
+                  <myg:F_31A>?</myg:F_31A>\r
+                  <!--Optional:-->\r
+                  <myg:F_31AA>?</myg:F_31AA>\r
+                  <!--Optional:-->\r
+                  <myg:F_31B>?</myg:F_31B>\r
+                  <!--Optional:-->\r
+                  <myg:F_31C>?</myg:F_31C>\r
+                  <!--Optional:-->\r
+                  <myg:F_31D>\r
+                     <myg:Code>?</myg:Code>\r
+                     <!--Optional:-->\r
+                     <myg:Description>?</myg:Description>\r
+                  </myg:F_31D>\r
+                  <myg:F_31E>?</myg:F_31E>\r
+                  <myg:F_31F>?</myg:F_31F>\r
+                  <myg:F_31G>?</myg:F_31G>\r
+                  <myg:F_31H>?</myg:F_31H>\r
+                  <myg:F_31I>?</myg:F_31I>\r
+                  <myg:F_31K>?</myg:F_31K>\r
+                  <myg:F_31L>?</myg:F_31L>\r
+                  <myg:F_31M>?</myg:F_31M>\r
+                  <!--Optional:-->\r
+                  <myg:F_32>\r
+                     <!--Optional:-->\r
+                     <myg:plateLetters>?</myg:plateLetters>\r
+                     <!--Optional:-->\r
+                     <myg:plateNumber>?</myg:plateNumber>\r
+                  </myg:F_32>\r
+                  <!--Optional:-->\r
+                  <myg:F_33>?</myg:F_33>\r
+                  <!--Optional:-->\r
+                  <myg:F_34>?</myg:F_34>\r
+                  <!--Optional:-->\r
+                  <myg:F_35>?</myg:F_35>\r
+                  <myg:F_36>?</myg:F_36>\r
+                  <myg:F_37>?</myg:F_37>\r
+                  <myg:F_38>?</myg:F_38>\r
+               </myg:IncomeReceipt>\r
+            </myg:IncomeReceipt>\r
+         </myg:DS>\r
+      </myg:SendReceipt>\r
+   </soapenv:Body>\r
+</soapenv:Envelope>]]></con:request><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/SendReceipt"/></con:call></con:operation><con:operation id="7f07ff60-3b26-4041-961a-93dbe2651627" isOneWay="false" action="http://mygsi.eu/IPykServices/SendTankCheck" name="SendTankCheck" bindingOperationName="SendTankCheck" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="b3805d15-4d6e-4ce7-9f29-ae63db2f6499" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+   <soapenv:Header/>\r
+   <soapenv:Body>\r
+      <myg:SendTankCheck>\r
+         <!--Optional:-->\r
+         <myg:DS>\r
+            <!--Optional:-->\r
+            <myg:Header>\r
+               <!--Optional:-->\r
+               <myg:CompanyTIN>?</myg:CompanyTIN>\r
+               <!--Optional:-->\r
+               <myg:SubmitterTIN>?</myg:SubmitterTIN>\r
+               <!--Optional:-->\r
+               <myg:eToken>?</myg:eToken>\r
+               <myg:SubmissionDate>?</myg:SubmissionDate>\r
+               <myg:F_TAXISBRANCH>?</myg:F_TAXISBRANCH>\r
+               <!--Optional:-->\r
+               <myg:F_MARK>?</myg:F_MARK>\r
+            </myg:Header>\r
+            <!--Optional:-->\r
+            <myg:F_AM_DIKA>?</myg:F_AM_DIKA>\r
+            <myg:F_3001>?</myg:F_3001>\r
+            <!--Optional:-->\r
+            <myg:F_LABEL>?</myg:F_LABEL>\r
+            <myg:F_3002>?</myg:F_3002>\r
+            <myg:F_3003>?</myg:F_3003>\r
+            <myg:F_3004>?</myg:F_3004>\r
+            <myg:F_3005>?</myg:F_3005>\r
+            <myg:F_3006>?</myg:F_3006>\r
+         </myg:DS>\r
+      </myg:SendTankCheck>\r
+   </soapenv:Body>\r
+</soapenv:Envelope>]]></con:request><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/SendTankCheck"/></con:call></con:operation><con:operation id="21df2e4b-ba87-4682-8008-d79e994c11e8" isOneWay="false" action="http://mygsi.eu/IPykServices/SWUpdate" name="SWUpdate" bindingOperationName="SWUpdate" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="0cd5c159-e152-4d54-bbfd-d6eccc1b99c7" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+   <soapenv:Header/>\r
+   <soapenv:Body>\r
+      <myg:SWUpdate>\r
+         <!--Optional:-->\r
+         <myg:ADMIKA>?</myg:ADMIKA>\r
+         <!--Optional:-->\r
+         <myg:preKey>?</myg:preKey>\r
+         <!--Optional:-->\r
+         <myg:SData>?</myg:SData>\r
+      </myg:SWUpdate>\r
+   </soapenv:Body>\r
+</soapenv:Envelope>]]></con:request><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/SWUpdate"/></con:call></con:operation><con:operation id="871b49a8-1ef0-4ff7-a722-7df2c95e3659" isOneWay="false" action="http://mygsi.eu/IPykServices/UpdateSoftWare" name="UpdateSoftWare" bindingOperationName="UpdateSoftWare" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="3cddc65e-a1c5-46de-a635-657216000b17" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+   <soapenv:Header/>\r
+   <soapenv:Body>\r
+      <myg:UpdateSoftWare>\r
+         <!--Optional:-->\r
+         <myg:ADMIKA>?</myg:ADMIKA>\r
+         <!--Optional:-->\r
+         <myg:preKey>?</myg:preKey>\r
+         <!--Optional:-->\r
+         <myg:_sData>?</myg:_sData>\r
+      </myg:UpdateSoftWare>\r
+   </soapenv:Body>\r
+</soapenv:Envelope>]]></con:request><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/UpdateSoftWare"/></con:call></con:operation></con:interface><con:testSuite id="7ea8bbf9-822a-4d7b-8440-931ec4d07e6b" name="TestSuite 1"><con:settings/><con:runType>SEQUENTIAL</con:runType><con:testCase id="90cfef90-ec66-415d-bfa9-08a19fae4ac1" failOnError="true" failTestCaseOnErrors="true" keepSession="false" maxResults="0" name="PriceChange" searchProperties="true"><con:settings/><con:properties/></con:testCase><con:properties/></con:testSuite><con:properties/><con:wssContainer/><con:oAuth2ProfileContainer/><con:oAuth1ProfileContainer/><con:sensitiveInformation/></con:soapui-project>

@@ -83,7 +83,7 @@ namespace ASFuelControl.Communication
         public FuelFlowService.SendReceiptDS GetElement()
         {
             FuelFlowService.SendReceiptDS inc = new FuelFlowService.SendReceiptDS();
-            inc.IncomeReceipt = new FuelFlowService.ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt[][] { this.Reciepts.Select(fmc => fmc.GetElement()).ToArray() };
+            inc.IncomeReceipt = this.Reciepts.Select(fmc => fmc.GetElement()).ToArray();
             inc.NUM_OF_RECEIPTS = this.Reciepts.Count;
             
             return inc;

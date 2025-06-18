@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.ServiceModel.Channels;
+using System.ServiceModel.Dispatcher;
+using System.ServiceModel;
+using System.ServiceModel.Description;
 
 namespace ASFuelControl.Communication
 {
@@ -70,12 +74,16 @@ namespace ASFuelControl.Communication
                 reason = reason.Substring(0, 99);
             alert.F_ALERT.F_REASONING = reason;
             alert.F_ALERT.F_ALERTCODE = alertClass.AlertCode;
+            string serObject = "";
             try
             {
+                serObject = this.SerializeObject(alert);
                 string returnStr = "";
                 if (!Simulation)
                 {
                     ASFuelControl.Communication.FuelFlowService.PykServicesClient client = new FuelFlowService.PykServicesClient();
+                    client.Endpoint.EndpointBehaviors.Add(new InspectorBehavior());
+                    
                     client.Open();
                     alert.Header.eToken = etoken.GetOTP();
                     string ret = client.SendAlert(alert);
@@ -84,11 +92,11 @@ namespace ASFuelControl.Communication
                     client.Close();
                     returnStr = ret;
                 }
-                return returnStr + "\r\n" + this.SerializeObject(alert);
+                return returnStr + "\r\n" + serObject;
             }
             catch(Exception ex)
             {
-                return "[ERROR]" + ex.Message;
+                return "Data: " + serObject + "\r\n[ERROR]" + ex.Message;
             }
         }
 
@@ -279,4 +287,32 @@ namespace ASFuelControl.Communication
             }
         }
     }
+
+    public class Inspector : IClientMessageInspector
+    {
+        public object BeforeSendRequest(ref Message request, IClientChannel channel)
+        {
+            Console.WriteLine($"Request: {request}");
+            return null;
+        }
+
+        public void AfterReceiveReply(ref Message reply, object correlationState)
+        {
+            Console.WriteLine($"Response: {reply}");
+        }
+    }
+    public class InspectorBehavior : IEndpointBehavior
+    {
+        public void AddBindingParameters(ServiceEndpoint endpoint, BindingParameterCollection bindingParameters) { }
+
+        public void ApplyClientBehavior(ServiceEndpoint endpoint, ClientRuntime clientRuntime)
+        {
+            clientRuntime.MessageInspectors.Add(new Inspector()); // your custom message inspector
+        }
+
+        public void ApplyDispatchBehavior(ServiceEndpoint endpoint, EndpointDispatcher endpointDispatcher) { }
+
+        public void Validate(ServiceEndpoint endpoint) { }
+    }
+
 }

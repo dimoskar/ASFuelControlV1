@@ -198,31 +198,30 @@ namespace ASFuelControl.Windows.Threads
 
         private void CheckTankAlert(Data.Tank tank, bool incAlert, bool decAlert)
         {
+            var vTank = Program.ApplicationMainForm.ThreadControllerInstance.GetTanks().FirstOrDefault(t=>t.TankId == tank.TankId);
             DatabaseModel db = DatabaseModel.GetContext(tank) as DatabaseModel;
             if (tank.FuelLevel > tank.MaxFuelHeight)
-            {
                 this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.FuelTooHigh, incAlert, decAlert);
-            }
             if (tank.WaterLevel > tank.MaxWaterHeight)
-            {
                 this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.WaterTooHigh, incAlert, decAlert);
-            }
             if (tank.FuelLevel < tank.MinFuelHeight)
-            {
                 this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.FuelTooLow, incAlert, decAlert);
-            }
             if (this.IsLevelDecreasing(tank, decAlert))
             {
-                this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.FuelDecrease, incAlert, decAlert);
+                if(vTank.FuelLevelFlow < -(decimal)0.75)
+                    this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.FuelDecrease, incAlert, decAlert);
+                else
+                    this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.FuelLeak, incAlert, decAlert);
             }
             if (this.IsLevelIncreasing(tank, incAlert))
-            {
                 this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.FuelIncrease, incAlert, decAlert);
-            }
             if (tank.CurrentDensity >= 900 || tank.CurrentDensity <= 500)
-            {
                 this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.TankDensityError, incAlert, decAlert);
-            }
+            if(tank.WaterLevel >= tank.FuelLevel)
+                this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.SensorError, incAlert, decAlert);
+            if(tank.Temperatire < -50 || tank.Temperatire > 100)
+                this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.SensorError, incAlert, decAlert);
+
         }
 
         private void CheckTitrimetryCRC(Data.Tank tank, List<SystemEvent> existingAlerts, bool incAlert, bool decAlert)

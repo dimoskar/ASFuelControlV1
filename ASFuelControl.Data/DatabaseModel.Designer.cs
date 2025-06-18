@@ -9684,6 +9684,8 @@ namespace ASFuelControl.Data
 
         private decimal _NettoAfterDiscount;
 
+        private string _Mark;
+
         private Vehicle _Vehicle;
 
         private Trader _Trader;
@@ -10230,6 +10232,23 @@ namespace ASFuelControl.Data
                     this._NettoAfterDiscount = value;
                     this.SendPropertyChanged("NettoAfterDiscount");
                     this.OnNettoAfterDiscountChanged();
+                }
+            }
+        }
+        public virtual string Mark
+        {
+            get
+            {
+                return this._Mark;
+            }
+            set
+            {
+                if (this._Mark != value)
+                {
+                    this.OnQRCodeDataChanging(value);
+                    this._Mark = value;
+                    this.SendPropertyChanged("_Mark");
+                    this.OnQRCodeDataChanged();
                 }
             }
         }
@@ -22932,6 +22951,7 @@ namespace ASFuelControl.Data
             configuration.HasProperty(x => x.DiscountAmountWhole).ToColumn(@"DiscountAmountWhole").HasFieldName(@"_DiscountAmountWhole").WithOpenAccessType(OpenAccessType.Decimal).HasColumnType("decimal").IsNotNullable().HasPrecision(18).HasScale(2);
             configuration.HasProperty(x => x.DiscountAmountRetail).ToColumn(@"DiscountAmountRetail").HasFieldName(@"_DiscountAmountRetail").WithOpenAccessType(OpenAccessType.Decimal).HasColumnType("decimal").IsNotNullable().HasPrecision(18).HasScale(2);
             configuration.HasProperty(x => x.NettoAfterDiscount).ToColumn(@"NettoAfterDiscount").HasFieldName(@"_NettoAfterDiscount").WithOpenAccessType(OpenAccessType.Decimal).HasColumnType("decimal").IsNotNullable().HasPrecision(18).HasScale(2).HasDefaultValue();
+            configuration.HasProperty(x => x.Mark).ToColumn(@"Mark").HasFieldName(@"_Mark").WithOpenAccessType(OpenAccessType.Varchar).HasColumnType("nvarchar").IsNullable().HasLength(100).IsUnicode();
             configuration.HasAssociation<Vehicle>(x => x.Vehicle).HasFieldName(@"_Vehicle").WithOpposite(op => op.Invoices).HasConstraint((x, y) =>  x.VehicleId == y.VehicleId).WithDataAccessKind(DataAccessKind.ReadWrite);
             configuration.HasAssociation<Trader>(x => x.Trader).HasFieldName(@"_Trader").WithOpposite(op => op.Invoices).HasConstraint((x, y) =>  x.TraderId == y.TraderId).WithDataAccessKind(DataAccessKind.ReadWrite);
             configuration.HasAssociation<InvoiceType>(x => x.InvoiceType).HasFieldName(@"_InvoiceType").WithOpposite(op => op.Invoices).HasConstraint((x, y) =>  x.InvoiceTypeId == y.InvoiceTypeId).WithDataAccessKind(DataAccessKind.ReadWrite);

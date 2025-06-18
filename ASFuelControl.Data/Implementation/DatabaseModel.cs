@@ -3900,6 +3900,7 @@ namespace ASFuelControl.Data
             if (sed == null)
             {
                 this.AddData(datedef, newValue);
+                return;
             }
             sed.Value = newValue;
         }

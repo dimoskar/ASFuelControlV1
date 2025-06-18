@@ -36,6 +36,8 @@ namespace ASFuelControl.Common.Enumerators
         CommunicationLossTank,
         TitrimetryDataChange,
         ProgramTermination,
+        FuelLeak,
+        SensorError,
         TankDensityError = 100
 
     }

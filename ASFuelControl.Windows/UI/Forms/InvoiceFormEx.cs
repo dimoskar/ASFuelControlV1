@@ -353,6 +353,8 @@ namespace ASFuelControl.Windows.UI.Forms
             if(e.PropertyName == "InvoiceTypeId" || e.PropertyName == "IsPrinted" || e.PropertyName == "InvoiceSignature")
             {
                 var invType = ivm.InvoiceTypes.FirstOrDefault(i => i.InvoiceTypeId == ivm.InvoiceTypeId);
+                if (invType == null)
+                    return;
                 if (invType.TransactionType == 1 && invType.IsLaserPrint.HasValue && invType.IsLaserPrint.Value && (!invType.Invalidated.HasValue || !invType.Invalidated.Value))
                 {
                     this.radGridView1.Columns["UnitPrice"].FieldName = "UnitPriceWhole";

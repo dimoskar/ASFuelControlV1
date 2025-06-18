@@ -49,7 +49,7 @@ namespace ASFuelControl.Communication
         public FuelFlowService.SendBalanceDSReservoirs GetElement()
         {
             FuelFlowService.SendBalanceDSReservoirs res = new FuelFlowService.SendBalanceDSReservoirs();
-            res.Reservoir = new FuelFlowService.ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir[][] { this.Reservoirs.Select(fmc => fmc.GetElement()).ToArray() };
+            res.Reservoir = this.Reservoirs.Select(fmc => fmc.GetElement()).ToArray();
             res.ReservoirsNumber = this.Reservoirs.Count;
             return res;
         }
@@ -104,7 +104,7 @@ namespace ASFuelControl.Communication
         public FuelFlowService.SendBalanceDSFuelMovements GetElement()
         {
             FuelFlowService.SendBalanceDSFuelMovements fm = new FuelFlowService.SendBalanceDSFuelMovements();
-            fm.FuelMovement = new FuelFlowService.ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement[][] { this.FuelMovements.Select(fmc => fmc.GetElement()).ToArray() };
+            fm.FuelMovement = this.FuelMovements.Select(fmc => fmc.GetElement()).ToArray();
             fm.F_KAYSIMA_NO = this.FuelMovements.Count;
             return fm;
         }
@@ -142,7 +142,7 @@ namespace ASFuelControl.Communication
         public FuelFlowService.SendBalanceDSDivergencesPerFuelType GetElement()
         {
             FuelFlowService.SendBalanceDSDivergencesPerFuelType div = new FuelFlowService.SendBalanceDSDivergencesPerFuelType();
-            div.FuelTypeDivergence = new FuelFlowService.ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence[][] { this.Divergences.Select(fmc => fmc.GetElement()).ToArray() };
+            div.FuelTypeDivergence = this.Divergences.Select(fmc => fmc.GetElement()).ToArray();
             div.FuelTypesNumber = this.Divergences.Count;
             return div;
         }

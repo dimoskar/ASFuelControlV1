@@ -127,6 +127,8 @@ namespace ASFuelControl.Windows.Threads
 
         public OTPConsoleController[] GetOtpControllers()
         {
+            if (this.controllerThread == null)
+                return new OTPConsoleController[] { };
             return this.controllerThread.GetOTPControlers();
         }
 

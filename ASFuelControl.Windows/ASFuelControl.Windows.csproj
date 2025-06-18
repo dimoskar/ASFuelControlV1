@@ -36,7 +36,7 @@
     <IsWebBootstrapper>false</IsWebBootstrapper>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
-    <PlatformTarget>x86</PlatformTarget>
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -60,10 +60,25 @@
   <PropertyGroup>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ASFuel.AutoPay.Common">
-      <HintPath>..\..\ASFuel.AutoPay\ASFuel.AutoPay\ASFuel.AutoPay.Common\bin\x86\Debug\ASFuel.AutoPay.Common.dll</HintPath>
-    </Reference>
     <Reference Include="AxInterop.FP_CLOCKLib">
       <HintPath>..\Binaries\AxInterop.FP_CLOCKLib.dll</HintPath>
     </Reference>
@@ -1208,13 +1223,13 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ASFuelControl.AK6\ASFuelControl.AK6.csproj">
-      <Project>{2AA7C3B9-0C06-481C-9476-B05E901161E5}</Project>
-      <Name>ASFuelControl.AK6</Name>
+    <ProjectReference Include="..\ASFuel.AutoPay.Common\ASFuel.AutoPay.Common.csproj">
+      <Project>{15756818-7d22-87a3-8817-0e6ec931ec41}</Project>
+      <Name>ASFuel.AutoPay.Common</Name>
     </ProjectReference>
-    <ProjectReference Include="..\ASFuelControl.AK6_Dual\ASFuelControl.AK6_Dual.csproj">
-      <Project>{96290CF4-C9ED-4469-BFAF-74436306EC3C}</Project>
-      <Name>ASFuelControl.AK6_Dual</Name>
+    <ProjectReference Include="..\ASFuelControl.AK6\ASFuelControl.AK6.csproj">
+      <Project>{2aa7c3b9-0c06-481c-9476-b05e901161e5}</Project>
+      <Name>ASFuelControl.AK6</Name>
     </ProjectReference>
     <ProjectReference Include="..\ASFuelControl.Ametek\ASFuelControl.Ametek.csproj">
       <Project>{FCD7F7D7-C8A6-4244-99B9-D4593558332E}</Project>
@@ -1628,6 +1643,7 @@
     <Content Include="DBScripts\UpdateDatabase51.sql" />
     <Content Include="DBScripts\UpdateDatabase52.sql" />
     <Content Include="DBScripts\UpdateDatabase53.sql" />
+    <Content Include="DBScripts\UpdateDatabase54.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />

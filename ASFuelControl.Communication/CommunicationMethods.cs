@@ -179,11 +179,12 @@ namespace ASFuelControl.Communication
 
             delivery.Document.Amdika = etoken.AMDIKA_ID;
             FuelFlowService.SendDeliveryDS deliveryNote = delivery.GetElement();
-
+            
             deliveryNote.Header.CompanyTIN = CommunicationMethods.CompanyTin;
             deliveryNote.Header.SubmissionDate = DateTime.Now;
             deliveryNote.Header.SubmitterTIN = SubmitterTin;
             deliveryNote.Header.F_TAXISBRANCH = header.TaxisBranch;
+            deliveryNote.Header.F_MARK = delivery.Document.Mark;
             try
             {
                 if (!Simulation)

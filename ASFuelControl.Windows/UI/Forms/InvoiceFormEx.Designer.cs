@@ -46,6 +46,8 @@
             this.invoiceViewModelBindingSource = new System.Windows.Forms.BindingSource(this.components);
             this.tanksBindingSource = new System.Windows.Forms.BindingSource(this.components);
             this.tableLayoutPanel1 = new ASFuelControl.Windows.UI.Controls.DoubleBufferTableLayout();
+            this.markTextBox = new Telerik.WinControls.UI.RadTextBox();
+            this.radLabel36 = new Telerik.WinControls.UI.RadLabel();
             this.radTextBox7 = new Telerik.WinControls.UI.RadTextBox();
             this.radSpinEditor6 = new Telerik.WinControls.UI.RadSpinEditor();
             this.radLabel33 = new Telerik.WinControls.UI.RadLabel();
@@ -139,6 +141,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.invoiceViewModelBindingSource)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tanksBindingSource)).BeginInit();
             this.tableLayoutPanel1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.markTextBox)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel36)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radTextBox7)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radSpinEditor6)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel33)).BeginInit();
@@ -264,6 +268,8 @@
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 50F));
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
+            this.tableLayoutPanel1.Controls.Add(this.markTextBox, 1, 3);
+            this.tableLayoutPanel1.Controls.Add(this.radLabel36, 0, 3);
             this.tableLayoutPanel1.Controls.Add(this.radTextBox7, 1, 2);
             this.tableLayoutPanel1.Controls.Add(this.radSpinEditor6, 5, 2);
             this.tableLayoutPanel1.Controls.Add(this.radLabel33, 4, 2);
@@ -291,8 +297,32 @@
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 25F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 25F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 25F));
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(992, 80);
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(992, 101);
             this.tableLayoutPanel1.TabIndex = 45;
+            // 
+            // markTextBox
+            // 
+            this.markTextBox.AutoSize = false;
+            this.tableLayoutPanel1.SetColumnSpan(this.markTextBox, 2);
+            this.markTextBox.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.invoiceViewModelBindingSource, "Mark", true));
+            this.markTextBox.DataBindings.Add(new System.Windows.Forms.Binding("Enabled", this.invoiceViewModelBindingSource, "IsDelivery", true));
+            this.markTextBox.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.markTextBox.Location = new System.Drawing.Point(151, 76);
+            this.markTextBox.Margin = new System.Windows.Forms.Padding(1);
+            this.markTextBox.Name = "markTextBox";
+            this.markTextBox.Size = new System.Drawing.Size(268, 24);
+            this.markTextBox.TabIndex = 18;
+            // 
+            // radLabel36
+            // 
+            this.radLabel36.AutoSize = false;
+            this.radLabel36.Font = new System.Drawing.Font("Segoe UI", 9.75F);
+            this.radLabel36.Location = new System.Drawing.Point(3, 78);
+            this.radLabel36.Name = "radLabel36";
+            this.radLabel36.Size = new System.Drawing.Size(144, 19);
+            this.radLabel36.TabIndex = 17;
+            this.radLabel36.Text = "Mark";
+            this.radLabel36.TextAlignment = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // radTextBox7
             // 
@@ -930,7 +960,7 @@
             this.panel1.Controls.Add(this.radLabel24);
             this.panel1.Controls.Add(this.radLabel12);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panel1.Location = new System.Drawing.Point(0, 320);
+            this.panel1.Location = new System.Drawing.Point(0, 299);
             this.panel1.Margin = new System.Windows.Forms.Padding(0);
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(992, 30);
@@ -1064,7 +1094,7 @@
             this.tableLayoutPanel6.Controls.Add(this.tableLayoutPanel5, 0, 0);
             this.tableLayoutPanel6.Controls.Add(this.tableLayoutPanel4, 1, 0);
             this.tableLayoutPanel6.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel6.Location = new System.Drawing.Point(3, 203);
+            this.tableLayoutPanel6.Location = new System.Drawing.Point(3, 182);
             this.tableLayoutPanel6.Name = "tableLayoutPanel6";
             this.tableLayoutPanel6.RowCount = 1;
             this.tableLayoutPanel6.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -1225,7 +1255,7 @@
             this.radGridView1.MasterTemplate.EnableGrouping = false;
             this.radGridView1.MasterTemplate.ShowRowHeaderColumn = false;
             this.radGridView1.Name = "radGridView1";
-            this.radGridView1.Size = new System.Drawing.Size(496, 160);
+            this.radGridView1.Size = new System.Drawing.Size(496, 139);
             this.radGridView1.TabIndex = 3;
             this.radGridView1.Text = "radGridView1";
             this.radGridView1.CellBeginEdit += new Telerik.WinControls.UI.GridViewCellCancelEventHandler(this.radGridView1_CellBeginEdit);
@@ -1247,14 +1277,14 @@
             this.tableLayoutPanel12.Controls.Add(this.panel4, 0, 0);
             this.tableLayoutPanel12.Controls.Add(this.panel5, 1, 1);
             this.tableLayoutPanel12.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel12.Location = new System.Drawing.Point(0, 120);
+            this.tableLayoutPanel12.Location = new System.Drawing.Point(0, 141);
             this.tableLayoutPanel12.Name = "tableLayoutPanel12";
             this.tableLayoutPanel12.RowCount = 3;
             this.tableLayoutPanel12.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel12.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 120F));
             this.tableLayoutPanel12.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.tableLayoutPanel12.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.tableLayoutPanel12.Size = new System.Drawing.Size(992, 350);
+            this.tableLayoutPanel12.Size = new System.Drawing.Size(992, 329);
             this.tableLayoutPanel12.TabIndex = 48;
             // 
             // tableLayoutPanel2
@@ -1291,7 +1321,7 @@
             this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel2.Size = new System.Drawing.Size(496, 200);
+            this.tableLayoutPanel2.Size = new System.Drawing.Size(496, 179);
             this.tableLayoutPanel2.TabIndex = 48;
             // 
             // tableLayoutPanel7
@@ -1651,7 +1681,7 @@
             this.panel4.Location = new System.Drawing.Point(0, 0);
             this.panel4.Margin = new System.Windows.Forms.Padding(0);
             this.panel4.Name = "panel4";
-            this.panel4.Size = new System.Drawing.Size(496, 200);
+            this.panel4.Size = new System.Drawing.Size(496, 179);
             this.panel4.TabIndex = 36;
             // 
             // panel5
@@ -1659,7 +1689,7 @@
             this.panel5.Controls.Add(this.radTextBox6);
             this.panel5.Controls.Add(this.radLabel29);
             this.panel5.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panel5.Location = new System.Drawing.Point(499, 203);
+            this.panel5.Location = new System.Drawing.Point(499, 182);
             this.panel5.Name = "panel5";
             this.panel5.Size = new System.Drawing.Size(490, 114);
             this.panel5.TabIndex = 49;
@@ -1708,6 +1738,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.invoiceViewModelBindingSource)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tanksBindingSource)).EndInit();
             this.tableLayoutPanel1.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.markTextBox)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel36)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radTextBox7)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radSpinEditor6)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel33)).EndInit();
@@ -1902,5 +1934,7 @@
         private System.Windows.Forms.Panel panel6;
         private Telerik.WinControls.UI.RadLabel radLabel35;
         private Telerik.WinControls.UI.RadDropDownList radDropDownList5;
+        private Telerik.WinControls.UI.RadTextBox markTextBox;
+        private Telerik.WinControls.UI.RadLabel radLabel36;
     }
 }

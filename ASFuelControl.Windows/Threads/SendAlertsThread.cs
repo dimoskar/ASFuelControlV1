@@ -73,6 +73,7 @@ namespace ASFuelControl.Windows.Threads
             if (invoiceLine != null && invoiceLine.Invoice.InvoiceTypeId == Data.Implementation.OptionHandler.Instance.GetGuidOption("DeliveryCheckInvoiceType", Guid.Empty))
             {
                 Communication.DeliveryNoteClass delivery = new Communication.DeliveryNoteClass();
+                delivery.Document.Mark = invoiceLine.Invoice.Mark;
                 delivery.FuelData = new List<Communication.DeliveryNoteFuelDataClass>();
                 delivery.Reservoirs = new List<Communication.DeliveryNoteReservoir>();
                 delivery.Document = new Communication.DeliveryNoteDocumentClass();
@@ -186,7 +187,7 @@ namespace ASFuelControl.Windows.Threads
                 delivery.Document = new Communication.DeliveryNoteDocumentClass();
                 delivery.Document.Amdika = Data.Implementation.OptionHandler.Instance.GetOption("AMDIKA");
                 delivery.Document.DeliveryType = (Communication.Enums.DeliveryTypeEnum)invoiceLine.Invoice.InvoiceType.DeliveryType;
-
+                delivery.Document.Mark = invoiceLine.Invoice.Mark;
 
                 delivery.Document.DocumentDate = invoiceLine.Invoice.TransactionDate;
                 delivery.Document.DocumentType = invoiceLine.Invoice.InvoiceType.OfficialEnumerator;
@@ -1330,7 +1331,7 @@ namespace ASFuelControl.Windows.Threads
                         if(se.AlarmType.HasValue)
                             alert.SetAlertType(se.AlarmType.Value);
                         else
-                            alert.Alert = (Communication.Enums.AlertIdEnum)se.EventType;
+                            alert.SetAlertType(se.EventType);
                         alert.AlertTime = se.EventDate;
                         alert.Description = se.OfficialDescription;
                         if (se.TankId.HasValue)

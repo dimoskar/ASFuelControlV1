@@ -2315,6 +2315,18 @@ namespace ASFuelControl.Windows.ViewModels
             }
             get { return this.discountamountWhole; }
         }
+        private string mark;
+        public string Mark
+        {
+            set
+            {
+                if (this.mark == value)
+                    return;
+                this.mark = value;
+                this.OnPropertyChanged("Mark");
+            }
+            get { return this.mark; }
+        }
     }
 
     public partial class InvoiceCatalogViewViewModel : BaseViewModel<Data.InvoiceCatalogView>

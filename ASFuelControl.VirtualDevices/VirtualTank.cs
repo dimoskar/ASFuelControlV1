@@ -1,7 +1,9 @@
-﻿using System;
+﻿using ASFuelControl.Common.Enumerators;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Windows.Markup;
 
 namespace ASFuelControl.VirtualDevices
 {
@@ -260,19 +262,9 @@ namespace ASFuelControl.VirtualDevices
             set
             {
                 this.tankValues = value;
-                if (this.tankStatus == null)
-                    return;
+                if (value != null)
+                    AddMonitorData(this.tankValues);
                 this.OnPropertyChanged(this, "TankValues");
-                //if (this.TankStatus != Common.Enumerators.TankStatusEnum.Selling)
-                //    return;
-                //foreach (VirtualNozzle nozzle in this.ConnectedNozzles)
-                //{
-                //    if (nozzle.ParentDispenser.DispenserStatus == Common.Enumerators.FuelPointStatusEnum.Idle || nozzle.ParentDispenser.DispenserStatus == Common.Enumerators.FuelPointStatusEnum.SalingCompleted)
-                //    {
-                //        nozzle.ParentDispenser.TankValuesUpdated = true;
-                //        nozzle.ParentDispenser.WorkFlow.Process.EvaluateWorkFlow();
-                //    }
-                //}
             }
             get { return this.tankValues; }
         }
@@ -292,6 +284,11 @@ namespace ASFuelControl.VirtualDevices
         public string SerialNumber { set; get; }
         public Guid FuelTypeId { set; get; }
         public bool TankDeliverySensed { set; get; }
+
+        public decimal FuelLevelFlow { set; get; }
+        public decimal WaterLevelFlow { set; get; }
+        public decimal FuelVolumeFlow { set; get; }
+        public decimal WaterVolumeFlow { set; get; }
         #endregion
 
         #region public Methods
@@ -414,5 +411,152 @@ namespace ASFuelControl.VirtualDevices
         }
 
         #endregion
+
+        List<TankMonitorData> monitorData = new List<TankMonitorData>();
+
+        private void AddMonitorData(Common.TankValues values)
+        {
+            
+            var statuses = new List<TankStatusEnum>();
+            statuses.Add(TankStatusEnum.Idle);
+            statuses.Add(TankStatusEnum.WaitingEllapsed);
+            var md = new TankMonitorData()
+            {
+                FuelLevel = values.FuelHeight,
+                WaterLevel = values.WaterHeight,
+                Temperatur = values.CurrentTemperatur,
+                TimeStamp = DateTime.Now
+            };
+            if (monitorData.Count < 2)
+            {
+                monitorData.Add(md);
+
+            }
+            else
+            {
+                var m1 = monitorData.First();
+                var m2 = monitorData.Last();
+                if (m2.TimeStamp.Subtract(m1.TimeStamp).TotalSeconds > 60)
+                {
+                    monitorData.Remove(m1);
+                    monitorData.Add(md);
+                    CalculateFlowMmPerSecond();
+                    CalculateFlowVolumePerSecond();
+                }
+            }
+        }
+
+        public TankMonitorData[] GetMonitorData()
+        {
+            return monitorData.ToArray();
+        }
+        private void CalculateFlowMmPerSecond()
+        {
+            if (monitorData.Count < 2)
+                return;
+
+            // Use the oldest and newest entries for calculation
+            var first = monitorData.First();
+            var last = monitorData.Last();
+
+            double seconds = (last.TimeStamp - first.TimeStamp).TotalSeconds;
+            if (seconds <= 0)
+                return;
+
+            // Linear regression for FuelLevel and WaterLevel over time
+            int n = monitorData.Count;
+            double sumT = 0, sumT2 = 0;
+            double sumFuel = 0, sumTFuel = 0;
+            double sumWater = 0, sumTWater = 0;
+
+            DateTime t0 = monitorData[0].TimeStamp;
+            for (int i = 0; i < n; i++)
+            {
+                double t = (monitorData[i].TimeStamp - t0).TotalSeconds;
+                double fuel = (double)monitorData[i].FuelLevel;
+                double water = (double)monitorData[i].WaterLevel;
+
+                sumT += t;
+                sumT2 += t * t;
+                sumFuel += fuel;
+                sumTFuel += t * fuel;
+                sumWater += water;
+                sumTWater += t * water;
+            }
+
+            double denom = n * sumT2 - sumT * sumT;
+            decimal fuelFlow = 0;
+            decimal waterFlow = 0;
+            if (denom != 0)
+            {
+                double fuelSlope = (n * sumTFuel - sumT * sumFuel) / denom;
+                double waterSlope = (n * sumTWater - sumT * sumWater) / denom;
+                fuelFlow = Math.Round((decimal)fuelSlope, 2);
+                waterFlow = Math.Round((decimal)waterSlope, 2);
+            }
+
+            this.FuelLevelFlow = fuelFlow;
+            this.WaterLevelFlow = waterFlow;
+        }
+        private void CalculateFlowVolumePerSecond()
+        {
+            if (monitorData.Count < 2 || this.TitrimetryLevels == null || this.TitrimetryLevels.Length == 0)
+                return;
+
+            int n = monitorData.Count;
+            double sumT = 0, sumT2 = 0;
+            double sumFuel = 0, sumTFuel = 0;
+            double sumWater = 0, sumTWater = 0;
+
+            DateTime t0 = monitorData[0].TimeStamp;
+            for (int i = 0; i < n; i++)
+            {
+                double t = (monitorData[i].TimeStamp - t0).TotalSeconds;
+                double fuel = (double)monitorData[i].FuelLevel;
+                double water = (double)monitorData[i].WaterLevel;
+
+                sumT += t;
+                sumT2 += t * t;
+                sumFuel += fuel;
+                sumTFuel += t * fuel;
+                sumWater += water;
+                sumTWater += t * water;
+            }
+
+            double denom = n * sumT2 - sumT * sumT;
+            decimal fuelVolumeFlow = 0;
+            decimal waterVolumeFlow = 0;
+            if (denom != 0)
+            {
+                double fuelSlope = (n * sumTFuel - sumT * sumFuel) / denom;
+                double waterSlope = (n * sumTWater - sumT * sumWater) / denom;
+
+                // Convert mm/sec to volume/sec using tank calibration
+                // Use average height for conversion
+                double avgFuelHeight = sumFuel / n;
+                double avgWaterHeight = sumWater / n;
+
+                decimal fuelVolumeStep = this.GetVolumeStep((decimal)avgFuelHeight);
+                decimal waterVolumeStep = this.GetVolumeStep((decimal)avgWaterHeight);
+
+                // If step is zero, fallback to 1:1 (should not happen in normal operation)
+                if (fuelVolumeStep == 0) fuelVolumeStep = 1;
+                if (waterVolumeStep == 0) waterVolumeStep = 1;
+
+                // Calculate flow in volume/sec
+                fuelVolumeFlow = Math.Round((decimal)fuelSlope * fuelVolumeStep, 4);
+                waterVolumeFlow = Math.Round((decimal)waterSlope * waterVolumeStep, 4);
+            }
+
+            this.FuelVolumeFlow = fuelVolumeFlow;
+            this.WaterVolumeFlow = waterVolumeFlow;
+        }
+    }
+    public class TankMonitorData
+    {
+        public DateTime TimeStamp { set; get; }
+        public decimal FuelLevel { set; get; }
+        public decimal WaterLevel { set; get; }
+        public decimal Temperatur { set; get; }
     }
 }

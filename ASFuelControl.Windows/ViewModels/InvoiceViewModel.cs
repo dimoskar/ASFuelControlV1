@@ -298,7 +298,20 @@ namespace ASFuelControl.Windows.ViewModels
         }
 
         public bool IsEditLocked { set; get; }
-
+        public bool IsDelivery 
+        { 
+            get 
+            {
+                if(this.SelectedInvoiceType == null)
+                    return false;
+                if (this.SelectedInvoiceType.NeedsVehicle.HasValue && this.SelectedInvoiceType.NeedsVehicle.Value)
+                {
+                    if(this.SelectedInvoiceType.TransactionType == (int)Common.Enumerators.TransactionTypeEnum.Delivery)
+                        return true;
+                }
+                return false;
+            } 
+        }
         public decimal TotalRetailAmount
         {
             set
@@ -1343,6 +1356,12 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 this.RecalculateSums();
                 this.Errors = new ValidationError[] { };
+
+                if(this.IsDelivery && string.IsNullOrEmpty(this.Mark))
+                {
+                    this.AddError("Σφάλμα παραστατικού", "Δεν έχετε εισάγει to MARK του παραστατικού παραλαβής");
+                }
+
                 if (this.InvoiceLines.Length == 0)
                     this.AddError("Σφάλμα παραστατικού", "Δεν έχετε εισάγει γραμμές στο παραστατικό");
 

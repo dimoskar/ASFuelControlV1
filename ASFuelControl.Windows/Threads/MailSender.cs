@@ -80,7 +80,7 @@ namespace ASFuelControl.Windows.Threads
                 this.outgoingServer = Data.Implementation.OptionHandler.Instance.GetOption("OutGoingMailServer");
                 this.ssl = Data.Implementation.OptionHandler.Instance.GetBoolOption("EmailSSL", false);
 
-                if (cellPhone.Length == 10 && cellPhone.StartsWith("69"))
+                if (cellPhone != null &&  cellPhone.Length == 10 && cellPhone.StartsWith("69"))
                     cellPhone = "30" + cellPhone;
                 if (!(smsAcount == null || cellPhone == null || smsAcount == "" || cellPhone == ""))
                 {

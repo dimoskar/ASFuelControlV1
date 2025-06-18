@@ -19,10 +19,10 @@ namespace ASFuelControl.Windows
         public static Guid CurrentUserId { set; get; }
         public static string CurrentUserName { set; get; }
         public static Common.Enumerators.ApplicationUserLevelEnum CurrentUserLevel { set; get; }
-        public static int CurrentDBVersion = 53;
+        public static int CurrentDBVersion = 54;
         private static int version = 1;
-        private static int subVersion = 2;
-        private static int revision = 92;
+        private static int subVersion = 3;
+        private static int revision = 1;
         /// <summary>
         /// Static flag. Is setted to true when an Administrator is connected to the Console. 
         /// </summary>

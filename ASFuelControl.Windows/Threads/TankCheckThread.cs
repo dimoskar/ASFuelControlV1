@@ -18,6 +18,8 @@ namespace ASFuelControl.Windows.Threads
         public TankCheckThread()
         {
             this.tankCheckInterval = Data.Implementation.OptionHandler.Instance.GetIntOption("TankCheckInterval", 60000);
+            if (this.tankCheckInterval == 0)
+                this.tankCheckInterval = 60000;
         }
 
         public void StartThread()

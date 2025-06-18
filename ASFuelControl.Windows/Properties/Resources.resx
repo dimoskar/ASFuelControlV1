@@ -751,4 +751,7 @@
   <data name="UpdateDatabase53" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\dbscripts\updatedatabase53.sql;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
+  <data name="UpdateDatabase54" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\DBScripts\UpdateDatabase54.sql;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;windows-1253</value>
+  </data>
 </root>

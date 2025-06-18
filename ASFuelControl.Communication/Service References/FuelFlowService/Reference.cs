@@ -80,7 +80,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         private int nUM_OF_RECEIPTSField;
         
-        private ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt[][] incomeReceiptField;
+        private ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt[] incomeReceiptField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute(Order=0)]
@@ -109,7 +109,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         /// <remarks/>
         [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=2)]
         [System.Xml.Serialization.XmlArrayItemAttribute("IncomeReceipt", typeof(ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt))]
-        public ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt[][] IncomeReceipt {
+        public ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceiptIncomeReceipt[] IncomeReceipt {
             get {
                 return this.incomeReceiptField;
             }
@@ -721,7 +721,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         private SendDeliveryDSDocument documentField;
         
-        private ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData[][] fuelDataField;
+        private ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData[] fuelDataField;
         
         private SendDeliveryDSReservoirs reservoirsField;
         
@@ -754,7 +754,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         /// <remarks/>
         [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=2)]
         [System.Xml.Serialization.XmlArrayItemAttribute("FuelData", typeof(ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData))]
-        public ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData[][] FuelData {
+        public ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData[] FuelData {
             get {
                 return this.fuelDataField;
             }
@@ -1066,14 +1066,14 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
     public partial class SendDeliveryDSReservoirs : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir[][] reservoirField;
+        private ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir[] reservoirField;
         
         private int reservoirsNumberField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=0)]
         [System.Xml.Serialization.XmlArrayItemAttribute("Reservoir", typeof(ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir))]
-        public ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir[][] Reservoir {
+        public ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir[] Reservoir {
             get {
                 return this.reservoirField;
             }
@@ -1581,14 +1581,14 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
     public partial class SendBalanceDSFuelMovements : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement[][] fuelMovementField;
+        private ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement[] fuelMovementField;
         
         private int f_KAYSIMA_NOField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=0)]
         [System.Xml.Serialization.XmlArrayItemAttribute("FuelMovement", typeof(ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement))]
-        public ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement[][] FuelMovement {
+        public ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovementFuelMovement[] FuelMovement {
             get {
                 return this.fuelMovementField;
             }
@@ -1814,14 +1814,14 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
     public partial class SendBalanceDSReservoirs : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir[][] reservoirField;
+        private ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir[] reservoirField;
         
         private int reservoirsNumberField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=0)]
         [System.Xml.Serialization.XmlArrayItemAttribute("Reservoir", typeof(ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir))]
-        public ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir[][] Reservoir {
+        public ArrayOfFuelflows_TypeBalanceReservoirsReservoirReservoir[] Reservoir {
             get {
                 return this.reservoirField;
             }
@@ -2033,14 +2033,14 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
     public partial class SendBalanceDSPumpsPerFuelType : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes[][] fuelTypesField;
+        private ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes[] fuelTypesField;
         
         private int f_KAYSIMA_NOField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=0)]
         [System.Xml.Serialization.XmlArrayItemAttribute("FuelTypes", typeof(ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes))]
-        public ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes[][] FuelTypes {
+        public ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes[] FuelTypes {
             get {
                 return this.fuelTypesField;
             }
@@ -2090,7 +2090,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         
         private decimal f_2246BField;
         
-        private ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump[][] fuelTypePumpField;
+        private ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump[] fuelTypePumpField;
         
         private int totalPumpsNumberField;
         
@@ -2157,7 +2157,7 @@ namespace ASFuelControl.Communication.FuelFlowService {
         /// <remarks/>
         [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=5)]
         [System.Xml.Serialization.XmlArrayItemAttribute("FuelTypePump", typeof(ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump))]
-        public ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump[][] FuelTypePump {
+        public ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump[] FuelTypePump {
             get {
                 return this.fuelTypePumpField;
             }
@@ -2467,14 +2467,14 @@ namespace ASFuelControl.Communication.FuelFlowService {
     [System.Xml.Serialization.XmlTypeAttribute(AnonymousType=true, Namespace="http://mygsi.eu/")]
     public partial class SendBalanceDSDivergencesPerFuelType : object, System.ComponentModel.INotifyPropertyChanged {
         
-        private ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence[][] fuelTypeDivergenceField;
+        private ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence[] fuelTypeDivergenceField;
         
         private int fuelTypesNumberField;
         
         /// <remarks/>
         [System.Xml.Serialization.XmlArrayAttribute(IsNullable=true, Order=0)]
         [System.Xml.Serialization.XmlArrayItemAttribute("FuelTypeDivergence", typeof(ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence))]
-        public ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence[][] FuelTypeDivergence {
+        public ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergenceFuelTypeDivergence[] FuelTypeDivergence {
             get {
                 return this.fuelTypeDivergenceField;
             }

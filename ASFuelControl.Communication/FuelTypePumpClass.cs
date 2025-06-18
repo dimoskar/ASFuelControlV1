@@ -74,7 +74,7 @@ namespace ASFuelControl.Communication
             ftype.F_KAYSIMO_AA.Description = Enums.LocalizedEnumExtensions.GetLocalizedName(this.FuelType);
             ftype.F_2244B = this.SumTotalizerDifference;
             ftype.F_2245B = this.SumTotalizerDifferenceNormalized;
-            ftype.FuelTypePump = new FuelFlowService.ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePumpFuelTypePump[][] { this.FuelPumps.Select(fpc => fpc.GetElement()).ToArray() };
+            ftype.FuelTypePump = this.FuelPumps.Select(fpc => fpc.GetElement()).ToArray();
             ftype.TotalPumpsNumber = ftype.FuelTypePump.Length;
             return ftype;
         }
@@ -88,7 +88,7 @@ namespace ASFuelControl.Communication
         public FuelFlowService.SendBalanceDSPumpsPerFuelType GetElement()
         {
             FuelFlowService.SendBalanceDSPumpsPerFuelType ff = new FuelFlowService.SendBalanceDSPumpsPerFuelType();
-            ff.FuelTypes = new FuelFlowService.ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypes[][] { this.FuelTypes.Select(fpc => fpc.GetElement()).ToArray() };
+            ff.FuelTypes = this.FuelTypes.Select(fpc => fpc.GetElement()).ToArray();
             ff.F_KAYSIMA_NO = ff.FuelTypes.Length;
             return ff;
         }

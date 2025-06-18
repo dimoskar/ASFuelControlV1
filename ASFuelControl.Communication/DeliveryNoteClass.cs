@@ -131,11 +131,11 @@ namespace ASFuelControl.Communication
 
             dn.Document = this.Document.GetElement();
             dn.Reservoirs = new FuelFlowService.SendDeliveryDSReservoirs();
-            dn.Reservoirs.Reservoir = new FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoirReservoir[][] { this.Reservoirs.Select(fmc => fmc.GetElement()).ToArray() };
+            dn.Reservoirs.Reservoir = this.Reservoirs.Select(fmc => fmc.GetElement()).ToArray();
             dn.Reservoirs.ReservoirsNumber = this.Reservoirs.Count;
             dn.Header = new FuelFlowService.Header_Type();
 
-            dn.FuelData = new FuelFlowService.ArrayOfFuelflows_TypeDeliveryNoteFuelDataFuelData[][] { this.FuelData.Select(fmc => fmc.GetElement()).ToArray() };
+            dn.FuelData = this.FuelData.Select(fmc => fmc.GetElement()).ToArray();
             dn.F_AR_EIDOS_KAYSIMOU = this.FuelData.Count;
             
             return dn;
