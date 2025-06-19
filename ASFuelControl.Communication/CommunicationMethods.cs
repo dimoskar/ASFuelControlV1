@@ -79,6 +79,8 @@ namespace ASFuelControl.Communication
                 {
                     client.Open();
                     change.Header.eToken = etoken.GetOTP();
+                    header.SubmissionDate = DateTime.Now;
+                    change.Header.SubmissionDate = header.SubmissionDate;
                     string returnStr = client.PriceChange(change);
                     client.Close();
                     this.LogToken(returnStr);
@@ -114,6 +116,8 @@ namespace ASFuelControl.Communication
                 {
                     client.Open();
                     alert.Header.eToken = etoken.GetOTP();
+                    header.SubmissionDate = DateTime.Now;
+                    alert.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendAlert(alert);
                     client.Close();
                     this.LogToken(ret);
@@ -154,6 +158,8 @@ namespace ASFuelControl.Communication
                 {
                     client.Open();
                     balance.Header.eToken = etoken.GetOTP();
+                    header.SubmissionDate = DateTime.Now;
+                    balance.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendBalance(balance);
                     client.Close();
                     this.LogToken(ret);
@@ -188,6 +194,8 @@ namespace ASFuelControl.Communication
                 {
                     client.Open();
                     deliveryNote.Header.eToken = etoken.GetOTP();
+                    header.SubmissionDate = DateTime.Now;
+                    deliveryNote.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendDelivery(deliveryNote);
                     client.Close();
                     this.LogToken(ret);
@@ -216,6 +224,8 @@ namespace ASFuelControl.Communication
                 {
                     client.Open();
                     literCheck.Header.eToken = etoken.GetOTP();
+                    header.SubmissionDate = DateTime.Now;
+                    literCheck.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendLiterCheck(literCheck);
                     client.Close();
                     this.LogToken(ret);
@@ -251,6 +261,8 @@ namespace ASFuelControl.Communication
                 {
                     client.Open();
                     reciept.Header.eToken = etoken.GetOTP();
+                    header.SubmissionDate = DateTime.Now;
+                    reciept.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendReceipt(reciept);
                     client.Close();
                     this.LogToken(ret);
@@ -289,6 +301,8 @@ namespace ASFuelControl.Communication
                 {
                     client.Open();
                     tankCheck.Header.eToken = etoken.GetOTP();
+                    header.SubmissionDate = DateTime.Now;
+                    tankCheck.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendTankCheck(tankCheck);
                     client.Close();
                     this.LogToken(ret);

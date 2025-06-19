@@ -22,7 +22,7 @@ namespace ASFuelControl.Windows
         public static int CurrentDBVersion = 53;
         private static int version = 1;
         private static int subVersion = 2;
-        private static int revision = 92;
+        private static int revision = 93;
         /// <summary>
         /// Static flag. Is setted to true when an Administrator is connected to the Console. 
         /// </summary>
