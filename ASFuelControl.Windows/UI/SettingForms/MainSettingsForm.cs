@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using Telerik.WinControls.UI;
 using System.IO;
 using Telerik.WinControls;
+using ASFuelControl.Common;
 
 namespace ASFuelControl.Windows.UI.SettingForms
 {
@@ -263,7 +264,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 {
                     if (tr.TaxRegistrationNumber.Length >= 9 && tr.TaxRegistrationNumber.Length <= 17)
                         continue;
-                    traderError = true;
+                    Logger.Instance.Error("Trader TIN Error: " + tr.TaxRegistrationNumber + " - " + tr.Name);
+                    //traderError = true;
                 }
                 if (traderError)
                 {

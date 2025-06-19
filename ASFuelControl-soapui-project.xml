@@ -892,7 +892,32 @@
       </DS>
     </SendAlert>
   </s:Body>
-</s:Envelope>]]></con:request><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/SendAlert"/><con:wsrmConfig version="1.2"/></con:call></con:operation><con:operation id="bdef363d-6d81-437a-a1f0-eeba2ae6181d" isOneWay="false" action="http://mygsi.eu/IPykServices/SendBalance" name="SendBalance" bindingOperationName="SendBalance" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="14672c88-b0da-4858-80e3-a9f529f5847a" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
+</s:Envelope>]]></con:request><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/SendAlert"/><con:wsrmConfig version="1.2"/></con:call><con:call id="7b5bef51-7faf-44ef-9e4b-0e69b408f3ac" name="XML Request"><con:settings><con:setting id="com.eviware.soapui.impl.wsdl.WsdlRequest@request-headers">&lt;xml-fragment/></con:setting></con:settings><con:encoding>UTF-8</con:encoding><con:endpoint>https://test-pratiria-ws.aade.gr/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<?xml version="1.0" encoding="utf-16"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+  <s:Header>
+    <Action s:mustUnderstand="1" xmlns="http://schemas.microsoft.com/ws/2005/05/addressing/none">http://mygsi.eu/IPykServices/SendAlert</Action>
+  </s:Header>
+  <s:Body xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<Fuelflows_TypeAlertRegistration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Header xmlns="http://www.gsis.gr/ff/1.0">
+    <CompanyTIN>ΑΦΜ ΕΓΚΑΤΑΣΤΑΤΗ</CompanyTIN>
+    <SubmitterTIN>ΑΜΔΙΚΑ ΠΡΑΤΗΡΙΟΥ</SubmitterTIN>
+    <eToken />
+    <SubmissionDate>2025-06-16T11:41:54.5969562+03:00</SubmissionDate>
+    <F_TAXISBRANCH>0</F_TAXISBRANCH>
+  </Header>
+  <F_AM_DIKA xmlns="http://www.gsis.gr/ff/1.0">04644934310463</F_AM_DIKA>
+  <F_ALERT xmlns="http://www.gsis.gr/ff/1.0">
+    <F_ALERTID>1</F_ALERTID>
+    <F_ALERTCODE>H01</F_ALERTCODE>
+    <F_DATE>2025-06-16T01:08:54.5969562+03:00</F_DATE>
+    <F_REASONING>Διακοπή επικοινωνίας με Αντλία</F_REASONING>
+    <F_DEVICE_LABEL>12345678-P-11-12345</F_DEVICE_LABEL>
+  </F_ALERT>
+</Fuelflows_TypeAlertRegistration>
+</s:Body>
+</s:Envelope>
+]]></con:request><con:credentials><con:authType>No Authorization</con:authType></con:credentials><con:jmsConfig JMSDeliveryMode="PERSISTENT"/><con:jmsPropertyConfig/><con:wsaConfig mustUnderstand="NONE" version="200508" action="http://mygsi.eu/IPykServices/SendAlert"/><con:wsrmConfig version="1.2"/></con:call></con:operation><con:operation id="bdef363d-6d81-437a-a1f0-eeba2ae6181d" isOneWay="false" action="http://mygsi.eu/IPykServices/SendBalance" name="SendBalance" bindingOperationName="SendBalance" type="Request-Response" inputName="" receivesAttachments="false" sendsAttachments="false" anonymous="optional"><con:settings/><con:call id="14672c88-b0da-4858-80e3-a9f529f5847a" name="Request 1"><con:settings/><con:encoding>UTF-8</con:encoding><con:endpoint>http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx</con:endpoint><con:request><![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:myg="http://mygsi.eu/">\r
    <soapenv:Header/>\r
    <soapenv:Body>\r
       <myg:SendBalance>\r

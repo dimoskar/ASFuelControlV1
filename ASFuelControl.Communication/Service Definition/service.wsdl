@@ -1,0 +1,805 @@
+<wsdl:definitions xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://mygsi.eu/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:http="http://schemas.microsoft.com/ws/06/2004/policy/http" xmlns:msc="http://schemas.microsoft.com/ws/2005/12/wsdl/contract" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsam="http://www.w3.org/2007/05/addressing/metadata" targetNamespace="http://mygsi.eu/" name="IPykServices" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+  <wsdl:types>
+    <xsd:schema elementFormDefault="qualified" targetNamespace="http://mygsi.eu/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ff="http://www.gsis.gr/ff/1.0">
+	  <xsd:element name="F_AM_DIKA" type="xsd:string" />
+      <xsd:element name="SendReceipt">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="NUM_OF_RECEIPTS" type="xsd:int" />
+                  <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="IncomeReceipt" type="tns:ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceipt" />
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendReceiptResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendReceiptResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendDelivery">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Document">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="1" name="F_2151" type="xsd:string" />
+                        <xsd:element minOccurs="0" maxOccurs="1" name="F_2151A" type="xsd:string" />
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_DELIVERY_TYPE" type="xsd:int" />
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_2152A" type="xsd:int" />
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_2152B" type="xsd:int" />
+                        <xsd:element minOccurs="0" maxOccurs="1" name="F_2152C" type="xsd:string" />
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_2152D" type="xsd:dateTime" />
+                        <xsd:element minOccurs="0" maxOccurs="1" name="F_2153" type="xsd:string" />
+                      </xsd:sequence>
+                    </xsd:complexType>
+                  </xsd:element>
+                  <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelData" type="tns:ArrayOfFuelflows_TypeDeliveryNoteFuelData" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Reservoirs">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="Reservoir" type="tns:ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoir" />
+                      </xsd:sequence>
+                      <xsd:attribute name="ReservoirsNumber" type="xsd:int" use="required" />
+                    </xsd:complexType>
+                  </xsd:element>
+                </xsd:sequence>
+                <xsd:attribute name="F_AR_EIDOS_KAYSIMOU" type="xsd:int" use="required" />
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendDeliveryResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendDeliveryResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendBalance">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type" />
+                  <xsd:element ref="ff:F_AM_DIKA" minOccurs="0" maxOccurs="1"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_HMEROMINIA_R">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_DATEDURATION" type="xsd:dateTime" />
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_ORA_ARXHS_R" type="xsd:dateTime" />
+                        <xsd:element minOccurs="1" maxOccurs="1" name="F_ORA_LIXIS" type="xsd:dateTime" />
+                      </xsd:sequence>
+                    </xsd:complexType>
+                  </xsd:element>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="FuelMovements">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelMovement" type="tns:ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovement" />
+                      </xsd:sequence>
+                      <xsd:attribute name="F_KAYSIMA_NO" type="xsd:int" use="required" />
+                    </xsd:complexType>
+                  </xsd:element>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Reservoirs">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="Reservoir" type="tns:ArrayOfFuelflows_TypeBalanceReservoirsReservoir" />
+                      </xsd:sequence>
+                      <xsd:attribute name="ReservoirsNumber" type="xsd:int" use="required" />
+                    </xsd:complexType>
+                  </xsd:element>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="PumpsPerFuelType">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypes" type="tns:ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypes" />
+                      </xsd:sequence>
+                      <xsd:attribute name="F_KAYSIMA_NO" type="xsd:int" use="required" />
+                    </xsd:complexType>
+                  </xsd:element>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="DivergencesPerFuelType">
+                    <xsd:complexType>
+                      <xsd:sequence>
+                        <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypeDivergence" type="tns:ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergence" />
+                      </xsd:sequence>
+                      <xsd:attribute name="FuelTypesNumber" type="xsd:int" use="required" />
+                    </xsd:complexType>
+                  </xsd:element>
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendBalanceResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendBalanceResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendAlert">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="xsd:string" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_ALERT" type="tns:Alert_Type" />
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendAlertResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendAlertResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendLiterCheck">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="xsd:string" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_231_1" type="xsd:dateTime" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_FUEL_CODE" type="tns:Fuel_Type" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_LABEL_OGKOMETR" type="xsd:string" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_LABEL_POOL" type="xsd:string" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_CAPACITY" type="xsd:decimal" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_CAPACITY_15" type="xsd:decimal" />
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendLiterCheckResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendLiterCheckResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendTankCheck">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="xsd:string" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3001" type="xsd:dateTime" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_LABEL" type="xsd:string" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3002" type="xsd:decimal" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3003" type="xsd:decimal" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3004" type="xsd:decimal" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3005" type="xsd:decimal" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_3006" type="xsd:decimal" />
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SendTankCheckResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SendTankCheckResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="PriceChange">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="DS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="xsd:string" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_4001" type="xsd:dateTime" />
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_4002" type="tns:Fuel_Type" />
+                  <xsd:element minOccurs="1" maxOccurs="1" name="F_4003" type="xsd:decimal" />
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="PriceChangeResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="PriceChangeResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="CheckOTP">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="xsd:string" />
+            <xsd:element minOccurs="0" maxOccurs="1" name="preKey" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="CheckOTPResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="CheckOTPResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="UpdateSoftWare">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="xsd:string" />
+            <xsd:element minOccurs="0" maxOccurs="1" name="preKey" type="xsd:string" />
+            <xsd:element minOccurs="0" maxOccurs="1" name="_sData" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="UpdateSoftWareResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="UpdateSoftWareResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="RegisterOTP">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="xsd:string" />
+            <xsd:element minOccurs="0" maxOccurs="1" name="preKey" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="RegisterOTPResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="RegisterOTPResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SWUpdate">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="xsd:string" />
+            <xsd:element minOccurs="0" maxOccurs="1" name="preKey" type="xsd:string" />
+            <xsd:element minOccurs="0" maxOccurs="1" name="SData" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="SWUpdateResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="SWUpdateResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetRegNums">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="AMDIKA" type="xsd:string" />
+            <xsd:element minOccurs="0" maxOccurs="1" name="Token" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetRegNumsResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="GetRegNumsResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetTankStripeTable">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="ADMIKA" type="xsd:string" />
+            <xsd:element minOccurs="0" maxOccurs="1" name="preKey" type="xsd:string" />
+            <xsd:element minOccurs="0" maxOccurs="1" name="tankCode" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetTankStripeTableResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element minOccurs="0" maxOccurs="1" name="GetTankStripeTableResult" type="xsd:string" />
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:complexType name="Header_Type">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="1" name="CompanyTIN" type="xsd:string" />
+          <xsd:element minOccurs="0" maxOccurs="1" name="SubmitterTIN" type="xsd:string" />
+          <xsd:element minOccurs="0" maxOccurs="1" name="eToken" type="xsd:string" />
+          <xsd:element minOccurs="1" maxOccurs="1" name="SubmissionDate" type="xsd:dateTime" />
+          <xsd:element minOccurs="1" maxOccurs="1" name="F_TAXISBRANCH" type="xsd:int" />
+          <xsd:element minOccurs="0" maxOccurs="1" name="F_MARK" type="xsd:string" />
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeIncomeReceiptsIncomeReceipt">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="IncomeReceipt">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_31A" type="xsd:string" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_31AA" type="xsd:string" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_31B" type="xsd:string" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_31C" type="xsd:string" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_31D" type="tns:Fuel_Type" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31E" type="xsd:dateTime" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31F" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31G" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31H" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31I" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31K" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31L" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_31M" type="xsd:decimal" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_32" type="tns:CarData_Type" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_33" type="xsd:string" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_34" type="xsd:string" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_35" type="xsd:string" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_36" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_37" type="xsd:int" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_38" type="xsd:decimal" />
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeDeliveryNoteFuelData">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelData">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="FUELTYPE" type="tns:Fuel_Type" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2154" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2155" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2156" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2157" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_217" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_218" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_219" type="xsd:decimal" />
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeDeliveryNoteReservoirsReservoir">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="Reservoir">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_211" type="xsd:string" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_212" type="tns:Fuel_Type" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_213" type="xsd:dateTime" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="DataBefore">
+                  <xsd:complexType>
+                    <xsd:sequence>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2141" type="xsd:decimal" />
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2142A" type="xsd:decimal" />
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2142B" type="xsd:decimal" />
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2143" type="xsd:decimal" />
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2144" type="xsd:dateTime" />
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2145" type="xsd:dateTime" />
+                    </xsd:sequence>
+                  </xsd:complexType>
+                </xsd:element>
+                <xsd:element minOccurs="0" maxOccurs="1" name="DataAfter">
+                  <xsd:complexType>
+                    <xsd:sequence>
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2161" type="xsd:decimal" />
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2162A" type="xsd:decimal" />
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2162B" type="xsd:decimal" />
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2163" type="xsd:decimal" />
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2164" type="xsd:dateTime" />
+                      <xsd:element minOccurs="1" maxOccurs="1" name="F_2165" type="xsd:dateTime" />
+                    </xsd:sequence>
+                  </xsd:complexType>
+                </xsd:element>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeBalanceFuelMovementsFuelMovement">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelMovement">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_KAYSIMO_EIDOS" type="tns:Fuel_Type" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2236A1" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2236A2" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2236B1" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2236B2" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2237" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2238" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2239A" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2239B" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_22310" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_22310A" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_22310B" type="xsd:decimal" />
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeBalanceReservoirsReservoir">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="Reservoir">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_DEXAMENH_AA" type="xsd:int" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_DEXAMENH_XORITIKOTITA" type="xsd:decimal" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_KAYSIMO_EIDOS" type="tns:Fuel_Type" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2232_MM" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2232_VOL" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2232_TEMP" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2233" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2234_MM" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2234_VOL" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2234_TEMP" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2235" type="xsd:decimal" />
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypes">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypes">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_KAYSIMO_AA" type="tns:Fuel_Type" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244B" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2245B" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246A" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246B" type="xsd:decimal" />
+                <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypePump" type="tns:ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePump" />
+              </xsd:sequence>
+              <xsd:attribute name="TotalPumpsNumber" type="xsd:int" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeBalanceDivergencesPerFuelTypeFuelTypeDivergence">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypeDivergence">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="FuelType" type="tns:Fuel_Type" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2251" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2252" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2253" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2254" type="xsd:decimal" />
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="Alert_Type">
+        <xsd:sequence>
+          <xsd:element minOccurs="1" maxOccurs="1" name="F_ALERTID" type="xsd:int" />
+          <xsd:element minOccurs="0" maxOccurs="1" name="F_ALERTCODE" type="xsd:string" />
+          <xsd:element minOccurs="1" maxOccurs="1" name="F_DATE" type="xsd:dateTime" />
+          <xsd:element minOccurs="0" maxOccurs="1" name="F_REASONING" type="xsd:string" />
+          <xsd:element minOccurs="0" maxOccurs="1" name="F_DEVICE_LABEL" type="xsd:string" />
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="Fuel_Type">
+        <xsd:sequence>
+          <xsd:element minOccurs="1" maxOccurs="1" name="Code" type="xsd:int" />
+          <xsd:element minOccurs="0" maxOccurs="1" name="Description" type="xsd:string" />
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="CarData_Type">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="1" name="plateLetters" type="xsd:string" />
+          <xsd:element minOccurs="0" maxOccurs="1" name="plateNumber" type="xsd:string" />
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="ArrayOfFuelflows_TypeBalancePumpsPerFuelTypeFuelTypesFuelTypePump">
+        <xsd:sequence>
+          <xsd:element minOccurs="0" maxOccurs="unbounded" nillable="true" name="FuelTypePump">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element minOccurs="0" maxOccurs="1" name="FuelType" type="tns:Fuel_Type" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_ANTLIA_AA" type="xsd:string" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_2241A" type="xsd:string" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2241B" type="xsd:int" />
+                <xsd:element minOccurs="0" maxOccurs="1" name="F_Pump_Reservoir" type="xsd:string" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2242" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2243" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244A" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244B" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244C" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244D" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244E" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2244F" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2245A" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2245B" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2245C" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246A" type="xsd:decimal" />
+                <xsd:element minOccurs="1" maxOccurs="1" name="F_2246B" type="xsd:decimal" />
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="IPykServices_SendReceipt_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendReceipt" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendReceipt_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendReceiptResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendDelivery_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendDelivery" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendDelivery_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendDeliveryResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendBalance_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendBalance" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendBalance_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendBalanceResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendAlert_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendAlert" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendAlert_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendAlertResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendLiterCheck_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendLiterCheck" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendLiterCheck_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendLiterCheckResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendTankCheck_InputMessage">
+    <wsdl:part name="parameters" element="tns:SendTankCheck" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SendTankCheck_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SendTankCheckResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_PriceChange_InputMessage">
+    <wsdl:part name="parameters" element="tns:PriceChange" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_PriceChange_OutputMessage">
+    <wsdl:part name="parameters" element="tns:PriceChangeResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_CheckOTP_InputMessage">
+    <wsdl:part name="parameters" element="tns:CheckOTP" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_CheckOTP_OutputMessage">
+    <wsdl:part name="parameters" element="tns:CheckOTPResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_UpdateSoftWare_InputMessage">
+    <wsdl:part name="parameters" element="tns:UpdateSoftWare" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_UpdateSoftWare_OutputMessage">
+    <wsdl:part name="parameters" element="tns:UpdateSoftWareResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_RegisterOTP_InputMessage">
+    <wsdl:part name="parameters" element="tns:RegisterOTP" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_RegisterOTP_OutputMessage">
+    <wsdl:part name="parameters" element="tns:RegisterOTPResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SWUpdate_InputMessage">
+    <wsdl:part name="parameters" element="tns:SWUpdate" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_SWUpdate_OutputMessage">
+    <wsdl:part name="parameters" element="tns:SWUpdateResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_GetRegNums_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetRegNums" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_GetRegNums_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetRegNumsResponse" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_GetTankStripeTable_InputMessage">
+    <wsdl:part name="parameters" element="tns:GetTankStripeTable" />
+  </wsdl:message>
+  <wsdl:message name="IPykServices_GetTankStripeTable_OutputMessage">
+    <wsdl:part name="parameters" element="tns:GetTankStripeTableResponse" />
+  </wsdl:message>
+  <wsdl:portType name="IPykServices">
+    <wsdl:operation name="SendReceipt">
+      <wsdl:input message="tns:IPykServices_SendReceipt_InputMessage" />
+      <wsdl:output message="tns:IPykServices_SendReceipt_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="SendDelivery">
+      <wsdl:input message="tns:IPykServices_SendDelivery_InputMessage" />
+      <wsdl:output message="tns:IPykServices_SendDelivery_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="SendBalance">
+      <wsdl:input message="tns:IPykServices_SendBalance_InputMessage" />
+      <wsdl:output message="tns:IPykServices_SendBalance_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="SendAlert">
+      <wsdl:input message="tns:IPykServices_SendAlert_InputMessage" />
+      <wsdl:output message="tns:IPykServices_SendAlert_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="SendLiterCheck">
+      <wsdl:input message="tns:IPykServices_SendLiterCheck_InputMessage" />
+      <wsdl:output message="tns:IPykServices_SendLiterCheck_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="SendTankCheck">
+      <wsdl:input message="tns:IPykServices_SendTankCheck_InputMessage" />
+      <wsdl:output message="tns:IPykServices_SendTankCheck_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="PriceChange">
+      <wsdl:input message="tns:IPykServices_PriceChange_InputMessage" />
+      <wsdl:output message="tns:IPykServices_PriceChange_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="CheckOTP">
+      <wsdl:input message="tns:IPykServices_CheckOTP_InputMessage" />
+      <wsdl:output message="tns:IPykServices_CheckOTP_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="UpdateSoftWare">
+      <wsdl:input message="tns:IPykServices_UpdateSoftWare_InputMessage" />
+      <wsdl:output message="tns:IPykServices_UpdateSoftWare_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="RegisterOTP">
+      <wsdl:input message="tns:IPykServices_RegisterOTP_InputMessage" />
+      <wsdl:output message="tns:IPykServices_RegisterOTP_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="SWUpdate">
+      <wsdl:input message="tns:IPykServices_SWUpdate_InputMessage" />
+      <wsdl:output message="tns:IPykServices_SWUpdate_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="GetRegNums">
+      <wsdl:input message="tns:IPykServices_GetRegNums_InputMessage" />
+      <wsdl:output message="tns:IPykServices_GetRegNums_OutputMessage" />
+    </wsdl:operation>
+    <wsdl:operation name="GetTankStripeTable">
+      <wsdl:input message="tns:IPykServices_GetTankStripeTable_InputMessage" />
+      <wsdl:output message="tns:IPykServices_GetTankStripeTable_OutputMessage" />
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="BasicHttpBinding_IPykServices_soap" type="tns:IPykServices">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="SendReceipt">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendReceipt" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendDelivery">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendDelivery" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendBalance">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendBalance" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendAlert">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendAlert" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendLiterCheck">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendLiterCheck" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendTankCheck">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SendTankCheck" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="PriceChange">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/PriceChange" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="CheckOTP">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/CheckOTP" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="UpdateSoftWare">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/UpdateSoftWare" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="RegisterOTP">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/RegisterOTP" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SWUpdate">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/SWUpdate" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetRegNums">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/GetRegNums" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetTankStripeTable">
+      <soap:operation soapAction="http://mygsi.eu/IPykServices/GetTankStripeTable" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="IPykServices">
+    <wsdl:port name="BasicHttpBinding_IPykServices_soap" binding="tns:BasicHttpBinding_IPykServices_soap">
+      <soap:address location="http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx" />
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

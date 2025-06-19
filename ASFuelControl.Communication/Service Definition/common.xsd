@@ -1,0 +1,1289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSpy v2006 sp1 U (http://www.altova.com) by Administrator (gsis) -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:simpleType name="TIN_Type">
+		<xs:annotation>
+			<xs:documentation>
+               TIN - Tax Identification Number
+               (ΑΦΜ - Αριθμός Φορολογικού Μητρώου)
+           </xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:whiteSpace value="preserve"/>
+			<xs:pattern value="([0-9]{8}[1-9])|([0-9]{7}[1-9][0-9])|([0-9]{6}[1-9][0-9]{2})|([0-9]{5}[1-9][0-9]{3})|([0-9]{4}[1-9][0-9]{4})|([0-9]{3}[1-9][0-9]{5})|([0-9]{2}[1-9][0-9]{6})|([0-9][1-9][0-9]{7})|([1-9][0-9]{8})"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="BIC_Type">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[A-Z]{6,6}[A-Z2-9][A-NP-Z0-9]([A-Z0-9]{3,3}){0,1}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="IBAN_Type">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[A-Z]{2,2}[0-9]{2,2}[a-zA-Z0-9]{1,30}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="AMKA_Type">
+		<xs:annotation>
+			<xs:documentation>Ο ΑΜΚΑ του αμειβομένου</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="\d{11}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="DecimalAmount_Type">
+		<xs:restriction base="xs:decimal">
+			<xs:whiteSpace value="collapse"/>
+			<xs:fractionDigits value="2"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="Email_Type">
+		<xs:restriction base="xs:string">
+			<xs:whiteSpace value="collapse"/>
+			<xs:maxLength value="50"/>
+			<xs:pattern value="\S+@\S+\.\S+"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="PoliceId_Type">
+		<xs:simpleContent>
+			<xs:extension base="xs:string">
+				<xs:attribute name="otherType" type="PoliceIdOtherType">
+					<xs:annotation>
+						<xs:documentation>
+                       	Αν η ταυτότητα δεν είναι αστυνομική, τότε πρέπει αν δηλωθεί ένας από τους παρακάτω τύπους:
+                           1 - ΣΤΡΑΤΙΩΤΙΚΗ
+                           2 - ΞΕΝΗ
+                           3 - ΔΙΑΒΑΤΗΡΙΟ
+                       </xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+				<xs:attribute name="country" type="ISOCountry_Type">
+					<xs:annotation>
+						<xs:documentation>Χώρα, όταν πρόκειται για ξένη ταυτότητα</xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:simpleType name="PoliceIdOtherType">
+		<xs:annotation>
+			<xs:documentation>
+               Αν η ταυτότητα δεν είναι αστυνομική, τότε πρέπει αν δηλωθεί ένας από τους παρακάτω τύπους:
+               1 - ΣΤΡΑΤΙΩΤΙΚΗ
+               2 - ΞΕΝΗ
+               3 - ΔΙΑΒΑΤΗΡΙΟ
+
+               Αν πρόκειται για αστυνομική ταυτότητα, δε βάζουμε κάποιο τύπο (εννοείται ΑΣΤΥΝΟΜΙΚΗ).
+           </xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:short">
+			<xs:enumeration value="1"/>
+			<xs:enumeration value="2"/>
+			<xs:enumeration value="3"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="ISOCountry_Type">
+		<xs:annotation>
+			<xs:documentation>
+               Ο ISO κωδικός της χώρας.
+               Επί του παρόντος δίνουμε ένα reference enumeration, αλλά στην τελική έκδοση μπορεί οι κωδικοί να ορίζονται εκτός XSD.
+           </xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="AD"/>
+			<xs:enumeration value="AE"/>
+			<xs:enumeration value="AF"/>
+			<xs:enumeration value="AG"/>
+			<xs:enumeration value="AI"/>
+			<xs:enumeration value="AL"/>
+			<xs:enumeration value="AM"/>
+			<xs:enumeration value="AN"/>
+			<xs:enumeration value="AO"/>
+			<xs:enumeration value="AQ"/>
+			<xs:enumeration value="AR"/>
+			<xs:enumeration value="AS"/>
+			<xs:enumeration value="AT"/>
+			<xs:enumeration value="AU"/>
+			<xs:enumeration value="AW"/>
+			<xs:enumeration value="AX"/>
+			<xs:enumeration value="AZ"/>
+			<xs:enumeration value="BA"/>
+			<xs:enumeration value="BB"/>
+			<xs:enumeration value="BD"/>
+			<xs:enumeration value="BE"/>
+			<xs:enumeration value="BF"/>
+			<xs:enumeration value="BG"/>
+			<xs:enumeration value="BH"/>
+			<xs:enumeration value="BI"/>
+			<xs:enumeration value="BJ"/>
+			<xs:enumeration value="BL"/>
+			<xs:enumeration value="BM"/>
+			<xs:enumeration value="BN"/>
+			<xs:enumeration value="BO"/>
+			<xs:enumeration value="BR"/>
+			<xs:enumeration value="BS"/>
+			<xs:enumeration value="BT"/>
+			<xs:enumeration value="BV"/>
+			<xs:enumeration value="BW"/>
+			<xs:enumeration value="BY"/>
+			<xs:enumeration value="BZ"/>
+			<xs:enumeration value="CA"/>
+			<xs:enumeration value="CC"/>
+			<xs:enumeration value="CD"/>
+			<xs:enumeration value="CF"/>
+			<xs:enumeration value="CG"/>
+			<xs:enumeration value="CH"/>
+			<xs:enumeration value="CI"/>
+			<xs:enumeration value="CK"/>
+			<xs:enumeration value="CL"/>
+			<xs:enumeration value="CM"/>
+			<xs:enumeration value="CN"/>
+			<xs:enumeration value="CO"/>
+			<xs:enumeration value="CR"/>
+			<xs:enumeration value="CU"/>
+			<xs:enumeration value="CV"/>
+			<xs:enumeration value="CX"/>
+			<xs:enumeration value="CY"/>
+			<xs:enumeration value="CZ"/>
+			<xs:enumeration value="DE"/>
+			<xs:enumeration value="DJ"/>
+			<xs:enumeration value="DK"/>
+			<xs:enumeration value="DM"/>
+			<xs:enumeration value="DO"/>
+			<xs:enumeration value="DZ"/>
+			<xs:enumeration value="EC"/>
+			<xs:enumeration value="EE"/>
+			<xs:enumeration value="EG"/>
+			<xs:enumeration value="EH"/>
+			<xs:enumeration value="ER"/>
+			<xs:enumeration value="ES"/>
+			<xs:enumeration value="ET"/>
+			<xs:enumeration value="FI"/>
+			<xs:enumeration value="FJ"/>
+			<xs:enumeration value="FK"/>
+			<xs:enumeration value="FM"/>
+			<xs:enumeration value="FO"/>
+			<xs:enumeration value="FR"/>
+			<xs:enumeration value="GA"/>
+			<xs:enumeration value="GB"/>
+			<xs:enumeration value="GD"/>
+			<xs:enumeration value="GE"/>
+			<xs:enumeration value="GF"/>
+			<xs:enumeration value="GG"/>
+			<xs:enumeration value="GH"/>
+			<xs:enumeration value="GI"/>
+			<xs:enumeration value="GL"/>
+			<xs:enumeration value="GM"/>
+			<xs:enumeration value="GN"/>
+			<xs:enumeration value="GP"/>
+			<xs:enumeration value="GQ"/>
+			<xs:enumeration value="GR"/>
+			<xs:enumeration value="GS"/>
+			<xs:enumeration value="GT"/>
+			<xs:enumeration value="GU"/>
+			<xs:enumeration value="GW"/>
+			<xs:enumeration value="GY"/>
+			<xs:enumeration value="HK"/>
+			<xs:enumeration value="HM"/>
+			<xs:enumeration value="HN"/>
+			<xs:enumeration value="HR"/>
+			<xs:enumeration value="HT"/>
+			<xs:enumeration value="HU"/>
+			<xs:enumeration value="ID"/>
+			<xs:enumeration value="IE"/>
+			<xs:enumeration value="IL"/>
+			<xs:enumeration value="IM"/>
+			<xs:enumeration value="IN"/>
+			<xs:enumeration value="IO"/>
+			<xs:enumeration value="IQ"/>
+			<xs:enumeration value="IR"/>
+			<xs:enumeration value="IS"/>
+			<xs:enumeration value="IT"/>
+			<xs:enumeration value="JE"/>
+			<xs:enumeration value="JM"/>
+			<xs:enumeration value="JO"/>
+			<xs:enumeration value="JP"/>
+			<xs:enumeration value="KE"/>
+			<xs:enumeration value="KG"/>
+			<xs:enumeration value="KH"/>
+			<xs:enumeration value="KI"/>
+			<xs:enumeration value="KM"/>
+			<xs:enumeration value="KN"/>
+			<xs:enumeration value="KP"/>
+			<xs:enumeration value="KR"/>
+			<xs:enumeration value="KW"/>
+			<xs:enumeration value="KY"/>
+			<xs:enumeration value="KZ"/>
+			<xs:enumeration value="LA"/>
+			<xs:enumeration value="LB"/>
+			<xs:enumeration value="LC"/>
+			<xs:enumeration value="LI"/>
+			<xs:enumeration value="LK"/>
+			<xs:enumeration value="LR"/>
+			<xs:enumeration value="LS"/>
+			<xs:enumeration value="LT"/>
+			<xs:enumeration value="LU"/>
+			<xs:enumeration value="LV"/>
+			<xs:enumeration value="LY"/>
+			<xs:enumeration value="MA"/>
+			<xs:enumeration value="MC"/>
+			<xs:enumeration value="MD"/>
+			<xs:enumeration value="ME"/>
+			<xs:enumeration value="MF"/>
+			<xs:enumeration value="MG"/>
+			<xs:enumeration value="MH"/>
+			<xs:enumeration value="MK"/>
+			<xs:enumeration value="ML"/>
+			<xs:enumeration value="MM"/>
+			<xs:enumeration value="MN"/>
+			<xs:enumeration value="MO"/>
+			<xs:enumeration value="MP"/>
+			<xs:enumeration value="MQ"/>
+			<xs:enumeration value="MR"/>
+			<xs:enumeration value="MS"/>
+			<xs:enumeration value="MT"/>
+			<xs:enumeration value="MU"/>
+			<xs:enumeration value="MV"/>
+			<xs:enumeration value="MW"/>
+			<xs:enumeration value="MX"/>
+			<xs:enumeration value="MY"/>
+			<xs:enumeration value="MZ"/>
+			<xs:enumeration value="NA"/>
+			<xs:enumeration value="NC"/>
+			<xs:enumeration value="NE"/>
+			<xs:enumeration value="NF"/>
+			<xs:enumeration value="NG"/>
+			<xs:enumeration value="NI"/>
+			<xs:enumeration value="NL"/>
+			<xs:enumeration value="NO"/>
+			<xs:enumeration value="NP"/>
+			<xs:enumeration value="NR"/>
+			<xs:enumeration value="NU"/>
+			<xs:enumeration value="NZ"/>
+			<xs:enumeration value="OM"/>
+			<xs:enumeration value="PA"/>
+			<xs:enumeration value="PE"/>
+			<xs:enumeration value="PF"/>
+			<xs:enumeration value="PG"/>
+			<xs:enumeration value="PH"/>
+			<xs:enumeration value="PK"/>
+			<xs:enumeration value="PL"/>
+			<xs:enumeration value="PM"/>
+			<xs:enumeration value="PN"/>
+			<xs:enumeration value="PR"/>
+			<xs:enumeration value="PS"/>
+			<xs:enumeration value="PT"/>
+			<xs:enumeration value="PW"/>
+			<xs:enumeration value="PY"/>
+			<xs:enumeration value="QA"/>
+			<xs:enumeration value="RE"/>
+			<xs:enumeration value="RO"/>
+			<xs:enumeration value="RS"/>
+			<xs:enumeration value="RU"/>
+			<xs:enumeration value="RW"/>
+			<xs:enumeration value="SA"/>
+			<xs:enumeration value="SB"/>
+			<xs:enumeration value="SC"/>
+			<xs:enumeration value="SD"/>
+			<xs:enumeration value="SE"/>
+			<xs:enumeration value="SG"/>
+			<xs:enumeration value="SH"/>
+			<xs:enumeration value="SI"/>
+			<xs:enumeration value="SJ"/>
+			<xs:enumeration value="SK"/>
+			<xs:enumeration value="SL"/>
+			<xs:enumeration value="SM"/>
+			<xs:enumeration value="SN"/>
+			<xs:enumeration value="SO"/>
+			<xs:enumeration value="SR"/>
+			<xs:enumeration value="ST"/>
+			<xs:enumeration value="SV"/>
+			<xs:enumeration value="SY"/>
+			<xs:enumeration value="SZ"/>
+			<xs:enumeration value="TC"/>
+			<xs:enumeration value="TD"/>
+			<xs:enumeration value="TF"/>
+			<xs:enumeration value="TG"/>
+			<xs:enumeration value="TH"/>
+			<xs:enumeration value="TJ"/>
+			<xs:enumeration value="TK"/>
+			<xs:enumeration value="TL"/>
+			<xs:enumeration value="TM"/>
+			<xs:enumeration value="TN"/>
+			<xs:enumeration value="TO"/>
+			<xs:enumeration value="TR"/>
+			<xs:enumeration value="TT"/>
+			<xs:enumeration value="TV"/>
+			<xs:enumeration value="TW"/>
+			<xs:enumeration value="TZ"/>
+			<xs:enumeration value="UA"/>
+			<xs:enumeration value="UG"/>
+			<xs:enumeration value="UM"/>
+			<xs:enumeration value="US"/>
+			<xs:enumeration value="UY"/>
+			<xs:enumeration value="UZ"/>
+			<xs:enumeration value="VA"/>
+			<xs:enumeration value="VC"/>
+			<xs:enumeration value="VE"/>
+			<xs:enumeration value="VG"/>
+			<xs:enumeration value="VI"/>
+			<xs:enumeration value="VN"/>
+			<xs:enumeration value="VU"/>
+			<xs:enumeration value="WF"/>
+			<xs:enumeration value="WS"/>
+			<xs:enumeration value="YE"/>
+			<xs:enumeration value="YT"/>
+			<xs:enumeration value="ZA"/>
+			<xs:enumeration value="ZM"/>
+			<xs:enumeration value="ZW"/>
+			<!-- Produced from countries.txt -->
+			<!-- ANDORRA        -->
+			<!-- UNITED ARAB EMIRATES      -->
+			<!-- AFGHANISTAN        -->
+			<!-- ANTIGUA AND BARBUDA      -->
+			<!-- ANGUILLA        -->
+			<!-- ALBANIA        -->
+			<!-- ARMENIA        -->
+			<!-- NETHERLANDS ANTILLES       -->
+			<!-- ANGOLA        -->
+			<!-- ANTARCTICA        -->
+			<!-- ARGENTINA        -->
+			<!-- AMERICAN SAMOA       -->
+			<!-- AUSTRIA        -->
+			<!-- AUSTRALIA        -->
+			<!-- ARUBA        -->
+			<!-- ?LAND ISLANDS       -->
+			<!-- AZERBAIJAN        -->
+			<!-- BOSNIA AND HERZEGOVINA      -->
+			<!-- BARBADOS        -->
+			<!-- BANGLADESH        -->
+			<!-- BELGIUM        -->
+			<!-- BURKINA FASO       -->
+			<!-- BULGARIA        -->
+			<!-- BAHRAIN        -->
+			<!-- BURUNDI        -->
+			<!-- BENIN        -->
+			<!-- SAINT BARTH?LEMY       -->
+			<!-- BERMUDA        -->
+			<!-- BRUNEI DARUSSALAM       -->
+			<!-- BOLIVIA, PLURINATIONAL STATE OF     -->
+			<!-- BRAZIL        -->
+			<!-- BAHAMAS        -->
+			<!-- BHUTAN        -->
+			<!-- BOUVET ISLAND       -->
+			<!-- BOTSWANA        -->
+			<!-- BELARUS        -->
+			<!-- BELIZE        -->
+			<!-- CANADA        -->
+			<!-- COCOS (KEELING) ISLANDS      -->
+			<!-- CONGO, THE DEMOCRATIC REPUBLIC OF THE   -->
+			<!-- CENTRAL AFRICAN REPUBLIC      -->
+			<!-- CONGO        -->
+			<!-- SWITZERLAND        -->
+			<!-- C?TE D'IVOIRE       -->
+			<!-- COOK ISLANDS       -->
+			<!-- CHILE        -->
+			<!-- CAMEROON        -->
+			<!-- CHINA        -->
+			<!-- COLOMBIA        -->
+			<!-- COSTA RICA       -->
+			<!-- CUBA        -->
+			<!-- CAPE VERDE       -->
+			<!-- CHRISTMAS ISLAND       -->
+			<!-- CYPRUS        -->
+			<!-- CZECH REPUBLIC       -->
+			<!-- GERMANY        -->
+			<!-- DJIBOUTI        -->
+			<!-- DENMARK        -->
+			<!-- DOMINICA        -->
+			<!-- DOMINICAN REPUBLIC       -->
+			<!-- ALGERIA        -->
+			<!-- ECUADOR        -->
+			<!-- ESTONIA        -->
+			<!-- EGYPT        -->
+			<!-- WESTERN SAHARA       -->
+			<!-- ERITREA        -->
+			<!-- SPAIN        -->
+			<!-- ETHIOPIA        -->
+			<!-- FINLAND        -->
+			<!-- FIJI        -->
+			<!-- FALKLAND ISLANDS (MALVINAS)      -->
+			<!-- MICRONESIA, FEDERATED STATES OF     -->
+			<!-- FAROE ISLANDS       -->
+			<!-- FRANCE        -->
+			<!-- GABON        -->
+			<!-- UNITED KINGDOM       -->
+			<!-- GRENADA        -->
+			<!-- GEORGIA        -->
+			<!-- FRENCH GUIANA       -->
+			<!-- GUERNSEY        -->
+			<!-- GHANA        -->
+			<!-- GIBRALTAR        -->
+			<!-- GREENLAND        -->
+			<!-- GAMBIA        -->
+			<!-- GUINEA        -->
+			<!-- GUADELOUPE        -->
+			<!-- EQUATORIAL GUINEA       -->
+			<!-- GREECE        -->
+			<!-- SOUTH GEORGIA AND THE SOUTH SANDWICH ISLANDS  -->
+			<!-- GUATEMALA        -->
+			<!-- GUAM        -->
+			<!-- GUINEA-BISSAU        -->
+			<!-- GUYANA        -->
+			<!-- HONG KONG       -->
+			<!-- HEARD ISLAND AND MCDONALD ISLANDS    -->
+			<!-- HONDURAS        -->
+			<!-- CROATIA        -->
+			<!-- HAITI        -->
+			<!-- HUNGARY        -->
+			<!-- INDONESIA        -->
+			<!-- IRELAND        -->
+			<!-- ISRAEL        -->
+			<!-- ISLE OF MAN      -->
+			<!-- INDIA        -->
+			<!-- BRITISH INDIAN OCEAN TERRITORY     -->
+			<!-- IRAQ        -->
+			<!-- IRAN, ISLAMIC REPUBLIC OF     -->
+			<!-- ICELAND        -->
+			<!-- ITALY        -->
+			<!-- JERSEY        -->
+			<!-- JAMAICA        -->
+			<!-- JORDAN        -->
+			<!-- JAPAN        -->
+			<!-- KENYA        -->
+			<!-- KYRGYZSTAN        -->
+			<!-- CAMBODIA        -->
+			<!-- KIRIBATI        -->
+			<!-- COMOROS        -->
+			<!-- SAINT KITTS AND NEVIS     -->
+			<!-- KOREA, DEMOCRATIC PEOPLE'S REPUBLIC OF    -->
+			<!-- KOREA, REPUBLIC OF      -->
+			<!-- KUWAIT        -->
+			<!-- CAYMAN ISLANDS       -->
+			<!-- KAZAKHSTAN        -->
+			<!-- LAO PEOPLE'S DEMOCRATIC REPUBLIC     -->
+			<!-- LEBANON        -->
+			<!-- SAINT LUCIA       -->
+			<!-- LIECHTENSTEIN        -->
+			<!-- SRI LANKA       -->
+			<!-- LIBERIA        -->
+			<!-- LESOTHO        -->
+			<!-- LITHUANIA        -->
+			<!-- LUXEMBOURG        -->
+			<!-- LATVIA        -->
+			<!-- LIBYAN ARAB JAMAHIRIYA      -->
+			<!-- MOROCCO        -->
+			<!-- MONACO        -->
+			<!-- MOLDOVA, REPUBLIC OF      -->
+			<!-- MONTENEGRO        -->
+			<!-- SAINT MARTIN       -->
+			<!-- MADAGASCAR        -->
+			<!-- MARSHALL ISLANDS       -->
+			<!-- MACEDONIA, THE FORMER YUGOSLAV REPUBLIC OF   -->
+			<!-- MALI        -->
+			<!-- MYANMAR        -->
+			<!-- MONGOLIA        -->
+			<!-- MACAO        -->
+			<!-- NORTHERN MARIANA ISLANDS      -->
+			<!-- MARTINIQUE        -->
+			<!-- MAURITANIA        -->
+			<!-- MONTSERRAT        -->
+			<!-- MALTA        -->
+			<!-- MAURITIUS        -->
+			<!-- MALDIVES        -->
+			<!-- MALAWI        -->
+			<!-- MEXICO        -->
+			<!-- MALAYSIA        -->
+			<!-- MOZAMBIQUE        -->
+			<!-- NAMIBIA        -->
+			<!-- NEW CALEDONIA       -->
+			<!-- NIGER        -->
+			<!-- NORFOLK ISLAND       -->
+			<!-- NIGERIA        -->
+			<!-- NICARAGUA        -->
+			<!-- NETHERLANDS        -->
+			<!-- NORWAY        -->
+			<!-- NEPAL        -->
+			<!-- NAURU        -->
+			<!-- NIUE        -->
+			<!-- NEW ZEALAND       -->
+			<!-- OMAN        -->
+			<!-- PANAMA        -->
+			<!-- PERU        -->
+			<!-- FRENCH POLYNESIA       -->
+			<!-- PAPUA NEW GUINEA      -->
+			<!-- PHILIPPINES        -->
+			<!-- PAKISTAN        -->
+			<!-- POLAND        -->
+			<!-- SAINT PIERRE AND MIQUELON     -->
+			<!-- PITCAIRN        -->
+			<!-- PUERTO RICO       -->
+			<!-- PALESTINIAN TERRITORY, OCCUPIED      -->
+			<!-- PORTUGAL        -->
+			<!-- PALAU        -->
+			<!-- PARAGUAY        -->
+			<!-- QATAR        -->
+			<!-- R?UNION        -->
+			<!-- ROMANIA        -->
+			<!-- SERBIA        -->
+			<!-- RUSSIAN FEDERATION       -->
+			<!-- RWANDA        -->
+			<!-- SAUDI ARABIA       -->
+			<!-- SOLOMON ISLANDS       -->
+			<!-- SEYCHELLES        -->
+			<!-- SUDAN        -->
+			<!-- SWEDEN        -->
+			<!-- SINGAPORE        -->
+			<!-- SAINT HELENA, ASCENSION AND TRISTAN DA CUNHA  -->
+			<!-- SLOVENIA        -->
+			<!-- SVALBARD AND JAN MAYEN     -->
+			<!-- SLOVAKIA        -->
+			<!-- SIERRA LEONE       -->
+			<!-- SAN MARINO       -->
+			<!-- SENEGAL        -->
+			<!-- SOMALIA        -->
+			<!-- SURINAME        -->
+			<!-- SAO TOME AND PRINCIPE     -->
+			<!-- EL SALVADOR       -->
+			<!-- SYRIAN ARAB REPUBLIC      -->
+			<!-- SWAZILAND        -->
+			<!-- TURKS AND CAICOS ISLANDS     -->
+			<!-- CHAD        -->
+			<!-- FRENCH SOUTHERN TERRITORIES      -->
+			<!-- TOGO        -->
+			<!-- THAILAND        -->
+			<!-- TAJIKISTAN        -->
+			<!-- TOKELAU        -->
+			<!-- TIMOR-LESTE        -->
+			<!-- TURKMENISTAN        -->
+			<!-- TUNISIA        -->
+			<!-- TONGA        -->
+			<!-- TURKEY        -->
+			<!-- TRINIDAD AND TOBAGO      -->
+			<!-- TUVALU        -->
+			<!-- TAIWAN, PROVINCE OF CHINA     -->
+			<!-- TANZANIA, UNITED REPUBLIC OF     -->
+			<!-- UKRAINE        -->
+			<!-- UGANDA        -->
+			<!-- UNITED STATES MINOR OUTLYING ISLANDS    -->
+			<!-- UNITED STATES       -->
+			<!-- URUGUAY        -->
+			<!-- UZBEKISTAN        -->
+			<!-- HOLY SEE (VATICAN CITY STATE)    -->
+			<!-- SAINT VINCENT AND THE GRENADINES    -->
+			<!-- VENEZUELA, BOLIVARIAN REPUBLIC OF     -->
+			<!-- VIRGIN ISLANDS, BRITISH      -->
+			<!-- VIRGIN ISLANDS, U.S.      -->
+			<!-- VIET NAM       -->
+			<!-- VANUATU        -->
+			<!-- WALLIS AND FUTUNA      -->
+			<!-- SAMOA        -->
+			<!-- YEMEN        -->
+			<!-- MAYOTTE        -->
+			<!-- SOUTH AFRICA       -->
+			<!-- ZAMBIA        -->
+			<!-- ZIMBABWE        -->
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="NonZerotiveDecimal_Type">
+		<xs:restriction base="xs:decimal">
+			<xs:minExclusive value="0"/>
+			<xs:fractionDigits value="3"/>
+			<xs:whiteSpace value="collapse"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="PositiveDecimal_Type">
+		<xs:restriction base="xs:decimal">
+			<xs:minInclusive value="0"/>
+			<xs:fractionDigits value="3"/>
+			<xs:whiteSpace value="collapse"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="NegativeDecimal_Type">
+		<xs:restriction base="xs:decimal">
+			<xs:maxExclusive value="0"/>
+			<xs:fractionDigits value="3"/>
+			<xs:whiteSpace value="collapse"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="NonZeroDecimal_Type">
+		<xs:union memberTypes="PositiveDecimal_Type NegativeDecimal_Type"/>
+	</xs:simpleType>
+	<xs:attributeGroup name="StartEndDate_Type">
+		<xs:attribute name="startDate" type="xs:date"/>
+		<xs:attribute name="endDate" type="xs:date"/>
+	</xs:attributeGroup>
+	<xs:simpleType name="LimitedString25_Type">
+		<xs:restriction base="xs:string">
+			<xs:maxLength value="25"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="LimitedString30_Type">
+		<xs:restriction base="xs:string">
+			<xs:maxLength value="30"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="LimitedString32_Type">
+		<xs:restriction base="xs:string">
+			<xs:maxLength value="32"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="LimitedString35_Type">
+		<xs:restriction base="xs:string">
+			<xs:maxLength value="35"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="LimitedString50_Type">
+		<xs:restriction base="xs:string">
+			<xs:maxLength value="50"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="LimitedString100_Type">
+		<xs:restriction base="xs:string">
+			<xs:maxLength value="100"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="CurrCode_Type">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">
+			The appropriate currency code from the ISO 4217 three-byte alpha version for the currency in which a monetary amount is expressed. 
+Valid entries are:
+AED United Arab Emirates, Dirhams 
+AFN Afghanistan, Afghanis 
+ALL Albania, Leke 
+AMD Armenia, Drams 
+ANG Netherlands Antilles, Guilders 
+AOA Angola, Kwanza 
+ARS Argentina, Pesos 
+AUD Australia, Dollars 
+AWG Aruba, Guilders 
+AZN Azerbaijan, Manats 
+BAM Bosnia and Herzegovina, Convertible Marka 
+BBD Barbados, Dollars 
+BDT Bangladesh, Taka 
+BGN Bulgaria, Leva 
+BHD Bahrain, Dinars 
+BIF Burundi, Francs 
+BMD Bermuda, Dollars 
+BND Brunei Darussalam, Dollars 
+BOB Bolivia, Bolivianos 
+BOV Bolivia, Mvdol
+BRL Brazil, Brazil Real 
+BSD Bahamas, Dollars 
+BTN Bhutan, Ngultrum 
+BWP Botswana, Pulas 
+BYR Belarus, Rubles 
+BZD Belize, Dollars 
+CAD Canada, Dollars 
+CDF Congo/Kinshasa, Congolese Francs 
+CHF Switzerland, Francs 
+CLF Chile, Unidades de fomento 
+CLP Chile, Pesos 
+CNY China, Yuan Renminbi 
+COP Colombia, Pesos 
+COU Colombia, Unidad de Valor Real
+CRC Costa Rica, Colones 
+CUC Cuba, Convertible Pesos 
+CUP Cuba, Pesos 
+CVE Cape Verde, Escudos 
+CZK Czech Republic, Koruny 
+DJF Djibouti, Francs 
+DKK Denmark, Kroner 
+DOP Dominican Republic, Pesos 
+DZD Algeria, Algeria Dinars 
+EEK Estonia, Krooni 
+EGP Egypt, Pounds 
+ERN Eritrea, Nakfa 
+ETB Ethiopia, Birr 
+EUR Euro Member Countries, Euro 
+FJD Fiji, Dollars 
+FKP Falkland Islands (Malvinas), Pounds 
+GBP United Kingdom, Pounds 
+GEL Georgia, Lari 
+GHS Ghana, Cedis 
+GIP Gibraltar, Pounds 
+GMD Gambia, Dalasi 
+GNF Guinea, Francs 
+GTQ Guatemala, Quetzales 
+GWP Guinea-Bissau Peso
+GYD Guyana, Dollars 
+HKD Hong Kong, Dollars 
+HNL Honduras, Lempiras 
+HRK Croatia, Kuna 
+HTG Haiti, Gourdes 
+HUF Hungary, Forint 
+IDR Indonesia, Rupiahs 
+ILS Israel, New Shekels 
+INR India, Rupees 
+IQD Iraq, Dinars 
+IRR Iran, Rials 
+ISK Iceland, Kronur  
+JMD Jamaica, Dollars 
+JOD Jordan, Dinars 
+JPY Japan, Yen 
+KES Kenya, Shillings 
+KGS Kyrgyzstan, Soms 
+KHR Cambodia, Riels 
+KMF Comoros, Francs 
+KPW Korea (North), Won 
+KRW Korea (South), Won 
+KWD Kuwait, Dinars 
+KYD Cayman Islands, Dollars 
+KZT Kazakstan, Tenge 
+LAK Laos, Kips 
+LBP Lebanon, Pounds 
+LKR Sri Lanka, Rupees 
+LRD Liberia, Dollars 
+LSL Lesotho, Maloti 
+LTL Lithuania, Litai 
+LVL Latvia, Lati 
+LYD Libya, Dinars 
+MAD Morocco, Dirhams 
+MDL Moldova, Lei 
+MGA Madagascar, Malagasy Ariary 
+MKD Macedonia, Denars 
+MMK Myanmar (Burma), Kyats 
+MNT Mongolia, Tugriks 
+MOP Macau, Patacas 
+MRO Mauritania, Ouguiyas 
+MTL Malta, Liri 
+MUR Mauritius, Rupees 
+MVR Maldives (Maldive Islands), Rufiyaa 
+MWK Malawi, Kwachas 
+MXN Mexico, Pesos 
+MXV Mexico, Mexican Unidad de Inversion
+MYR Malaysia, Ringgits 
+MZN Mozambique, Meticais 
+NAD Namibia, Dollars 
+NGN Nigeria, Nairas 
+NIO Nicaragua, Gold Cordobas 
+NOK Norway, Krone 
+NPR Nepal, Nepal Rupees 
+NZD New Zealand, Dollars 
+OMR Oman, Rials 
+PAB Panama, Balboa 
+PEN Peru, Nuevos Soles 
+PGK Papua New Guinea, Kina 
+PHP Philippines, Pesos 
+PKR Pakistan, Rupees 
+PLN Poland, Zlotych 
+PYG Paraguay, Guarani 
+QAR Qatar, Rials 
+RON Romania, New Lei 
+RSD Serbian Dinar
+RUB Russia, Rubles 
+RWF Rwanda, Rwanda Francs 
+SAR Saudi Arabia, Riyals 
+SBD Solomon Islands, Dollars 
+SCR Seychelles, Rupees 
+SDG Sudan, Dinars 
+SEK Sweden, Kronor 
+SGD Singapore, Dollars 
+SHP Saint Helena, Pounds 
+SLL Sierra Leone, Leones 
+SOS Somalia, Shillings 
+SRD Suriname, Dollar 
+STD S?o Tome and Principe, Dobras 
+SVC El Salvador, Colones 
+SYP Syria, Pounds 
+SZL Swaziland, Emalangeni 
+THB Thailand, Baht 
+TJS Tajikistan, Somoni 
+TMT Turkmenistan, Manats 
+TND Tunisia, Dinars 
+TOP Tonga, Pa'anga 
+TRY Turkey, Liras 
+TTD Trinidad and Tobago, Dollars 
+TWD Taiwan, New Dollars 
+TZS Tanzania, Shillings 
+UAH Ukraine, Hryvnia 
+UGX Uganda, Shillings 
+USD United States of America, Dollars 
+UYU Uruguay, Pesos 
+UZS Uzbekistan, Sums 
+VEF Venezuela, Bolivares 
+VND Viet Nam, Dong 
+VUV Vanuatu, Vatu 
+WST Samoa, Tala 
+XAF Communaut? Financi?re Africaine BEAC, Francs 
+XCD East Caribbean Dollars 
+XOF Communaut? Financi?re Africaine BCEAO, Francs 
+XPD Palladium Ounces 
+XPF Comptoirs Fran?ais du Pacifique Francs 
+YER Yemen, Rials 
+ZAR South Africa, Rand 
+ZMK Zambia, Kwacha 
+ZWL Zimbabwe, Zimbabwe Dollars 
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="AED"/>
+			<xs:enumeration value="AFN"/>
+			<xs:enumeration value="ALL"/>
+			<xs:enumeration value="AMD"/>
+			<xs:enumeration value="ANG"/>
+			<xs:enumeration value="AOA"/>
+			<xs:enumeration value="ARS"/>
+			<xs:enumeration value="AUD"/>
+			<xs:enumeration value="AWG"/>
+			<xs:enumeration value="AZN"/>
+			<xs:enumeration value="BAM"/>
+			<xs:enumeration value="BBD"/>
+			<xs:enumeration value="BDT"/>
+			<xs:enumeration value="BGN"/>
+			<xs:enumeration value="BHD"/>
+			<xs:enumeration value="BIF"/>
+			<xs:enumeration value="BMD"/>
+			<xs:enumeration value="BND"/>
+			<xs:enumeration value="BOB"/>
+			<xs:enumeration value="BOV"/>
+			<xs:enumeration value="BRL"/>
+			<xs:enumeration value="BSD"/>
+			<xs:enumeration value="BTN"/>
+			<xs:enumeration value="BWP"/>
+			<xs:enumeration value="BYR"/>
+			<xs:enumeration value="BZD"/>
+			<xs:enumeration value="CAD"/>
+			<xs:enumeration value="CDF"/>
+			<xs:enumeration value="CHF"/>
+			<xs:enumeration value="CLF"/>
+			<xs:enumeration value="CLP"/>
+			<xs:enumeration value="CNY"/>
+			<xs:enumeration value="COP"/>
+			<xs:enumeration value="COU"/>
+			<xs:enumeration value="CRC"/>
+			<xs:enumeration value="CUC"/>
+			<xs:enumeration value="CUP"/>
+			<xs:enumeration value="CVE"/>
+			<xs:enumeration value="CZK"/>
+			<xs:enumeration value="DJF"/>
+			<xs:enumeration value="DKK"/>
+			<xs:enumeration value="DOP"/>
+			<xs:enumeration value="DZD"/>
+			<xs:enumeration value="EEK"/>
+			<xs:enumeration value="EGP"/>
+			<xs:enumeration value="ERN"/>
+			<xs:enumeration value="ETB"/>
+			<xs:enumeration value="EUR"/>
+			<xs:enumeration value="FJD"/>
+			<xs:enumeration value="FKP"/>
+			<xs:enumeration value="GBP"/>
+			<xs:enumeration value="GEL"/>
+			<xs:enumeration value="GHS"/>
+			<xs:enumeration value="GIP"/>
+			<xs:enumeration value="GMD"/>
+			<xs:enumeration value="GNF"/>
+			<xs:enumeration value="GTQ"/>
+			<xs:enumeration value="GWP"/>
+			<xs:enumeration value="GYD"/>
+			<xs:enumeration value="HKD"/>
+			<xs:enumeration value="HNL"/>
+			<xs:enumeration value="HRK"/>
+			<xs:enumeration value="HTG"/>
+			<xs:enumeration value="HUF"/>
+			<xs:enumeration value="IDR"/>
+			<xs:enumeration value="ILS"/>
+			<xs:enumeration value="INR"/>
+			<xs:enumeration value="IQD"/>
+			<xs:enumeration value="IRR"/>
+			<xs:enumeration value="ISK"/>
+			<xs:enumeration value="JMD"/>
+			<xs:enumeration value="JOD"/>
+			<xs:enumeration value="JPY"/>
+			<xs:enumeration value="KES"/>
+			<xs:enumeration value="KGS"/>
+			<xs:enumeration value="KHR"/>
+			<xs:enumeration value="KMF"/>
+			<xs:enumeration value="KPW"/>
+			<xs:enumeration value="KRW"/>
+			<xs:enumeration value="KWD"/>
+			<xs:enumeration value="KYD"/>
+			<xs:enumeration value="KZT"/>
+			<xs:enumeration value="LAK"/>
+			<xs:enumeration value="LBP"/>
+			<xs:enumeration value="LKR"/>
+			<xs:enumeration value="LRD"/>
+			<xs:enumeration value="LSL"/>
+			<xs:enumeration value="LTL"/>
+			<xs:enumeration value="LVL"/>
+			<xs:enumeration value="LYD"/>
+			<xs:enumeration value="MAD"/>
+			<xs:enumeration value="MDL"/>
+			<xs:enumeration value="MGA"/>
+			<xs:enumeration value="MKD"/>
+			<xs:enumeration value="MMK"/>
+			<xs:enumeration value="MNT"/>
+			<xs:enumeration value="MOP"/>
+			<xs:enumeration value="MRO"/>
+			<xs:enumeration value="MUR"/>
+			<xs:enumeration value="MVR"/>
+			<xs:enumeration value="MWK"/>
+			<xs:enumeration value="MXN"/>
+			<xs:enumeration value="MXV"/>
+			<xs:enumeration value="MYR"/>
+			<xs:enumeration value="MZN"/>
+			<xs:enumeration value="NAD"/>
+			<xs:enumeration value="NGN"/>
+			<xs:enumeration value="NIO"/>
+			<xs:enumeration value="NOK"/>
+			<xs:enumeration value="NPR"/>
+			<xs:enumeration value="NZD"/>
+			<xs:enumeration value="OMR"/>
+			<xs:enumeration value="PAB"/>
+			<xs:enumeration value="PEN"/>
+			<xs:enumeration value="PGK"/>
+			<xs:enumeration value="PHP"/>
+			<xs:enumeration value="PKR"/>
+			<xs:enumeration value="PLN"/>
+			<xs:enumeration value="PYG"/>
+			<xs:enumeration value="QAR"/>
+			<xs:enumeration value="RON"/>
+			<xs:enumeration value="RSD"/>
+			<xs:enumeration value="RUB"/>
+			<xs:enumeration value="RWF"/>
+			<xs:enumeration value="SAR"/>
+			<xs:enumeration value="SBD"/>
+			<xs:enumeration value="SCR"/>
+			<xs:enumeration value="SDG"/>
+			<xs:enumeration value="SEK"/>
+			<xs:enumeration value="SGD"/>
+			<xs:enumeration value="SHP"/>
+			<xs:enumeration value="SLL"/>
+			<xs:enumeration value="SOS"/>
+			<xs:enumeration value="SRD"/>
+			<xs:enumeration value="STD"/>
+			<xs:enumeration value="SVC"/>
+			<xs:enumeration value="SYP"/>
+			<xs:enumeration value="SZL"/>
+			<xs:enumeration value="THB"/>
+			<xs:enumeration value="TJS"/>
+			<xs:enumeration value="TMT"/>
+			<xs:enumeration value="TND"/>
+			<xs:enumeration value="TOP"/>
+			<xs:enumeration value="TRY"/>
+			<xs:enumeration value="TTD"/>
+			<xs:enumeration value="TVD"/>
+			<xs:enumeration value="TWD"/>
+			<xs:enumeration value="TZS"/>
+			<xs:enumeration value="UAH"/>
+			<xs:enumeration value="UGX"/>
+			<xs:enumeration value="USD"/>
+			<xs:enumeration value="UYU"/>
+			<xs:enumeration value="UZS"/>
+			<xs:enumeration value="VEF"/>
+			<xs:enumeration value="VND"/>
+			<xs:enumeration value="VUV"/>
+			<xs:enumeration value="WST"/>
+			<xs:enumeration value="XAF"/>
+			<xs:enumeration value="XCD"/>
+			<xs:enumeration value="XOF"/>
+			<xs:enumeration value="XPD"/>
+			<xs:enumeration value="XPF"/>
+			<xs:enumeration value="YER"/>
+			<xs:enumeration value="ZAR"/>
+			<xs:enumeration value="ZMK"/>
+			<xs:enumeration value="ZWL"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="MSCurrCode_Type">
+		<xs:annotation>
+			<xs:documentation xml:lang="en">
+			The appropriate currency code from the ISO 4217 three-byte alpha version for the currency in which a monetary amount is expressed. Currency codes are limited to those of Member States.
+Valid entries are:
+BGN Bulgaria, Leva 
+CZK Czech Republic, Koruny 
+DKK Denmark, Kroner 
+EEK Estonia, Krooni 
+EUR Euro Member Countries, Euro 
+GBP United Kingdom, Pounds 
+HUF Hungary, Forint 
+LTL Lithuania, Litai 
+LVL Latvia, Lati 
+PLN Poland, Zlotych 
+RON Romania, New Lei 
+SEK Sweden, Kronor 
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="BGN"/>
+			<xs:enumeration value="CZK"/>
+			<xs:enumeration value="DKK"/>
+			<xs:enumeration value="EEK"/>
+			<xs:enumeration value="EUR"/>
+			<xs:enumeration value="GBP"/>
+			<xs:enumeration value="HUF"/>
+			<xs:enumeration value="LTL"/>
+			<xs:enumeration value="LVL"/>
+			<xs:enumeration value="PLN"/>
+			<xs:enumeration value="RON"/>
+			<xs:enumeration value="SEK"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="MSCountryCode_Type">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="AT"/>
+			<xs:enumeration value="BE"/>
+			<xs:enumeration value="BG"/>
+			<xs:enumeration value="CY"/>
+			<xs:enumeration value="CZ"/>
+			<xs:enumeration value="DK"/>
+			<xs:enumeration value="EE"/>
+			<xs:enumeration value="FI"/>
+			<xs:enumeration value="FR"/>
+			<xs:enumeration value="DE"/>
+			<xs:enumeration value="EL"/>
+			<xs:enumeration value="HU"/>
+			<xs:enumeration value="IE"/>
+			<xs:enumeration value="IT"/>
+			<xs:enumeration value="LV"/>
+			<xs:enumeration value="LT"/>
+			<xs:enumeration value="LU"/>
+			<xs:enumeration value="MT"/>
+			<xs:enumeration value="NL"/>
+			<xs:enumeration value="PL"/>
+			<xs:enumeration value="PT"/>
+			<xs:enumeration value="RO"/>
+			<xs:enumeration value="SK"/>
+			<xs:enumeration value="SI"/>
+			<xs:enumeration value="ES"/>
+			<xs:enumeration value="SE"/>
+			<xs:enumeration value="GB"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="Year_Type">
+		<xs:annotation>
+			<xs:documentation>Έτος</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:time"/>
+	</xs:simpleType>
+	<xs:complexType name="Header_Type">
+		<xs:annotation>
+			<xs:documentation>Επικεφαλίδα με στοιχεία υποβολής</xs:documentation>
+		</xs:annotation>
+		<xs:sequence>
+			<xs:element name="CompanyTIN" type="TIN_Type">
+				<xs:annotation>
+					<xs:documentation>ΑΦΜ εταιρείας που υποβάλλει</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="SubmitterTIN" type="TIN_Type" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>ΑΦΜ του χρήστη που υπέβαλε</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+      <xs:element name="eToken" type="xs:string" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation>Κλειδί πιστοποίησης επικοινωνίας</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+			<xs:element name="SubmissionDate" type="xs:dateTime">
+				<xs:annotation>
+					<xs:documentation>Ημερομηνία υποβολής</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="F_TAXISBRANCH" type="xs:int">
+				<xs:annotation>
+					<xs:documentation>Ο αριθμός υποκαταστήματος Taxis</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+      <xs:element name="F_MARK" type="LimitedString32_Type">
+        <xs:annotation>
+          <xs:documentation>myData MARK</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="Fuel_Type">
+		<xs:annotation>
+			<xs:documentation>Είδος καυσίμου</xs:documentation>
+		</xs:annotation>
+		<xs:sequence>
+			<xs:element name="Code">
+				<xs:annotation>
+					<xs:documentation>Κωδικός: 
+					0-Πετρέλαιο κίνησης
+					1-Πετρέλαιο θέρμανσης
+					2-Αμόλυβδη 95
+					3-Αμόλυβδη 100
+					4-Υγραεριο
+</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:int">
+						<xs:enumeration value="0"/>
+						<xs:enumeration value="1"/>
+						<xs:enumeration value="2"/>
+						<xs:enumeration value="3"/>
+						<xs:enumeration value="4"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="Description" type="xs:string" minOccurs="0">
+				<xs:annotation>
+					<xs:documentation>Περιγραφή</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="CarData_Type">
+		<xs:annotation>
+			<xs:documentation>Αριθμός κυκλοφορίας</xs:documentation>
+		</xs:annotation>
+		<xs:sequence>
+			<xs:element name="plateLetters">
+				<xs:annotation>
+					<xs:documentation>Αρ. κυκλοφορίας (Γράμματα)</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:maxLength value="3"/>
+						<xs:minLength value="2"/>
+						<xs:pattern value="[Α-Ω]*"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="plateNumber">
+				<xs:annotation>
+					<xs:documentation>Αρ. κυκλοφορίας (Αριθμός)</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:length value="4"/>
+						<xs:pattern value="[0-9]{4}"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:simpleType name="EMail_Type">
+		<xs:annotation>
+			<xs:documentation>An email address</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:token">
+			<xs:pattern value="([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">A regular expression for email addresses.
+						Matches something@someserver.com, firstname.lastname@mailserver.domain.com,
+						username-something@some-server.tld</xs:documentation>
+				</xs:annotation>
+			</xs:pattern>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="PhoneNumber_Type">
+		<xs:annotation>
+			<xs:documentation>A telephone number</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="(\+)?[0-9]{1,20}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="PermitStatus_Type">
+		<xs:annotation>
+			<xs:documentation>Ενδειξη καταστασης άδειας</xs:documentation>
+		</xs:annotation>
+		<xs:sequence>
+			<xs:element name="F_STATUS">
+				<xs:annotation>
+					<xs:documentation>0- αίτηση μεταβιβασης-μεταβολής
+													1- αναστολής
+													2- απορριψης</xs:documentation>
+				</xs:annotation>
+				<xs:simpleType>
+					<xs:restriction base="xs:int">
+						<xs:enumeration value="0"/>
+						<xs:enumeration value="1"/>
+						<xs:enumeration value="2"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="F_DATE" type="xs:date">
+				<xs:annotation>
+					<xs:documentation>Ημερομηνια</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element name="F_DATA" type="xs:string">
+				<xs:annotation>
+					<xs:documentation>στοιχεια αιτησης</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+  
+  
+  <xs:complexType name="Alert_Type">
+    <xs:annotation>
+      <xs:documentation>Τύπος συναγερμού</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="F_ALERTID">
+        <xs:annotation>
+          <xs:documentation>
+            1:Απώλεια επικοινωνείας με αντλία
+            2:Απώλεια επικοινωνίας με Δεξαμενή
+            3:Απώλεια καυσίμου (κλοπή ή διαρροή)
+            4:Λάθος δεδομένα μετρητών αντλίας μετά από επαναφορά.
+            5:Λάθος δεδομένα στάθμης καυσίμου δεξαμενής μετά από επαναφόρά.
+            6:Τερματισμός προγράμματος.
+            7:Αναφορά Λάθους Αντλίας.
+            8:Αναφορά συναγερμού Δεξαμενής (Υπέρβαση Ορίου υπερπλήρωσης, Στάθμη νερού πέραν του νομιμου ορίου κ.τ.λ.)
+            9:Μεταβολή στοιχείων Ογκομετρικού Πίνακα.
+           10:Απόκλιση ισοζυγίου. 
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:int">
+            <xs:enumeration value="1"/>
+            <xs:enumeration value="2"/>
+            <xs:enumeration value="3"/>
+            <xs:enumeration value="4"/>
+            <xs:enumeration value="5"/>
+            <xs:enumeration value="6"/>
+            <xs:enumeration value="7"/>
+            <xs:enumeration value="8"/>
+            <xs:enumeration value="9"/>
+            <xs:enumeration value="10"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="F_ALERTCODE" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>Κωδικός συναγερμού.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="F_DATE" type="xs:dateTime">
+        <xs:annotation>
+          <xs:documentation>Ημερομηνια/Ωρα συναγερμού.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="F_REASONING" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>Περιγραφή συναγερμού.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="F_DEVICE_LABEL" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>
+            H01:Απώλεια επικοινωνείας με αντλία
+            H02:Απώλεια επικοινωνίας με αισθητήρα δεξαμενής
+            D04:Μη εξουσιοδοτημένη Εισροή - Αύξηση Στάθμης Δεξαμενής
+            D16:Μη εξουσιοδοτημένη Εκροή – Μείωση Στάθμης Δεξαμενής
+            D01:Διαρροή καυσίμου σε δεξαμενή
+            D02:Λάθος δεδομένα μετρητών αντλίας μετά από επαναφορά
+            D03:Μη καταχώριση στοιχείων φορολογικού παραστατικού ΜΑΡΚ μετά την παραλαβή καυσίμου και την έκδοση του «δελτίου παραλαβής» από το ΣΕΕ
+            S01:Τερματισμός προγράμματος
+            D05:Υπέρβαση νόμιμου ορίου στάθμης νερού σε δεξαμενή
+            D06:Εξουσιοδοτημένη μεταβολή στοιχείων ογκομετρικού
+            D07:Απόκλιση ημερήσιου ισοζυγίου
+            D09:Υπέρβαση νόμιμου ορίου πλήρωσης δεξαμενής, πέραν του 95% της ονομαστικής χωρητικότητας
+            D10:Αυτόματη ανίχνευση Εισροής χωρίς ΜΑΡΚ.
+            D11:Λάθος ενδείξεις αισθητήρα
+            D12:Εντοπισμός στάθμης καυσίμου κάτω από το όριο μη αντλήσιμων
+            S02:Λάθος στοιχεία συναλλαγής αντλίας
+            S03:Λανθασμένες τιμές μη μηδενιζόμενων μετρητών αντλίας κατά το κλείσιμο ημέρας
+            D15:Χρόνος αδράνειας/ηρεμίας στάθμης δεξαμενής
+          </xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
