@@ -2,8 +2,7 @@
   <wsdl:types>
 	<xsd:import namespace="http://www.gsis.gr/ff/1.0" schemaLocation="common.xsd"/>
 	<xsd:import namespace="http://www.gsis.gr/ff/1.0" schemaLocation="fueltypes.xsd"/>
-    <xsd:schema elementFormDefault="qualified" targetNamespace="http://mygsi.eu/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ff="http://www.gsis.gr/ff/1.0">
-	  <xsd:element name="F_AM_DIKA" type="xsd:string" />
+    <xsd:schema elementFormDefault="qualified" targetNamespace="http://mygsi.eu/">
       <xsd:element name="SendReceipt">
         <xsd:complexType>
           <xsd:sequence>
@@ -77,7 +76,7 @@
               <xsd:complexType>
                 <xsd:sequence>
                   <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type" />
-                  <xsd:element ref="ff:F_AM_DIKA" minOccurs="0" maxOccurs="1"/>
+                  <xsd:element minOccurs="0" maxOccurs="1" name="F_AM_DIKA" type="xsd:string" />
                   <xsd:element minOccurs="0" maxOccurs="1" name="F_HMEROMINIA_R">
                     <xsd:complexType>
                       <xsd:sequence>

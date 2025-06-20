@@ -1,9 +1,8 @@
 <wsdl:definitions xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://mygsi.eu/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:http="http://schemas.microsoft.com/ws/06/2004/policy/http" xmlns:msc="http://schemas.microsoft.com/ws/2005/12/wsdl/contract" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsam="http://www.w3.org/2007/05/addressing/metadata" targetNamespace="http://mygsi.eu/" name="IPykServices" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
   <wsdl:types>
-	<xsd:import namespace="http://www.gsis.gr/ff/1.0" schemaLocation="common.xsd"/>
-	<xsd:import namespace="http://www.gsis.gr/ff/1.0" schemaLocation="fueltypes.xsd"/>
     <xsd:schema elementFormDefault="qualified" targetNamespace="http://mygsi.eu/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ff="http://www.gsis.gr/ff/1.0">
-	  <xsd:element name="F_AM_DIKA" type="xsd:string" />
+      <xsd:import namespace="http://www.gsis.gr/ff/1.0" schemaLocation="common.txt"/>
+      <xsd:import namespace="http://www.gsis.gr/ff/1.0" schemaLocation="fueltypes.txt"/>
       <xsd:element name="SendReceipt">
         <xsd:complexType>
           <xsd:sequence>
@@ -77,7 +76,7 @@
               <xsd:complexType>
                 <xsd:sequence>
                   <xsd:element minOccurs="0" maxOccurs="1" name="Header" type="tns:Header_Type" />
-                  <xsd:element ref="ff:F_AM_DIKA" minOccurs="0" maxOccurs="1"/>
+                  <xsd:element name="F_AM_DIKA" minOccurs="0" maxOccurs="1" type="xsd:string"/>
                   <xsd:element minOccurs="0" maxOccurs="1" name="F_HMEROMINIA_R">
                     <xsd:complexType>
                       <xsd:sequence>
@@ -801,7 +800,7 @@
   </wsdl:binding>
   <wsdl:service name="IPykServices">
     <wsdl:port name="BasicHttpBinding_IPykServices_soap" binding="tns:BasicHttpBinding_IPykServices_soap">
-      <soap:address location="http://ca-pykserver.thankfuldune-a390147c.westeurope.azurecontainerapps.io:443/achilleas-fuelflow.asmx" />
+      <soap:address location="https://test-pratiria-ws.aade.gr/achilleas-fuelflow.asmx?wsdl" />
     </wsdl:port>
   </wsdl:service>
 </wsdl:definitions>

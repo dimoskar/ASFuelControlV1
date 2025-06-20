@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- edited with XMLSpy v2006 sp1 U (http://www.altova.com) by Administrator (gsis) -->
-<xsd:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.gsis.gr/ff/1.0" xmlns="http://www.gsis.gr/ff/1.0" elementFormDefault="qualified">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
 	<xs:simpleType name="TIN_Type">
 		<xs:annotation>
 			<xs:documentation>
