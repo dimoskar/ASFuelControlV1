@@ -1208,14 +1208,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\2024\ASFuelControl\ASFuelControl.SmatecTest\Samtec.WebService\Samtec.WebService.csproj">
-      <Project>{d4ff3343-4238-4652-a6ea-01ac60f3d0c6}</Project>
-      <Name>Samtec.WebService</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Exedron.Invoicing\Exedron.Invoicing.csproj">
-      <Project>{21a1350a-a84e-4601-be6f-22abcfa3517e}</Project>
-      <Name>Exedron.Invoicing</Name>
-    </ProjectReference>
     <ProjectReference Include="..\ASFuelControl.AK6\ASFuelControl.AK6.csproj">
       <Project>{2AA7C3B9-0C06-481C-9476-B05E901161E5}</Project>
       <Name>ASFuelControl.AK6</Name>
@@ -1412,6 +1404,10 @@
       <Project>{4c9b2ba9-29c0-4c3e-833c-dd3a7cc5ad53}</Project>
       <Name>ASFuelControl.TLS4B_Lan</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Unimep\ASFuelControl.Unimep.csproj">
+      <Project>{478791c3-8e21-4834-aabc-e291942caccf}</Project>
+      <Name>ASFuelControl.Unimep</Name>
+    </ProjectReference>
     <ProjectReference Include="..\ASFuelControl.VeederRootTLSIB\ASFuelControl.VeederRootTLSIB.csproj">
       <Project>{35097c38-30ea-4222-b525-57f1ff36b024}</Project>
       <Name>ASFuelControl.VeederRootTLSIB</Name>
@@ -1444,9 +1440,17 @@
       <Project>{29DEF4D2-A8EE-421C-ABD8-D8433932015F}</Project>
       <Name>ASFuelControl.WorkFlow</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Exedron.Invoicing\Exedron.Invoicing.csproj">
+      <Project>{21a1350a-a84e-4601-be6f-22abcfa3517e}</Project>
+      <Name>Exedron.Invoicing</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Exedron.MyData\Exedron.MyData.csproj">
       <Project>{3cf088d4-d549-4b77-b923-4f9420bfb2d2}</Project>
       <Name>Exedron.MyData</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Samtec.WebService\Samtec.WebService.csproj">
+      <Project>{d4ff3343-4238-4652-a6ea-01ac60f3d0c6}</Project>
+      <Name>Samtec.WebService</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
@@ -1623,6 +1627,7 @@
     <Content Include="DBScripts\UpdateDatabase50.sql" />
     <Content Include="DBScripts\UpdateDatabase51.sql" />
     <Content Include="DBScripts\UpdateDatabase52.sql" />
+    <Content Include="DBScripts\UpdateDatabase53.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />

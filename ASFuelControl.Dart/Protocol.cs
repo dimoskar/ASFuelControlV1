@@ -357,6 +357,17 @@ namespace ASFuelControl.Dart
                 }
             }
         }
+        public void LoggerExtra(string txt)
+        {
+            string fileName = "dartextra_" + this.serialPort.PortName + ".txt";
+            if (File.Exists(fileName))
+            {
+                using (StreamWriter writer = new StreamWriter(fileName, true, Encoding.UTF8))
+                {
+                    writer.Write(DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss.fff") + " \t" + txt + "  " + "\r\n" /*+ Error_Recieve.ToString() + "\r\n\r\n"*/);
+                }
+            }
+        }
         #endregion
 
         #region Methods
@@ -436,14 +447,13 @@ namespace ASFuelControl.Dart
                 
 
                 decimal VolumeTotalizer = decimal.Parse(volBuf.Replace("-", null)) ;
-                
-                //fp.Nozzles[0].NeedTotalizer = false;
 
-               if(VolumeTotalizer == 0)
+                //fp.Nozzles[0].NeedTotalizer = false;
+                var prevTotals = nz.TotalVolume;
+                if (VolumeTotalizer == 0)
                     nz.TotalVolume = 0.01M;
-               else 
+                else
                     nz.TotalVolume = VolumeTotalizer;
-               
 
                 ExecuteSlave(Commands.ACK(nz.ParentFuelPoint.Address), nz.ParentFuelPoint);
                 numArray = new byte[this.serialPort.BytesToRead];
@@ -452,9 +462,17 @@ namespace ASFuelControl.Dart
 
                 nz.ParentFuelPoint.Initialized = true;
                 nz.QueryTotals = false;
+
+                if (prevTotals == nz.TotalVolume)
+                {
+                    LoggerExtra("TOTALS ARE THE SAME");
+                    LoggerExtra(string.Format("DISPENCED AMOUNT:{1}, DISPENSED VOLUME: {0}", nz.ParentFuelPoint.DispensedVolume, nz.ParentFuelPoint.DispensedAmount));
+                    //return;
+                }
+
+                this.TotalsRecieved(this, new Common.TotalsEventArgs(nz.ParentFuelPoint, nz.Index, nz.TotalVolume, nz.TotalPrice));
                 
-                    this.TotalsRecieved(this, new Common.TotalsEventArgs(nz.ParentFuelPoint, nz.Index, nz.TotalVolume, nz.TotalPrice));
-                
+
             }
             catch (Exception ex)
             {

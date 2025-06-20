@@ -19,10 +19,10 @@ namespace ASFuelControl.Windows
         public static Guid CurrentUserId { set; get; }
         public static string CurrentUserName { set; get; }
         public static Common.Enumerators.ApplicationUserLevelEnum CurrentUserLevel { set; get; }
-        public static int CurrentDBVersion = 52;
+        public static int CurrentDBVersion = 53;
         private static int version = 1;
         private static int subVersion = 2;
-        private static int revision = 90;
+        private static int revision = 93;
         /// <summary>
         /// Static flag. Is setted to true when an Administrator is connected to the Console. 
         /// </summary>
@@ -54,10 +54,7 @@ namespace ASFuelControl.Windows
         {
             get
             {
-                eTokenLib.eTokenLib lib = new eTokenLib.eTokenLib();
-                string crc =  lib.GetDirFileHash(System.Environment.CurrentDirectory);
-                int pos = crc.IndexOf("|");
-                return crc.Substring(0, pos);
+                return ASFuelControl.Communication.SendMethods.ApplicationCRC;
             }
         }
 

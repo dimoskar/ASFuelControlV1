@@ -521,8 +521,8 @@ namespace ASFuelControl.Windows.Threads
             foreach (Data.CommunicationController controller in this.database.CommunicationControllers)
             {
                 Common.IController controllerInterFace = this.CreateControllerInterface(controller);
-                //if (controllerInterFace == null)
-                //    continue;
+                if (controllerInterFace == null)
+                    continue;
                 controllerInterFace.EuromatIp = controller.EuromatIpAddress;
                 controllerInterFace.EuromatPort = controller.EuromatPort.HasValue ? controller.EuromatPort.Value : 0;
 
