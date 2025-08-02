@@ -78,7 +78,7 @@ namespace ASFuelControl.Communication
                 if (!Simulation)
                 {
                     client.Open();
-                    change.Header.eToken = etoken.GetOTP();
+                    change.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     change.Header.SubmissionDate = header.SubmissionDate;
                     string returnStr = client.PriceChange(change);
@@ -115,7 +115,7 @@ namespace ASFuelControl.Communication
                 if (!Simulation)
                 {
                     client.Open();
-                    alert.Header.eToken = etoken.GetOTP();
+                    alert.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     alert.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendAlert(alert);
@@ -157,7 +157,7 @@ namespace ASFuelControl.Communication
                 if (!Simulation)
                 {
                     client.Open();
-                    balance.Header.eToken = etoken.GetOTP();
+                    balance.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     balance.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendBalance(balance);
@@ -193,7 +193,7 @@ namespace ASFuelControl.Communication
                 if (!Simulation)
                 {
                     client.Open();
-                    deliveryNote.Header.eToken = etoken.GetOTP();
+                    deliveryNote.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     deliveryNote.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendDelivery(deliveryNote);
@@ -223,7 +223,7 @@ namespace ASFuelControl.Communication
                 if (!Simulation)
                 {
                     client.Open();
-                    literCheck.Header.eToken = etoken.GetOTP();
+                    literCheck.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     literCheck.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendLiterCheck(literCheck);
@@ -260,7 +260,7 @@ namespace ASFuelControl.Communication
                 if (!Simulation)
                 {
                     client.Open();
-                    reciept.Header.eToken = etoken.GetOTP();
+                    reciept.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     reciept.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendReceipt(reciept);
@@ -300,7 +300,7 @@ namespace ASFuelControl.Communication
                 if (!Simulation)
                 {
                     client.Open();
-                    tankCheck.Header.eToken = etoken.GetOTP();
+                    tankCheck.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     tankCheck.Header.SubmissionDate = header.SubmissionDate;
                     string ret = client.SendTankCheck(tankCheck);
