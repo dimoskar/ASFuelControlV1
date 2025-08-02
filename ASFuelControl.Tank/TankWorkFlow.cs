@@ -715,20 +715,28 @@ namespace ASFuelControl.Tank
                     this.Tank.LastCalculatedStart = this.Tank.CurrentFuelLevel;
                 if (this.Process.PreviousState == this.waitingState)
                 {
-                    if (this.FillingCompleted != null)
+                    try
                     {
-                        if (this.CurrentFillingData.StartValues == null)
+                        if (this.FillingCompleted != null)
                         {
-                            this.CurrentFillingData.StartValues = new Common.TankValues() { FuelHeight = this.Tank.FillingStartTankLevel };
+                            if (this.CurrentFillingData.StartValues == null)
+                            {
+                                this.CurrentFillingData.StartValues = new Common.TankValues() { FuelHeight = this.Tank.FillingStartTankLevel };
+                            }
+                            this.CurrentFillingData.EndValues = this.Tank.TankValues;
+                            this.FillingCompleted(this, new TankFillingEventArgs(this.CurrentFillingData));
                         }
-                        this.CurrentFillingData.EndValues = this.Tank.TankValues;
-                        this.FillingCompleted(this, new TankFillingEventArgs(this.CurrentFillingData));
+                        this.CurrentFillingData = null;
+                        this.Tank.InvoiceTypeId = Guid.Empty;
+                        this.Tank.VehicleId = Guid.Empty;
+                        this.Tank.FillingFuelTypeId = Guid.Empty;
+                        this.Tank.InvoiceLineId = Guid.Empty;
                     }
-                    this.CurrentFillingData = null;
-                    this.Tank.InvoiceTypeId = Guid.Empty;
-                    this.Tank.VehicleId = Guid.Empty;
-                    this.Tank.FillingFuelTypeId = Guid.Empty;
-                    this.Tank.InvoiceLineId = Guid.Empty;
+                    catch(Exception ex)
+                    {
+                        Common.Logger.Instance.Error(ex);
+                        Common.Logger.Instance.Error(ex.StackTrace);
+                    }
                 }
                 this.Tank.WaitingStarted = DateTime.MinValue;
                 this.Tank.WaitingShouldEnd = DateTime.MinValue;
