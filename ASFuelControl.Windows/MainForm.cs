@@ -626,6 +626,15 @@ namespace ASFuelControl.Windows
             if (this.controller == null)
                 return;
 
+            if(controller.StationLocked)
+            {
+                ShowLockPanel();
+            }
+            else
+            {
+                HideLockPanel();
+            }
+
             this.clockLabel.Text = DateTime.Now.ToString("HH:mm:ss");
             secondIndex++;
             tankAlarmCheck++;
@@ -713,6 +722,45 @@ namespace ASFuelControl.Windows
                     this.footerPanel.Visible = true;
                 else
                     this.footerPanel.Visible = false;
+            }
+        }
+        private void ShowLockPanel()
+        {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new MethodInvoker
+                    (
+                        delegate
+                        {
+                            if (Data.Implementation.OptionHandler.Instance.GetIntOption("ApplicationLocked", 777) != 777)
+                                return;
+                            if (!this.lockPanel.Visible)
+                            {
+                                this.label3.Text = "Εκδοση Ισοζυγίου. Το πρατήριο είναι κλειδωμενο.";
+                                this.lockPanel.Visible = true;
+                            }
+                        }
+                    ));
+            }
+        }
+
+        private void HideLockPanel()
+        {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new MethodInvoker
+                    (
+                        delegate
+                        {
+                            if (Data.Implementation.OptionHandler.Instance.GetIntOption("ApplicationLocked", 777) != 777)
+                                return;
+                            if (this.lockPanel.Visible)
+                            {
+                                this.lockPanel.Visible = false;
+                                this.label3.Text = "Παρακαλώ επικοινωνήστε με τον Εγκαταστάτη";
+                            }
+                        }
+                    ));
             }
         }
 

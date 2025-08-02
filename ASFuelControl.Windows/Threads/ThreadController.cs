@@ -370,6 +370,7 @@ namespace ASFuelControl.Windows.Threads
                 opt.CloseServer();
         }
 
+        public bool StationLocked { set; get; }
         List<VirtualDispenser> lockedDispensers = new List<VirtualDispenser>();
         public void LockDispensers()
         {
@@ -377,20 +378,39 @@ namespace ASFuelControl.Windows.Threads
             lockedDispensers.AddRange(dispensers.Where(d => d.DeviceLocked).ToArray());
             foreach (var dispenser in dispensers)
             {
+                if (dispenser.DeviceLocked)
+                    continue;
                 dispenser.DeviceLocked = true;
+                Common.Logger.Instance.Debug(string.Format("Dispenser {0} Locked", dispenser.DispenserId));
             }
+            StationLocked = true;
         }
-
+        public bool CanCreateBalance()
+        {
+            var dispensers = GetDispensers();
+            foreach (var disp in dispensers)
+            {
+                if (disp.Status != Common.Enumerators.FuelPointStatusEnum.Idle && 
+                    disp.Status != Common.Enumerators.FuelPointStatusEnum.Offline && 
+                    disp.Status != Common.Enumerators.FuelPointStatusEnum.Close)
+                    return false;
+            }
+            return true;
+        }
         public void UnlockDispensers()
         {
             var dispensers = this.GetDispensers();
+            //if (lockedDispensers.Count == 0)
+            //    return;
             foreach (var dispenser in dispensers)
             {
                 if (lockedDispensers.Contains(dispenser))
                     continue;
                 dispenser.DeviceLocked = false;
+                Common.Logger.Instance.Debug(string.Format("Dispenser {0} Unlocked", dispenser.DispenserId));
             }
             lockedDispensers.Clear();
+            StationLocked = false;
         }
 
         /// <summary>
