@@ -621,6 +621,16 @@ namespace ASFuelControl.Windows.Threads
                         break;
                     }
                 }
+
+                if (currentBalanceOK && Program.ApplicationMainForm.ThreadControllerInstance.StationLocked)
+                {
+                    Program.ApplicationMainForm.Invoke(new Action(() =>
+                    {
+                        Program.ApplicationMainForm.ThreadControllerInstance.UnlockDispensers();
+                        Common.Logger.Instance.Debug(string.Format("Dispensers Unlocked"));
+                    }));
+                }
+
                 if (balanceToCreate == false)
                     return null;
             }
@@ -638,43 +648,39 @@ namespace ASFuelControl.Windows.Threads
                     Program.ApplicationMainForm.ThreadControllerInstance.LockDispensers();
                     Common.Logger.Instance.Debug(string.Format("Dispensers Locked"));
                 }));
-            }
-
-            var balance = Data.Balance.CreateBalance(dtStart, dtEnd, AlertChecker.Instance);
-            Common.Logger.Instance.Debug(string.Format("Balance Ready"));
-            if (dtStart.Date == DateTime.Today)
-            {
-                if (!currentBalanceOK)
+                while (!Program.ApplicationMainForm.ThreadControllerInstance.CanCreateBalance())
                 {
-                    Program.ApplicationMainForm.Invoke(new Action(() =>
-                    {
-                        Program.ApplicationMainForm.ThreadControllerInstance.UnlockDispensers();
-                        Common.Logger.Instance.Debug(string.Format("Dispensers Unlocked"));
-                    }));
+                    System.Threading.Thread.Sleep(500);
                 }
             }
+            //if(bt > 5)
+            //    System.Threading.Thread.Sleep(300000);
+            var balance = Data.Balance.CreateBalance(dtStart, dtEnd, AlertChecker.Instance);
+            Common.Logger.Instance.Debug(string.Format("Balance Ready"));
+            
+            
             return balance;
 
         }
-
-        private void LockDispensers()
-        {
-            var dtStart = DateTime.Now;
             
-            Program.ApplicationMainForm.Invoke(new Action(() =>
-            {
-                Program.ApplicationMainForm.ThreadControllerInstance.LockDispensers();
-                Common.Logger.Instance.Debug(string.Format("Dispensers Locked"));
-                while (true)
-                {
-                    if (dtStart.Date < DateTime.Today)
-                        break;
-                    System.Threading.Thread.Sleep(250);
-                }
-                Program.ApplicationMainForm.Invoke(new Action(() => Program.ApplicationMainForm.ThreadControllerInstance.UnlockDispensers()));
-                Common.Logger.Instance.Debug(string.Format("Dispensers Unlocked"));
-            }));
-        }
+        //private void LockDispensers()
+        //{
+        //    var dtStart = DateTime.Now;
+            
+        //    Program.ApplicationMainForm.Invoke(new Action(() =>
+        //    {
+        //        Program.ApplicationMainForm.ThreadControllerInstance.LockDispensers();
+        //        Common.Logger.Instance.Debug(string.Format("Dispensers Locked"));
+        //        while (true)
+        //        {
+        //            if (dtStart.Date < DateTime.Today)
+        //                break;
+        //            System.Threading.Thread.Sleep(250);
+        //        }
+        //        Program.ApplicationMainForm.Invoke(new Action(() => Program.ApplicationMainForm.ThreadControllerInstance.UnlockDispensers()));
+        //        Common.Logger.Instance.Debug(string.Format("Dispensers Unlocked"));
+        //    }));
+        //}
 
         /// <summary>
         /// Helper class to store Group Sums
@@ -1229,6 +1235,7 @@ namespace ASFuelControl.Windows.Threads
                     System.Threading.Thread.Sleep(10000);
 
             }
+            Common.Logger.Instance.Debug("SendAlertsThread::ThreadRun, Thread Stopped");
             using (Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
                 this.CheckForSend(database);
