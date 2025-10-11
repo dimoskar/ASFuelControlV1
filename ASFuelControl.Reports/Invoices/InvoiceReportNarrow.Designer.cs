@@ -108,10 +108,10 @@ namespace ASFuelControl.Reports.Invoices
             // textBox12
             // 
             this.textBox12.CanGrow = true;
-            this.textBox12.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(6.3002023696899414D), Telerik.Reporting.Drawing.Unit.Cm(5.3619345408151275E-07D));
+            this.textBox12.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(6.4000000953674316D), Telerik.Reporting.Drawing.Unit.Cm(5.3619345408151275E-07D));
             this.textBox12.Name = "textBox12";
-            this.textBox12.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.013791561126709D), Telerik.Reporting.Drawing.Unit.Cm(0.2999994158744812D));
-            this.textBox12.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(7.5D);
+            this.textBox12.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(0.91399359703063965D), Telerik.Reporting.Drawing.Unit.Cm(0.2999994158744812D));
+            this.textBox12.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
             this.textBox12.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Center;
             this.textBox12.StyleName = "Caption";
             this.textBox12.Value = "÷–¡";
@@ -122,7 +122,7 @@ namespace ASFuelControl.Reports.Invoices
             this.volumeCaptionTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(2.9004056453704834D), Telerik.Reporting.Drawing.Unit.Cm(5.3619345408151275E-07D));
             this.volumeCaptionTextBox.Name = "volumeCaptionTextBox";
             this.volumeCaptionTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.2000002861022949D), Telerik.Reporting.Drawing.Unit.Cm(0.29999932646751404D));
-            this.volumeCaptionTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(7.5D);
+            this.volumeCaptionTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
             this.volumeCaptionTextBox.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Center;
             this.volumeCaptionTextBox.StyleName = "Caption";
             this.volumeCaptionTextBox.Value = "–œ”œ‘.";
@@ -132,8 +132,8 @@ namespace ASFuelControl.Reports.Invoices
             this.unitPriceCaptionTextBox.CanGrow = true;
             this.unitPriceCaptionTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(4.1006064414978027D), Telerik.Reporting.Drawing.Unit.Cm(5.3619345408151275E-07D));
             this.unitPriceCaptionTextBox.Name = "unitPriceCaptionTextBox";
-            this.unitPriceCaptionTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(0.99979954957962036D), Telerik.Reporting.Drawing.Unit.Cm(0.2999994158744812D));
-            this.unitPriceCaptionTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(7.5D);
+            this.unitPriceCaptionTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.0993939638137817D), Telerik.Reporting.Drawing.Unit.Cm(0.2999994158744812D));
+            this.unitPriceCaptionTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
             this.unitPriceCaptionTextBox.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Center;
             this.unitPriceCaptionTextBox.StyleName = "Caption";
             this.unitPriceCaptionTextBox.Value = "‘…Ã«";
@@ -141,10 +141,10 @@ namespace ASFuelControl.Reports.Invoices
             // totalAmountCaptionTextBox
             // 
             this.totalAmountCaptionTextBox.CanGrow = true;
-            this.totalAmountCaptionTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.1006059646606445D), Telerik.Reporting.Drawing.Unit.Cm(5.3619345408151275E-07D));
+            this.totalAmountCaptionTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.200404167175293D), Telerik.Reporting.Drawing.Unit.Cm(5.3619345408151275E-07D));
             this.totalAmountCaptionTextBox.Name = "totalAmountCaptionTextBox";
             this.totalAmountCaptionTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.1993961334228516D), Telerik.Reporting.Drawing.Unit.Cm(0.2999994158744812D));
-            this.totalAmountCaptionTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(7.5D);
+            this.totalAmountCaptionTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
             this.totalAmountCaptionTextBox.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Center;
             this.totalAmountCaptionTextBox.StyleName = "Caption";
             this.totalAmountCaptionTextBox.Value = "¡Œ…¡";
@@ -155,7 +155,7 @@ namespace ASFuelControl.Reports.Invoices
             this.nameCaptionTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.30000004172325134D), Telerik.Reporting.Drawing.Unit.Cm(5.3619345408151275E-07D));
             this.nameCaptionTextBox.Name = "nameCaptionTextBox";
             this.nameCaptionTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(2.5995974540710449D), Telerik.Reporting.Drawing.Unit.Cm(0.2999994158744812D));
-            this.nameCaptionTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(7.5D);
+            this.nameCaptionTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
             this.nameCaptionTextBox.StyleName = "Caption";
             this.nameCaptionTextBox.Value = "≈…ƒœ”";
             // 
@@ -189,7 +189,7 @@ namespace ASFuelControl.Reports.Invoices
             this.textBox17.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.6707912683486939D), Telerik.Reporting.Drawing.Unit.Cm(0.39979994297027588D));
             this.textBox17.Style.Font.Bold = false;
             this.textBox17.Style.Font.Name = "Bahnschrift SemiBold Condensed";
-            this.textBox17.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
+            this.textBox17.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(11D);
             this.textBox17.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Right;
             this.textBox17.Style.VerticalAlign = Telerik.Reporting.Drawing.VerticalAlign.Middle;
             this.textBox17.StyleName = "Data";
@@ -232,9 +232,9 @@ namespace ASFuelControl.Reports.Invoices
             // descriptionDataTextBox
             // 
             this.descriptionDataTextBox.CanGrow = true;
-            this.descriptionDataTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.29999995231628418D), Telerik.Reporting.Drawing.Unit.Cm(2.1006004810333252D));
+            this.descriptionDataTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.2999994158744812D), Telerik.Reporting.Drawing.Unit.Cm(2.1006004810333252D));
             this.descriptionDataTextBox.Name = "descriptionDataTextBox";
-            this.descriptionDataTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(4.7569961547851562D), Telerik.Reporting.Drawing.Unit.Cm(0.599399209022522D));
+            this.descriptionDataTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(4.71399450302124D), Telerik.Reporting.Drawing.Unit.Cm(0.599399209022522D));
             this.descriptionDataTextBox.Style.Font.Bold = false;
             this.descriptionDataTextBox.Style.Font.Name = "Bahnschrift SemiBold Condensed";
             this.descriptionDataTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
@@ -426,7 +426,7 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBox20.CanGrow = true;
             this.textBox20.Format = "{0:dd/MM/yyyy HH:mm:ss}";
-            this.textBox20.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.1006059646606445D), Telerik.Reporting.Drawing.Unit.Cm(2.1938409805297852D));
+            this.textBox20.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.1006054878234863D), Telerik.Reporting.Drawing.Unit.Cm(2.1938407421112061D));
             this.textBox20.Name = "textBox20";
             this.textBox20.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(0.49939417839050293D), Telerik.Reporting.Drawing.Unit.Cm(0.39979994297027588D));
             this.textBox20.Style.Font.Bold = false;
@@ -454,8 +454,8 @@ namespace ASFuelControl.Reports.Invoices
             this.unitPriceDataTextBox.Format = "{0:N3}";
             this.unitPriceDataTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(4.1006064414978027D), Telerik.Reporting.Drawing.Unit.Cm(0.00010012308484874666D));
             this.unitPriceDataTextBox.Name = "unitPriceDataTextBox";
-            this.unitPriceDataTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(0.99979954957962036D), Telerik.Reporting.Drawing.Unit.Cm(0.35832449793815613D));
-            this.unitPriceDataTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
+            this.unitPriceDataTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.0995979309082031D), Telerik.Reporting.Drawing.Unit.Cm(0.35832449793815613D));
+            this.unitPriceDataTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(10D);
             this.unitPriceDataTextBox.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Right;
             this.unitPriceDataTextBox.StyleName = "Data";
             this.unitPriceDataTextBox.Value = "=Fields.UnitPrice";
@@ -464,10 +464,10 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.totalAmountDataTextBox.CanGrow = true;
             this.totalAmountDataTextBox.Format = "{0:N2}";
-            this.totalAmountDataTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.1006059646606445D), Telerik.Reporting.Drawing.Unit.Cm(0.00010012308484874666D));
+            this.totalAmountDataTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.2004036903381348D), Telerik.Reporting.Drawing.Unit.Cm(0.00010012308484874666D));
             this.totalAmountDataTextBox.Name = "totalAmountDataTextBox";
             this.totalAmountDataTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.1993961334228516D), Telerik.Reporting.Drawing.Unit.Cm(0.35832449793815613D));
-            this.totalAmountDataTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
+            this.totalAmountDataTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(10D);
             this.totalAmountDataTextBox.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Right;
             this.totalAmountDataTextBox.StyleName = "Data";
             this.totalAmountDataTextBox.Value = "=Fields.NettoAmount";
@@ -479,7 +479,7 @@ namespace ASFuelControl.Reports.Invoices
             this.volumeDataTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(2.9004056453704834D), Telerik.Reporting.Drawing.Unit.Cm(0.00010012308484874666D));
             this.volumeDataTextBox.Name = "volumeDataTextBox";
             this.volumeDataTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.2000002861022949D), Telerik.Reporting.Drawing.Unit.Cm(0.35832449793815613D));
-            this.volumeDataTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
+            this.volumeDataTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(10D);
             this.volumeDataTextBox.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Right;
             this.volumeDataTextBox.StyleName = "Data";
             this.volumeDataTextBox.Value = "=Fields.Volume";
@@ -490,7 +490,7 @@ namespace ASFuelControl.Reports.Invoices
             this.nameDataTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.30000004172325134D), Telerik.Reporting.Drawing.Unit.Cm(0.00010012308484874666D));
             this.nameDataTextBox.Name = "nameDataTextBox";
             this.nameDataTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(2.5995972156524658D), Telerik.Reporting.Drawing.Unit.Cm(0.59990006685256958D));
-            this.nameDataTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
+            this.nameDataTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(10D);
             this.nameDataTextBox.StyleName = "Data";
             this.nameDataTextBox.TextWrap = true;
             this.nameDataTextBox.Value = "=Fields.Name";
@@ -499,10 +499,10 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBoxVATPercentage.CanGrow = true;
             this.textBoxVATPercentage.Format = "{0:N2}%";
-            this.textBoxVATPercentage.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(6.3002023696899414D), Telerik.Reporting.Drawing.Unit.Cm(0.00010012308484874666D));
+            this.textBoxVATPercentage.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(6.4000000953674316D), Telerik.Reporting.Drawing.Unit.Cm(0.00010012308484874666D));
             this.textBoxVATPercentage.Name = "textBoxVATPercentage";
-            this.textBoxVATPercentage.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.013791561126709D), Telerik.Reporting.Drawing.Unit.Cm(0.35832449793815613D));
-            this.textBoxVATPercentage.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
+            this.textBoxVATPercentage.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(0.91399359703063965D), Telerik.Reporting.Drawing.Unit.Cm(0.35832449793815613D));
+            this.textBoxVATPercentage.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
             this.textBoxVATPercentage.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Right;
             this.textBoxVATPercentage.StyleName = "Data";
             this.textBoxVATPercentage.Value = "=Fields.VATPercentage";
@@ -541,7 +541,7 @@ namespace ASFuelControl.Reports.Invoices
             this.textBox4.CanGrow = true;
             this.textBox4.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.30000004172325134D), Telerik.Reporting.Drawing.Unit.Cm(0.20000070333480835D));
             this.textBox4.Name = "textBox4";
-            this.textBox4.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(6.713587760925293D), Telerik.Reporting.Drawing.Unit.Cm(0.59980064630508423D));
+            this.textBox4.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(6.713587760925293D), Telerik.Reporting.Drawing.Unit.Cm(0.4677070677280426D));
             this.textBox4.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
             this.textBox4.StyleName = "Data";
             this.textBox4.Value = "¡ÌÙÎÈ·:{Fields.OfficialPumpNumber} ¡ÍÒÔÛ˘ÎﬁÌÈÔ:{Fields.OfficialNozzleNumber}";
@@ -550,11 +550,11 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBox10.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBox10.CanGrow = true;
-            this.textBox10.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(1.8139941692352295D), Telerik.Reporting.Drawing.Unit.Cm(1.8716323375701904D));
+            this.textBox10.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(1.8139941692352295D), Telerik.Reporting.Drawing.Unit.Cm(2.1677083969116211D));
             this.textBox10.Name = "textBox10";
-            this.textBox10.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(2.899799108505249D), Telerik.Reporting.Drawing.Unit.Cm(0.26770743727684021D));
+            this.textBox10.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(2.899799108505249D), Telerik.Reporting.Drawing.Unit.Cm(0.34909242391586304D));
             this.textBox10.Style.Font.Bold = false;
-            this.textBox10.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
+            this.textBox10.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
             this.textBox10.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Left;
             this.textBox10.StyleName = "Caption";
             this.textBox10.Value = "”˝ÌÔÎÔ ¡¸‰ÂÈÓÁÚ : ";
@@ -563,11 +563,11 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBox9.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBox9.CanGrow = true;
-            this.textBox9.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(1.8139941692352295D), Telerik.Reporting.Drawing.Unit.Cm(0.80000203847885132D));
+            this.textBox9.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(1.8139941692352295D), Telerik.Reporting.Drawing.Unit.Cm(0.6679081916809082D));
             this.textBox9.Name = "textBox9";
-            this.textBox9.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(2.4667580127716064D), Telerik.Reporting.Drawing.Unit.Cm(0.26770743727684021D));
+            this.textBox9.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(2.4667580127716064D), Telerik.Reporting.Drawing.Unit.Cm(0.34909242391586304D));
             this.textBox9.Style.Font.Bold = false;
-            this.textBox9.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
+            this.textBox9.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
             this.textBox9.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Left;
             this.textBox9.StyleName = "Caption";
             this.textBox9.Value = "”˝ÌÔÎÔ –ÔÛÔÙﬁÙ˘Ì :";
@@ -577,11 +577,11 @@ namespace ASFuelControl.Reports.Invoices
             this.textBox6.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBox6.CanGrow = true;
             this.textBox6.Format = "{0:N2}";
-            this.textBox6.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.6588177680969238D), Telerik.Reporting.Drawing.Unit.Cm(1.8716323375701904D));
+            this.textBox6.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.2999987602233887D), Telerik.Reporting.Drawing.Unit.Cm(2.1677083969116211D));
             this.textBox6.Name = "textBox6";
-            this.textBox6.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.5118676424026489D), Telerik.Reporting.Drawing.Unit.Cm(0.26770743727684021D));
+            this.textBox6.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.8706866502761841D), Telerik.Reporting.Drawing.Unit.Cm(0.34909242391586304D));
             this.textBox6.Style.Font.Bold = false;
-            this.textBox6.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
+            this.textBox6.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(10D);
             this.textBox6.Style.Padding.Right = Telerik.Reporting.Drawing.Unit.Cm(0.10000000149011612D);
             this.textBox6.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Right;
             this.textBox6.StyleName = "Data";
@@ -592,11 +592,11 @@ namespace ASFuelControl.Reports.Invoices
             this.textBox5.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBox5.CanGrow = true;
             this.textBox5.Format = "{0:N2}";
-            this.textBox5.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.65881872177124D), Telerik.Reporting.Drawing.Unit.Cm(0.80000203847885132D));
+            this.textBox5.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.2999997138977051D), Telerik.Reporting.Drawing.Unit.Cm(0.6679081916809082D));
             this.textBox5.Name = "textBox5";
-            this.textBox5.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.5118668079376221D), Telerik.Reporting.Drawing.Unit.Cm(0.26770743727684021D));
+            this.textBox5.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.8706858158111572D), Telerik.Reporting.Drawing.Unit.Cm(0.34909242391586304D));
             this.textBox5.Style.Font.Bold = false;
-            this.textBox5.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
+            this.textBox5.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(10D);
             this.textBox5.Style.Padding.Right = Telerik.Reporting.Drawing.Unit.Cm(0.10000000149011612D);
             this.textBox5.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Right;
             this.textBox5.StyleName = "Data";
@@ -605,7 +605,7 @@ namespace ASFuelControl.Reports.Invoices
             // textBox11
             // 
             this.textBox11.CanGrow = true;
-            this.textBox11.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.30000004172325134D), Telerik.Reporting.Drawing.Unit.Cm(2.8608410358428955D));
+            this.textBox11.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.30000004172325134D), Telerik.Reporting.Drawing.Unit.Cm(2.9677078723907471D));
             this.textBox11.Name = "textBox11";
             this.textBox11.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(6.87068510055542D), Telerik.Reporting.Drawing.Unit.Cm(1.1066669225692749D));
             this.textBox11.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
@@ -617,10 +617,10 @@ namespace ASFuelControl.Reports.Invoices
             // textBox8
             // 
             this.textBox8.CanGrow = true;
-            this.textBox8.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.30000004172325134D), Telerik.Reporting.Drawing.Unit.Cm(2.5364573001861572D));
+            this.textBox8.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.30000004172325134D), Telerik.Reporting.Drawing.Unit.Cm(2.7677083015441895D));
             this.textBox8.Name = "textBox8";
-            this.textBox8.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(6.87068510055542D), Telerik.Reporting.Drawing.Unit.Cm(0.30000001192092896D));
-            this.textBox8.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
+            this.textBox8.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(6.87068510055542D), Telerik.Reporting.Drawing.Unit.Cm(0.19999966025352478D));
+            this.textBox8.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(7D);
             this.textBox8.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Center;
             this.textBox8.StyleName = "Data";
             this.textBox8.Value = "=\"≈’◊¡—…”‘œ’Ã≈ √…¡ ‘«Õ –—œ‘…Ã«”« ”¡”\"";
@@ -632,10 +632,10 @@ namespace ASFuelControl.Reports.Invoices
             formattingRule2.Style.Visible = false;
             this.textBox7.ConditionalFormatting.AddRange(new Telerik.Reporting.Drawing.FormattingRule[] {
             formattingRule2});
-            this.textBox7.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.30000004172325134D), Telerik.Reporting.Drawing.Unit.Cm(2.1857492923736572D));
+            this.textBox7.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.30000004172325134D), Telerik.Reporting.Drawing.Unit.Cm(2.5170011520385742D));
             this.textBox7.Name = "textBox7";
-            this.textBox7.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(6.87068510055542D), Telerik.Reporting.Drawing.Unit.Cm(0.35050815343856812D));
-            this.textBox7.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
+            this.textBox7.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(6.87068510055542D), Telerik.Reporting.Drawing.Unit.Cm(0.250506728887558D));
+            this.textBox7.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(7D);
             this.textBox7.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Center;
             this.textBox7.StyleName = "Data";
             this.textBox7.Value = "=\"œÈ ÙÈÏ›Ú ÂÒÈÎ·Ï‚‹ÌÔıÌ ÷.–.¡.\"";
@@ -654,11 +654,11 @@ namespace ASFuelControl.Reports.Invoices
             this.textBoxPreDiscount.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBoxPreDiscount.CanGrow = true;
             this.textBoxPreDiscount.Format = "{0:N2}";
-            this.textBoxPreDiscount.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.65881872177124D), Telerik.Reporting.Drawing.Unit.Cm(1.0679095983505249D));
+            this.textBoxPreDiscount.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.2999997138977051D), Telerik.Reporting.Drawing.Unit.Cm(1.0399010181427002D));
             this.textBoxPreDiscount.Name = "textBoxPreDiscount";
-            this.textBoxPreDiscount.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.5118668079376221D), Telerik.Reporting.Drawing.Unit.Cm(0.26770743727684021D));
+            this.textBoxPreDiscount.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.8706858158111572D), Telerik.Reporting.Drawing.Unit.Cm(0.34909242391586304D));
             this.textBoxPreDiscount.Style.Font.Bold = false;
-            this.textBoxPreDiscount.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
+            this.textBoxPreDiscount.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(10D);
             this.textBoxPreDiscount.Style.Padding.Right = Telerik.Reporting.Drawing.Unit.Cm(0.10000000149011612D);
             this.textBoxPreDiscount.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Right;
             this.textBoxPreDiscount.StyleName = "Data";
@@ -668,18 +668,18 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBox19.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBox19.CanGrow = true;
-            this.textBox19.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(1.8139941692352295D), Telerik.Reporting.Drawing.Unit.Cm(1.0679095983505249D));
+            this.textBox19.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(1.8139941692352295D), Telerik.Reporting.Drawing.Unit.Cm(1.0399010181427002D));
             this.textBox19.Name = "textBox19";
-            this.textBox19.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(3.1999998092651367D), Telerik.Reporting.Drawing.Unit.Cm(0.26770743727684021D));
+            this.textBox19.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(3.1999998092651367D), Telerik.Reporting.Drawing.Unit.Cm(0.34909242391586304D));
             this.textBox19.Style.Font.Bold = false;
-            this.textBox19.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
+            this.textBox19.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
             this.textBox19.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Left;
             this.textBox19.StyleName = "Caption";
             this.textBox19.Value = "”˝ÌÔÎÔ ÒÔ ∏ÍÙ˘ÛÁÚ:";
             // 
             // pictureBox1
             // 
-            this.pictureBox1.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.299999862909317D), Telerik.Reporting.Drawing.Unit.Cm(3.9677083492279053D));
+            this.pictureBox1.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.299999862909317D), Telerik.Reporting.Drawing.Unit.Cm(4.1677079200744629D));
             this.pictureBox1.Name = "pictureBox1";
             this.pictureBox1.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Mm(30D), Telerik.Reporting.Drawing.Unit.Mm(30D));
             this.pictureBox1.Sizing = Telerik.Reporting.Drawing.ImageSizeMode.ScaleProportional;
@@ -698,11 +698,11 @@ namespace ASFuelControl.Reports.Invoices
             this.textBox15.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBox15.CanGrow = true;
             this.textBox15.Format = "{0:N2}";
-            this.textBox15.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.6588177680969238D), Telerik.Reporting.Drawing.Unit.Cm(1.6037247180938721D));
+            this.textBox15.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.2999987602233887D), Telerik.Reporting.Drawing.Unit.Cm(1.7902475595474243D));
             this.textBox15.Name = "textBox15";
-            this.textBox15.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.5118676424026489D), Telerik.Reporting.Drawing.Unit.Cm(0.26770743727684021D));
+            this.textBox15.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.8706866502761841D), Telerik.Reporting.Drawing.Unit.Cm(0.34909242391586304D));
             this.textBox15.Style.Font.Bold = false;
-            this.textBox15.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
+            this.textBox15.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(10D);
             this.textBox15.Style.Padding.Right = Telerik.Reporting.Drawing.Unit.Cm(0.10000000149011612D);
             this.textBox15.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Right;
             this.textBox15.StyleName = "Data";
@@ -712,11 +712,11 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBox16.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBox16.CanGrow = true;
-            this.textBox16.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(1.8139946460723877D), Telerik.Reporting.Drawing.Unit.Cm(1.6037247180938721D));
+            this.textBox16.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(1.8139946460723877D), Telerik.Reporting.Drawing.Unit.Cm(1.7902475595474243D));
             this.textBox16.Name = "textBox16";
-            this.textBox16.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(2.899799108505249D), Telerik.Reporting.Drawing.Unit.Cm(0.26770743727684021D));
+            this.textBox16.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(2.899799108505249D), Telerik.Reporting.Drawing.Unit.Cm(0.34909242391586304D));
             this.textBox16.Style.Font.Bold = false;
-            this.textBox16.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
+            this.textBox16.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
             this.textBox16.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Left;
             this.textBox16.StyleName = "Caption";
             this.textBox16.Value = "”˝ÌÔÎÔ ÷.–.¡. : ";
@@ -726,11 +726,11 @@ namespace ASFuelControl.Reports.Invoices
             this.textBoxDiscount.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBoxDiscount.CanGrow = true;
             this.textBoxDiscount.Format = "{0:N2}";
-            this.textBoxDiscount.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.6588177680969238D), Telerik.Reporting.Drawing.Unit.Cm(1.3358172178268433D));
+            this.textBoxDiscount.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.2999987602233887D), Telerik.Reporting.Drawing.Unit.Cm(1.4172024726867676D));
             this.textBoxDiscount.Name = "textBoxDiscount";
-            this.textBoxDiscount.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.5118676424026489D), Telerik.Reporting.Drawing.Unit.Cm(0.26770743727684021D));
+            this.textBoxDiscount.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.8706866502761841D), Telerik.Reporting.Drawing.Unit.Cm(0.34909242391586304D));
             this.textBoxDiscount.Style.Font.Bold = false;
-            this.textBoxDiscount.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
+            this.textBoxDiscount.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(10D);
             this.textBoxDiscount.Style.Padding.Right = Telerik.Reporting.Drawing.Unit.Cm(0.10000000149011612D);
             this.textBoxDiscount.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Right;
             this.textBoxDiscount.StyleName = "Data";
@@ -740,11 +740,11 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBox111.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBox111.CanGrow = true;
-            this.textBox111.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(1.8139941692352295D), Telerik.Reporting.Drawing.Unit.Cm(1.3358172178268433D));
+            this.textBox111.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(1.8139941692352295D), Telerik.Reporting.Drawing.Unit.Cm(1.4172024726867676D));
             this.textBox111.Name = "textBox111";
-            this.textBox111.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(2.899799108505249D), Telerik.Reporting.Drawing.Unit.Cm(0.26770743727684021D));
+            this.textBox111.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(2.899799108505249D), Telerik.Reporting.Drawing.Unit.Cm(0.34909242391586304D));
             this.textBox111.Style.Font.Bold = false;
-            this.textBox111.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
+            this.textBox111.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
             this.textBox111.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Left;
             this.textBox111.StyleName = "Caption";
             this.textBox111.Value = "”˝ÌÔÎÔ ∏ÍÙ˘ÛÁÚ: ";
@@ -764,7 +764,7 @@ namespace ASFuelControl.Reports.Invoices
             // 
             // pictureBox2
             // 
-            this.pictureBox2.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(4.1706852912902832D), Telerik.Reporting.Drawing.Unit.Cm(3.9677083492279053D));
+            this.pictureBox2.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(4.1706852912902832D), Telerik.Reporting.Drawing.Unit.Cm(4.1677079200744629D));
             this.pictureBox2.Name = "pictureBox2";
             this.pictureBox2.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Mm(30D), Telerik.Reporting.Drawing.Unit.Mm(30D));
             this.pictureBox2.Sizing = Telerik.Reporting.Drawing.ImageSizeMode.ScaleProportional;
@@ -773,7 +773,7 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBox1.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBox1.CanGrow = true;
-            this.textBox1.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.299999862909317D), Telerik.Reporting.Drawing.Unit.Cm(7.0677080154418945D));
+            this.textBox1.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.299999862909317D), Telerik.Reporting.Drawing.Unit.Cm(7.2677083015441895D));
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(3D), Telerik.Reporting.Drawing.Unit.Cm(0.18105807900428772D));
             this.textBox1.Style.Font.Bold = false;
@@ -786,7 +786,7 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBox13.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBox13.CanGrow = true;
-            this.textBox13.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(2.2000002861022949D), Telerik.Reporting.Drawing.Unit.Cm(10.4677095413208D));
+            this.textBox13.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(2.2000002861022949D), Telerik.Reporting.Drawing.Unit.Cm(10.667707443237305D));
             this.textBox13.Name = "textBox13";
             this.textBox13.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(3D), Telerik.Reporting.Drawing.Unit.Cm(0.18105807900428772D));
             this.textBox13.Style.Font.Bold = false;
@@ -799,7 +799,7 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBox22.Anchoring = Telerik.Reporting.AnchoringStyles.Right;
             this.textBox22.CanGrow = true;
-            this.textBox22.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(4.1706852912902832D), Telerik.Reporting.Drawing.Unit.Cm(7.0677084922790527D));
+            this.textBox22.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(4.1706852912902832D), Telerik.Reporting.Drawing.Unit.Cm(7.2677083015441895D));
             this.textBox22.Name = "textBox22";
             this.textBox22.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(3D), Telerik.Reporting.Drawing.Unit.Cm(0.18105807900428772D));
             this.textBox22.Style.Font.Bold = false;
@@ -810,7 +810,7 @@ namespace ASFuelControl.Reports.Invoices
             // 
             // pictureBox3
             // 
-            this.pictureBox3.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(2.2000002861022949D), Telerik.Reporting.Drawing.Unit.Cm(7.367708683013916D));
+            this.pictureBox3.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(2.2000002861022949D), Telerik.Reporting.Drawing.Unit.Cm(7.5677080154418945D));
             this.pictureBox3.Name = "pictureBox3";
             this.pictureBox3.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Mm(30D), Telerik.Reporting.Drawing.Unit.Mm(30D));
             this.pictureBox3.Sizing = Telerik.Reporting.Drawing.ImageSizeMode.ScaleProportional;
