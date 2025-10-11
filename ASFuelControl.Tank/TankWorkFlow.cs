@@ -696,163 +696,204 @@ namespace ASFuelControl.Tank
 
         void Process_StateChanged(object sender, EventArgs e)
         {
-            if (this.Process.CurrentState == this.idleState)
+            try
             {
-                if (this.Process.PreviousState == this.sallingState)
+                if (this.Process.CurrentState == this.idleState)
                 {
-                    lastSaleEnded = DateTime.Now;
-                }
-                bool hasChanges = this.Tank.HasChanges;
-                this.Tank.ExtractionFinished = false;
-                this.Tank.FillingFinished = false;
-                this.Tank.InitializeExtraction = false;
-                this.Tank.InitializeFilling = false;
-                this.Tank.FillingByError = false;
-                this.Tank.ExtractingByError = false;
-                this.Tank.HasChanges = hasChanges;
-                this.Tank.IsLiterCheck = false;
-                if(this.Tank.CurrentFuelLevel > 0)
-                    this.Tank.LastCalculatedStart = this.Tank.CurrentFuelLevel;
-                if (this.Process.PreviousState == this.waitingState)
-                {
-                    try
+                    if (this.Process.PreviousState == this.sallingState)
                     {
-                        if (this.FillingCompleted != null)
+                        lastSaleEnded = DateTime.Now;
+                    }
+                    bool hasChanges = this.Tank.HasChanges;
+                    this.Tank.ExtractionFinished = false;
+                    this.Tank.FillingFinished = false;
+                    this.Tank.InitializeExtraction = false;
+                    this.Tank.InitializeFilling = false;
+                    this.Tank.FillingByError = false;
+                    this.Tank.ExtractingByError = false;
+                    this.Tank.HasChanges = hasChanges;
+                    this.Tank.IsLiterCheck = false;
+                    if (this.Tank.CurrentFuelLevel > 0)
+                        this.Tank.LastCalculatedStart = this.Tank.CurrentFuelLevel;
+                    if (this.Process.PreviousState == this.waitingState)
+                    {
+                        try
                         {
-                            if (this.CurrentFillingData.StartValues == null)
+                            if (this.FillingCompleted != null)
                             {
-                                this.CurrentFillingData.StartValues = new Common.TankValues() { FuelHeight = this.Tank.FillingStartTankLevel };
+                                if (this.CurrentFillingData.StartValues == null)
+                                {
+                                    this.CurrentFillingData.StartValues = new Common.TankValues() { FuelHeight = this.Tank.FillingStartTankLevel };
+                                }
+                                this.CurrentFillingData.EndValues = this.Tank.TankValues;
+                                this.FillingCompleted(this, new TankFillingEventArgs(this.CurrentFillingData));
                             }
-                            this.CurrentFillingData.EndValues = this.Tank.TankValues;
-                            this.FillingCompleted(this, new TankFillingEventArgs(this.CurrentFillingData));
+                            this.CurrentFillingData = null;
+                            this.Tank.InvoiceTypeId = Guid.Empty;
+                            this.Tank.VehicleId = Guid.Empty;
+                            this.Tank.FillingFuelTypeId = Guid.Empty;
+                            this.Tank.InvoiceLineId = Guid.Empty;
                         }
-                        this.CurrentFillingData = null;
-                        this.Tank.InvoiceTypeId = Guid.Empty;
-                        this.Tank.VehicleId = Guid.Empty;
-                        this.Tank.FillingFuelTypeId = Guid.Empty;
-                        this.Tank.InvoiceLineId = Guid.Empty;
+                        catch (Exception ex)
+                        {
+                            string processDesc = this.Process.PreviousState.Name + " -> " + this.Process.CurrentState.Name;
+                            try
+                            {
+                                var json = Newtonsoft.Json.JsonConvert.SerializeObject(this.CurrentFillingData);
+                                Common.Logger.Instance.Error("CurrentFillingData : " + json);
+                            }
+                            catch (Exception exi)
+                            {
+                                Common.Logger.Instance.Error("CurrentFillingData Serialization Failed: " + exi.Message);
+                            }
+                            Common.Logger.Instance.Error("Exception on Transition: " + processDesc);
+                            Common.Logger.Instance.Error(ex);
+                            Common.Logger.Instance.Error(ex.StackTrace);
+                            if (ex.InnerException != null)
+                            {
+                                Common.Logger.Instance.Error(ex.InnerException);
+                                Common.Logger.Instance.Error(ex.InnerException.StackTrace);
+                            }
+                        }
                     }
-                    catch(Exception ex)
+                    this.Tank.WaitingStarted = DateTime.MinValue;
+                    this.Tank.WaitingShouldEnd = DateTime.MinValue;
+
+                }
+                else if (this.Process.CurrentState == this.waitingState && this.Process.PreviousState == this.fillingState)
+                {
+                    this.waitingElapsed = false;
+                    this.CurrentFillingData = new Common.Sales.TankFillingData();
+                    this.CurrentFillingData.TankId = this.Tank.TankId;
+                    this.CurrentFillingData.Mode = Common.Sales.TankFillingData.DataModeEnum.Filling;
+                    this.CurrentFillingData.InvoiceLineId = this.Tank.InvoiceLineId;
+                    this.CurrentFillingData.InvoiceTypeId = this.Tank.InvoiceTypeId;
+                    this.CurrentFillingData.FuelTypeId = this.Tank.FillingFuelTypeId;
+                    this.CurrentFillingData.VehicelId = this.Tank.VehicleId;
+                    this.CurrentFillingData.DeliveryStarted = this.Tank.DeliveryStarted;//.deliveryStarted;
+                    this.Tank.WaitingStarted = DateTime.Now;
+                    if (this.Tank.IsLiterCheck)
                     {
-                        Common.Logger.Instance.Error(ex);
-                        Common.Logger.Instance.Error(ex.StackTrace);
+                        this.CurrentWaitingTime = TimeSpan.FromMilliseconds(this.Tank.LiterCheckTime);
+                        this.waitingTimer = new System.Threading.Timer(new System.Threading.TimerCallback(this.WaitingElapsed), null, this.Tank.LiterCheckTime, System.Threading.Timeout.Infinite);
+                        this.Tank.WaitingShouldEnd = this.Tank.WaitingStarted.Add(TimeSpan.FromMilliseconds(this.Tank.LiterCheckTime));
                     }
+                    else
+                    {
+                        this.CurrentWaitingTime = TimeSpan.FromMilliseconds(this.Tank.DeliveryTime);
+                        this.waitingTimer = new System.Threading.Timer(new System.Threading.TimerCallback(this.WaitingElapsed), null, this.Tank.DeliveryTime, System.Threading.Timeout.Infinite);
+                        this.Tank.WaitingShouldEnd = this.Tank.WaitingStarted.Add(TimeSpan.FromMilliseconds(this.Tank.DeliveryTime));
+                    }
+
                 }
-                this.Tank.WaitingStarted = DateTime.MinValue;
-                this.Tank.WaitingShouldEnd = DateTime.MinValue;
-                
-            }
-            else if (this.Process.CurrentState == this.waitingState && this.Process.PreviousState == this.fillingState)
-            {
-                this.waitingElapsed = false;
-                this.CurrentFillingData = new Common.Sales.TankFillingData();
-                this.CurrentFillingData.TankId = this.Tank.TankId;
-                this.CurrentFillingData.Mode = Common.Sales.TankFillingData.DataModeEnum.Filling;
-                this.CurrentFillingData.InvoiceLineId = this.Tank.InvoiceLineId;
-                this.CurrentFillingData.InvoiceTypeId = this.Tank.InvoiceTypeId;
-                this.CurrentFillingData.FuelTypeId = this.Tank.FillingFuelTypeId;
-                this.CurrentFillingData.VehicelId = this.Tank.VehicleId;
-                this.CurrentFillingData.DeliveryStarted = this.Tank.DeliveryStarted;//.deliveryStarted;
-                this.Tank.WaitingStarted = DateTime.Now;
-                if (this.Tank.IsLiterCheck)
+                else if (this.Process.CurrentState == this.waitingState && this.Process.PreviousState == this.extractionState)
                 {
-                    this.CurrentWaitingTime = TimeSpan.FromMilliseconds(this.Tank.LiterCheckTime);
-                    this.waitingTimer = new System.Threading.Timer(new System.Threading.TimerCallback(this.WaitingElapsed), null, this.Tank.LiterCheckTime, System.Threading.Timeout.Infinite);
-                    this.Tank.WaitingShouldEnd = this.Tank.WaitingStarted.Add(TimeSpan.FromMilliseconds(this.Tank.LiterCheckTime));
-                }
-                else
-                {
+                    this.waitingElapsed = false;
+                    this.CurrentFillingData = new Common.Sales.TankFillingData();
+                    this.CurrentFillingData.TankId = this.Tank.TankId;
+                    this.CurrentFillingData.Mode = Common.Sales.TankFillingData.DataModeEnum.Extraction;
+                    this.CurrentFillingData.InvoiceLineId = this.Tank.InvoiceLineId;
+                    this.CurrentFillingData.InvoiceTypeId = this.Tank.InvoiceTypeId;
+                    this.CurrentFillingData.FuelTypeId = this.Tank.FillingFuelTypeId;
+                    this.CurrentFillingData.VehicelId = this.Tank.VehicleId;
+                    //this.CurrentFillingData.DeliveryStarted = this.deliveryStarted;
+                    this.CurrentFillingData.DeliveryStarted = this.Tank.DeliveryStarted;
+                    this.Tank.WaitingStarted = DateTime.Now;
                     this.CurrentWaitingTime = TimeSpan.FromMilliseconds(this.Tank.DeliveryTime);
                     this.waitingTimer = new System.Threading.Timer(new System.Threading.TimerCallback(this.WaitingElapsed), null, this.Tank.DeliveryTime, System.Threading.Timeout.Infinite);
-                    this.Tank.WaitingShouldEnd = this.Tank.WaitingStarted.Add(TimeSpan.FromMilliseconds(this.Tank.DeliveryTime));
                 }
-                
-            }
-            else if (this.Process.CurrentState == this.waitingState && this.Process.PreviousState == this.extractionState)
-            {
-                this.waitingElapsed = false;
-                this.CurrentFillingData = new Common.Sales.TankFillingData();
-                this.CurrentFillingData.TankId = this.Tank.TankId;
-                this.CurrentFillingData.Mode = Common.Sales.TankFillingData.DataModeEnum.Extraction;
-                this.CurrentFillingData.InvoiceLineId = this.Tank.InvoiceLineId;
-                this.CurrentFillingData.InvoiceTypeId = this.Tank.InvoiceTypeId;
-                this.CurrentFillingData.FuelTypeId = this.Tank.FillingFuelTypeId;
-                this.CurrentFillingData.VehicelId = this.Tank.VehicleId;
-                //this.CurrentFillingData.DeliveryStarted = this.deliveryStarted;
-                this.CurrentFillingData.DeliveryStarted = this.Tank.DeliveryStarted;
-                this.Tank.WaitingStarted = DateTime.Now;
-                this.CurrentWaitingTime = TimeSpan.FromMilliseconds(this.Tank.DeliveryTime);
-                this.waitingTimer = new System.Threading.Timer(new System.Threading.TimerCallback(this.WaitingElapsed), null, this.Tank.DeliveryTime, System.Threading.Timeout.Infinite);
-            }
-            else if (this.Process.CurrentState == this.errorState)
-            {
-                this.Tank.TankStatus = this.Tank.ErrorStatus;
-            }
-            switch (this.Process.CurrentState.Name)
-            {
-                case "Offline":
-                    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Offline;
-                    break;
-                case "Idle":
-                    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Idle;
-                    break;
-                case "Selling":
-                    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Selling;
-                    break;
-                case "FillingInitialized":
-                    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.FillingInit;
-                    
-                    break;
-                case "Filling":
-                    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Filling;
-                    this.deliveryStarted = DateTime.Now;
-                    this.Tank.DeliveryStarted = this.deliveryStarted;
-                    break;
-                case "Waiting":
-                    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Waiting;
-                    break;
-                case "ExtractionInitialized":
-                    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.FuelExtractionInit;
-                    break;
-                case "Extraction":
-                    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.FuelExtraction;
-                    this.deliveryStarted = DateTime.Now;
-                    this.Tank.DeliveryStarted = this.deliveryStarted;
-                    break;
-                case "LevelIncrease":
-                    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LevelIncrease;
-                    break;
-                case "LevelDecrease":
-                    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LevelDecrease;
-                    break;
-                case "WaitingEllapsed":
-                    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.WaitingEllapsed;
-                    break;
-                //case "Error":
-                //    if(this.Tank.Alerts.Where(a=>((VirtualDevices.VirtualTankAlarm)a).AlertType == Common.Enumerators.AlarmEnum.FuelIncrease).Count() > 0)
-                //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LevelIncrease;
-                //    else if (this.Tank.Alerts.Where(a => ((VirtualDevices.VirtualTankAlarm)a).AlertType == Common.Enumerators.AlarmEnum.FuelDecrease).Count() > 0)
-                //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LevelDecrease;
-                //    else if (this.Tank.Alerts.Where(a => ((VirtualDevices.VirtualTankAlarm)a).AlertType == Common.Enumerators.AlarmEnum.FuelTooHigh).Count() > 0)
-                //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.HighLevel;
-                //    else if (this.Tank.Alerts.Where(a => ((VirtualDevices.VirtualTankAlarm)a).AlertType == Common.Enumerators.AlarmEnum.FuelTooLow).Count() > 0)
-                //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LowLevel;
-                //    else if (this.Tank.Alerts.Where(a => ((VirtualDevices.VirtualTankAlarm)a).AlertType == Common.Enumerators.AlarmEnum.WaterTooHigh).Count() > 0)
-                //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.HighWaterLevel;
-                //    else
-                //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Error;
-                //    break;
-                //case "LowLevel":
-                //    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LowLevel;
-                //    break;
-                //case "HighWater":
-                //    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.HighWaterLevel;
-                //    break; 
-            }
-            System.Console.WriteLine(string.Format("Tank : {0}  State : {1}", this.Tank.TankNumber, this.Process.CurrentState));
+                else if (this.Process.CurrentState == this.errorState)
+                {
+                    this.Tank.TankStatus = this.Tank.ErrorStatus;
+                }
+                switch (this.Process.CurrentState.Name)
+                {
+                    case "Offline":
+                        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Offline;
+                        break;
+                    case "Idle":
+                        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Idle;
+                        break;
+                    case "Selling":
+                        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Selling;
+                        break;
+                    case "FillingInitialized":
+                        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.FillingInit;
 
-            if (this.ProcessStateChanged != null)
-                this.ProcessStateChanged(this, new EventArgs());
+                        break;
+                    case "Filling":
+                        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Filling;
+                        this.deliveryStarted = DateTime.Now;
+                        this.Tank.DeliveryStarted = this.deliveryStarted;
+                        break;
+                    case "Waiting":
+                        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Waiting;
+                        break;
+                    case "ExtractionInitialized":
+                        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.FuelExtractionInit;
+                        break;
+                    case "Extraction":
+                        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.FuelExtraction;
+                        this.deliveryStarted = DateTime.Now;
+                        this.Tank.DeliveryStarted = this.deliveryStarted;
+                        break;
+                    case "LevelIncrease":
+                        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LevelIncrease;
+                        break;
+                    case "LevelDecrease":
+                        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LevelDecrease;
+                        break;
+                    case "WaitingEllapsed":
+                        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.WaitingEllapsed;
+                        break;
+                        //case "Error":
+                        //    if(this.Tank.Alerts.Where(a=>((VirtualDevices.VirtualTankAlarm)a).AlertType == Common.Enumerators.AlarmEnum.FuelIncrease).Count() > 0)
+                        //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LevelIncrease;
+                        //    else if (this.Tank.Alerts.Where(a => ((VirtualDevices.VirtualTankAlarm)a).AlertType == Common.Enumerators.AlarmEnum.FuelDecrease).Count() > 0)
+                        //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LevelDecrease;
+                        //    else if (this.Tank.Alerts.Where(a => ((VirtualDevices.VirtualTankAlarm)a).AlertType == Common.Enumerators.AlarmEnum.FuelTooHigh).Count() > 0)
+                        //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.HighLevel;
+                        //    else if (this.Tank.Alerts.Where(a => ((VirtualDevices.VirtualTankAlarm)a).AlertType == Common.Enumerators.AlarmEnum.FuelTooLow).Count() > 0)
+                        //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LowLevel;
+                        //    else if (this.Tank.Alerts.Where(a => ((VirtualDevices.VirtualTankAlarm)a).AlertType == Common.Enumerators.AlarmEnum.WaterTooHigh).Count() > 0)
+                        //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.HighWaterLevel;
+                        //    else
+                        //        this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.Error;
+                        //    break;
+                        //case "LowLevel":
+                        //    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.LowLevel;
+                        //    break;
+                        //case "HighWater":
+                        //    this.Tank.TankStatus = Common.Enumerators.TankStatusEnum.HighWaterLevel;
+                        //    break; 
+                }
+                System.Console.WriteLine(string.Format("Tank : {0}  State : {1}", this.Tank.TankNumber, this.Process.CurrentState));
+
+                if (this.ProcessStateChanged != null)
+                    this.ProcessStateChanged(this, new EventArgs());
+            }
+            catch(Exception oex)
+            {
+                Common.Logger.Instance.Error("------------- OUTER EXCEPTION ------------------");
+                string processDesc = this.Process.PreviousState.Name + " -> " + this.Process.CurrentState.Name;
+                try
+                {
+                    var json = Newtonsoft.Json.JsonConvert.SerializeObject(this.CurrentFillingData);
+                    Common.Logger.Instance.Error("CurrentFillingData : " + json);
+                }
+                catch (Exception exi)
+                {
+                    Common.Logger.Instance.Error("CurrentFillingData Serialization Failed: " + exi.Message);
+                }
+                Common.Logger.Instance.Error("Outer Exception on Transition: " + processDesc);
+                Common.Logger.Instance.Error(oex);
+                Common.Logger.Instance.Error(oex.StackTrace);
+                if (oex.InnerException != null)
+                {
+                    Common.Logger.Instance.Error(oex.InnerException);
+                    Common.Logger.Instance.Error(oex.InnerException.StackTrace);
+                }
+            }
         }
 
         void Tank_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)

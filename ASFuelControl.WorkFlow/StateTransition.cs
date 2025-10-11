@@ -94,6 +94,7 @@ namespace ASFuelControl.WorkFlow
             {
                 if (returnValue)
                 {
+                    Common.Logger.Instance.Trace(string.Format("Transition Validated {0} -> {1}", this.SourceState.Name, this.TargetState.Name));
                     System.Console.WriteLine("EVALUATED Transition : " + this.ToString());
                     //foreach (string varName in this.variableChanges.Keys)
                     //    this.Process.SetVariableValue(varName, this.variableChanges[varName]);
