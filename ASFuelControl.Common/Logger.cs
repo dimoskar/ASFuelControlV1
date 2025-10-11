@@ -224,6 +224,24 @@ namespace ASFuelControl.Common
             {
             }
         }
+        public void Debug(string message, object logObject)
+        {
+            try
+            {
+                if(logObject == null)
+                {
+                    Debug(message + ": null");
+                    return;
+                }
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(logObject);
+                Debug(message + ": " + json);
+            }
+            catch(Exception ex)
+            {
+                Debug("Error while serializing object of type: " + logObject.GetType().FullName);
+            }
+            
+        }
 
         public void Info(string message, string url = "", int methodLevel = 2)
         {

@@ -1101,8 +1101,8 @@ namespace ASFuelControl.Data
                         reservoir.LevelEnd = endLevel;                                  //F_2234_MM
                         reservoir.TankId = tank.TankNumber;
                         reservoir.TankSerialNumber = tank.TankSerialNumber;
-                        reservoir.TemperatureStart = tank.GetTempmeratureAtTime(dt1);                 //F_2232_TEMP
-                        reservoir.TemperatureEnd = tank.GetTempmeratureAtTime(dt2);                     //F_2234_TEMP
+                        reservoir.TemperatureStart = tank.GetTempmeratureAtTime(dt1, db);                 //F_2232_TEMP
+                        reservoir.TemperatureEnd = tank.GetTempmeratureAtTime(dt2, db);                     //F_2234_TEMP
                         reservoir.VolumeStart = tank.GetTankVolume(reservoir.LevelStart);                           //F_2232_VOL
                         reservoir.VolumeEnd = tank.GetTankVolume(reservoir.LevelEnd);                               //F_2234_VOL
                         reservoir.VolumeStartNormalized = tank.FuelType.NormalizeVolume(reservoir.VolumeStart, reservoir.TemperatureStart, tank.GetDensityAtTime(dt1));   //F_2233
@@ -1160,83 +1160,93 @@ namespace ASFuelControl.Data
                     if (balance.Reservoirs.Reservoirs.Count == 0)
                         return null;
 
-                    List<Data.FuelType> fuelTypes = tanks.Select(t => t.FuelType).Distinct().ToList();
-                    foreach (Data.FuelType ft in fuelTypes)
+                    var fuelTypes = tanks.Select(t => t.FuelType).Distinct().ToList();
+
+                    foreach (var ft in fuelTypes)
                     {
                         if (ft.BalanceExclusion)
                             continue;
-                        List<Data.Nozzle> nozzles = tanks.Where(t => t.FuelTypeId == ft.FuelTypeId).SelectMany(t => t.NozzleFlows).Select(nf => nf.Nozzle).Distinct().ToList();
-                        if (nozzles.Count == 0)
+
+                        var nozzles = tanks
+                            .Where(t => t.FuelTypeId == ft.FuelTypeId)
+                            .SelectMany(t => t.NozzleFlows)
+                            .Select(nf => nf.Nozzle)
+                            .Distinct()
+                            .ToList();
+
+                        if (!nozzles.Any())
                             continue;
-                        ASFuelControl.Communication.FuelTypeClass ftc = new ASFuelControl.Communication.FuelTypeClass();
-                        ftc.FuelPumps = new List<ASFuelControl.Communication.FuelTypePumpClass>();
-                        ftc.FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue;
-                        var qst = ft.Nozzles.SelectMany(n => n.SalesTransactions).Where(st => st.TransactionTimeStamp <= balance.TimeEnd && st.TransactionTimeStamp >= balance.TimeStart);
-                        foreach (Data.Nozzle n in nozzles)
+
+                        var ftc = new ASFuelControl.Communication.FuelTypeClass
                         {
-                            var qs = n.SalesTransactions.Where(s =>
-                            s.Volume >= 0 &&
-                            s.TransactionTimeStamp <= balance.TimeEnd &&
-                            s.TransactionTimeStamp >= balance.TimeStart &&
-                            s.InvoiceLines.Count > 0).ToArray();   //&&
-                                                                   //s.TotalizerStart != s.TotalizerEnd
-                            qs = qs.Where(i =>
-                                (i.MainBalanceInvoiceLine.Invoice.InvoiceType.IncludeInBalance.HasValue && i.MainBalanceInvoiceLine.Invoice.InvoiceType.IncludeInBalance.Value)
-                            ).ToArray();
-                            qs = qs.Where(i => i.MainBalanceInvoiceLine.Invoice.IncludeToBalance).ToArray();
-                            Console.WriteLine(string.Join(",", qs.Select(i => i.MainBalanceInvoiceLine.Invoice.Description)));
-                            //if (qs.Count() == 0)
-                            //    continue;
+                            FuelPumps = new List<ASFuelControl.Communication.FuelTypePumpClass>(),
+                            FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue
+                        };
 
-                            //if (qs.SelectMany(s => s.TankSales).Count() == 0)
-                            //    continue;
+                        foreach (var nozzle in nozzles)
+                        {
+                            var transactions = nozzle.SalesTransactions
+                                .Where(s =>
+                                    s.Volume >= 0 &&
+                                    s.TransactionTimeStamp >= balance.TimeStart &&
+                                    s.TransactionTimeStamp <= balance.TimeEnd &&
+                                    s.InvoiceLines.Any() &&
+                                    s.MainBalanceInvoiceLine.Invoice.InvoiceType.IncludeInBalance == true &&
+                                    s.MainBalanceInvoiceLine.Invoice.IncludeToBalance)
+                                .ToList();
 
-                            ASFuelControl.Communication.FuelTypePumpClass ftpc = new ASFuelControl.Communication.FuelTypePumpClass();
-                            ftpc.FuelPumpId = n.Dispenser.OfficialPumpNumber.ToString();
-                            ftpc.FuelPumpSerialNumber = n.Dispenser.PumpSerialNumber;
-                            ftpc.FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue;
-                            ftpc.TotalizerStart = n.GetTotalizerStartAtTime(balance.TimeStart);             //F_2242
-                            ftpc.TotalizerEnd = n.GetTotalizerEndAtTime(balance.TimeEnd);                   //F_2243
+                            Console.WriteLine(string.Join(",", transactions.Select(i => i.MainBalanceInvoiceLine.Invoice.Description)));
 
-                            ftpc.TotalLiterCheck = n.GetLitercheckSum(balance.TimeStart, balance.TimeEnd);  //F_2244D
-                            ftpc.TotalLiterCheckNormalized = n.GetLitercheckSum(balance.TimeStart, balance.TimeEnd);  //F_2244D
-                            ftpc.TotalSales = qs.Sum(s => s.MainInvoiceLine.Volume) - ftpc.TotalLiterCheck;                 //F_2244A
-                            ftpc.TotalSalesNormalized = qs.ToList().Sum(s => s.MainInvoiceLine.VolumeNormalized) - ftpc.TotalLiterCheckNormalized;
-                            //ftpc.TotalOut = qs.Sum(s => s.Volume) + ftpc.TotalLiterCheck;                 //F_2244B
-                            //ftpc.TotalOutNormalized = qs.Sum(s => s.VolumeNormalized);                    //F_2244C
+                            var ftpc = new ASFuelControl.Communication.FuelTypePumpClass
+                            {
+                                FuelPumpId = nozzle.Dispenser.OfficialPumpNumber.ToString(),
+                                FuelPumpSerialNumber = nozzle.Dispenser.PumpSerialNumber,
+                                FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue,
+                                TotalizerStart = nozzle.GetTotalizerStartAtTime(balance.TimeStart),
+                                TotalizerEnd = nozzle.GetTotalizerEndAtTime(balance.TimeEnd),
+                                TotalLiterCheck = nozzle.GetLitercheckSum(balance.TimeStart, balance.TimeEnd),
+                                TotalLiterCheckNormalized = nozzle.GetLitercheckSum(balance.TimeStart, balance.TimeEnd),
+                                TotalSales = transactions.Sum(s => s.MainInvoiceLine.Volume),
+                                TotalSalesNormalized = transactions.Sum(s => s.MainInvoiceLine.VolumeNormalized),
+                                TotalizerDifference = nozzle.GetTotalizerEndAtTime(balance.TimeEnd) - nozzle.GetTotalizerStartAtTime(balance.TimeStart),
+                                NozzleId = nozzle.OfficialNozzleNumber
+                            };
 
-                            ftpc.TotalizerDifference = ftpc.TotalizerEnd - ftpc.TotalizerStart;             //F_2245A
-                            ftpc.NozzleId = n.OfficialNozzleNumber;
+                            var flow = nozzle.NozzleFlows.SingleOrDefault(f => f.FlowState == 1);
+                            ftpc.TankSerialNumber = flow?.Tank?.TankSerialNumber;
 
-                            //var qd = n.Dispenser.Nozzles.Where(nn => nn.FuelTypeId == n.FuelTypeId);
-                            //var qsd = qd.SelectMany(nn => nn.SalesTransactions).Where(s => s.TransactionTimeStamp <= balance.TimeEnd && s.TransactionTimeStamp >= balance.TimeStart);
-
-                            //ftpc.SumTotalOut = qs.Sum(s => s.Volume);// qsd.Sum(s => s.Volume);                                                      //F_2244E
-                            //ftpc.SumTotalOutNormalized = qs.Sum(s => s.VolumeNormalized); // qsd.Sum(s => s.VolumeNormalized);                                  //F_2244F
-                            //ftpc.SumTotalOutTotalizer =  ftpc.TotalizerEnd - ftpc.TotalizerStart;                            //F_2245A   qs.Sum(s => s.TotalizerEnd - s.TotalizerStart);
-                            //ftpc.SumTotalOutTotalizerNormalized = qsd.Sum(s => s.TotalizerEnd - s.TotalizerStart);          //F_2245B
-
-                            // ********* ftpc.SumTotalOutTotalizerNormalized *************//
-                            //var qt = n.SalesTransactions.SelectMany(s => s.TankSales).Select(ts => ts.Tank).Distinct();
-                            var flow = n.NozzleFlows.SingleOrDefault(f => f.FlowState == 1);
-                            Data.Tank tank = flow.Tank;
-                            ftpc.TankSerialNumber = tank.TankSerialNumber;
                             ftc.FuelPumps.Add(ftpc);
                         }
-                        var qsdiff = ft.Nozzles.SelectMany(n => n.SalesTransactions).Where(s => s.TransactionTimeStamp <= balance.TimeEnd && s.TransactionTimeStamp >= balance.TimeStart);
-                        ftc.SumTotalizerDifference = ftc.FuelPumps.Sum(f => f.TotalizerEnd - f.TotalizerStart);                                             //F_2245B
-                        ftc.SumTotalizerDifferenceNormalized = ft.NormalizeVolume(ftc.SumTotalizerDifference, db.GetAvgTemperature(qsdiff), db.GetAvgDensity(qsdiff, ft));//F_2245C
+
+                        var allTransactions = ft.Nozzles
+                            .SelectMany(n => n.SalesTransactions)
+                            .Where(s => s.TransactionTimeStamp >= balance.TimeStart && s.TransactionTimeStamp <= balance.TimeEnd)
+                            .ToList();
+
+                        ftc.SumTotalizerDifference = ftc.FuelPumps.Sum(f => f.TotalizerDifference);
+                        ftc.SumTotalizerDifferenceNormalized = ft.NormalizeVolume(
+                            ftc.SumTotalizerDifference,
+                            db.GetAvgTemperature(allTransactions),
+                            db.GetAvgDensity(allTransactions, ft)
+                        );
+
                         ftc.TotalPumpsNumber = ftc.FuelPumps.Count;
-                        foreach (ASFuelControl.Communication.FuelTypePumpClass ftpc in ftc.FuelPumps)
+
+                        foreach (var ftpc in ftc.FuelPumps)
                         {
-                            Data.FuelType fuelType = fuelTypes.Where(f => f.EnumeratorValue == (int)ftpc.FuelType).FirstOrDefault();
-                            if (fuelType == null)
-                                continue;
-                            ftpc.TotalOut = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType).Sum(fp => fp.TotalSales + fp.TotalLiterCheck);                                   //F_2244B 
-                            ftpc.TotalOutNormalized = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType).Sum(fp => fp.TotalSalesNormalized + fp.TotalLiterCheckNormalized);     //F_2244C
-                            ftpc.SumTotalOut = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType).Sum(fp => fp.TotalLiterCheck);                                                //F_2244E 
-                            ftpc.SumTotalOutNormalized = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType).Sum(fp => fp.TotalLiterCheckNormalized);                            //F_2244F
+                            ftpc.TotalOut = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType)
+                                .Sum(fp => fp.TotalSales + fp.TotalLiterCheck);
+
+                            ftpc.TotalOutNormalized = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType)
+                                .Sum(fp => fp.TotalSalesNormalized + fp.TotalLiterCheckNormalized);
+
+                            ftpc.SumTotalOut = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType)
+                                .Sum(fp => fp.TotalLiterCheck);
+
+                            ftpc.SumTotalOutNormalized = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType)
+                                .Sum(fp => fp.TotalLiterCheckNormalized);
                         }
+
                         balance.PumpsPerFuel.FuelTypes.Add(ftc);
                     }
                     foreach (Data.FuelType ft1 in fuelTypes)
@@ -4844,11 +4854,35 @@ namespace ASFuelControl.Data
             return firstFilling.LevelStart;
         }
 
-        public decimal GetTempmeratureAtTime(DateTime dt)
+        public decimal GetTempmeratureAtTime(DateTime dt, DatabaseModel db = null)
         {
-            TankFilling lastFilling = this.TankFillings.Where(tf => tf.TransactionTimeEnd <= dt).OrderByDescending(tf => tf.TransactionTimeEnd).FirstOrDefault();
-            TankSale lastTransaction = this.TankSales.Where(ts => ts.SalesTransaction.TransactionTimeStamp <= dt).OrderByDescending(ts => ts.SalesTransaction.TransactionTimeStamp).FirstOrDefault();
+            TankFilling lastFilling = null;
+            TankSale lastTransaction = null;
             SalesTransaction lastSale = null;
+            if (db == null)
+            {
+                lastFilling = this.TankFillings.Where(tf => tf.TransactionTimeEnd <= dt).OrderByDescending(tf => tf.TransactionTimeEnd).FirstOrDefault();
+                lastTransaction = this.TankSales.Where(ts => ts.SalesTransaction.TransactionTimeStamp <= dt).OrderByDescending(ts => ts.SalesTransaction.TransactionTimeStamp).FirstOrDefault();
+            }
+            else
+            {
+                lastFilling = this.TankFillings.Where(tf => tf.TransactionTimeEnd <= dt).OrderByDescending(tf => tf.TransactionTimeEnd).FirstOrDefault();
+                var lastSaleTransactions = db.SalesTransactions.Where(s => s.TransactionTimeStamp <= dt && s.TransactionTimeStamp > dt.AddDays(-10)).OrderByDescending(s => s.TransactionTimeStamp);
+                var saleIds = lastSaleTransactions.Select(s => s.SalesTransactionId).ToArray();
+                var allTankSales = db.TankSales.Where(s => saleIds.Contains(s.SalesTransactionId)).ToArray();
+                foreach(var sale in lastSaleTransactions)
+                {
+                    var tankSales = allTankSales.Where(t => t.TankId == this.TankId).ToArray();
+                    if (tankSales == null || tankSales.Length == 0)
+                        continue;
+                    lastTransaction = tankSales.FirstOrDefault();
+                    break;
+                }
+                //lastTransaction = lastSaleTrans.TankSales
+
+
+            }
+            
             if (lastTransaction != null)
                 lastSale = lastTransaction.SalesTransaction;
 
