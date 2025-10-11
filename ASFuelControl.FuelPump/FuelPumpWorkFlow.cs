@@ -898,6 +898,7 @@ namespace ASFuelControl.FuelPump
                         continue;
                     if (!transition.ValidateTransition())
                         continue;
+                    Common.Logger.Instance.Trace(string.Format("Transition Validated {0} - > {1}", transition.SourceState.Name, transition.SourceState.Name));
                     this.Process.PreviousState = transition.SourceState;
                     this.Process.CurrentState = transition.TargetState;
                     break;
@@ -956,6 +957,7 @@ namespace ASFuelControl.FuelPump
 
         void Process_StateChanged(object sender, EventArgs e)
         {
+            Common.Logger.Instance.Trace(string.Format("State Changed {0} -> {1}", Process.PreviousState, Process.CurrentState));
             if (Process.CurrentState == this.offlineState)
             {
                 bool createAlarm = false;
