@@ -1028,7 +1028,7 @@ namespace ASFuelControl.Windows.Threads
                                     {
                                         values.ActiveNozzle = -1;
                                     }
-
+                                    Common.Logger.Instance.Debug(string.Format("Controller Values. Status:{0}, Nozzle: {1}", values.Status, values.ActiveNozzle));
                                     workFlow.SetValues(values);
                                     dispenser.LastValuesId = values.ID;
                                     dispenser.HasChanges = true;

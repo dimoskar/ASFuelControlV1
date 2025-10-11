@@ -136,6 +136,8 @@ namespace ASFuelControl.Falcon
                                             fp.Initialized = true;
                                             if (this.TotalsRecieved != null)
                                             {
+                                                if (nz.LastTotalVolume == nz.TotalVolume)
+                                                    Common.Logger.Instance.Debug("Nozzle Data", nz);
                                                 this.TotalsRecieved(this, new Common.TotalsEventArgs(fp, nz.Index, nz.TotalVolume, nz.TotalPrice));
                                             }
 

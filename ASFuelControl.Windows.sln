@@ -150,6 +150,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Exedron.Invoicing", "Exedro
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Samtec.WebService", "Samtec.WebService\Samtec.WebService.csproj", "{D4FF3343-4238-4652-A6EA-01AC60F3D0C6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.Tatsuno", "ASFuelControl.Tatsuno\ASFuelControl.Tatsuno.csproj", "{444C1867-D774-45A4-AC30-555A92B51526}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestTatsuno", "TestTatsuno\TestTatsuno.csproj", "{689D94B4-39FF-4219-B75E-8293E705986E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -996,6 +1000,30 @@ Global
 		{D4FF3343-4238-4652-A6EA-01AC60F3D0C6}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{D4FF3343-4238-4652-A6EA-01AC60F3D0C6}.Release|x86.ActiveCfg = Release|Any CPU
 		{D4FF3343-4238-4652-A6EA-01AC60F3D0C6}.Release|x86.Build.0 = Release|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Debug|x86.Build.0 = Debug|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Release|Any CPU.Build.0 = Release|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Release|x86.ActiveCfg = Release|Any CPU
+		{444C1867-D774-45A4-AC30-555A92B51526}.Release|x86.Build.0 = Release|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Debug|x86.Build.0 = Debug|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Release|x86.ActiveCfg = Release|Any CPU
+		{689D94B4-39FF-4219-B75E-8293E705986E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

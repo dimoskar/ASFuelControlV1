@@ -36,6 +36,8 @@ namespace ASFuelControl.Common.Enumerators
         Universal,
         Schwelm,
         Dart,
+        Tatsuno,
+        DartFalcon,
         None
     }
 }
