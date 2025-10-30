@@ -1265,7 +1265,7 @@ namespace ASFuelControl.Windows.Threads
                     case "TankCheckClass":
                         TankCheckClass tc = obj as TankCheckClass;
                         seriallizedData = sendMethods.SendTankCheck(header, tc);
-                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]"))
+                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendTankCheck", seriallizedData);
                             return false;
@@ -1292,7 +1292,7 @@ namespace ASFuelControl.Windows.Threads
                         else
                         {
                             seriallizedData = sendMethods.SendTankCheck(header, tankCheck);
-                            if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]"))
+                            if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                             {
                                 this.LogSend("SendTankCheck", seriallizedData);
                                 return false;
@@ -1305,7 +1305,7 @@ namespace ASFuelControl.Windows.Threads
                         AlertClass ac = obj as AlertClass;
                         
                         seriallizedData = sendMethods.SendAlert(header, ac);
-                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]"))
+                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendAlert", seriallizedData);
                             return false;
@@ -1350,7 +1350,7 @@ namespace ASFuelControl.Windows.Threads
                         else
                         {
                             seriallizedData = sendMethods.SendAlert(header, alert);
-                            if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]"))
+                            if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                             {
                                 this.LogSend("SendAlert", seriallizedData);
                                 return false;
@@ -1368,7 +1368,7 @@ namespace ASFuelControl.Windows.Threads
                             string smsText = string.Format("Αλλαγή τιμής {0}. Νέα τιμή : {1:N3}€", cp.FuelType, cp.Price);
                             MailSender.Instance.SendSms(smsText);
                         }
-                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]"))
+                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendChangePrice", seriallizedData);
                             return false;
@@ -1378,7 +1378,7 @@ namespace ASFuelControl.Windows.Threads
                     case "IncomeRecieptClass":
                         IncomeRecieptClass inc = obj as IncomeRecieptClass;
                         seriallizedData = sendMethods.SendIncome(header, inc);
-                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]"))
+                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendIncome", seriallizedData);
                             return false;
@@ -1407,7 +1407,7 @@ namespace ASFuelControl.Windows.Threads
                             }
                         }
 
-                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]"))
+                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendDelivery", seriallizedData);
                             return false;
@@ -1417,7 +1417,7 @@ namespace ASFuelControl.Windows.Threads
                     case "LiterCheckClass":
                         LiterCheckClass lc = obj as LiterCheckClass;
                         seriallizedData = sendMethods.SendLiterCheck(header, lc);
-                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]"))
+                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendLiterCheck", seriallizedData);
                             return false;
@@ -1428,7 +1428,7 @@ namespace ASFuelControl.Windows.Threads
                         BalanceClass bc = obj as BalanceClass;
 
                         seriallizedData = sendMethods.SendBalance(header, bc);
-                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]"))
+                        if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendBalance", seriallizedData);
                             return false;
