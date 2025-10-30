@@ -113,7 +113,7 @@ namespace ASFuelControl.DartFalcon
             Command[8] = 0xFA;
             return Command;
         }
-        public static byte[] AllowedNozzle(int Address,int noz)
+        public static byte[] AllowedNozzle(int Address, int noz)
         {
             byte[] Command = new byte[9];
             Command[0] = (byte)(79 + Address);
@@ -141,10 +141,10 @@ namespace ASFuelControl.DartFalcon
             Command[2] = 0x65;
             Command[3] = 0x01;
             Command[4] = (byte)Noz;
-            
+
             byte[] ComCRC = Command.Take(5).ToArray();
             string CRC_ = CRC.ComputeChecksum(ComCRC).ToString("x2");
-            byte[] crc4 = CRC.ConvertHexStringToByteArray(CRC_.PadLeft(4,'0'));
+            byte[] crc4 = CRC.ConvertHexStringToByteArray(CRC_.PadLeft(4, '0'));
             Command[5] = crc4[1];
             Command[6] = crc4[0];
             Command[7] = 0x03;
@@ -182,7 +182,7 @@ namespace ASFuelControl.DartFalcon
                     Command[10] = 0xFA;
                     return Command;
                 }
-                else if(TotNozzles == 2)
+                else if (TotNozzles == 2)
                 {
 
                     byte[] UnitPrice_Noz1 = CRC.ConvertHexStringToByteArray(fp.Nozzles[0].UntiPriceInt.ToString().Replace(",", null).Replace(".", null).PadLeft(4, '0'));
@@ -245,12 +245,12 @@ namespace ASFuelControl.DartFalcon
                 }
             }
             catch (Exception ex)
-            {   
+            {
                 return null;
             }
         }
 
-     
+
 
         public static class CRC
         {

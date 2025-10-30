@@ -1320,6 +1320,10 @@
       <Project>{C276FE24-4111-48B4-A1FE-63E17C6F6D5F}</Project>
       <Name>ASFuelControl.NuovoPignoneCL</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.NuovoPignoneMultiV2\ASFuelControl.NuovoPignoneMultiV2.csproj">
+      <Project>{ae260161-4166-4e48-b3ad-98094b3e7ff7}</Project>
+      <Name>ASFuelControl.NuovoPignoneMultiV2</Name>
+    </ProjectReference>
     <ProjectReference Include="..\ASFuelControl.NuovoPignoneMulti\ASFuelControl.NuovoPignoneMulti.csproj">
       <Project>{ef08444d-1357-45aa-a3c7-77e0f2c6a32a}</Project>
       <Name>ASFuelControl.NuovoPignoneMulti</Name>

@@ -16,12 +16,12 @@ namespace ASFuelControl.DartFalcon
         
         public Controller()
         {
-            this.ControllerType = ControllerTypeEnum.None;
-            this.Controller = new DartProtocol();
+            this.ControllerType = ControllerTypeEnum.DartFalcon;
+            this.Controller = new DartFalconProtocol();
         }
 
     }
-    public class DartProtocol : Common.IFuelProtocol
+    public class DartFalconProtocol : Common.IFuelProtocol
     {
         #region Basics
         public event EventHandler<Common.FuelPointValuesArgs> DataChanged;
@@ -45,7 +45,7 @@ namespace ASFuelControl.DartFalcon
             set
             {
                 this.fuelPoints = new List<Common.FuelPoint>(value);
-               
+
             }
         }
         public bool IsConnected
@@ -103,7 +103,7 @@ namespace ASFuelControl.DartFalcon
         {
             try
             {
-                
+
                 foreach (FuelPoint fp in this.fuelPoints)
                 {
                     foreach (Nozzle nz in fp.Nozzles)
@@ -117,11 +117,11 @@ namespace ASFuelControl.DartFalcon
                 {
                     try
                     {
-                        foreach (FuelPoint fp in this.fuelPoints.OrderBy(x=>x.Address))
+                        foreach (FuelPoint fp in this.fuelPoints.OrderBy(x => x.Address))
                         {
 
                             DateTime dtLastPoll = (DateTime)fp.GetExtendedProperty("LastValidResponse");
-                            
+
                             if ((DateTime.Now - dtLastPoll).TotalSeconds > 8)
                             {
                                 fp.Status = FuelPointStatusEnum.Offline;
@@ -144,7 +144,7 @@ namespace ASFuelControl.DartFalcon
                                 fp.Status = FuelPointStatusEnum.Idle;
                                 fp.DispenserStatus = FuelPointStatusEnum.Idle;
                                 fp.QuerySetPrice = true;
-                                
+
                             }
 
                             if (fp.Status != fp.LastStatus)
@@ -152,9 +152,9 @@ namespace ASFuelControl.DartFalcon
                                 fp.LastStatus = fp.Status;
                             }
 
-                            foreach (Nozzle nz in fp.Nozzles.OrderBy(x=>x.Index))
+                            foreach (Nozzle nz in fp.Nozzles.OrderBy(x => x.Index))
                             {
-                               
+
                                 if (nz.QueryTotals)
                                 {
                                     GetTotals(nz);
@@ -169,7 +169,7 @@ namespace ASFuelControl.DartFalcon
                                 Thread.Sleep(80);
 
                             }
-                            if(fp.QueryHalt || fp.QueryStop)
+                            if (fp.QueryHalt || fp.QueryStop)
                             {
                                 this.StopPump(fp);
                             }
@@ -181,19 +181,16 @@ namespace ASFuelControl.DartFalcon
                                 SetPrice(fp);
 
                                 Thread.Sleep(25);
-                                for (int i = 0; i <= 2; i++)
+                                for (int i = 0; i <= 1; i++)
                                 {
                                     this.Authorize(fp);
                                 }
 
-                                Thread.Sleep(25);
-                                fp.SetExtendedProperty("LastDatetimeAuthorize", (DateTime)DateTime.Now);
-                                fp.Status = FuelPointStatusEnum.Ready;
+                                fp.Status = FuelPointStatusEnum.Work;
                                 fp.QueryAuthorize = false;
 
                             }
 
-                           
                             Poll(fp);
                             Thread.Sleep(75);
 
@@ -208,7 +205,7 @@ namespace ASFuelControl.DartFalcon
                         Thread.Sleep(60);
                     }
                 }
-                    
+
             }
             catch
             {
@@ -219,41 +216,6 @@ namespace ASFuelControl.DartFalcon
                 Thread.Sleep(50);
             }
         }
-        private void GetDisplay(FuelPoint fp)
-        {
-            try
-            {
-                ExecuteSlave(Commands.GetDisplay(fp.Address), fp);
-                Thread.Sleep(50);
-                byte[] numArray = new byte[this.serialPort.BytesToRead];
-                this.serialPort.Read(numArray, 0, this.serialPort.BytesToRead);
-                Logger(numArray);
-                Thread.Sleep(25);
-
-                if (numArray[1] >= 0xC0 && numArray[1] <= 0xCF)
-                {
-                    ExecuteSlave(Commands.ACK(fp.Address), fp);
-                    Thread.Sleep(25);
-                }
-
-                ExecuteSlave(Commands.Poll(fp.Address), fp);
-                Thread.Sleep(50);
-                numArray = new byte[this.serialPort.BytesToRead];
-                this.serialPort.Read(numArray, 0, this.serialPort.BytesToRead);
-
-                if(numArray.Length > 3)
-                {
-                    AnalyzeDart(numArray, fp);
-                }
-
-                Logger(numArray);
-            }
-            catch
-            {
-
-            }
-        }
-
         private void Authorize(FuelPoint fp)
         {
             try
@@ -288,13 +250,13 @@ namespace ASFuelControl.DartFalcon
                 this.serialPort.Read(numArray, 0, this.serialPort.BytesToRead);
                 Logger(numArray);
                 Thread.Sleep(50);
+                fp.SetExtendedProperty("PumpAuthorized", true);
             }
             catch
             {
 
             }
         }
-
         private void StopPump(FuelPoint fp)
         {
             try
@@ -348,7 +310,7 @@ namespace ASFuelControl.DartFalcon
                     return;
                 if (this.serialPort.IsOpen)
                 {
-                    this.serialPort.Write(buffer, 0, buffer.Length);                    
+                    this.serialPort.Write(buffer, 0, buffer.Length);
                 }
                 Logger(buffer);
 
@@ -371,9 +333,9 @@ namespace ASFuelControl.DartFalcon
             AllowedNozzle
         }
 
-        public  void Logger(byte[] buf)
+        public void Logger(byte[] buf)
         {
-            string fileName = "dart_"+ this.serialPort.PortName +".txt";
+            string fileName = "dart_" + this.serialPort.PortName + ".txt";
 
             if (File.Exists(fileName))
             {
@@ -389,14 +351,24 @@ namespace ASFuelControl.DartFalcon
             string fileName = "dart_" + this.serialPort.PortName + ".txt";
             if (File.Exists(fileName))
             {
-                
+
                 using (StreamWriter writer = new StreamWriter(fileName, true, Encoding.UTF8))
                 {
                     writer.Write(DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss.fff") + " \t" + txt + "  " + "\r\n" /*+ Error_Recieve.ToString() + "\r\n\r\n"*/);
                 }
             }
         }
-
+        public void LoggerExtra(string txt)
+        {
+            string fileName = "dartextra_" + this.serialPort.PortName + ".txt";
+            if (File.Exists(fileName))
+            {
+                using (StreamWriter writer = new StreamWriter(fileName, true, Encoding.UTF8))
+                {
+                    writer.Write(DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss.fff") + " \t" + txt + "  " + "\r\n" /*+ Error_Recieve.ToString() + "\r\n\r\n"*/);
+                }
+            }
+        }
         #endregion
 
         #region Methods
@@ -406,8 +378,8 @@ namespace ASFuelControl.DartFalcon
             try
             {
                 DateTime dtGetStatus = (DateTime)fp.GetExtendedProperty("dtGetStatus_" + fp.Address, DateTime.Now);
-                
-                
+
+
                 if ((DateTime.Now - dtGetStatus).TotalSeconds > 2)
                 {
                     fp.SetExtendedProperty("dtGetStatus_" + fp.Address, DateTime.Now);
@@ -442,10 +414,10 @@ namespace ASFuelControl.DartFalcon
             }
             catch (Exception ex)
             {
+                LoggerException("Poll Error " + ex.Message);
                 //Base.Logger.ProtocolErrror(ex.ToString(), "Poll");
             }
         }
-
         private void GetTotals(Nozzle nz)
         {
             try
@@ -467,23 +439,22 @@ namespace ASFuelControl.DartFalcon
                 Logger(numArray);
                 string volBuf = "";
 
-                if (numArray[2] == 0x05 && numArray[5]==0x65)
+                if (numArray[2] == 0x05 && numArray[5] == 0x65)
                 {
                     volBuf = BitConverter.ToString(numArray.Skip(8).Take(5).ToArray());
                 }
                 else
                     volBuf = BitConverter.ToString(numArray.Skip(5).Take(5).ToArray());
-                
 
-                decimal VolumeTotalizer = decimal.Parse(volBuf.Replace("-", null)) ;
-                
+
+                decimal VolumeTotalizer = decimal.Parse(volBuf.Replace("-", null));
+
                 //fp.Nozzles[0].NeedTotalizer = false;
-
-               if(VolumeTotalizer == 0)
+                var prevTotals = nz.TotalVolume;
+                if (VolumeTotalizer == 0)
                     nz.TotalVolume = 0.01M;
-               else 
+                else
                     nz.TotalVolume = VolumeTotalizer;
-               
 
                 ExecuteSlave(Commands.ACK(nz.ParentFuelPoint.Address), nz.ParentFuelPoint);
                 numArray = new byte[this.serialPort.BytesToRead];
@@ -492,13 +463,21 @@ namespace ASFuelControl.DartFalcon
 
                 nz.ParentFuelPoint.Initialized = true;
                 nz.QueryTotals = false;
-                
-                    this.TotalsRecieved(this, new Common.TotalsEventArgs(nz.ParentFuelPoint, nz.Index, nz.TotalVolume, nz.TotalPrice));
-                
+
+                if (prevTotals == nz.TotalVolume)
+                {
+                    LoggerExtra("TOTALS ARE THE SAME");
+                    LoggerExtra(string.Format("DISPENCED AMOUNT:{1}, DISPENSED VOLUME: {0}", nz.ParentFuelPoint.DispensedVolume, nz.ParentFuelPoint.DispensedAmount));
+                    //return;
+                }
+
+                this.TotalsRecieved(this, new Common.TotalsEventArgs(nz.ParentFuelPoint, nz.Index, nz.TotalVolume, nz.TotalPrice));
+
+
             }
             catch (Exception ex)
             {
-
+                LoggerException("Get Totals Error " + ex.Message);
             }
         }
 
@@ -554,7 +533,7 @@ namespace ASFuelControl.DartFalcon
                                     {
                                         if (Cmd[2] == 0x04 && fp.Status == FuelPointStatusEnum.Nozzle)
                                         {
-                                            
+
                                             fp.Status = FuelPointStatusEnum.Work;
                                             fp.DispenserStatus = FuelPointStatusEnum.Work;
                                             this.DataChanged(this, new FuelPointValuesArgs()
@@ -575,7 +554,7 @@ namespace ASFuelControl.DartFalcon
                                         {
                                             if (fp.Status == FuelPointStatusEnum.Offline)
                                             {
-                                                
+
                                                 fp.Status = FuelPointStatusEnum.Idle;
                                                 fp.DispenserStatus = FuelPointStatusEnum.Idle;
                                                 fp.ActiveNozzleIndex = -1;
@@ -598,12 +577,13 @@ namespace ASFuelControl.DartFalcon
                                 break;
                             case 0x02:
                                 {
-                                    
-                                        string VolSub = BitConverter.ToString(ClearData.Take(4).ToArray()).Replace("-", null);
-                                        string AmtSub = BitConverter.ToString(ClearData.Skip(4).Take(4).ToArray()).Replace("-", null);
+                                    if (!(bool)fp.GetExtendedProperty("PumpAuthorized"))
+                                        break;
+                                    string VolSub = BitConverter.ToString(ClearData.Take(4).ToArray()).Replace("-", null);
+                                    string AmtSub = BitConverter.ToString(ClearData.Skip(4).Take(4).ToArray()).Replace("-", null);
 
-                                        fp.DispensedAmount = decimal.Parse(AmtSub) / (decimal)Math.Pow(10, fp.AmountDecimalPlaces);
-                                        fp.DispensedVolume = decimal.Parse(VolSub) / (decimal)Math.Pow(10, fp.VolumeDecimalPlaces);
+                                    fp.DispensedAmount = decimal.Parse(AmtSub) / (decimal)Math.Pow(10, fp.AmountDecimalPlaces);
+                                    fp.DispensedVolume = decimal.Parse(VolSub) / (decimal)Math.Pow(10, fp.VolumeDecimalPlaces);
 
                                     if (fp.DispensedAmount > 0)
                                     {
@@ -625,8 +605,9 @@ namespace ASFuelControl.DartFalcon
                                             });
                                         }
                                     }
+                                    fp.SetExtendedProperty("PumpAuthorized", false);
                                     Thread.Sleep(5);
-                                    
+
                                 }
                                 break;
                             case 0x03:
@@ -641,17 +622,17 @@ namespace ASFuelControl.DartFalcon
                                             Thread.Sleep(80);
                                             byte[] clearBuf = new byte[this.serialPort.BytesToRead];
                                             this.serialPort.Read(clearBuf, 0, this.serialPort.BytesToRead);
-                                            
+
                                             Thread.Sleep(25);
                                             foreach (Nozzle nz in fp.Nozzles)
                                             {
-                                                ExecuteSlave(Commands.AllowedNozzle(nz.ParentFuelPoint.Address, nz.Index),fp);
+                                                ExecuteSlave(Commands.AllowedNozzle(nz.ParentFuelPoint.Address, nz.Index), fp);
                                                 Thread.Sleep(25);
                                                 byte[] bb = new byte[this.serialPort.BytesToRead];
                                                 this.serialPort.Read(bb, 0, this.serialPort.BytesToRead);
                                                 Thread.Sleep(50);
                                             }
-                                            
+
 
                                             //clearBuf = new byte[this.serialPort.BytesToRead];
                                             //this.serialPort.Read(clearBuf, 0, this.serialPort.BytesToRead);
@@ -659,7 +640,7 @@ namespace ASFuelControl.DartFalcon
                                             fp.SetExtendedProperty("dtGetStatus_" + fp.Address, DateTime.Now);
                                             fp.Status = FuelPointStatusEnum.Idle;
                                             fp.DispenserStatus = FuelPointStatusEnum.Idle;
-                                         
+
                                         }
                                         else if (fp.Status == FuelPointStatusEnum.Nozzle)
                                         {
@@ -684,50 +665,53 @@ namespace ASFuelControl.DartFalcon
                                                 {
                                                     ExecuteSlave(Commands.GetDisplay(fp.Address), fp);
                                                     Thread.Sleep(50);
-
                                                     byte[] ssss = new byte[this.serialPort.BytesToRead];
                                                     this.serialPort.Read(ssss, 0, this.serialPort.BytesToRead);
                                                     Logger(ssss);
-                                                    
+
+
+
                                                     ExecuteSlave(Commands.Poll(fp.Address), fp);
                                                     Thread.Sleep(50);
-
                                                     ssss = new byte[this.serialPort.BytesToRead];
                                                     this.serialPort.Read(ssss, 0, this.serialPort.BytesToRead);
                                                     Logger(ssss);
-                                                    
+
+
                                                     ExecuteSlave(Commands.Poll(fp.Address), fp);
                                                     Thread.Sleep(125);
-
                                                     ssss = new byte[this.serialPort.BytesToRead];
                                                     this.serialPort.Read(ssss, 0, this.serialPort.BytesToRead);
                                                     Logger(ssss);
-                                                    
-                                                    if(ssss[2] == 0x02 && ssss[3] == 0x08)
+                                                    if (ssss[2] == 0x02 && ssss[3] == 0x08)
                                                     {
-                                                        string VolSub = BitConverter.ToString(ssss.Skip(4).Take(4).ToArray()).Replace("-", null);
-                                                        string AmtSub = BitConverter.ToString(ssss.Skip(8).Take(4).ToArray()).Replace("-", null);
-
-                                                        fp.DispensedAmount = decimal.Parse(AmtSub) / (decimal)Math.Pow(10, fp.AmountDecimalPlaces);
-                                                        fp.DispensedVolume = decimal.Parse(VolSub) / (decimal)Math.Pow(10, fp.VolumeDecimalPlaces);
-
-                                                        if (fp.DispensedAmount > 0)
+                                                        if ((bool)fp.GetExtendedProperty("PumpAuthorized"))
                                                         {
-                                                            if (this.DataChanged != null)
-                                                            {
+                                                            string VolSub = BitConverter.ToString(ssss.Skip(4).Take(4).ToArray()).Replace("-", null);
+                                                            string AmtSub = BitConverter.ToString(ssss.Skip(8).Take(4).ToArray()).Replace("-", null);
 
-                                                                Common.FuelPointValues values = new Common.FuelPointValues();
-                                                                values.CurrentSalePrice = fp.Nozzles[0].UnitPrice;
-                                                                values.CurrentPriceTotal = fp.DispensedAmount;
-                                                                values.CurrentVolume = fp.DispensedVolume;
-                                                                values.ActiveNozzle = 0;
-                                                                this.DataChanged(this, new Common.FuelPointValuesArgs()
+                                                            fp.DispensedAmount = decimal.Parse(AmtSub) / (decimal)Math.Pow(10, fp.AmountDecimalPlaces);
+                                                            fp.DispensedVolume = decimal.Parse(VolSub) / (decimal)Math.Pow(10, fp.VolumeDecimalPlaces);
+
+                                                            if (fp.DispensedAmount > 0)
+                                                            {
+                                                                if (this.DataChanged != null)
                                                                 {
-                                                                    CurrentFuelPoint = fp,
-                                                                    CurrentNozzleId = 1,
-                                                                    Values = values
-                                                                });
+
+                                                                    Common.FuelPointValues values = new Common.FuelPointValues();
+                                                                    values.CurrentSalePrice = fp.Nozzles[0].UnitPrice;
+                                                                    values.CurrentPriceTotal = fp.DispensedAmount;
+                                                                    values.CurrentVolume = fp.DispensedVolume;
+                                                                    values.ActiveNozzle = 0;
+                                                                    this.DataChanged(this, new Common.FuelPointValuesArgs()
+                                                                    {
+                                                                        CurrentFuelPoint = fp,
+                                                                        CurrentNozzleId = 1,
+                                                                        Values = values
+                                                                    });
+                                                                }
                                                             }
+                                                            fp.SetExtendedProperty("PumpAuthorized", false);
                                                         }
                                                     }
 
@@ -736,11 +720,11 @@ namespace ASFuelControl.DartFalcon
                                                     Thread.Sleep(25);
                                                     byte[] clearBuf = new byte[this.serialPort.BytesToRead];
                                                     this.serialPort.Read(clearBuf, 0, this.serialPort.BytesToRead);
-                                                    
+
                                                 }
 
 
-                                                
+
 
                                                 if (fp.DispensedAmount > 0.01M)
                                                 {
@@ -758,12 +742,12 @@ namespace ASFuelControl.DartFalcon
 
                                                     ExecuteSlave(Commands.Reset(fp.Address), fp);
                                                     Thread.Sleep(80);
-                                                     arar = new byte[this.serialPort.BytesToRead];
+                                                    arar = new byte[this.serialPort.BytesToRead];
                                                     this.serialPort.Read(arar, 0, this.serialPort.BytesToRead);
-                                                  
+
                                                 }
 
-                                                
+
 
                                                 fp.Status = FuelPointStatusEnum.Idle;
                                                 fp.DispenserStatus = FuelPointStatusEnum.Idle;
@@ -785,23 +769,8 @@ namespace ASFuelControl.DartFalcon
                                                 //Base.Logger.ProtocolErrror(ex.ToString(), "AnalyzeDart _ From Work To Idle");
                                             }
                                         }
-
-                                        else if(fp.Status == FuelPointStatusEnum.Ready)
-                                        {
-                                            fp.Status = FuelPointStatusEnum.Idle;
-                                            fp.DispenserStatus = FuelPointStatusEnum.Idle;
-                                            this.DataChanged(this, new FuelPointValuesArgs()
-                                            {
-                                                CurrentFuelPoint = fp,
-                                                CurrentNozzleId = 1,
-                                                Values = new FuelPointValues()
-                                                {
-                                                    Status = fp.Status
-                                                }
-                                            });
-                                        }
                                     }
-                                    
+
                                     if (ClearData[3] >= (byte)0x11 && ClearData[3] <= (byte)0x18)
                                     {
                                         if (fp.Status == FuelPointStatusEnum.Idle)
@@ -813,37 +782,22 @@ namespace ASFuelControl.DartFalcon
                                             this.DataChanged(this, new FuelPointValuesArgs()
                                             {
                                                 CurrentFuelPoint = fp,
-                                                CurrentNozzleId = SelectedNozzle+1,
+                                                CurrentNozzleId = SelectedNozzle + 1,
                                                 Values = new FuelPointValues()
                                                 {
                                                     Status = fp.Status,
-                                                    //ΑΛΛΑΓΗ
-                                                    ActiveNozzle = SelectedNozzle+1,
+                                                    ActiveNozzle = SelectedNozzle
                                                 }
                                             });
-                                            fp.DispensedVolume = 0;
-                                            fp.DispensedAmount = 0;
-                                            ExecuteSlave(Commands.Reset(fp.Address), fp);
-                                            Thread.Sleep(80);
-                                            byte[] numArray = new byte[this.serialPort.BytesToRead];
-                                            this.serialPort.Read(numArray, 0, this.serialPort.BytesToRead);
-                                            Thread.Sleep(50);
-                                        }
-                                        if (fp.Channel == 1 && fp.Status == FuelPointStatusEnum.Ready)
-                                        {
-                                            if ((DateTime.Now - (DateTime)fp.GetExtendedProperty("LastDatetimeAuthorize")).TotalSeconds > 3)
-                                            {
-                                                fp.Status = FuelPointStatusEnum.Work;
-                                            }
 
                                         }
-                                        //if(ClearData[3]>=0x11)
-                                        //{
-                                        //    int noz = ClearData[3] - 16;
-                                        //    ExecuteSlave(Commands.AllowedNozzle(fp.Address, noz),fp);
-                                        //    byte[] numArray = new byte[this.serialPort.BytesToRead];
-                                        //    this.serialPort.Read(numArray, 0, this.serialPort.BytesToRead);
-                                        //}
+                                        if (ClearData[3] >= 0x11)
+                                        {
+                                            int noz = ClearData[3] - 16;
+                                            ExecuteSlave(Commands.AllowedNozzle(fp.Address, noz), fp);
+                                            byte[] numArray = new byte[this.serialPort.BytesToRead];
+                                            this.serialPort.Read(numArray, 0, this.serialPort.BytesToRead);
+                                        }
                                     }
                                 }
                                 break;
@@ -870,6 +824,7 @@ namespace ASFuelControl.DartFalcon
             }
             catch (Exception ex)
             {
+                LoggerException("Analyze Error " + ex.Message);
                 //Base.Logger.ProtocolErrror(ex.ToString(), "AnalyzeDart");
             }
         }
