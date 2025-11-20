@@ -78,7 +78,7 @@ namespace ASFuelControl.Tatsuno
                 if (incoming is PdeInitReq)
                 {
                     var init = (PdeInitReq)incoming;
-                    byte[] ack = AuthCompute(init.Code, _addr);
+                    string ack = AuthCompute(init.Code, _addr);
                     if (!SendSelect(_addr, 'I', ack))
                         continue;
 
@@ -87,19 +87,19 @@ namespace ASFuelControl.Tatsuno
                     if (next is PdeError)
                     {
                         var err = (PdeError)next;
-                        //Common.Logger.Instance.Trace("Error found. Code: " + err.Code.ToString());
+                        Common.Logger.Instance.Trace("Error found. Code: " + err.Code.ToString());
                         if (err.Code == 99)
                         {
-                            //Common.Logger.Instance.Trace("Exit Initialize: TRUE");
+                            Common.Logger.Instance.Trace("Exit Initialize: TRUE");
                             return true;
                         }
                         else if (err.Code == 63)
                         {
-                            //Common.Logger.Instance.Trace("Exit Initialize: FALSE");
+                            Common.Logger.Instance.Trace("Exit Initialize: FALSE");
                             return false;
                         }
-                        //else
-                        //    Common.Logger.Instance.Trace("Error Code evaluation failed. Code: " + err.Code.ToString());
+                        else
+                            Common.Logger.Instance.Trace("Error Code evaluation failed. Code: " + err.Code.ToString());
                     }
                     if (next is PdeInitReq)
                     {
@@ -308,43 +308,41 @@ namespace ASFuelControl.Tatsuno
                        priceType.ToString() +
                        unitPrice.ToString("D4") +
                        product.ToString();
-                        
             return SendSelect(_addr, 'A', s);
         }
 
         public bool SetPrices(byte address, int[] products, int[] prices)
         {
-            return true;
-            //if (!SendSelect(address, 'M', "99"))
-            //    return false;
-            //PollOnce(address);
-            //if (!SendSelect(address, 'P', "00"))
-            //    return false;
-            //PollOnce(address);
-            //string payload = GetPricePayload(products, prices);
+            if (!SendSelect(address, 'M', "99"))
+                return false;
+            PollOnce(address);
+            if (!SendSelect(address, 'P', "00"))
+                return false;
+            PollOnce(address);
+            string payload = GetPricePayload(products, prices);
 
-            //// Send 'T' command with constructed payload
-            //if (!SendSelect(address, 'T', payload))
-            //    return false;
+            // Send 'T' command with constructed payload
+            if (!SendSelect(address, 'T', payload))
+                return false;
 
-            //// Poll for response
-            //object response = PollOnce(address);
+            // Poll for response
+            object response = PollOnce(address);
 
-            //// Check for success
-            //if (response is string version && version.StartsWith("PDE"))
-            //{
-            //    Console.WriteLine("Price update acknowledged: " + version);
-            //    return true;
-            //}
+            // Check for success
+            if (response is string version && version.StartsWith("PDE"))
+            {
+                Console.WriteLine("Price update acknowledged: " + version);
+                return true;
+            }
 
-            //// Check for error
-            //if (response is PdeError error)
-            //{
-            //    ASFuelControl.Common.Logger.Instance.Trace($"Price update failed with error {error.Code}: {PdeErrorCodes.GetDescription(error.Code)}");
-            //    return false;
-            //}
-            //ASFuelControl.Common.Logger.Instance.Trace($"Unexpected response during price update");
-            //return false;
+            // Check for error
+            if (response is PdeError error)
+            {
+                ASFuelControl.Common.Logger.Instance.Trace($"Price update failed with error {error.Code}: {PdeErrorCodes.GetDescription(error.Code)}");
+                return false;
+            }
+            ASFuelControl.Common.Logger.Instance.Trace($"Unexpected response during price update");
+            return false;
         }
 
         public string GetPricePayload(int[] products, int[] prices)
@@ -394,18 +392,7 @@ namespace ASFuelControl.Tatsuno
 
             return false;
         }
-        public bool SendPayment(byte _addr)
-        {
-            object respP = PollOnce(_addr);
-            if (SendSelect(_addr, 'C', "2"))
-            {
-                object respZ = PollOnce(_addr);
-                System.Threading.Thread.Sleep(20);
-                return true;
-            }
 
-            return false;
-        }
         public bool SendClearDisplay(byte _addr)
         {
             object respP = PollOnce(_addr);
@@ -422,21 +409,20 @@ namespace ASFuelControl.Tatsuno
 
         public bool SetUnitPrice(byte _addr, int product, int price)
         {
-            return true;
-            ////if (!SendSelect(_addr, 'M', "99"))
-            ////    return false;
-            ////object respM = PollOnce(_addr);
-            ////if (!SendSelect(_addr, 'P', "00"))
-            ////    return false;
-            //if (!SendUnlock(_addr))
+            //if (!SendSelect(_addr, 'M', "99"))
             //    return false;
-            //object respP = PollOnce(_addr);
-            //if (SendSelect(_addr, 'Z', product.ToString() + price.ToString("D4")))
-            //{
-            //    object respZ = PollOnce(_addr);
-            //    return true;
-            //}
-            //return false;
+            //object respM = PollOnce(_addr);
+            //if (!SendSelect(_addr, 'P', "00"))
+            //    return false;
+            if (!SendUnlock(_addr))
+                return false;
+            object respP = PollOnce(_addr);
+            if (SendSelect(_addr, 'Z', product.ToString() + price.ToString("D4")))
+            {
+                object respZ = PollOnce(_addr);
+                return true;
+            }
+            return false;
         }
 
         public bool GetUnitPrice(byte _addr, int product)
@@ -540,11 +526,9 @@ namespace ASFuelControl.Tatsuno
 
             var frame = new byte[_opt.SynCount + 1 + inner.Length + 2];
             int p = 0;
-            for (int i = 0; i < _opt.SynCount; i++)
-                frame[p++] = Ctrl.SYN;
+            for (int i = 0; i < _opt.SynCount; i++) frame[p++] = Ctrl.SYN;
             frame[p++] = _addr;
-            Buffer.BlockCopy(inner, 0, frame, p, inner.Length);
-            p += inner.Length;
+            Buffer.BlockCopy(inner, 0, frame, p, inner.Length); p += inner.Length;
             frame[p++] = crcHi;
             frame[p++] = crcLo;
 
@@ -572,60 +556,7 @@ namespace ASFuelControl.Tatsuno
             int ack = ReadOne(deadline);
             return ack == Ctrl.ACK;
         }
-        private bool SendSelect(byte _addr, char msgCode, byte[] bytePayload)
-        {
-            // Build inner payload: STX + msgCode + bytePayload + ETX
-            var inner = new byte[1 + 1 + bytePayload.Length + 1];
-            int p = 0;
-            inner[p++] = Ctrl.STX;
-            inner[p++] = (byte)msgCode;
-            Buffer.BlockCopy(bytePayload, 0, inner, p, bytePayload.Length);
-            p += bytePayload.Length;
-            inner[p] = Ctrl.ETX;
 
-            // Compute CRC over inner payload
-            ushort crc = CrcSum(inner);
-            byte crcHi = (byte)((crc >> 8) & 0x7F);
-            byte crcLo = (byte)(crc & 0x7F);
-
-            // Build full frame: SYNs + address + inner + CRC
-            var frame = new byte[_opt.SynCount + 1 + inner.Length + 2];
-            p = 0;
-            for (int i = 0; i < _opt.SynCount; i++)
-                frame[p++] = Ctrl.SYN;
-            frame[p++] = _addr;
-            Buffer.BlockCopy(inner, 0, frame, p, inner.Length);
-            p += inner.Length;
-            frame[p++] = crcHi;
-            frame[p++] = crcLo;
-
-            Common.Logger.Instance.Debug($"SendSelect, Data Sent: {msgCode}, Data Frame Start: {BitConverter.ToString(frame)}");
-            Write(frame);
-            Common.Logger.Instance.Debug($"SendSelect, Data Sent: {msgCode}, Data Frame End: {BitConverter.ToString(frame)}");
-
-            long deadline = NowMs() + _opt.TkbMs;
-            if (!ReadUntil(Ctrl.SYN, deadline))
-            {
-                Common.Logger.Instance.Debug($"SendSelect Read Until Failed, Data Sent: {msgCode}, Data Frame End: {BitConverter.ToString(frame)}");
-                return false;
-            }
-
-            int b;
-            do
-            {
-                b = ReadOne(deadline);
-            }
-            while (b == Ctrl.SYN);
-
-            if (b != _addr)
-            {
-                Common.Logger.Instance.Debug($"SendSelect Read One Mismatch, Data Sent: {msgCode}, Data Frame End: {BitConverter.ToString(frame)}");
-                return false;
-            }
-
-            int ack = ReadOne(deadline);
-            return ack == Ctrl.ACK;
-        }
         private void WriteAck(byte _addr, byte ack)
         {
             var w = new byte[_opt.SynCount + 2];
@@ -641,9 +572,6 @@ namespace ASFuelControl.Tatsuno
         {
             _port.RtsEnable = false;
             _port.Write(data, 0, data.Length);
-            string hex = BitConverter.ToString(data).Replace("-", " ");
-            Common.Logger.Instance.Debug($"Write: {hex}");
-
             //_port.BaseStream.Flush();
         }
 
@@ -664,32 +592,21 @@ namespace ASFuelControl.Tatsuno
             return (ushort)sum;
         }
 
-        private static byte[] AuthCompute(string received8Ascii, byte adr)
+        private static string AuthCompute(string received8Ascii, byte adr)
         {
-            if (received8Ascii.Length != 8)
-                throw new ArgumentException("Auth requires 8 chars.");
-            byte[] R = new byte[8];
-            int C = adr + 1;
-
+            if (received8Ascii.Length != 8) throw new ArgumentException("Auth requires 8 chars.");
+            uint C = (uint)(adr + 1);
+            var R = new char[8];
             for (int i = 0; i < 8; i++)
             {
                 C = C * (byte)received8Ascii[i];
-
-                // Replace low byte with masked value
-                int low = C & 0xFF;
-                low &= 0x7F;
-                C = (C & ~0xFF) | low;   // overwrite low byte in C
-
-                if ((C & 0xFF) < 0x20)
-                    C += 0x20;
-
-                R[i] = (byte)(C & 0xFF);
-
+                byte low = (byte)(C & 0xFF);
+                low = (byte)(low & 0x7F);
+                if (low < 0x20) C += 0x20;
+                R[i] = (char)(C & 0x7F);
                 C = (C >> 8) + adr;
             }
-
-
-            return R;
+            return new string(R);
         }
 
         // ---------- Reading helpers ----------
@@ -705,29 +622,20 @@ namespace ASFuelControl.Tatsuno
                 foo.Add((byte)b);
                 if (b == target)
                 {
-                    string hex = BitConverter.ToString(foo.ToArray()).Replace("-", " ");
-                    Common.Logger.Instance.Debug($"Read: {hex}");
-
-                    //ASFuelControl.Common.Logger.Instance.Trace("ReadUntil (SUCCESS) Data: " + BitConverter.ToString(foo.ToArray()));
+                    ASFuelControl.Common.Logger.Instance.Trace("ReadUntil (SUCCESS) Data: " + BitConverter.ToString(foo.ToArray()));
                     return true;
                 }
             }
-            //ASFuelControl.Common.Logger.Instance.Trace("ReadUntil (FAILURE) Data: " + BitConverter.ToString(foo.ToArray()));
+            ASFuelControl.Common.Logger.Instance.Trace("ReadUntil (FAILURE) Data: " + BitConverter.ToString(foo.ToArray()));
             return false;
         }
 
         private int ReadOne(long deadlineMs)
         {
-            List<byte> readedBytes = new List<byte>();
             while (NowMs() < deadlineMs)
             {
                 int b = TryReadByte(deadlineMs);
-                readedBytes.Add((byte)b);
-                if (b >= 0)
-                {
-                    Common.Logger.Instance.Debug($"Read: {BitConverter.ToString(readedBytes.ToArray())}");
-                    return b;
-                }
+                if (b >= 0) return b;
             }
             throw new TimeoutException("Read timed out.");
         }
@@ -1009,4 +917,5 @@ namespace ASFuelControl.Tatsuno
         public string Data;
         public PdeRawInbound(char c, string d) { Code = c; Data = d; }
     }
+   
 }

@@ -20,7 +20,21 @@ namespace ASFuelControl.Communication
             }
         }
 
-        eTokenLib.eTokenLib etoken = new eTokenLib.eTokenLib();
+        ETokenDomainManager _etoken;
+        ETokenDomainManager etoken
+        {
+            get
+            {
+                if (_etoken == null)
+                {
+                    //eTokenLib.eTokenLib
+                    GC.Collect(); GC.WaitForPendingFinalizers();
+                    _etoken = new ETokenDomainManager();
+                    _etoken.Load("C:\\ASFuelControl\\eTokenLib.dll", "eTokenLib.eTokenLib");
+                }
+                return _etoken;
+            }
+        }
 
         public bool Simulation { set; get; }
         public static string CompanyTin { set; get; }
@@ -45,7 +59,7 @@ namespace ASFuelControl.Communication
             return volume;
         }
 
-        public eTokenLib.eTokenLib TokenLib 
+        public ETokenDomainManager TokenLib 
         {
             get 
             {

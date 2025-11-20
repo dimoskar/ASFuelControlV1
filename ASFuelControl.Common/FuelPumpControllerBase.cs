@@ -732,12 +732,14 @@ namespace ASFuelControl.Common
             }
             bool work = (bool)nz.ParentFuelPoint.GetExtendedProperty("Work", false);
             nz.ParentFuelPoint.SetExtendedProperty("Work", false);
-
+            //Logger.Instance.Info($"OnTransactionCompleted #1 || Address: {nz.ParentFuelPoint.Address}- Nozzle Index: {nz.NozzleIndex} Work: {work}");
             nz.SetExtendedProperty("LastTotalVolume", nz.TotalVolume);
             nz.SetExtendedProperty("TotalIndex", 0);
 
             if (nz.SuspendSale)
             {
+                //Logger.Instance.Info($"OnTransactionCompleted || Address: {nz.ParentFuelPoint.Address}- Nozzle Index: {nz.NozzleIndex} Suspend Sale: {nz.SuspendSale}");
+
                 nz.SuspendSale = false;
                 if (fp.EuromatNumber > 0)
                 {
@@ -751,6 +753,7 @@ namespace ASFuelControl.Common
                 {
                     System.IO.File.AppendAllText("TransactionCompleted.log", "fp.NeedsInvoice is FALSE\r\n");
                 }
+                //Logger.Instance.Info($"OnTransactionCompleted || Address: {nz.ParentFuelPoint.Address}- Nozzle Index: {nz.NozzleIndex} Needs Invoice: {fp.NeedsInvoice}");
                 CreateValuesForTotals(nz);
                 return;
             }

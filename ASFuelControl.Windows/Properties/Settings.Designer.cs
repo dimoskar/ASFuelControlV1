@@ -133,7 +133,7 @@ namespace ASFuelControl.Windows.Properties {
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.SpecialSettingAttribute(global::System.Configuration.SpecialSetting.ConnectionString)]
-        [global::System.Configuration.DefaultSettingValueAttribute("Data Source=DESKTOP-OTQKT5I;Initial Catalog=ASFuelControlDB_Initial;Integrated Se" +
+        [global::System.Configuration.DefaultSettingValueAttribute("Data Source=DESKTOP-OTQKT5I;Initial Catalog=ASFuelControlDB_Balance;Integrated Se" +
             "curity=True;Connect Timeout=300")]
         public string DBConnection {
             get {

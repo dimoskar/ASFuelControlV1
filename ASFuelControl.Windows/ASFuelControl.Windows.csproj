@@ -1300,6 +1300,10 @@
       <Project>{F9707C8A-A3BB-4A95-AB12-FD3F7ADD2ECF}</Project>
       <Name>ASFuelControl.GVR</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.HongYang\ASFuelControl.HongYang.csproj">
+      <Project>{444c1867-d774-45a4-ac30-555a92b51526}</Project>
+      <Name>ASFuelControl.HongYang</Name>
+    </ProjectReference>
     <ProjectReference Include="..\ASFuelControl.Logging\ASFuelControl.Logging.csproj">
       <Project>{85953593-6156-4463-9C47-1DCD8024A087}</Project>
       <Name>ASFuelControl.Logging</Name>
@@ -1395,10 +1399,6 @@
     <ProjectReference Include="..\ASFuelControl.Tank\ASFuelControl.Tank.csproj">
       <Project>{C71609CB-3F4F-4A99-A530-F55E31E8EF70}</Project>
       <Name>ASFuelControl.Tank</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\ASFuelControl.Tatsuno\ASFuelControl.Tatsuno.csproj">
-      <Project>{444c1867-d774-45a4-ac30-555a92b51526}</Project>
-      <Name>ASFuelControl.Tatsuno</Name>
     </ProjectReference>
     <ProjectReference Include="..\ASFuelControl.TeosisLPG\ASFuelControl.TeosisLPG.csproj">
       <Project>{f48e3fdd-8578-48f0-8e1e-329a748b02c5}</Project>

@@ -1479,7 +1479,7 @@ namespace ASFuelControl.Windows.Threads
                     System.IO.Directory.CreateDirectory(dir);
                 string fileName = string.Format(System.Environment.CurrentDirectory + "\\Logs\\{1}\\{0:yyyyMMddHHmmssfff}.log", DateTime.Now, action);
 
-                if (data.StartsWith("[ERROR]") || data == "[ERROR]")
+                if (data.StartsWith("[ERROR") || data == "[ERROR]")
                 {
                     if (lastLoggedActions.ContainsKey(action) && DateTime.Now.Subtract(lastLoggedActions[action]).TotalSeconds < 60)
                         return true;

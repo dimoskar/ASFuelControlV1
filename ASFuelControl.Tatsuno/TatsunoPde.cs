@@ -28,6 +28,12 @@ namespace ASFuelControl.Tatsuno
         public int TkcMs = 100;
         public bool ToggleRts = false;
     }
+    public enum PayloadFormat
+    {
+        Ascii,
+        Hex
+    }
+
 
     public class TatsunoPdeClient : IDisposable
     {
@@ -35,429 +41,117 @@ namespace ASFuelControl.Tatsuno
         private readonly PdeOptions _opt;
         private readonly Encoding _enc = Encoding.ASCII;
 
-        public TatsunoPdeClient(SerialPort port, PdeOptions options)
+        private readonly Queue<Tuple<byte, object>> _responsePool = new Queue<Tuple<byte, object>>();
+        private readonly object _responseLock = new object();
+
+        private readonly AckTracker _ackTracker = new AckTracker();
+        private readonly List<string> _log = new List<string>();
+        private readonly object _logLock = new object();
+
+        public PayloadFormat LogPayloadFormat { get; set; }
+
+        public TatsunoPdeClient(SerialPort port, PdeOptions options = null)
         {
             _opt = options ?? new PdeOptions();
-
             _port = port;
             _port.ReadTimeout = 20;
             _port.WriteTimeout = 100;
             _port.Handshake = Handshake.None;
-            //_port.RtsEnable = !_opt.ToggleRts;
             _port.Encoding = Encoding.ASCII;
+            LogPayloadFormat = PayloadFormat.Hex;
         }
 
-        public void Open()
-        {
-            if (!_port.IsOpen) _port.Open();
-        }
+        public void Open() { if (!_port.IsOpen) _port.Open(); }
+        public bool IsOpen() { return _port.IsOpen; }
+        public void Close() { if (_port.IsOpen) _port.Close(); }
+        public void Dispose() { try { Close(); } catch { } _port.Dispose(); }
 
-        public bool IsOpen()
+        public IEnumerable<string> GetLogLines()
         {
-            return _port.IsOpen;
-        }
-
-        public void Close()
-        {
-            if (_port.IsOpen) _port.Close();
-        }
-
-        public void Dispose()
-        {
-            try { if (_port.IsOpen) _port.Close(); } catch { }
-            _port.Dispose();
-        }
-
-        // ----- Public synchronous API -----
-
-        public bool Initialize(byte _addr)
-        {
-            for (int tries = 0; tries < 10; tries++)
+            lock (_logLock)
             {
-                object incoming = PollOnce(_addr);
-                if (incoming is PdeInitReq)
-                {
-                    var init = (PdeInitReq)incoming;
-                    string ack = AuthCompute(init.Code, _addr);
-                    if (!SendSelect(_addr, 'I', ack))
-                        continue;
-
-                    object next = PollOnce(_addr);
-                    
-                    if (next is PdeError)
-                    {
-                        var err = (PdeError)next;
-                        Common.Logger.Instance.Trace("Error found. Code: " + err.Code.ToString());
-                        if (err.Code == 99)
-                        {
-                            Common.Logger.Instance.Trace("Exit Initialize: TRUE");
-                            return true;
-                        }
-                        else if (err.Code == 63)
-                        {
-                            Common.Logger.Instance.Trace("Exit Initialize: FALSE");
-                            return false;
-                        }
-                        else
-                            Common.Logger.Instance.Trace("Error Code evaluation failed. Code: " + err.Code.ToString());
-                    }
-                    if (next is PdeInitReq)
-                    {
-                        tries--; continue;
-                    }
-                }
-                Thread.Sleep(20);
-            }
-            Common.Logger.Instance.Trace("Exit Initialize (END of METHOD): FALSE");
-            return false;
-        }
-
-        public object PollOnce(byte _addr)
-        {
-            byte[] payload;
-            byte[] envelope;
-            if (!SendPoll(_addr, out payload, out envelope))
-            {
-                Common.Logger.Instance.Trace("PollOnce Failed");
-                return null;
-            }
-            if (!VerifyCrc(envelope))
-            {
-                Common.Logger.Instance.Trace("PollOnce Failed because of CRC Error");
-                WriteAck(_addr, Ctrl.NAK);
-                return null;
-            }
-            WriteAck(_addr, Ctrl.ACK);
-            char code = (char)payload[0];
-            string data = _enc.GetString(payload, 1, payload.Length - 1);
-            Common.Logger.Instance.Debug("PollOnce, Code: " + code + ". Data Recieved: " + data);
-            try
-            {
-                switch (code)
-                {
-                    case 'd':
-                        Common.Logger.Instance.Trace("Display Data");
-                        return PdeDisplay.Parse(data);
-                    case 'e':
-                        Common.Logger.Instance.Trace("Error Data");
-                        return PdeError.Parse(data);
-                    case 's':
-                        Common.Logger.Instance.Trace("Status Data");
-                        return PdeStatus.Parse(data);
-                    case 'h':
-                        Common.Logger.Instance.Trace("History Data");
-                        return PdeHistory.Parse(data);
-                    case 'm':
-                        Common.Logger.Instance.Trace("Msssage Data");
-                        return PdeText.Parse(data);
-                    case 'o':
-                        Common.Logger.Instance.Trace("Text Status Data");
-                        return PdeTextStatus.Parse(data);
-                    case 'x':
-                        Common.Logger.Instance.Trace("Registers Data");
-                        return PdeRegisters.Parse(data);
-                    case 'i':
-                        Common.Logger.Instance.Trace("Init Data");
-                        return new PdeInitReq(data);
-                    default:
-                        Common.Logger.Instance.Trace("Other Data");
-                        return new PdeRawInbound(code, data);
-                }
-            }
-            catch(Exception ex)
-            {
-                Common.Logger.Instance.Debug("Wrong Data Recieved");
-                return null; 
+                var lines = _log.ToList();
+                _log.Clear();             
+                return lines;
             }
         }
 
-        public enum DispenserState
+        private void LogEvent(string addressHex, string message)
         {
-            Idle = 0,
-            NozzleLifted = 1,
-            Fueling = 2,
-            TransactionFinished = 3,
-            Error = 4,
-            Unknown = 255
-        }
-
-
-        public class DispenserStatusResult
-        {
-            public DispenserState DispenserState { get; set; }
-            public int? ActiveNozzleIndex { get; set; }
-        }
-
-        public bool SendResetCommand(byte address)
-        {
-            // 'M99' is commonly used for soft reset or error clear
-            if (!SendSelect(address, 'M', "99"))
-                return false;
-
-            object response = PollOnce(address);
-
-            // Check for success acknowledgment
-            var ack = response as string;
-            if (ack != null && ack.StartsWith("PDE"))
+            lock (_logLock)
             {
-                Console.WriteLine("Dispenser reset acknowledged: " + ack);
-                return true;
+                var line = string.Format("{0:HH:mm:ss.fff} [{1}] {2}", DateTime.UtcNow, addressHex, message);
+                _log.Add(line);
+                if (_log.Count > 1000) _log.RemoveAt(0);
             }
-
-            // Check for error response
-            var error = response as PdeError;
-            if (error != null)
-            {
-                Console.WriteLine("Reset failed with error " + error.Code + ": " + PdeErrorCodes.GetDescription(error.Code));
-                return false;
-            }
-
-            Console.WriteLine("Unexpected response during reset.");
-            return false;
         }
 
-
-        public PdeStatus RequestStatus(byte _addr)
+        private string FormatPayload(byte[] payload)
         {
-            if (!SendSelect(_addr, 'S', ""))
-                return null;
-
-            object response = PollFor("S", _addr, 150);
-            var status = response as PdeStatus;
-            if (status == null)
-                return null;
-
-            return status;
-
+            if (LogPayloadFormat == PayloadFormat.Hex)
+                return BitConverter.ToString(payload);
+            return _enc.GetString(payload);
         }
 
-        private object PollFor(string req, byte addr, int durationMs)
+        public AckResult SendRequest(byte address, char code, string payload)
         {
-            long now = NowMs();
-            long end = now + durationMs;
-            object msg = null;
-            while (NowMs() < end)
-            {
-                msg = PollOnce(addr);
-                if (msg != null)
-                {
-                    if(req == "S" && msg is PdeStatus)
-                        return msg;
-                    if(req == "S" && msg is PdeError)
-                    {
-                        var ret = new PdeStatus();
-                        ret.State = 4;
-                        ret.Error = msg as PdeError;
-                        return ret;
-                    }
-                    if (req == "X" && msg is PdeRegisters)
-                        return msg;
-                }
-                Thread.Sleep(50);
-            }
-            return msg;
+            var bytes = _enc.GetBytes(payload);
+            return SendRequest(address, code, bytes);
         }
 
-        public PdeDisplay RequestDisplay(byte addr)
+        public AckResult SendRequest(byte address, char code, byte[] payload)
         {
-            if (!SendSelect(addr, 'D', ""))
-                return null;
-            object response = PollOnce(addr);
-            var display= response as PdeDisplay;
-            if (display == null)
-                return null;
+            var inner = new byte[1 + 1 + payload.Length + 1];
+            int p = 0;
+            inner[p++] = Ctrl.STX;
+            inner[p++] = (byte)code;
+            Buffer.BlockCopy(payload, 0, inner, p, payload.Length);
+            p += payload.Length;
+            inner[p] = Ctrl.ETX;
 
-            return display;
-        }
+            ushort crc = CrcSum(inner);
+            byte crcHi = (byte)((crc >> 8) & 0x7F);
+            byte crcLo = (byte)(crc & 0x7F);
 
-        public PdeRegisters RequestTotalizers(byte addr, int index)
-        {
-            string command = index.ToString("D2"); // e.g. "01", "02"
-            if (!SendSelect(addr, 'X', command))
-                return null;
+            var frame = new byte[_opt.SynCount + 1 + inner.Length + 2];
+            p = 0;
+            for (int i = 0; i < _opt.SynCount; i++) frame[p++] = Ctrl.SYN;
+            frame[p++] = address;
+            Buffer.BlockCopy(inner, 0, frame, p, inner.Length);
+            p += inner.Length;
+            frame[p++] = crcHi;
+            frame[p++] = crcLo;
 
+            Write(frame);
+            LogEvent(address.ToString("X2"), "Request: " + code + " " + FormatPayload(frame));
 
-            object response = PollFor("X", addr, 100);
-            var totals = response as PdeRegisters;
-            if (totals == null)
-                return null;
-
-            return totals;
-        }
-
-
-        public PdeDisplay RequestRegisters(byte address)
-        {
-            if (!SendSelect(address, 'R', ""))
-                return null;
-
-            object response = PollOnce(address);
-            var display = response as PdeDisplay;
-            if (display == null)
-                return null;
-
-            return display;
-        }
-
-        public bool Control(byte _addr, int requestCode) { return SendSelect(_addr, 'C', requestCode.ToString()); }
-
-        public bool Authorize(byte _addr, int preType, int preValue, int priceType, int unitPrice, int product)
-        {
-            string s = preType.ToString() +
-                       preValue.ToString("D6") +
-                       priceType.ToString() +
-                       unitPrice.ToString("D4") +
-                       product.ToString();
-            return SendSelect(_addr, 'A', s);
-        }
-
-        public bool SetPrices(byte address, int[] products, int[] prices)
-        {
-            if (!SendSelect(address, 'M', "99"))
-                return false;
-            PollOnce(address);
-            if (!SendSelect(address, 'P', "00"))
-                return false;
-            PollOnce(address);
-            string payload = GetPricePayload(products, prices);
-
-            // Send 'T' command with constructed payload
-            if (!SendSelect(address, 'T', payload))
-                return false;
-
-            // Poll for response
-            object response = PollOnce(address);
-
-            // Check for success
-            if (response is string version && version.StartsWith("PDE"))
-            {
-                Console.WriteLine("Price update acknowledged: " + version);
-                return true;
-            }
-
-            // Check for error
-            if (response is PdeError error)
-            {
-                ASFuelControl.Common.Logger.Instance.Trace($"Price update failed with error {error.Code}: {PdeErrorCodes.GetDescription(error.Code)}");
-                return false;
-            }
-            ASFuelControl.Common.Logger.Instance.Trace($"Unexpected response during price update");
-            return false;
-        }
-
-        public string GetPricePayload(int[] products, int[] prices)
-        {
-            string payload = "";
-            Dictionary<int, string> payloads = new Dictionary<int, string>();
-            for(int i=0; i < products.Length; i++)
-            {
-                if(i <= products.Length)
-                    payloads.Add(products[i], products[i].ToString() + prices[i].ToString("D4"));
-            }
-            for(int i=1; i <= 8; i++)
-            {
-                if (payloads.ContainsKey(i))
-                    continue;
-                payloads.Add(i, i.ToString() + prices[0].ToString("D4"));
-            }
-            foreach(int i in payloads.Keys)
-            {
-                payload = payload + payloads[i];
-            }
-            ASFuelControl.Common.Logger.Instance.Trace("Set Price T Payload: " + payload);
-            return payload;
-        }
-
-        public bool SendUnlock(byte _addr)
-        {
-            object respP = PollOnce(_addr);
-            if (SendSelect(_addr, 'C', "1"))
-            {
-                //object respZ = PollOnce(_addr);
-                System.Threading.Thread.Sleep(20);
-                return true;
-            }
-
-            return false;
-        }
-        public bool SendLock(byte _addr)
-        {
-            object respP = PollOnce(_addr);
-            if (SendSelect(_addr, 'C', "0"))
-            {
-                object respZ = PollOnce(_addr);
-                System.Threading.Thread.Sleep(20);
-                return true;
-            }
-
-            return false;
-        }
-
-        public bool SendClearDisplay(byte _addr)
-        {
-            object respP = PollOnce(_addr);
-
-            if (SendSelect(_addr, 'C', "5"))
-            {
-                object respZ = PollOnce(_addr);
-                System.Threading.Thread.Sleep(20);
-                return true;
-            }
             
-            return false;
-        }
-
-        public bool SetUnitPrice(byte _addr, int product, int price)
-        {
-            //if (!SendSelect(_addr, 'M', "99"))
-            //    return false;
-            //object respM = PollOnce(_addr);
-            //if (!SendSelect(_addr, 'P', "00"))
-            //    return false;
-            if (!SendUnlock(_addr))
-                return false;
-            object respP = PollOnce(_addr);
-            if (SendSelect(_addr, 'Z', product.ToString() + price.ToString("D4")))
+            long deadline = NowMs() + _opt.TkbMs;
+            if (!ReadUntil(Ctrl.SYN, deadline))
             {
-                object respZ = PollOnce(_addr);
-                return true;
+                Common.Logger.Instance.Debug(string.Format("SendSelect Read Until Failed, Data Sent: {0},  Data Frame End: {1}", code, BitConverter.ToString(frame)));
+                return null;    
             }
-            return false;
-        }
-
-        public bool GetUnitPrice(byte _addr, int product)
-        {
-            if (!SendSelect(_addr, 'M', "99"))
-                return false;
-            object respM = PollOnce(_addr);
-            if (!SendSelect(_addr, 'P', "00"))
-                return false;
-            object respP = PollOnce(_addr);
-            if (SendSelect(_addr, 'M', "03"))
+            int b;
+            do
             {
-                object respZ = PollOnce(_addr);
-                if (respZ != null)
-                {
-                    if (respZ is PdeText)
-                        ASFuelControl.Common.Logger.Instance.Trace($"Get Unit Price Response for Product {product}: {((PdeText)respZ).Text}");
-                    else if (respZ is PdeError)
-                        ASFuelControl.Common.Logger.Instance.Trace($"Get Unit Price Response for Product {product}: {((PdeError)respZ).Code}");
-                    else if (respZ is PdeRegisters)
-                        ASFuelControl.Common.Logger.Instance.Trace($"Get Unit Price Response for Product {product}: {((PdeRegisters)respZ).NozzleIndex} {((PdeRegisters)respZ).TransactionType} {((PdeRegisters)respZ).Volume}");
-                    else
-                        ASFuelControl.Common.Logger.Instance.Trace($"Get Unit Price Response for Product {product} is not recognized {respZ.GetType().FullName}");
-                }
-                return true;
+                b = ReadOne(deadline);
             }
-            return false;
+            while (b == Ctrl.SYN);
+            int ack = ReadOne(NowMs() + _opt.TkbMs);
+            _ackTracker.RegisterPendingAck(address);
+            
+            var result = _ackTracker.ProcessAck((byte)b, (byte)ack, address);
+
+            string status = (ack == Ctrl.ACK) ? "ACK" : "NAK";
+            string match = result.AddressMatched ? "matched" : "mismatched (expected " + address.ToString("X2") + ")";
+            LogEvent(b.ToString("X2"), status + ": " + match);
+
+            return result;
         }
-
-        public bool RequestLastTransaction(byte _addr, int index) { return SendSelect(_addr, 'H', index.ToString("D2")); }
-
-        // ----- Internal I/O -----
-
-        private bool SendPoll(byte _addr, out byte[] payload, out byte[] envelope)
+        private bool SendPoll(byte _addr, out byte responseAddress, out byte[] payload, out byte[] envelope)
         {
+            responseAddress = _addr;
             payload = null;
             envelope = null;
 
@@ -479,11 +173,11 @@ namespace ASFuelControl.Tatsuno
             while (b == Ctrl.SYN);
 
             if (b != _addr)
-                return false;
+                responseAddress = (byte)b;
 
             int next = ReadOne(deadline);
             if (next == Ctrl.CAN)
-                return false;
+                return true;
             if (next != Ctrl.STX)
                 return false;
 
@@ -509,124 +203,194 @@ namespace ASFuelControl.Tatsuno
 
             payload = new byte[p];
             Buffer.BlockCopy(buf, 0, payload, 0, p);
+            LogEvent(responseAddress.ToString("X2"), "Poll Response: " + FormatPayload(envelope));
             return true;
         }
-
-        private bool SendSelect(byte _addr, char msgCode, string asciiPayload)
+        public Tuple<byte, object> PollOnce(byte _addr)
         {
-            byte[] pld = _enc.GetBytes(msgCode + asciiPayload);
-            var inner = new byte[1 + pld.Length + 1];
-            inner[0] = Ctrl.STX;
-            Buffer.BlockCopy(pld, 0, inner, 1, pld.Length);
-            inner[inner.Length - 1] = Ctrl.ETX;
-
-            ushort crc = CrcSum(inner);
-            byte crcHi = (byte)((crc >> 8) & 0x7F);
-            byte crcLo = (byte)(crc & 0x7F);
-
-            var frame = new byte[_opt.SynCount + 1 + inner.Length + 2];
-            int p = 0;
-            for (int i = 0; i < _opt.SynCount; i++) frame[p++] = Ctrl.SYN;
-            frame[p++] = _addr;
-            Buffer.BlockCopy(inner, 0, frame, p, inner.Length); p += inner.Length;
-            frame[p++] = crcHi;
-            frame[p++] = crcLo;
-
-            Common.Logger.Instance.Debug(string.Format("SendSelect, Data Sent: {0},  Data Frame Start: {1}", msgCode, BitConverter.ToString(frame)));
-            Write(frame);
-            Common.Logger.Instance.Debug(string.Format("SendSelect, Data Sent: {0},  Data Frame End: {1}", msgCode, BitConverter.ToString(frame)));
-            long deadline = NowMs() + _opt.TkbMs;
-            if (!ReadUntil(Ctrl.SYN, deadline))
+            byte[] payload;
+            byte[] envelope;
+            byte responseAddress = 0;
+            if (!SendPoll(_addr, out responseAddress, out payload, out envelope))
             {
-                Common.Logger.Instance.Debug(string.Format("SendSelect Read Until Failed, Data Sent: {0},  Data Frame End: {1}", msgCode, BitConverter.ToString(frame)));
-                return false;
+                Common.Logger.Instance.Trace("PollOnce Failed");
+                return null;
             }
-            int b;
-            do
+            if (!VerifyCrc(envelope))
             {
-                b = ReadOne(deadline);
+                Common.Logger.Instance.Trace("PollOnce Failed because of CRC Error");
+                WriteAck(responseAddress, Ctrl.NAK);
+                return null;
             }
-            while (b == Ctrl.SYN);
-
-            if (b != _addr)
+            WriteAck(responseAddress, Ctrl.ACK);
+            char code = (char)payload[0];
+            string data = _enc.GetString(payload, 1, payload.Length - 1);
+            Common.Logger.Instance.Debug("PollOnce, Code: " + code + ". Data Recieved: " + data);
+            try
             {
-                Common.Logger.Instance.Debug(string.Format("SendSelect Read One Mismatsh, Data Sent: {0},  Data Frame End: {1}", msgCode, BitConverter.ToString(frame)));
-                return false;
+                switch (code)
+                {
+                    case 'd':
+                        Common.Logger.Instance.Trace("Display Data");
+                        return new Tuple<byte, object>(responseAddress, PdeDisplay.Parse(data));
+                    case 'e':
+                        Common.Logger.Instance.Trace("Error Data");
+                        return new Tuple<byte, object>(responseAddress, PdeError.Parse(data));
+                    case 's':
+                        Common.Logger.Instance.Trace("Status Data");
+                        return new Tuple<byte, object>(responseAddress, PdeStatus.Parse(data));
+                    case 'h':
+                        Common.Logger.Instance.Trace("History Data");
+                        return new Tuple<byte, object>(responseAddress, PdeHistory.Parse(data));
+                    case 'm':
+                        Common.Logger.Instance.Trace("Msssage Data");
+                        return new Tuple<byte, object>(responseAddress, PdeText.Parse(data));
+                    case 'o':
+                        Common.Logger.Instance.Trace("Text Status Data");
+                        return new Tuple<byte, object>(responseAddress, PdeTextStatus.Parse(data));
+                    case 'x':
+                        Common.Logger.Instance.Trace("Registers Data");
+                        return new Tuple<byte, object>(responseAddress, PdeRegisters.Parse(data));
+                    case 'i':
+                        Common.Logger.Instance.Trace("Init Data");
+                        return new Tuple<byte, object>(responseAddress, new PdeInitReq(data));
+                    default:
+                        Common.Logger.Instance.Trace("Other Data");
+                        return new Tuple<byte, object>(responseAddress, new PdeRawInbound(code, data));
+                }
             }
-            int ack = ReadOne(deadline);
-            return ack == Ctrl.ACK;
+            catch (Exception ex)
+            {
+                Common.Logger.Instance.Debug("Wrong Data Recieved");
+                return null;
+            }
+        }
+        public void ReadAndPoolResponse(byte address)
+        {
+            var response = PollOnce(address);
+            if (response != null)
+            {
+                lock (_responseLock)
+                {
+                    _responsePool.Enqueue(response);
+                    if (_responsePool.Count > 100)
+                        _responsePool.Dequeue();
+                }
+            }
+            else
+            {
+                LogEvent("00", "No valid response received.");
+            }
         }
 
-        private void WriteAck(byte _addr, byte ack)
+        public Tuple<byte, object> GetNextResponse(int timeoutMs)
+        {
+            long deadline = NowMs() + timeoutMs;
+            while (NowMs() < deadline)
+            {
+                lock (_responseLock)
+                {
+                    if (_responsePool.Count > 0)
+                        return _responsePool.Dequeue();
+                }
+                Thread.Sleep(10);
+            }
+            return null;
+        }
+
+        private Tuple<byte, object> TryReadResponse(byte address)
+        {
+            if (!ReadUntil(Ctrl.SYN, NowMs() + _opt.TkaMs)) return null;
+
+            int b;
+            do { b = ReadOne(NowMs() + _opt.TkaMs); } while (b == Ctrl.SYN);
+            byte fromAddr = (byte)b;
+
+            int next = ReadOne(NowMs() + _opt.TkaMs);
+            if (next == Ctrl.CAN || next != Ctrl.STX) return null;
+
+            var buf = new byte[64];
+            int p = 0;
+            while (true)
+            {
+                int by = ReadOne(NowMs() + _opt.TkaMs);
+                if (by == Ctrl.ETX) break;
+                if (p == buf.Length) Array.Resize(ref buf, buf.Length * 2);
+                buf[p++] = (byte)by;
+            }
+
+            int hi = ReadOne(NowMs() + _opt.TkaMs);
+            int lo = ReadOne(NowMs() + _opt.TkaMs);
+
+            var envelope = new byte[1 + p + 1 + 2];
+            int q = 0;
+            envelope[q++] = Ctrl.STX;
+            Buffer.BlockCopy(buf, 0, envelope, q, p); q += p;
+            envelope[q++] = Ctrl.ETX;
+            envelope[q++] = (byte)hi;
+            envelope[q++] = (byte)lo;
+
+            bool crcOk = VerifyCrc(envelope);
+            if (!crcOk)
+            {
+                WriteAck(fromAddr, Ctrl.NAK);
+                LogEvent(fromAddr.ToString("X2"), "NAK for response: CRC error");
+                return null;
+            }
+
+            WriteAck(fromAddr, Ctrl.ACK);
+            LogEvent(fromAddr.ToString("X2"), "ACK for response: valid CRC");
+
+            char code = (char)buf[0];
+            string data = _enc.GetString(buf, 1, p - 1);
+            LogEvent(fromAddr.ToString("X2"), FormatPayload(buf));
+
+            object parsed;
+            if (code == 'd')
+                parsed = PdeDisplay.Parse(data);
+            else if (code == 'e')
+                parsed = PdeError.Parse(data);
+            else if (code == 's')
+                parsed = PdeStatus.Parse(data);
+            else if (code == 'h')
+                parsed = PdeHistory.Parse(data);
+            else if (code == 'm')
+                parsed = PdeText.Parse(data);
+            else if (code == 'o')
+                parsed = PdeTextStatus.Parse(data);
+            else if (code == 'x')
+                parsed = PdeRegisters.Parse(data);
+            else if (code == 'i')
+                parsed = new PdeInitReq(data);
+            else
+                parsed = new PdeRawInbound(code, data);
+
+            return Tuple.Create(fromAddr, parsed);
+        }
+
+        private void WriteAck(byte addr, byte ack)
         {
             var w = new byte[_opt.SynCount + 2];
             int p = 0;
             for (int i = 0; i < _opt.SynCount; i++) w[p++] = Ctrl.SYN;
-            w[p++] = _addr;
+            w[p++] = addr;
             w[p++] = ack;
             Write(w);
         }
 
-        int countOpen = 0;
         private void Write(byte[] data)
         {
             _port.RtsEnable = false;
             _port.Write(data, 0, data.Length);
-            //_port.BaseStream.Flush();
         }
-
-        private bool VerifyCrc(byte[] envelopeStxToCrc)
-        {
-            if (envelopeStxToCrc.Length < 4) return false;
-            int len = envelopeStxToCrc.Length;
-            ushort calc = CrcSum(SubArray(envelopeStxToCrc, 0, len - 2));
-            byte hi = (byte)((calc >> 8) & 0x7F);
-            byte lo = (byte)(calc & 0x7F);
-            return envelopeStxToCrc[len - 2] == hi && envelopeStxToCrc[len - 1] == lo;
-        }
-
-        private static ushort CrcSum(byte[] data)
-        {
-            uint sum = 0;
-            for (int i = 0; i < data.Length; i++) sum = (sum + data[i]) & 0xFFFF;
-            return (ushort)sum;
-        }
-
-        private static string AuthCompute(string received8Ascii, byte adr)
-        {
-            if (received8Ascii.Length != 8) throw new ArgumentException("Auth requires 8 chars.");
-            uint C = (uint)(adr + 1);
-            var R = new char[8];
-            for (int i = 0; i < 8; i++)
-            {
-                C = C * (byte)received8Ascii[i];
-                byte low = (byte)(C & 0xFF);
-                low = (byte)(low & 0x7F);
-                if (low < 0x20) C += 0x20;
-                R[i] = (char)(C & 0x7F);
-                C = (C >> 8) + adr;
-            }
-            return new string(R);
-        }
-
-        // ---------- Reading helpers ----------
 
         private bool ReadUntil(byte target, long deadlineMs)
         {
-            List<byte> foo = new List<byte>();
             while (NowMs() < deadlineMs)
             {
                 int b = TryReadByte(deadlineMs);
-                if (b < 0)
-                    continue;
-                foo.Add((byte)b);
-                if (b == target)
-                {
-                    ASFuelControl.Common.Logger.Instance.Trace("ReadUntil (SUCCESS) Data: " + BitConverter.ToString(foo.ToArray()));
-                    return true;
-                }
+                if (b == target) return true;
             }
-            ASFuelControl.Common.Logger.Instance.Trace("ReadUntil (FAILURE) Data: " + BitConverter.ToString(foo.ToArray()));
             return false;
         }
 
@@ -644,36 +408,41 @@ namespace ASFuelControl.Tatsuno
         {
             try
             {
-                if (!_port.IsOpen)
-                {
-                    _port.Open();
-                    countOpen++;
-                    Common.Logger.Instance.Debug("Opend port: " + countOpen.ToString());
-                }
+                if (!_port.IsOpen) _port.Open();
                 if (_port.BytesToRead > 0)
                     return _port.ReadByte();
                 Thread.Sleep(1);
                 return -1;
             }
-            catch (TimeoutException tex)
+            catch
             {
-                Common.Logger.Instance.Debug("TryReadByte TimeoutException: " + tex.Message);
-                if(tex.InnerException != null)
-                    Common.Logger.Instance.Debug("TryReadByte TimeoutException Inner: " + tex.InnerException.Message);
-                if (NowMs() >= deadlineMs) throw(tex);
-                return -1;
-            }
-            catch(Exception ex)
-            {
-                Common.Logger.Instance.Debug("TryReadByte Exception: " + ex.Message);
-                if (ex.InnerException != null)
-                    Common.Logger.Instance.Debug("TryReadByte TimeoutException Inner: " + ex.InnerException.Message);
                 Thread.Sleep(10);
                 return -1;
             }
         }
 
-        private static long NowMs() { return Environment.TickCount; }
+        private static long NowMs()
+        {
+            return Environment.TickCount;
+        }
+
+        private static ushort CrcSum(byte[] data)
+        {
+            uint sum = 0;
+            for (int i = 0; i < data.Length; i++)
+                sum = (sum + data[i]) & 0xFFFF;
+            return (ushort)sum;
+        }
+
+        private bool VerifyCrc(byte[] envelope)
+        {
+            if (envelope.Length < 4) return false;
+            int len = envelope.Length;
+            ushort calc = CrcSum(SubArray(envelope, 0, len - 2));
+            byte hi = (byte)((calc >> 8) & 0x7F);
+            byte lo = (byte)(calc & 0x7F);
+            return envelope[len - 2] == hi && envelope[len - 1] == lo;
+        }
 
         private static byte[] SubArray(byte[] src, int index, int count)
         {
@@ -681,7 +450,31 @@ namespace ASFuelControl.Tatsuno
             Buffer.BlockCopy(src, index, r, 0, count);
             return r;
         }
+
+        public static byte[] AuthCompute(string received8Ascii, byte adr)
+        {
+            if (received8Ascii.Length != 8)
+                throw new ArgumentException("Auth requires 8 chars.");
+
+            byte[] R = new byte[8];
+            int C = adr + 1;
+
+            for (int i = 0; i < 8; i++)
+            {
+                C = C * (byte)received8Ascii[i];
+                int low = C & 0xFF;
+                low &= 0x7F;
+                C = (C & ~0xFF) | low;
+                if ((C & 0xFF) < 0x20)
+                    C += 0x20;
+                R[i] = (byte)(C & 0xFF);
+                C = (C >> 8) + adr;
+            }
+
+            return R;
+        }
     }
+
 
     // ---------- Message models ----------
 
@@ -904,7 +697,6 @@ namespace ASFuelControl.Tatsuno
         }
     }
 
-
     public class PdeInitReq
     {
         public string Code;
@@ -917,239 +709,4 @@ namespace ASFuelControl.Tatsuno
         public string Data;
         public PdeRawInbound(char c, string d) { Code = c; Data = d; }
     }
-    //public partial class TatsunoPdeClient : IDisposable
-    //{
-    //    private readonly IPdeTransport _transport;
-    //    private readonly PdeFrameCodec _codec;
-    //    private readonly PdeProtocolOptions _opt;
-
-    //    public TatsunoPdeClient(IPdeTransport transport, PdeProtocolOptions options)
-    //    {
-    //        if (transport == null) throw new ArgumentNullException("transport");
-    //        _transport = transport;
-    //        _opt = options ?? new PdeProtocolOptions();
-    //        _codec = new PdeFrameCodec(_opt);
-    //    }
-
-    //    public bool IsOpen { get { return _transport.IsOpen; } }
-
-    //    public void Open() { _transport.Open(); }
-    //    public void Close() { _transport.Close(); }
-    //    public void Dispose() { _transport.Dispose(); }
-
-    //    private PdeResult<T> Fail<T>(byte address, byte command, string error, byte[] raw, byte[] payload)
-    //    {
-    //        return new PdeResult<T>
-    //        {
-    //            Success = false,
-    //            Error = error ?? "Error",
-    //            Address = address,
-    //            Command = command,
-    //            RawFrame = raw ?? new byte[0],
-    //            Payload = payload ?? new byte[0],
-    //            Data = default(T)
-    //        };
-    //    }
-
-    //    private PdeResult<T> Ok<T>(byte address, byte command, byte[] raw, byte[] payload, T data)
-    //    {
-    //        return new PdeResult<T>
-    //        {
-    //            Success = true,
-    //            Error = string.Empty,
-    //            Address = address,
-    //            Command = command,
-    //            RawFrame = raw ?? new byte[0],
-    //            Payload = payload ?? new byte[0],
-    //            Data = data
-    //        };
-    //    }
-
-    //    private PdeResult<byte[]> SendAndReceiveRaw(byte address, byte command, byte[] payload, int timeoutMs, CancellationToken ct)
-    //    {
-    //        try
-    //        {
-    //            var frame = _codec.Build(address, command, payload ?? new byte[0]);
-    //            var request = BitConverter.ToString(frame).Replace("-", "");
-
-    //            Common.Logger.Instance.Debug("Request:" + request);
-    //            _transport.Write(frame);
-
-    //            // Read header: STX, Addr, Cmd, Len
-    //            var hdr = new byte[4];
-    //            int r = ReadExact(hdr, 0, hdr.Length, timeoutMs, ct);
-
-    //            if (r == 0)
-    //            {
-    //                Common.Logger.Instance.Debug("Response: NO RESPONSE");
-    //            }
-    //            else
-    //            {
-    //                var response = BitConverter.ToString(hdr).Replace("-", "");
-    //                Common.Logger.Instance.Debug("Response:" + response);
-    //            }
-    //            if (r != hdr.Length) return Fail<byte[]>(address, command, "Header timeout", new byte[0], new byte[0]);
-
-    //            if (hdr[0] != _opt.Stx) return Fail<byte[]>(address, command, string.Format("Bad STX 0x{0:X2}", hdr[0]), new byte[0], new byte[0]);
-
-    //            byte respAddr = hdr[1];
-    //            byte respCmd = hdr[2];
-    //            int len = hdr[3];
-
-    //            // Read rest: payload + CRC(2) + ETX
-    //            var rest = new byte[len + 2 + 1];
-    //            r = ReadExact(rest, 0, rest.Length, timeoutMs, ct);
-    //            if (r != rest.Length) return Fail<byte[]>(address, command, "Body timeout", new byte[0], new byte[0]);
-
-    //            // Re-assemble raw
-    //            var raw = new byte[hdr.Length + rest.Length];
-    //            Buffer.BlockCopy(hdr, 0, raw, 0, hdr.Length);
-    //            Buffer.BlockCopy(rest, 0, raw, hdr.Length, rest.Length);
-
-    //            PdeFrame parsed;
-    //            string parseErr;
-    //            if (!_codec.TryParse(raw, out parsed, out parseErr))
-    //                return Fail<byte[]>(address, command, parseErr ?? "Parse error", raw, new byte[0]);
-
-    //            return Ok<byte[]>(address, command, raw, parsed.Payload, parsed.Payload);
-    //        }
-    //        catch (Exception ex)
-    //        {
-    //            return Fail<byte[]>(address, command, ex.Message, new byte[0], new byte[0]);
-    //        }
-    //    }
-
-    //    private int ReadExact(byte[] buffer, int offset, int count, int timeoutMs, CancellationToken ct)
-    //    {
-    //        int total = 0;
-    //        DateTime? deadline = timeoutMs > 0 ? (DateTime?)DateTime.UtcNow.AddMilliseconds(timeoutMs) : null;
-
-    //        while (total < count)
-    //        {
-    //            if (ct.IsCancellationRequested) break;
-    //            int budgetMs = 0;
-    //            if (deadline.HasValue)
-    //            {
-    //                budgetMs = (int)Math.Ceiling((deadline.Value - DateTime.UtcNow).TotalMilliseconds);
-    //                if (budgetMs <= 0) break;
-    //            }
-    //            int read = _transport.Read(buffer, offset + total, count - total, budgetMs, ct);
-    //            if (read <= 0) continue;
-    //            total += read;
-    //        }
-    //        return total;
-    //    }
-
-    //    // Parsing helpers for typical payload layouts (replace per your spec)
-    //    private PdeAck ParseAck(byte[] p)
-    //    {
-    //        // [0]=status(0=OK,1=ERR), [1]=code, [2..]=ascii message (optional)
-    //        bool ok = p != null && p.Length > 0 && p[0] == 0x00;
-    //        byte code = p != null && p.Length > 1 ? p[1] : (byte)0;
-    //        string msg = p != null && p.Length > 2 ? PdeFrameCodec.ReadAscii(p, 2, p.Length - 2) : string.Empty;
-    //        return new PdeAck { Ok = ok, Code = code, Message = msg };
-    //    }
-
-    //    private PdeStatus ParseStatus(byte[] p)
-    //    {
-    //        // Example layout: [0]=flags, [1]=activeNozzle, [2..3]=errorCode(LE)
-    //        byte flags = p != null && p.Length > 0 ? p[0] : (byte)0;
-    //        return new PdeStatus
-    //        {
-    //            InService = (flags & 0x01) != 0,
-    //            Busy = (flags & 0x02) != 0,
-    //            Error = (flags & 0x04) != 0,
-    //            ActiveNozzle = p != null && p.Length > 1 ? p[1] : (byte)0,
-    //            ErrorCode = p != null && p.Length >= 4 ? Le.ReadUInt16(p, 2) : (ushort)0
-    //        };
-    //    }
-
-    //    private PdeDisplay ParseDisplay(byte[] p)
-    //    {
-    //        // Example layout:
-    //        // [0]=hose, [1..4]=amount minor unit (u32 LE), [5..8]=volume minor unit (u32 LE), [9..12]=price minor unit (u32 LE)
-    //        int hose = p != null && p.Length > 0 ? p[0] : 0;
-    //        decimal amount = p != null && p.Length >= 5 ? (decimal)Le.ReadUInt32(p, 1) / (decimal)_opt.AmountMinorUnit : 0m;
-    //        decimal volume = p != null && p.Length >= 9 ? (decimal)Le.ReadUInt32(p, 5) / (decimal)_opt.VolumeMinorUnit : 0m;
-    //        decimal price = p != null && p.Length >= 13 ? (decimal)Le.ReadUInt32(p, 9) / (decimal)_opt.PriceMinorUnit : 0m;
-    //        return new PdeDisplay
-    //        {
-    //            HoseNumber = hose,
-    //            Amount = amount,
-    //            Volume = volume,
-    //            UnitPrice = price,
-    //            Currency = _opt.DefaultCurrency
-    //        };
-    //    }
-
-    //    private static DateTime UnixSecondsToLocalDateTime(uint seconds)
-    //    {
-    //        var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-    //        return epoch.AddSeconds(seconds).ToLocalTime();
-    //    }
-
-    //    private PdeHistory ParseHistory(int index, byte[] p)
-    //    {
-    //        // Example layout:
-    //        // [0]=hose, [1..4]=amount, [5..8]=volume, [9..12]=price, [13..16]=unixTime(LE), [17..]=receipt ASCII
-    //        int hose = p != null && p.Length > 0 ? p[0] : 0;
-    //        decimal amount = p != null && p.Length >= 5 ? (decimal)Le.ReadUInt32(p, 1) / (decimal)_opt.AmountMinorUnit : 0m;
-    //        decimal volume = p != null && p.Length >= 9 ? (decimal)Le.ReadUInt32(p, 5) / (decimal)_opt.VolumeMinorUnit : 0m;
-    //        decimal price = p != null && p.Length >= 13 ? (decimal)Le.ReadUInt32(p, 9) / (decimal)_opt.PriceMinorUnit : 0m;
-    //        DateTime ts = p != null && p.Length >= 17
-    //            ? UnixSecondsToLocalDateTime(Le.ReadUInt32(p, 13))
-    //            : DateTime.MinValue;
-    //        string receipt = p != null && p.Length > 17 ? PdeFrameCodec.ReadAscii(p, 17, p.Length - 17) : string.Empty;
-    //        return new PdeHistory
-    //        {
-    //            Index = index,
-    //            HoseNumber = hose,
-    //            Amount = amount,
-    //            Volume = volume,
-    //            UnitPrice = price,
-    //            Timestamp = ts,
-    //            ReceiptId = receipt
-    //        };
-    //    }
-
-    //    private PdeRegisters ParseRegisters(int nozzle, byte[] p)
-    //    {
-    //        // Example layout:
-    //        // [0..7]=volume impulses (u64 LE), [8..15]=amount cents (u64 LE)
-    //        long volImp = p != null && p.Length >= 8 ? (long)Le.ReadUInt64(p, 0) : 0L;
-    //        long amtCents = p != null && p.Length >= 16 ? (long)Le.ReadUInt64(p, 8) : 0L;
-    //        return new PdeRegisters
-    //        {
-    //            HoseNumber = nozzle,
-    //            TotalVolumeImpulses = volImp,
-    //            TotalAmountCents = amtCents
-    //        };
-    //    }
-
-    //    private PdeText ParseText(int number, byte[] p)
-    //    {
-    //        return new PdeText { Number = number, Value = PdeFrameCodec.ReadAscii(p ?? new byte[0], 0, p != null ? p.Length : 0) };
-    //    }
-
-    //    private PdeTextStatus ParseTextStatus(int number, byte[] p)
-    //    {
-    //        // [0]=flags bit0=displayed, bit1=ack
-    //        byte flags = p != null && p.Length > 0 ? p[0] : (byte)0;
-    //        return new PdeTextStatus
-    //        {
-    //            Number = number,
-    //            Displayed = (flags & 0x01) != 0,
-    //            Acknowledged = (flags & 0x02) != 0
-    //        };
-    //    }
-
-    //    private PdeError ParseError(byte[] p)
-    //    {
-    //        // [0..1]=code, [2]=severity, [3..]=ascii
-    //        ushort code = p != null && p.Length >= 2 ? Le.ReadUInt16(p, 0) : (ushort)0;
-    //        byte sev = p != null && p.Length >= 3 ? p[2] : (byte)0;
-    //        string desc = p != null && p.Length > 3 ? PdeFrameCodec.ReadAscii(p, 3, p.Length - 3) : string.Empty;
-    //        return new PdeError { Code = code, Severity = sev, Description = desc };
-    //    }
-    //}
 }

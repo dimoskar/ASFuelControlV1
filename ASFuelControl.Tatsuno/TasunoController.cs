@@ -1,10 +1,15 @@
-﻿using System;
+﻿using ASFuelControl.Common;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.IO.Ports;
 using System.Linq;
+using System.Net;
+using System.Reflection;
+using System.Security.AccessControl;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using ASFuelControl.Common;
 
 namespace ASFuelControl.Tatsuno
 {
@@ -12,16 +17,26 @@ namespace ASFuelControl.Tatsuno
     {
         private TatsunoPdeClient client;
 
+#pragma warning disable CS0067
         public event EventHandler<Common.FuelPointValuesArgs> DataChanged;
-        public event EventHandler<Common.TotalsEventArgs> TotalsRecieved;
         public event EventHandler<Common.SaleEventArgs> SaleRecieved;
-        public event EventHandler<Common.FuelPointValuesArgs> DispenserStatusChanged;
         public event EventHandler DispenserOffline;
+#pragma warning restore CS0067
+
+        public event EventHandler<Common.TotalsEventArgs> TotalsRecieved;
+        public event EventHandler<Common.FuelPointValuesArgs> DispenserStatusChanged;
 
         private List<Common.FuelPoint> fuelPoints = new List<Common.FuelPoint>();
+        private List<Common.FuelPoint> errorFps = new List<Common.FuelPoint>();
 
         private System.IO.Ports.SerialPort serialPort = new System.IO.Ports.SerialPort();
         private System.Threading.Thread th;
+        private bool stopping = false;
+        private object disposeLock = new object();
+
+        // New primitives for wait-notify pattern
+        private ManualResetEventSlim workEvent;
+        private CancellationTokenSource cts;
 
         public Common.DebugValues foo = new Common.DebugValues();
         public Common.FuelPoint[] FuelPoints
@@ -39,7 +54,7 @@ namespace ASFuelControl.Tatsuno
         {
             get
             {
-                return this.client.IsOpen();
+                return this.client != null && this.client.IsOpen();
             }
         }
         public string CommunicationPort
@@ -51,87 +66,256 @@ namespace ASFuelControl.Tatsuno
         {
             try
             {
-                if (client != null)
-                    client.Dispose();
-                //SerialPortTransport transport = new SerialPortTransport(this.CommunicationPort);
-                this.serialPort = new SerialPort(this.CommunicationPort, 9600, Parity.Even, 7, StopBits.Two);
-                this.serialPort.Handshake = Handshake.RequestToSend;
+                // Ensure any previous resources are cleaned up before creating new ones
+                lock (disposeLock)
+                {
+                    StopCleanup();
+                }
+
+                this.stopping = false;
+
+                // create synchronization primitives
+                this.workEvent = new ManualResetEventSlim(false);
+                this.cts = new CancellationTokenSource();
+
+                this.serialPort = new SerialPort(this.CommunicationPort, 9600, Parity.Even, 7, StopBits.Two)
+                {
+                    Handshake = Handshake.RequestToSend
+                };
+
                 client = new TatsunoPdeClient(this.serialPort, new PdeOptions() { });
 
                 this.serialPort.Open();
+
                 this.th = new System.Threading.Thread(new System.Threading.ThreadStart(this.ThreadRun));
+                this.th.IsBackground = true;
                 th.Start();
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Common.Logger.Instance.Error("Connection Failed" + ex.Message);
+                // Ensure no resources are left open on failure
+                try
+                {
+                    lock (disposeLock)
+                    {
+                        StopCleanup();
+                    }
+                }
+                catch { }
             }
         }
+
         public void Disconnect()
         {
-            if (this.serialPort.IsOpen)
-                this.serialPort.Close();
-            if(th != null && th.IsAlive)
-                th.Abort();
+            try
+            {
+                // Signal the thread to stop and clean up resources
+                this.stopping = true;
+
+                // Cancel token and wake thread so it can exit quickly
+                try
+                {
+                    this.cts?.Cancel();
+                }
+                catch { }
+
+                try
+                {
+                    this.workEvent?.Set();
+                }
+                catch { }
+
+                lock (disposeLock)
+                {
+                    StopCleanup();
+                }
+
+                if (th != null && th.IsAlive)
+                {
+                    // Give the thread some time to exit cleanly
+                    if (!th.Join(2000))
+                    {
+                        try
+                        {
+                            th.Abort();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Instance.Error("Thread abort failed: " + ex.Message);
+                        }
+                    }
+                    th = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Common.Logger.Instance.Error("Disconnect error: " + ex.Message);
+            }
+        }
+        private void StopCleanup()
+        {
+            lock (disposeLock)
+            {
+                try
+                {
+                    if (this.serialPort != null)
+                    {
+                        try
+                        {
+                            if (this.serialPort.IsOpen)
+                            {
+                                try { this.serialPort.Close(); }
+                                catch (Exception ex) { Logger.Instance.Error("Error closing serial port: " + ex.Message); }
+                            }
+                        }
+                        finally
+                        {
+                            try { this.serialPort.Dispose(); }
+                            catch (Exception ex) { Logger.Instance.Error("Error disposing serial port: " + ex.Message); }
+                            finally { this.serialPort = null; }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.Error("Unexpected error during serial port cleanup: " + ex.Message);
+                }
+
+                try
+                {
+                    if (this.client != null)
+                    {
+                        try { this.client.Dispose(); }
+                        catch (Exception ex) { Logger.Instance.Error("Error disposing TatsunoPdeClient: " + ex.Message); }
+                        finally { this.client = null; }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.Error("Unexpected error during client cleanup: " + ex.Message);
+                }
+
+                // Dispose synchronization primitives
+                try
+                {
+                    if (this.cts != null)
+                    {
+                        try { this.cts.Dispose(); }
+                        catch (Exception ex) { Logger.Instance.Error("Error disposing cts: " + ex.Message); }
+                        finally { this.cts = null; }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.Error("Unexpected error disposing cts: " + ex.Message);
+                }
+
+                try
+                {
+                    if (this.workEvent != null)
+                    {
+                        try { this.workEvent.Set(); this.workEvent.Dispose(); }
+                        catch (Exception ex) { Logger.Instance.Error("Error disposing workEvent: " + ex.Message); }
+                        finally { this.workEvent = null; }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.Error("Unexpected error disposing workEvent: " + ex.Message);
+                }
+            }
         }
         public void AddFuelPoint(Common.FuelPoint fp)
         {
             this.fuelPoints.Add(fp);
+            // Wake worker so it can process the new fuel point immediately
+            try { this.workEvent?.Set(); } catch { }
         }
         public void ClearFuelPoints()
         {
             this.fuelPoints.Clear();
+            try { this.workEvent?.Set(); } catch { }
         }
         public Common.DebugValues DebugStatusDialog(Common.FuelPoint fp)
         {
-            foo = null;
-            var status = client.RequestStatus((byte)(32 + fp.Address));
-            if(status == null)
-                return null;
-            if(status.State < 4)
+            // Debugging helper - left as-is
+            return new DebugValues();
+        }
+        private void HandleAck(AckResult ack)
+        {
+            if (!ack.Success)
             {
-                if (status.State == 2 || status.State == 3)
-                    foo.Status = Common.Enumerators.FuelPointStatusEnum.Work;
-                else if (status.State == 1)
-                    foo.Status = Common.Enumerators.FuelPointStatusEnum.Nozzle;
-                else
-                    foo.Status = Common.Enumerators.FuelPointStatusEnum.Idle;
+                // NAK received — no response expected
+                return;
+            }
+            client.ReadAndPoolResponse((byte)ack.EchoedAddress);
+            var response = client.GetNextResponse(200);
+            if (ack.AddressMatched)
+            {
+                if(response == null || response.Item2 == null)
+                {
+                    return;
+                }
+                HandleResponse(response);
             }
             else
-                foo.Status = Common.Enumerators.FuelPointStatusEnum.Offline;
-            return foo;
+            {
+                // ACK mismatched — response likely belongs to another request
+            }
         }
-
+        private void InitFuelPoint(Common.FuelPoint fp)
+        {
+            try
+            {
+                var ack = client.SendRequest((byte)(32 + fp.Address), 'P', "");
+                HandleAck(ack);
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.Error(string.Format("Dispenser Init Exception (Address {1}, Channel {2}) has failed to initiliaze. Communication Port: {0}", this.CommunicationPort, fp.Address, fp.Channel));
+                Logger.Instance.Error(ex.Message);
+                Logger.Instance.Error(ex.StackTrace);
+            }
+        }
+        private void LogCommunication() 
+        {
+            var messages = client.GetLogLines();
+            foreach (var msg in messages)
+            {
+                Logger.Instance.Debug(msg);
+            }
+        }
         private void ThreadRun()
         {
-            var errorFps = new List<FuelPoint>();
-            foreach(var fp in this.FuelPoints)
+            var token = this.cts?.Token ?? CancellationToken.None;
+
+            // Use the controller-level errorFps list (don't shadow it)
+            // Initialize fuel points which are not initialized and not in error list
+            while (!this.stopping && !token.IsCancellationRequested)
             {
-                try
+                var fuelPointToInit = this.fuelPoints.Where(fp => fp.Initialized == false && !this.errorFps.Contains(fp)).ToList();
+                if (!fuelPointToInit.Any())
+                    break;
+                foreach (var fp in fuelPointToInit)
                 {
-                    var initResult = client.Initialize((byte)(32 + fp.Address));
-                    if (!initResult)
-                    {
-                        Logger.Instance.Error(string.Format("Dispenser (Address {1}, Channel {2}) has failed to initiliaze. Communication Port: {0}", this.CommunicationPort, fp.Address, fp.Channel));
-                        errorFps.Add(fp);
-                    }
-                    else
-                    {
-                        client.SendClearDisplay((byte)(fp.Address + 32));
-                        fp.Initialized = true;
-                        fp.QuerySetPrice = true;
-                    }
+                    if (this.stopping || token.IsCancellationRequested) break;
+                    InitFuelPoint(fp);
                 }
-                catch(Exception ex)
+
+                // If still fuel points pending initialization, wait efficiently before retrying
+                var remaining = this.fuelPoints.Where(fp => fp.Initialized == false && !this.errorFps.Contains(fp)).Any();
+                if (remaining && !this.stopping && !token.IsCancellationRequested)
                 {
-                    Logger.Instance.Error(string.Format("Dispenser Init Exception (Address {1}, Channel {2}) has failed to initiliaze. Communication Port: {0}", this.CommunicationPort, fp.Address, fp.Channel));
-                    Logger.Instance.Error(ex.Message);
-                    Logger.Instance.Error(ex.StackTrace);
+                    // Wait to be signalled or timeout
+                    try { this.workEvent?.Wait(500, token); } catch (OperationCanceledException) { break; }
                 }
+                LogCommunication();
             }
+
             foreach (Common.FuelPoint fp in this.fuelPoints)
             {
-                if (errorFps.Contains(fp))
+                if (this.errorFps.Contains(fp))
                     continue;
                 foreach (Nozzle nz in fp.Nozzles)
                 {
@@ -146,35 +330,23 @@ namespace ASFuelControl.Tatsuno
                     }
                     while (true)
                     {
+                        if (this.stopping || token.IsCancellationRequested) break;
+
                         foreach (var nz in fp.Nozzles)
                         {
+                            if (this.stopping || token.IsCancellationRequested) break;
+
                             if (!nz.QueryTotals)
                             {
-                                System.Threading.Thread.Sleep(50);
+                                // Efficient wait instead of Thread.Sleep(50)
+                                try { this.workEvent?.Wait(50, token); } catch (OperationCanceledException) { break; }
                                 continue;
                             }
-                            var totalResult = client.RequestTotalizers((byte)(32 + fp.Address), nz.Index);
-                            if (totalResult == null)
-                            {
-                                Logger.Instance.Debug(string.Format("Totals Result is null"));
-                                System.Threading.Thread.Sleep(50);
-                                continue;
-                            }
-                            if (totalResult.NozzleIndex != nz.Index)
-                            {
-                                Logger.Instance.Debug(string.Format("Totals Recieved Index mismatch {0}, {1}", nz.Index, totalResult.NozzleIndex));
-
-                                System.Threading.Thread.Sleep(50);
-                                continue;
-                            }
-                            nz.TotalVolume = totalResult.Volume;
-                            nz.TotalPrice = 0;
-                            nz.QueryTotals = false;
-                            if (this.TotalsRecieved != null)
-                            {
-                                this.TotalsRecieved(this, new Common.TotalsEventArgs(fp, nz.Index, nz.TotalVolume, nz.TotalPrice));
-                            }
+                            var payload = nz.Index.ToString("D2");
+                            var ack = client.SendRequest((byte)(32 + fp.Address), 'X', payload);
+                            HandleAck(ack);
                         }
+
                         var notRecCount = fp.Nozzles.Count(n => n.QueryTotals);
                         if (notRecCount == 0)
                         {
@@ -185,7 +357,7 @@ namespace ASFuelControl.Tatsuno
                         {
                             Logger.Instance.Debug("Totals not Recieved for " + notRecCount + " of " + fp.Nozzles.Length);
                         }
-                        System.Threading.Thread.Sleep(50);
+                        try { this.workEvent?.Wait(200, token); } catch (OperationCanceledException) { break; }
                     }
                 }
                 catch (Exception ex)
@@ -193,16 +365,24 @@ namespace ASFuelControl.Tatsuno
                     Logger.Instance.Error(string.Format("Dispenser Init Exception (Address {1}, Channel {2}) has failed to initiliaze. Communication Port: {0}", this.CommunicationPort, fp.Address, fp.Channel));
                     Logger.Instance.Error(ex.Message);
                     Logger.Instance.Error(ex.StackTrace);
-                }                
+                }
+                finally
+                {
+                    LogCommunication();
+                }
             }
-            while (this.IsConnected)
+
+            // Main polling loop - uses wait-notify instead of busy spin
+            while (this.IsConnected && !this.stopping && !(this.cts?.IsCancellationRequested ?? false))
             {
                 foreach (var fp in this.fuelPoints)
                 {
-                    System.Threading.Thread.Sleep(50);
+                    // Instead of Thread.Sleep(50) use event wait with timeout to yield CPU and support wakeups.
+                    try { this.workEvent?.Wait(50, token); } catch (OperationCanceledException) { break; }
+
                     try
                     {
-                        if (errorFps.Contains(fp))
+                        if (this.errorFps.Contains(fp))
                             continue;
 
                         if (fp.QueryHalt)
@@ -211,142 +391,248 @@ namespace ASFuelControl.Tatsuno
                             continue;
                         }
 
-                        var statusResult = client.RequestStatus((byte)(32 + fp.Address));
-                        System.Threading.Thread.Sleep(50);
-                        bool hasError = false;
-                        if (statusResult == null)
-                        {
-                            Logger.Instance.Error(string.Format("Dispenser (Address {1}, Channel {2}) has failed to send status. Communication Port: {0}", this.CommunicationPort, fp.Address, fp.Channel));
-                            hasError = true;
-                        }
-                        else if (statusResult.State >= 4)
-                        {
-                            if (statusResult.Error != null)
-                            {
-                                Logger.Instance.Error(string.Format("Dispenser (Address {1}, Channel {2}) has failed to send status. Error Code : {3}. Communication Port: {0}",
-                                    this.CommunicationPort, fp.Address, fp.Channel, statusResult.Error.Code));
-                            }
-                            else
-                                Logger.Instance.Error(string.Format("Dispenser (Address {1}, Channel {2}) is out of service. Communication Port: {0}", this.CommunicationPort, fp.Address, fp.Channel));
-                            hasError = true;
-                        }
-                        System.Threading.Thread.Sleep(10);
-                        SetStatus(fp, statusResult);
-                        
-                        if (!hasError)
-                        {
-                            if (statusResult.State == 1) // FuelPoint is idle
-                            {
-                                if (fp.QueryAuthorize)
-                                {
-                                    if (AuthorizeFuelPoint(fp, statusResult))
-                                    {
-                                        fp.QueryAuthorize = false;
-                                        System.Threading.Thread.Sleep(50);
-                                    }
-                                    continue;
-                                }
-                                if (statusResult.Nozzles == 0)
-                                {
-                                    if (fp.QuerySetPrice)
-                                    {
-                                        foreach (var nz in fp.Nozzles)
-                                        {
-                                            client.SetUnitPrice((byte)(32 + fp.Address), 1, 1000);
-                                            System.Threading.Thread.Sleep(50);
-                                            client.SetUnitPrice((byte)(32 + fp.Address), 2, 2000);
-                                            System.Threading.Thread.Sleep(50);
-                                            client.SetUnitPrice((byte)(32 + fp.Address), 3, 3000);
-                                            System.Threading.Thread.Sleep(50);
-                                            client.SetUnitPrice((byte)(32 + fp.Address), 4, 4000);
-                                            System.Threading.Thread.Sleep(50);
-                                            client.SetUnitPrice((byte)(32 + fp.Address), 5, 5000);
-                                            System.Threading.Thread.Sleep(50);
-                                            client.SetUnitPrice((byte)(32 + fp.Address), 6, 6000);
-                                            System.Threading.Thread.Sleep(50);
-                                            client.SetUnitPrice((byte)(32 + fp.Address), 7, 7000);
-                                            System.Threading.Thread.Sleep(50);
-                                            client.SetUnitPrice((byte)(32 + fp.Address), 8, 8000);
-                                        }
-                                        if (fp.Nozzles.Where(n => n.QuerySetPrice).Count() == 0)
-                                            fp.QuerySetPrice = false;
-                                    }
-                                    int nozzleForTotals = fp.Nozzles.Where(n => n.QueryTotals).Count();
-                                    if (nozzleForTotals > 0)
-                                    {
-                                        foreach (Common.Nozzle nz in fp.Nozzles)
-                                        {
-                                            if (nz.QueryTotals)
-                                            {
-                                                if (this.GetTotals(nz))
-                                                {
-                                                    if (this.TotalsRecieved != null)
-                                                    {
-                                                        this.TotalsRecieved(this, new Common.TotalsEventArgs(fp, nz.Index, nz.TotalVolume, nz.TotalPrice));
-                                                    }
-                                                    nz.QueryTotals = false;
-                                                }
-                                                System.Threading.Thread.Sleep(50);
-                                            }
-                                        }
-                                        continue;
-                                    }
-                                    
-                                }
-                            }
-
-                            else if(statusResult.State > 1)
-                            {
-                                var display = client.RequestDisplay((byte)(32 + fp.Address));
-                                fp.DispensedAmount = display.Amount / (decimal)System.Math.Pow(10, fp.AmountDecimalPlaces);
-                                fp.DispensedVolume = display.Volume / (decimal)System.Math.Pow(10, fp.VolumeDecimalPlaces);
-                            }
-                        }
-                        //SetStatus(fp, statusResult);
+                        var ack = client.SendRequest((byte)(32 + fp.Address), 'S', "");
+                        HandleAck(ack);
                     }
                     catch(Exception ex)
                     {
                         Common.Logger.Instance.Error(ex.Message);
                         Common.Logger.Instance.Error(ex.StackTrace);
-                        System.Threading.Thread.Sleep(50);
+                        // Instead of Thread.Sleep(50)
+                        try { this.workEvent?.Wait(50, token); } catch (OperationCanceledException) { break; }
+                    }
+                }
+                LogCommunication();
+                var errorFuelpoint = this.errorFps.ToArray();
+                foreach (var fp in errorFuelpoint)
+                {
+                    if (this.stopping || token.IsCancellationRequested) break;
+                    InitFuelPoint(fp);
+                }
+                LogCommunication();
+            }
+        }
+
+        private void HandleResponse(Tuple<byte, object> response)
+        {
+            var address = response.Item1;
+            object payload = response.Item2;
+            var fpRsp = this.fuelPoints.Where(f => f.Address == (address - 32)).FirstOrDefault();
+
+            if (payload is PdeInitReq)
+            {
+                var code = ((PdeInitReq)payload).Code;
+                var authCode = TatsunoPdeClient.AuthCompute(code, address);
+                var ack = client.SendRequest(address, 'I', authCode);
+                if (ack.Success)
+                {
+                    HandleAck(ack);
+                }
+            }
+            else if (payload is PdeError)
+            {
+                if (fpRsp != null && fpRsp.Initialized)
+                {
+                    fpRsp.Initialized = false;
+                    if (!this.errorFps.Contains(fpRsp))
+                        this.errorFps.Add(fpRsp);
+                }
+                else
+                {
+                    var err = (PdeError)payload;
+                    if (err.Code == 99)
+                    {
+                        if (fpRsp != null)
+                        {
+                            fpRsp.Initialized = true;
+                            fpRsp.QuerySetPrice = true;
+                        }
+                    }
+                    else if (err.Code == 63)
+                    {
+                        if (fpRsp != null && !this.errorFps.Contains(fpRsp))
+                            this.errorFps.Add(fpRsp);
+                    }
+                    else if (err.Code == 00)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        if (fpRsp != null && !this.errorFps.Contains(fpRsp))
+                            this.errorFps.Add(fpRsp);
+                    }
+                }
+            }
+            else if (payload is PdeRegisters)
+            {
+                var totalResult = (PdeRegisters)payload;
+                if (fpRsp != null)
+                {
+                    if (totalResult == null)
+                    {
+                        Logger.Instance.Debug(string.Format("Totals Result is null"));
+                        try { this.workEvent?.Wait(50); } catch { }
+                        return;
+                    }
+                    var nz = fpRsp.Nozzles.Where(n => n.Index == totalResult.NozzleIndex).FirstOrDefault();
+                    if (nz != null)
+                    {
+                        nz.TotalVolume = totalResult.Volume;
+                        nz.TotalPrice = 0;
+                        nz.QueryTotals = false;
+
+                        // Thread-safe event invocation: copy to local variable before invoking
+                        var totalsHandler = this.TotalsRecieved;
+                        if (totalsHandler != null)
+                        {
+                            totalsHandler(this, new Common.TotalsEventArgs(fpRsp, nz.Index, nz.TotalVolume, nz.TotalPrice));
+                        }
+                    }
+                }
+            }
+            else if (payload is PdeStatus)
+            {
+                var statusResult = (PdeStatus)payload;
+                if (fpRsp != null)
+                {
+                    HandleStatus(fpRsp, statusResult);
+                }
+            }
+            else if(payload is PdeDisplay)
+            {
+                var display = (PdeDisplay)payload;
+                if (fpRsp != null)
+                {
+                    fpRsp.DispensedAmount = display.Amount / (decimal)System.Math.Pow(10, fpRsp.AmountDecimalPlaces);
+                    fpRsp.DispensedVolume = display.Volume / (decimal)System.Math.Pow(10, fpRsp.VolumeDecimalPlaces);
+                    var handler = this.DataChanged;
+                    if (handler != null && fpRsp.ActiveNozzle != null)
+                    {
+                        handler(this, new Common.FuelPointValuesArgs()
+                        {
+                            CurrentFuelPoint = fpRsp,
+                            CurrentNozzleId = fpRsp.ActiveNozzle.Index,
+                            Values = new Common.FuelPointValues()
+                            {
+                                CurrentSalePrice = fpRsp.ActiveNozzle.UnitPrice,
+                                CurrentPriceTotal = fpRsp.DispensedAmount,
+                                CurrentVolume = fpRsp.DispensedVolume,
+                            }
+                        });
                     }
                 }
             }
         }
 
+        private void HandleStatus(FuelPoint fp, PdeStatus statusResult)
+        {
+            try { this.workEvent?.Wait(50); } catch { }
+
+            // If status is null or indicates an out-of-service/error, mark the fuel point in the shared error list
+            if (statusResult == null)
+            {
+                Logger.Instance.Error(string.Format("Dispenser (Address {1}, Channel {2}) has failed to send status. Communication Port: {0}", this.CommunicationPort, fp.Address, fp.Channel));
+                if (!this.errorFps.Contains(fp))
+                    this.errorFps.Add(fp);
+            }
+            else if (statusResult.State > 4)
+            {
+                if (statusResult.Error != null)
+                {
+                    Logger.Instance.Error(string.Format("Dispenser (Address {1}, Channel {2}) has failed to send status. Error Code : {3}. Communication Port: {0}",
+                        this.CommunicationPort, fp.Address, fp.Channel, statusResult.Error.Code));
+                }
+                else
+                    Logger.Instance.Error(string.Format("Dispenser (Address {1}, Channel {2}) is out of service. Communication Port: {0}", this.CommunicationPort, fp.Address, fp.Channel));
+                if (!this.errorFps.Contains(fp))
+                    this.errorFps.Add(fp);
+            }
+
+            try { this.workEvent?.Wait(10); } catch { }
+            SetStatus(fp, statusResult);
+            if (statusResult != null && statusResult.State == 1) // FuelPoint is idle
+            {
+                if (statusResult.Nozzles == 0)
+                {
+                    if (fp.QuerySetPrice)
+                    {
+                        fp.QuerySetPrice = false;
+                    }
+                    int nozzleForTotals = fp.Nozzles.Where(n => n.QueryTotals).Count();
+                    if (nozzleForTotals > 0)
+                    {
+                        var nozzlesForTotals = fp.Nozzles.Where(n => n.QueryTotals);
+                        while (nozzlesForTotals.Count() > 0)
+                        {
+                            foreach (var nz in nozzlesForTotals)
+                            {
+                                GetTotals(nz);
+                                try { this.workEvent?.Wait(50); } catch { }
+                            }
+                            nozzlesForTotals = fp.Nozzles.Where(n => n.QueryTotals);
+                        }
+                    }
+                }
+            }
+            else if (statusResult != null && statusResult.State == 2)
+            {
+                if (fp.QueryAuthorize)
+                {
+                    AuthorizeFuelPoint(fp, statusResult);
+                    try { this.workEvent?.Wait(50); } catch { }
+                }
+            }
+            else if (statusResult != null && statusResult.State == 3)
+            {
+                var ack = client.SendRequest((byte)(32 + fp.Address), 'D', "");
+                HandleAck(ack);
+            }
+        }
+
         #region protocol
 
-        private bool AuthorizeFuelPoint(FuelPoint f, PdeStatus status)
+        private bool EndOfFueling(FuelPoint f)
+        {
+            var ack = client.SendRequest((byte)(32 + f.Address), 'C', "2");
+            HandleAck(ack);
+            return true;
+        }
+
+        private void AuthorizeFuelPoint(FuelPoint f, PdeStatus status)
         {
             if (f.ActiveNozzle == null)
-                return true;
-            var authResult = client.Authorize((byte)(32 + f.Address), 1, 0, 0, 0, f.ActiveNozzleIndex + 1);
-            Logger.Instance.Debug(string.Format("Dispenser (Address {1}, Channel {2}) Authorize Result: {3}. Communication Port: {0}", this.CommunicationPort, f.Address, f.Channel, authResult));
-            return authResult;
+                return;
+            var product = f.ActiveNozzle.NozzleSocket;
+
+            string payload = (1).ToString() +
+                 (999999).ToString("D6") +
+                 (0).ToString() +
+                 f.ActiveNozzle.UntiPriceInt.ToString("D4") +
+                 product.ToString();
+
+            var ack = client.SendRequest((byte)(32 + f.Address), 'A', payload);
+            HandleAck(ack);
         }
         private bool Halt(FuelPoint fp)
         {
             return true;
         }
 
-        private bool GetTotals(Nozzle nz)
+        private void GetTotals(Nozzle nz)
         {
-            var registers = client.RequestTotalizers((byte)(32 + nz.ParentFuelPoint.Address), nz.Index);
-            Logger.Instance.Debug(string.Format("Dispenser (Address: {1}, Channel: {2}, Nozzle: {4}) Volume: {3}. Communication Port: {0}",
-                this.CommunicationPort, nz.ParentFuelPoint.Address, nz.ParentFuelPoint.Channel, registers.Volume, nz.Index));
-            if (nz.Index != registers.NozzleIndex)
-                return false;
-            nz.TotalPrice = 0;// (decimal)registers / (decimal)System.Math.Pow(10, nz.ParentFuelPoint.AmountDecimalPlaces);
-            nz.TotalVolume = (decimal)registers.Volume; // / (decimal)System.Math.Pow(10, nz.ParentFuelPoint.VolumeDecimalPlaces);
-            return true;
+            var payload = nz.Index.ToString("D2");
+            var ack = client.SendRequest((byte)(32 + nz.ParentFuelPoint.Address), 'X', payload);
+            HandleAck(ack);
         }
 
         private void SetStatus(FuelPoint fp, PdeStatus status)
         {
 
-            Common.Enumerators.FuelPointStatusEnum newStatus = Common.Enumerators.FuelPointStatusEnum.Offline;  
-            if(status == null || status.State >= 4)
+            Common.Enumerators.FuelPointStatusEnum newStatus = Common.Enumerators.FuelPointStatusEnum.Offline;
+            if (status == null || status.State > 4)
             {
+                Logger.Instance.Debug($"Status is null or invalid State= {status?.State}, Nozzle= {status?.Nozzles} ");
                 int cm = int.Parse(fp.GetExtendedProperty("StatusMismatch", 0).ToString());
                 if (cm < 5)
                 {
@@ -357,15 +643,24 @@ namespace ASFuelControl.Tatsuno
                 else
                     newStatus = Common.Enumerators.FuelPointStatusEnum.Offline;
             }
+            else if (status.State == 4)
+            {
+                if (EndOfFueling(fp))
+                    newStatus = Common.Enumerators.FuelPointStatusEnum.Idle;
+            }
             else
             {
                 fp.SetExtendedProperty("StatusMismatch", 0);
                 if (status.State == 1)
                 {
+                    newStatus = Common.Enumerators.FuelPointStatusEnum.Idle;
+                }
+                else if (status.State == 2)
+                {
                     if (status.Nozzles > 0)
                     {
                         fp.ActiveNozzleIndex = status.Nozzles - 1;
-                        if (fp.Status == Common.Enumerators.FuelPointStatusEnum.Idle)
+                        if (fp.Status == Common.Enumerators.FuelPointStatusEnum.Idle || fp.Status == Common.Enumerators.FuelPointStatusEnum.Offline)
                             newStatus = Common.Enumerators.FuelPointStatusEnum.Nozzle;
                     }
                     else
@@ -378,6 +673,11 @@ namespace ASFuelControl.Tatsuno
                 }
             }
             var oldStatus = fp.Status;
+            if(newStatus == Common.Enumerators.FuelPointStatusEnum.Offline)
+            {
+                Logger.Instance.Debug($"OFFLINE: State= {status?.State}, Nozzle= {status?.Nozzles} ");
+                return;
+            }
             fp.Status = newStatus;
             fp.DispenserStatus = fp.Status;
             if (status != null)
@@ -390,38 +690,41 @@ namespace ASFuelControl.Tatsuno
                 Logger.Instance.Debug(string.Format("Dispenser (Address: {1}, Channel: {2}) Status: {3}, Communication Port: {0}",
                     this.CommunicationPort, fp.Address, fp.Channel, newStatus));
             }
-            if (this.DispenserStatusChanged != null)
+            Logger.Instance.Debug($"Nozzle: {fp.ActiveNozzleIndex} - From: {oldStatus} -> To: {newStatus}");
+            if (oldStatus != newStatus)
             {
-                Logger.Instance.Debug(string.Format("Dispenser Status Changed (Address: {1}, Channel: {2}) Old Status: {3}, New Status: {4}, Communication Port: {0}",
-                    this.CommunicationPort, fp.Address, fp.Channel, oldStatus, newStatus));
-                Common.FuelPointValues values = new Common.FuelPointValues();
-                if (status != null)
+                // Thread-safe event invocation: copy to local variable before invoking
+                var handler = this.DispenserStatusChanged;
+                if (handler != null)
                 {
-                    if (fp.Status != Common.Enumerators.FuelPointStatusEnum.Idle && fp.Status != Common.Enumerators.FuelPointStatusEnum.Offline)
+                    Common.FuelPointValues values = new Common.FuelPointValues();
+                    if (status != null)
                     {
-                        fp.ActiveNozzleIndex = status.Nozzles - 1;
-                        values.ActiveNozzle = status.Nozzles - 1;
+                        if (fp.Status != Common.Enumerators.FuelPointStatusEnum.Idle && fp.Status != Common.Enumerators.FuelPointStatusEnum.Offline)
+                        {
+                            fp.ActiveNozzleIndex = status.Nozzles - 1;
+                            values.ActiveNozzle = status.Nozzles - 1;
+                        }
+                        else
+                        {
+                            fp.ActiveNozzleIndex = -1;
+                            values.ActiveNozzle = -1;
+                        }
                     }
                     else
                     {
                         fp.ActiveNozzleIndex = -1;
                         values.ActiveNozzle = -1;
                     }
+                    values.Status = newStatus;//fp.Status;
+                    handler(this, new Common.FuelPointValuesArgs()
+                    {
+                        CurrentFuelPoint = fp,
+                        CurrentNozzleId = values.ActiveNozzle + 1,
+                        Values = values
+                    });
                 }
-                else
-                {
-                    fp.ActiveNozzleIndex = -1;
-                    values.ActiveNozzle = -1;
-                }
-                values.Status = fp.Status;
-                this.DispenserStatusChanged(this, new Common.FuelPointValuesArgs()
-                {
-                    CurrentFuelPoint = fp,
-                    CurrentNozzleId = values.ActiveNozzle + 1,
-                    Values = values
-                });
             }
-
         }
 
         #endregion

@@ -1,25 +1,57 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Text;
+using static System.Net.WebRequestMethods;
 
 namespace ASFuelControl.Communication
 {
     public class SendMethods
     {
+        public static event EventHandler<string> SentObjectLog;
         public bool Simulation { set; get; }
-
-        static eTokenLib.eTokenLib etoken = new eTokenLib.eTokenLib();
+        static DateTime dtInitOtp = DateTime.MinValue;
+        static ETokenDomainManager _etoken;
+        static ETokenDomainManager etoken 
+        {
+            get 
+            { 
+                if(_etoken == null || _etoken.IsUnloaded) 
+                {
+                    //eTokenLib.eTokenLib
+                    GC.Collect(); GC.WaitForPendingFinalizers();
+                    _etoken = new ETokenDomainManager();
+                    _etoken.Load("C:\\ASFuelControl\\eTokenLib.dll", "eTokenLib.eTokenLib");
+                    if (SentObjectLog != null && dtInitOtp == DateTime.MinValue)
+                    {
+                        dtInitOtp = DateTime.Now;
+                        var logText = $"First Initializaion: [{dtInitOtp: dd/MM/yyyy HH:mm:ss.fff}]";
+                        SentObjectLog(null, logText);
+                        SentObjectLog(null, etoken.LastErrorMsg());
+                    }
+                }
+                return _etoken; 
+            }
+        }
 
         private static object foo = new object();
         public static string GetOTP()
         {
             lock (foo)
             {
-                Common.Logger.Instance.Debug("Get OTP Start");
+                DateTime dtStart = DateTime.Now;
                 string otp = etoken.GetOTP();
-                Common.Logger.Instance.Debug("Get OTP End: " + otp);
+                DateTime dtEnd = DateTime.Now;
+                if (otp.Contains("ERROR"))
+                {
+                    if (otp.Contains("Πρόβλημα συγχρονισμού ώρας"))
+                    {
+                        etoken.Unload();
+                    }
+                    Common.Logger.Instance.Error($"Start: {dtStart: yyyy/MM/dd HH:mm:ss.fff} - End: {dtEnd: yyyy/MM/dd HH:mm:ss.fff}, OTP Value: {otp}");
+                }
                 return otp;
             }
         }
@@ -44,9 +76,14 @@ namespace ASFuelControl.Communication
                 string returnStr = "";
                 if (!Simulation)
                 {
+                    DateTime dtNow = DateTime.Now;
                     string otp = GetOTP();
                     if (otp.Contains("ERROR"))
+                    {
+                        DateTime dtNow2 = DateTime.Now;
+                        Common.Logger.Instance.Debug($"Date1: {dtNow} - Date2: {dtNow2}");
                         return "[ERROR:" + otp + "]";
+                    }
                     ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
                     client.Open();
                     tankCheck.Header.eToken = otp;
@@ -321,11 +358,109 @@ namespace ASFuelControl.Communication
         {
             get
             {
-                eTokenLib.eTokenLib lib = new eTokenLib.eTokenLib();
-                string crc = lib.GetDirFileHash(System.Environment.CurrentDirectory);
+                
+                string crc = etoken.GetDirFileHash(System.Environment.CurrentDirectory);
                 int pos = crc.IndexOf("|");
                 return crc.Substring(0, pos);
             }
+        }
+    }
+
+    public class ETokenProxy : MarshalByRefObject
+    {
+        private object _etoken;
+        private Type _etokenType;
+        public void Load(string assemblyPath, string typeName)
+        {
+            var asm = Assembly.LoadFrom(assemblyPath);
+            _etokenType = asm.GetType(typeName);
+            _etoken = Activator.CreateInstance(_etokenType);
+        }
+
+        public string GetOTP()
+        {
+            var method = _etokenType.GetMethod("GetOTP");
+            return (string)method.Invoke(_etoken, null);
+        }
+        public string GetDirFileHash(string dirName)
+        {
+            var method = _etokenType.GetMethod("GetDirFileHash");
+            object[] parameters = new object[] { dirName };
+            return (string)method.Invoke(_etoken, parameters);
+        }
+        public bool RegSoftwareUpdate(string amdika, string otp, string swname, string swversion)
+        {
+            var method = _etokenType.GetMethod("RegSoftwareUpdate");
+            object[] parameters = new object[] { amdika, otp, swname, swversion };
+            return (bool)method.Invoke(_etoken, parameters);
+        }
+        public string GetRegNums(string amdika, string otp)
+        {
+            var method = _etokenType.GetMethod("GetRegisteredNums");
+            object[] parameters = new object[] { amdika, otp };
+            return (string)method.Invoke(_etoken, parameters);
+        }
+        public bool IsTimeInSync()
+        {
+            var prop = _etokenType.GetProperty("IsTimeInSync");
+            return (bool)prop.GetValue(_etoken);
+        }
+
+        public string LastErrorMsg()
+        {
+            var prop = _etokenType.GetProperty("LastErrorMsg");
+            return (string)prop.GetValue(_etoken);
+        }
+        public string AMDIKA_ID
+        {
+            get
+            {
+                var prop = _etokenType.GetProperty("AMDIKA_ID");
+                return (string)prop.GetValue(_etoken);
+            }
+        }
+        // Add more methods/properties as needed
+    }
+    public class ETokenDomainManager
+    {
+        private AppDomain _domain;
+        private ETokenProxy _proxy;
+        public bool IsUnloaded { get; private set; } = false;
+
+        public void Load(string assemblyPath, string typeName)
+        {
+            var setup = new AppDomainSetup
+            {
+                ApplicationBase = Path.GetDirectoryName(assemblyPath)
+            };
+
+            _domain = AppDomain.CreateDomain("ETokenDomain_" + Guid.NewGuid(), null, setup);
+
+            _proxy = (ETokenProxy)_domain.CreateInstanceAndUnwrap(
+                typeof(ETokenProxy).Assembly.FullName,
+                typeof(ETokenProxy).FullName);
+
+            _proxy.Load(assemblyPath, typeName);
+        }
+
+        public string GetOTP() => _proxy.GetOTP();
+        public bool RegSoftwareUpdate(string amdika, string otp, string swname, string swversion) => 
+            _proxy.RegSoftwareUpdate(amdika, otp, swname, swversion);
+        public string GetRegNums(string amdika, string otp) => _proxy.GetRegNums(amdika, otp);
+        public string GetDirFileHash(string dirName) => _proxy.GetDirFileHash(dirName);
+        public bool IsTimeInSync() => _proxy.IsTimeInSync();
+        public string LastErrorMsg() => _proxy.LastErrorMsg();
+        public string AMDIKA_ID => _proxy.AMDIKA_ID;
+
+        public void Unload()
+        {
+            if (_domain != null)
+            {
+                AppDomain.Unload(_domain);
+                _domain = null;
+                _proxy = null;
+            }
+            IsUnloaded = true;
         }
     }
 }

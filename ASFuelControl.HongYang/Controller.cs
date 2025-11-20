@@ -1,0 +1,19 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ASFuelControl.HongYang
+{
+    public class Controller : Common.FuelPumpControllerBase
+    {
+        public event EventHandler<Common.TotalsEventArgs> TotalsRecieved;
+        public Controller()
+        {
+            this.ControllerType = Common.Enumerators.ControllerTypeEnum.HongYang;
+            this.Controller = new HongYangController();
+        }
+
+    }
+}

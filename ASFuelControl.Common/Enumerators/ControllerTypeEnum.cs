@@ -39,6 +39,7 @@ namespace ASFuelControl.Common.Enumerators
         Tatsuno,
         DartFalcon,
         NuovoPignoneMultiV2,
+        HongYang,
         None
     }
 }
