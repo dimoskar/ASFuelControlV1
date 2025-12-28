@@ -97,8 +97,9 @@ namespace ASFuelControl.Communication
                 }
                 return returnStr + "\r\n" + this.SerializeObject(tankCheck);
             }
-            catch
+            catch(Exception ex)
             {
+                Common.Logger.Instance.Error(ex);
                 return "[ERROR]";
             }
         }
@@ -184,8 +185,9 @@ namespace ASFuelControl.Communication
                 }
                 return returnStr + "\r\n" + this.SerializeObject(change);
             }
-            catch
+            catch (Exception ex)
             {
+                Common.Logger.Instance.Error(ex);
                 return "[ERROR]";
             }
         }
@@ -223,37 +225,46 @@ namespace ASFuelControl.Communication
                 }
                 return returnStr + "\r\n" + this.SerializeObject(reciept);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
+                Common.Logger.Instance.Error(ex);
                 return "[ERROR]";
             }
         }
 
         public string SendDelivery(ClientHeader header, DeliveryNoteClass delivery)
         {
-            FuelFlowService.Fuelflows_TypeDeliveryNote deliveryNote = delivery.GetElement();
-
-            deliveryNote.Header.CompanyTIN = header.CompanyTIN;
-            deliveryNote.Header.SubmissionDate = DateTime.Now;
-            deliveryNote.Header.SubmitterTIN = header.SubmitterTIN;
-            string returnStr = "";
-            if (!Simulation)
+            try
             {
-                string otp = GetOTP();
-                if (otp.Contains("ERROR"))
-                    return "[ERROR:" + otp + "]";
-                ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-                client.Open();
-                deliveryNote.Header.eToken = otp;
-                header.SubmissionDate = DateTime.Now;
-                deliveryNote.Header.SubmissionDate = header.SubmissionDate;
-                string ret = client.SendDelivery(deliveryNote);
-                if (ret.StartsWith("ERROR|"))
-                    ret = "[ERROR]" + ret;
-                client.Close();
-                returnStr = ret;
+                FuelFlowService.Fuelflows_TypeDeliveryNote deliveryNote = delivery.GetElement();
+
+                deliveryNote.Header.CompanyTIN = header.CompanyTIN;
+                deliveryNote.Header.SubmissionDate = DateTime.Now;
+                deliveryNote.Header.SubmitterTIN = header.SubmitterTIN;
+                string returnStr = "";
+                if (!Simulation)
+                {
+                    string otp = GetOTP();
+                    if (otp.Contains("ERROR"))
+                        return "[ERROR:" + otp + "]";
+                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+                    client.Open();
+                    deliveryNote.Header.eToken = otp;
+                    header.SubmissionDate = DateTime.Now;
+                    deliveryNote.Header.SubmissionDate = header.SubmissionDate;
+                    string ret = client.SendDelivery(deliveryNote);
+                    if (ret.StartsWith("ERROR|"))
+                        ret = "[ERROR]" + ret;
+                    client.Close();
+                    returnStr = ret;
+                }
+                return returnStr + "\r\n" + this.SerializeObject(deliveryNote);
             }
-            return returnStr + "\r\n" + this.SerializeObject(deliveryNote);
+            catch (Exception ex)
+            {
+                Common.Logger.Instance.Error(ex);
+                return "[ERROR]";
+            }
         }
 
         public string SendLiterCheck(ClientHeader header, Communication.LiterCheckClass lc)
@@ -286,8 +297,9 @@ namespace ASFuelControl.Communication
                 }
                 return returnStr + "\r\n" + this.SerializeObject(lc);
             }
-            catch
+            catch (Exception ex)
             {
+                Common.Logger.Instance.Error(ex);
                 return "[ERROR]";
             }
         }
@@ -321,8 +333,9 @@ namespace ASFuelControl.Communication
                 }
                 return returnStr + "\r\n" + this.SerializeObject(bc);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
+                Common.Logger.Instance.Error(ex);
                 return "[ERROR]";
             }
         }

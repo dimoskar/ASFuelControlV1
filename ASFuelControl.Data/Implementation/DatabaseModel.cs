@@ -1108,25 +1108,35 @@ namespace ASFuelControl.Data
                         reservoir.VolumeStartNormalized = tank.FuelType.NormalizeVolume(reservoir.VolumeStart, reservoir.TemperatureStart, tank.GetDensityAtTime(dt1));   //F_2233
                         reservoir.VolumeEndNormalized = tank.FuelType.NormalizeVolume(reservoir.VolumeEnd, reservoir.TemperatureEnd, tank.GetDensityAtTime(dt2));           //F_2235
 
-                        var q1 = db.TankFillings.Where(tfi => tfi.TankId == tank.TankId && tfi.TransactionTimeEnd <= balance.TimeEnd && tfi.TransactionTimeEnd >= balance.TimeStart);
+                        var q1 = db.TankFillings.Where(tfi => tfi.TankId == tank.TankId && tfi.TransactionTimeEnd <= balance.TimeEnd && tfi.TransactionTimeEnd >= balance.TimeStart).ToArray();
+
+                        var validReturnDeliveryTypes = new[]
+                        {
+                            (int?)Common.Enumerators.DeliveryTypeEnum.Return,
+                            (int?)Common.Enumerators.DeliveryTypeEnum.TransfusionIn
+                        };
+
+
                         var qDelivery = q1.SelectMany(t => t.InvoiceLines).Where(i =>
-                                      i.Invoice.InvoiceType.IncludeInBalance.HasValue &&
-                                      i.Invoice.InvoiceType.IncludeInBalance.Value &&
+                                      i.Invoice.InvoiceType.IncludeInBalance == true &&
                                       i.Invoice.InvoiceType.DeliveryType.HasValue &&
                                       (
                                         i.Invoice.InvoiceType.DeliveryType.Value == (int)Common.Enumerators.DeliveryTypeEnum.Delivery
                                       )).ToArray();
-                        var qOtherIn = q1.SelectMany(t => t.InvoiceLines).Where(i =>
-                                      i.Invoice.InvoiceType.IncludeInBalance.HasValue &&
-                                      i.Invoice.InvoiceType.IncludeInBalance.Value &&
+                        var qOtherTFIn = q1.SelectMany(t => t.InvoiceLines).Where(i =>
+                                      i.Invoice.InvoiceType.IncludeInBalance == true &&
+                                      validReturnDeliveryTypes.Contains(i.Invoice.InvoiceType.DeliveryType));
+                        var q1Cancel = db.InvoiceLines.Where(i =>
+                                      i.Invoice.InvoiceType.IncludeInBalance == true &&
                                       i.Invoice.InvoiceType.DeliveryType.HasValue &&
-                                      (
-                                        i.Invoice.InvoiceType.DeliveryType.Value == (int)Common.Enumerators.DeliveryTypeEnum.Return ||
-                                        i.Invoice.InvoiceType.DeliveryType.Value == (int)Common.Enumerators.DeliveryTypeEnum.TransfusionIn
-                                      )).ToArray();
+                                      validReturnDeliveryTypes.Contains(i.Invoice.InvoiceType.DeliveryType) && 
+                                      i.Invoice.TransactionDate <= balance.TimeEnd && i.Invoice.TransactionDate >= balance.TimeStart);
+
+                        var qOtherIn = qOtherTFIn.Union(q1Cancel).ToArray();
+
+
                         var qDrain = q1.SelectMany(t => t.InvoiceLines).Where(i =>
-                                      i.Invoice.InvoiceType.IncludeInBalance.HasValue &&
-                                      i.Invoice.InvoiceType.IncludeInBalance.Value &&
+                                      i.Invoice.InvoiceType.IncludeInBalance == true &&
                                       i.Invoice.InvoiceType.DeliveryType.HasValue &&
                                       (
                                         i.Invoice.InvoiceTypeId != literCheckType &&
