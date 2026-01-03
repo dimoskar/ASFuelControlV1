@@ -7,5 +7,6 @@
     <currency>[currency]</currency>
 	<correlatedInvoices>[correlatedinvoices]</correlatedInvoices>
 	<movePurpose>[movepurpose]</movePurpose>
+	<fuelInvoice>[fuelInvoice]</fuelInvoice>
 	[otherDeliveryNoteHeader]
 </invoiceHeader>

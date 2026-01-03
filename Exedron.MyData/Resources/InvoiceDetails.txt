@@ -1,5 +1,6 @@
 <invoiceDetails>
     <lineNumber>[linenumber]</lineNumber>
+	<fuelCode>[fuelCode]</fuelCode>
 	<itemDescr>[itemDescr]</itemDescr>
     <quantity>[quantity]</quantity>
     <measurementUnit>[measurementunit]</measurementUnit>
@@ -9,4 +10,5 @@
 	<vatExemptionCategory>[vatexemptioncategory]</vatExemptionCategory>
     <deductionsAmount>[deductionsamount]</deductionsAmount>
     [incomeclassification]
+	<quantity15>[quantity15]</quantity15>
 </invoiceDetails>

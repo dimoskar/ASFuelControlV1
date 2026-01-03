@@ -21,6 +21,7 @@ namespace Exedron.MyData.InvoiceModels
         public DateTime DispatchDateTime { get; set; }
         public string VehicleNumber { get; set; }
         public MovePurposeEnum MovePurpose { get; set; }
+        public bool FuelInvoice { set; get; }
         public IOtherDeliveryNoteHeader OtherDeliveryNoteHeader { set; get; }
 
         public string AsXml()
@@ -65,7 +66,9 @@ namespace Exedron.MyData.InvoiceModels
             else
                 xml = xml.Replace("<correlatedInvoices>[correlatedinvoices]</correlatedInvoices>", "");
 
-            if(OtherDeliveryNoteHeader != null)
+            xml = xml.Replace("[fuelInvoice]", FuelInvoice.ToString().ToLower());
+
+            if (OtherDeliveryNoteHeader != null)
                 xml = xml.Replace("[otherDeliveryNoteHeader]", this.OtherDeliveryNoteHeader.AsXml());
             else
                 xml = xml.Replace("[otherDeliveryNoteHeader]", "");

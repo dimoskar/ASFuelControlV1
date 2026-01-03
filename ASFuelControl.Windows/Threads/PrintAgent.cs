@@ -2400,8 +2400,11 @@ namespace ASFuelControl.Windows.Threads
                 {
                     var trans = new Samtec.WebService.Models.Transactionline();
                     trans.ClassCategory = 1;
-                    trans.FuelCode = invLine.FuelType.EnumeratorValue;
-                    trans.Description = invLine.FuelType.Name;
+                    if (invLine.FuelType != null)
+                    {
+                        trans.FuelCode = invLine.FuelType.EnumeratorValue;
+                        trans.Description = invLine.FuelType.Name;
+                    }
                     int decimalPlaces = 3;
 
                     if (invLine.VatPercentage == 0)
@@ -3848,6 +3851,7 @@ namespace ASFuelControl.Windows.Threads
                 invHeader.Currency = "";
             }
             invHeader.IssueDate = invoice.TransactionDate;
+            invHeader.FuelInvoice = invoice.InvoiceLines.Any(i => i.FuelTypeName != "");
             if (isCanceling)
             {
                 if (isRetail)
@@ -3970,6 +3974,12 @@ namespace ASFuelControl.Windows.Threads
                 {
                     row1.MeasurementUnit = Exedron.MyData.Interfaces.MeasurementUnitEnum.Items;
                     row1.Quantity = line.Volume;
+                    if (invHeader.FuelInvoice)
+                    {
+                        row1.MeasurementUnit = Exedron.MyData.Interfaces.MeasurementUnitEnum.Liters;
+                        row1.FuelCode = line.FuelType.EnumeratorValue.ToString();
+                        row1.Quantity15 = line.VolumeNormalized;
+                    }
                 }
                 if (!isDelivery)
                 {

@@ -8,7 +8,7 @@ using System.Collections.Concurrent;
 
 namespace ASFuelControl.VeederRootTLSIB
 {
-    public class Controller : Common.IController
+    public class Controller : IController
     {
         public event EventHandler<Common.TotalsEventArgs> TotalsRecieved;
         public event EventHandler<Common.SaleEventArgs> SaleRecieved;
@@ -42,12 +42,14 @@ namespace ASFuelControl.VeederRootTLSIB
         {
             this.controller.CommunicationPort = this.CommunicationPort;
             this.controller.Connect();
-            this.controller.DataUpdated -= new EventHandler(atg_DataUpdated);
-            this.controller.DataUpdated += new EventHandler(atg_DataUpdated);
+            this.controller.DataUpdated -= Controller_DataUpdated;
+            this.controller.DataUpdated += Controller_DataUpdated;
+            //this.controller.DataUpdated -= new EventHandler(atg_DataUpdated);
+            //this.controller.DataUpdated += new EventHandler(atg_DataUpdated);
         }
         public void DisConnect()
         {
-            this.controller.DisConnect();
+            this.controller.Disconnect();
         }
         public void AddAtg(int channel, int address)
         {
@@ -163,9 +165,9 @@ namespace ASFuelControl.VeederRootTLSIB
                 return null;
             }
         }
-        void atg_DataUpdated(object sender, EventArgs e)
+        
+        private void Controller_DataUpdated(object sender, ATGProbe atg)
         {
-            ATGProbe atg = sender as ATGProbe;
 
             ASFuelControl.Common.TankValues tankValues = new ASFuelControl.Common.TankValues();
 

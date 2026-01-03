@@ -10,7 +10,9 @@ namespace Exedron.MyData.InvoiceModels
     public class InvoiceRow : IInvoiceRowType
     {
         public int LineNumber { get; set; }
+        public string FuelCode { set; get; }
         public decimal Quantity { get; set; }
+        public decimal Quantity15 { get; set; }
         public MeasurementUnitEnum MeasurementUnit { get; set; }
         public InvoiceDetailTypeEnum InvoiceDetailType { get; set; }
         public decimal NetValue { get; set; }
@@ -103,7 +105,16 @@ namespace Exedron.MyData.InvoiceModels
                 xml = xml.Replace("<itemDescr>[itemDescr]</itemDescr>", "");
             else
                 xml = xml.Replace("[itemDescr]", this.ItemDescription);
-            
+
+            if (string.IsNullOrEmpty(FuelCode))
+                xml = xml.Replace("<fuelCode>[fuelCode]</fuelCode>", "");
+            else
+                xml = xml.Replace("[fuelCode]", this.FuelCode);
+
+            if(Quantity15 == 0)
+                xml = xml.Replace("<quantity15>[quantity15]</quantity15>", "");
+            else
+                xml = xml.Replace("[quantity15]", RequestHelpers.ToString(this.Quantity15));
 
             if (this.IncomeClassifications != null && this.IncomeClassifications.Length > 0)
             {
