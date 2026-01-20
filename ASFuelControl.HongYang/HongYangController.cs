@@ -304,16 +304,27 @@ namespace ASFuelControl.HongYang
                                     int nozzleForTotals = fp.Nozzles.Where(n => n.QueryTotals).Count();
                                     if (nozzleForTotals > 0)
                                     {
+                                        //var isOnSale = fp.GetExtendedProperty("IsOnSale");
+                                        //if (isOnSale != null && (bool)isOnSale)
+                                        //{
+                                        //    System.Threading.Thread.Sleep(5000);
+                                        //    fp.SetExtendedProperty("IsOnSale", false);
+                                        //}
                                         foreach (Common.Nozzle nz in fp.Nozzles)
                                         {
                                             if (nz.QueryTotals)
                                             {
+                                                var isOnSale = (bool)fp.GetExtendedProperty("Work", false);
+                                                if (isOnSale && nz.GetTotalsIndex() == 0)
+                                                {
+                                                    System.Threading.Thread.Sleep(2000);
+                                                }
                                                 if (this.GetTotals(nz))
                                                 {
-                                                    if (this.TotalsRecieved != null)
-                                                    {
-                                                        this.TotalsRecieved(this, new Common.TotalsEventArgs(fp, nz.Index, nz.TotalVolume, nz.TotalPrice));
-                                                    }
+                                                    //if (this.TotalsRecieved != null)
+                                                    //{
+                                                    //    this.TotalsRecieved(this, new Common.TotalsEventArgs(fp, nz.Index, nz.TotalVolume, nz.TotalPrice));
+                                                    //}
                                                     nz.QueryTotals = false;
                                                 }
                                                 System.Threading.Thread.Sleep(50);
@@ -322,6 +333,10 @@ namespace ASFuelControl.HongYang
                                         continue;
                                     }
 
+                                }
+                                if(status == Common.Enumerators.FuelPointStatusEnum.Work)
+                                {
+                                    //fp.SetExtendedProperty("IsOnSale", true);
                                 }
                             }
                         }

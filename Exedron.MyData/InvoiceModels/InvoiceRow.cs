@@ -32,6 +32,7 @@ namespace Exedron.MyData.InvoiceModels
         public decimal DeductionsAmount { get; set; }
         public string LineComments { get; set; }
         public string ItemDescription { get; set; }
+        public string ItemCode { get; set; }
         public IIncomeClassification IncomeClassification { get; set; }
         public IIncomeClassification[] IncomeClassifications { get; set; }
         public IExpenseClassification ExpenseClassification { get; set; }
@@ -105,6 +106,10 @@ namespace Exedron.MyData.InvoiceModels
                 xml = xml.Replace("<itemDescr>[itemDescr]</itemDescr>", "");
             else
                 xml = xml.Replace("[itemDescr]", this.ItemDescription);
+            if (string.IsNullOrEmpty(ItemCode))
+                xml = xml.Replace("<itemCode>[itemCode]</itemCode>", "");
+            else
+                xml = xml.Replace("[itemCode]", this.ItemCode);
 
             if (string.IsNullOrEmpty(FuelCode))
                 xml = xml.Replace("<fuelCode>[fuelCode]</fuelCode>", "");

@@ -383,6 +383,10 @@ namespace ASFuelControl.Communication
     {
         private object _etoken;
         private Type _etokenType;
+        public override object InitializeLifetimeService()
+        {
+            return null;
+        }
         public void Load(string assemblyPath, string typeName)
         {
             var asm = Assembly.LoadFrom(assemblyPath);
@@ -436,12 +440,16 @@ namespace ASFuelControl.Communication
     }
     public class ETokenDomainManager
     {
+        string _path = "";
+        string _typeName = "";
         private AppDomain _domain;
         private ETokenProxy _proxy;
         public bool IsUnloaded { get; private set; } = false;
 
         public void Load(string assemblyPath, string typeName)
         {
+            _path = assemblyPath;
+            _typeName = typeName;
             var setup = new AppDomainSetup
             {
                 ApplicationBase = Path.GetDirectoryName(assemblyPath)
@@ -454,16 +462,56 @@ namespace ASFuelControl.Communication
                 typeof(ETokenProxy).FullName);
 
             _proxy.Load(assemblyPath, typeName);
+            IsUnloaded = false;
         }
 
-        public string GetOTP() => _proxy.GetOTP();
-        public bool RegSoftwareUpdate(string amdika, string otp, string swname, string swversion) => 
-            _proxy.RegSoftwareUpdate(amdika, otp, swname, swversion);
-        public string GetRegNums(string amdika, string otp) => _proxy.GetRegNums(amdika, otp);
-        public string GetDirFileHash(string dirName) => _proxy.GetDirFileHash(dirName);
-        public bool IsTimeInSync() => _proxy.IsTimeInSync();
-        public string LastErrorMsg() => _proxy.LastErrorMsg();
-        public string AMDIKA_ID => _proxy.AMDIKA_ID;
+        public string GetOTP()
+        {
+            if (IsUnloaded)
+                _proxy.Load(_path, _typeName);
+            return _proxy.GetOTP();
+        }
+
+        public bool RegSoftwareUpdate(string amdika, string otp, string swname, string swversion)
+        {
+            if (IsUnloaded)
+                _proxy.Load(_path, _typeName);
+            return _proxy.RegSoftwareUpdate(amdika, otp, swname, swversion);
+        }
+
+        public string GetRegNums(string amdika, string otp)
+        {
+            if (IsUnloaded)
+                _proxy.Load(_path, _typeName);
+            return _proxy.GetRegNums(amdika, otp);
+        }
+        public string GetDirFileHash(string dirName)
+        {
+            if (IsUnloaded)
+                _proxy.Load(_path, _typeName);
+            return _proxy.GetDirFileHash(dirName); ;
+        }
+        public bool IsTimeInSync()
+        {
+            if (IsUnloaded)
+                _proxy.Load(_path, _typeName);
+            return _proxy.IsTimeInSync();
+        }
+        public string LastErrorMsg()
+        {
+            if (IsUnloaded)
+                _proxy.Load(_path, _typeName);
+            return _proxy.LastErrorMsg(); ;
+        }
+        public string AMDIKA_ID
+        {
+            get
+            {
+                if (IsUnloaded)
+                    _proxy.Load(_path, _typeName);
+                return _proxy.AMDIKA_ID;
+            }
+        }
 
         public void Unload()
         {

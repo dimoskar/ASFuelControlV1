@@ -3978,7 +3978,7 @@ namespace ASFuelControl.Windows.Threads
                     {
                         row1.MeasurementUnit = Exedron.MyData.Interfaces.MeasurementUnitEnum.Liters;
                         row1.FuelCode = line.FuelType.EnumeratorValue.ToString();
-                        row1.Quantity15 = line.VolumeNormalized;
+                        //row1.Quantity15 = line.VolumeNormalized;
                     }
                 }
                 if (!isDelivery)

@@ -2466,6 +2466,37 @@ namespace ASFuelControl.Windows.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to INSERT [dbo].[OilCompany] ([OilCompanyId], [Name], [Logo]) 
+        ///VALUES (N&apos;fc3280e0-2abd-4545-aa4e-b231698a3536&apos;, N&apos;Hellenic Fuel Station&apos;, 0xFFD8FFE000104A46494600010101005E005E0000FFE100684578696600004D4D002A000000080004011A0005000000010000003E011B0005000000010000004601280003000000010002000001310002000000110000004E0000000000016F1C000003E800016F1C000003E85061696E742E4E455420352E312E31310000FFDB00430006040506050406060506070706080A100A0A09090A140E0F0C1017141818171416161A1D251F1A1B231C1616202C20232627292A29191F2D [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string UpdateDatabase54 {
+            get {
+                return ResourceManager.GetString("UpdateDatabase54", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to IF EXISTS (
+        ///    SELECT 1
+        ///    FROM dbo.OilCompany
+        ///    WHERE OilCompanyId = N&apos;fc3280e0-2abd-4545-aa4e-b231698a3536&apos;
+        ///)
+        ///BEGIN
+        ///    DELETE dbo.OilCompany
+        ///    WHERE OilCompanyId = N&apos;fc3280e0-2abd-4545-aa4e-b231698a3536&apos;
+        ///END
+        ///GO
+        ///
+        ///INSERT [dbo].[OilCompany] ([OilCompanyId], [Name], [Logo]) 
+        ///VALUES (N&apos;fc3280e0-2abd-4545-aa4e-b231698a3536&apos;, N&apos;Hellenic Fuel Station&apos;, 0xFFD8FFE000104A46494600010101005E005E0000FFE100684578696600004D4D002A000000080004011A0005000000010000003E011B0005000000010000004601280003000000 [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string UpdateDatabase55 {
+            get {
+                return ResourceManager.GetString("UpdateDatabase55", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to ALTER TABLE dbo.InvoiceType ADD
         ///	IsInternal bit NULL
         ///GO
