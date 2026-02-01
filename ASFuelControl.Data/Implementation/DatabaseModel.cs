@@ -1144,12 +1144,21 @@ namespace ASFuelControl.Data
                                         i.Invoice.InvoiceType.DeliveryType.Value == (int)Common.Enumerators.DeliveryTypeEnum.TransfusionOut
                                       )).ToArray();
 
-                        decimal fillingsVol = qDelivery.Sum(t => t.TankFilling.VolumeReal);
-                        decimal fillingsVol15 = qDelivery.Sum(t => t.TankFilling.VolumeRealNormalized);
-                        decimal fillingsRestVol = qOtherIn.Sum(t => t.TankFilling.VolumeReal);
-                        decimal fillingsRestVol15 = qOtherIn.Sum(t => t.TankFilling.VolumeRealNormalized);
-                        decimal fillingsRestOutVol = qDrain.Sum(t => t.TankFilling.VolumeReal);
-                        decimal fillingsRestOutVol15 = qDrain.Sum(t => t.TankFilling.VolumeRealNormalized);
+                        //decimal fillingsVol = qDelivery.Sum(t => t.TankFilling.VolumeReal);
+                        //decimal fillingsVol15 = qDelivery.Sum(t => t.TankFilling.VolumeRealNormalized);
+                        //decimal fillingsRestVol = qOtherIn.Sum(t => t.TankFilling.VolumeReal);
+                        //decimal fillingsRestVol15 = qOtherIn.Sum(t => t.TankFilling.VolumeRealNormalized);
+                        //decimal fillingsRestOutVol = qDrain.Sum(t => t.TankFilling.VolumeReal);
+                        //decimal fillingsRestOutVol15 = qDrain.Sum(t => t.TankFilling.VolumeRealNormalized);
+                        //decimal invoicedVol = qDelivery.Sum(i => i.Volume);
+                        //decimal invoicedVol15 = qDelivery.Sum(i => i.VolumeNormalized);
+
+                        decimal fillingsVol = qDelivery.Sum(t => t.TankFilling == null ? t.Volume : t.TankFilling.VolumeReal);
+                        decimal fillingsVol15 = qDelivery.Sum(t => t.TankFilling == null ? t.VolumeNormalized : t.TankFilling.VolumeRealNormalized);
+                        decimal fillingsRestVol = qOtherIn.Sum(t => t.TankFilling == null ? t.Volume : t.TankFilling.VolumeReal);
+                        decimal fillingsRestVol15 = qOtherIn.Sum(t => t.TankFilling == null ? t.VolumeNormalized : t.TankFilling.VolumeNormalized);
+                        decimal fillingsRestOutVol = qDrain.Sum(t => t.TankFilling == null ? t.Volume : t.TankFilling.VolumeReal);
+                        decimal fillingsRestOutVol15 = qDrain.Sum(t => t.TankFilling == null ? t.VolumeNormalized : t.TankFilling.VolumeRealNormalized);
                         decimal invoicedVol = qDelivery.Sum(i => i.Volume);
                         decimal invoicedVol15 = qDelivery.Sum(i => i.VolumeNormalized);
 
@@ -3137,8 +3146,10 @@ namespace ASFuelControl.Data
                 return;
             }
 
-            bool isCash = !this.PaymentType.HasValue || 
-                (this.PaymentType.Value == (int)Common.Enumerators.PaymentTypeEnum.Cash || this.PaymentType.Value == (int)Common.Enumerators.PaymentTypeEnum.CreditCard);
+            bool isCash = !this.PaymentType.HasValue ||
+                (this.PaymentType.Value == (int)Common.Enumerators.PaymentTypeEnum.Cash ||
+                    this.PaymentType.Value == (int)Common.Enumerators.PaymentTypeEnum.CreditCard ||
+                    this.PaymentType.Value == (int)Common.Enumerators.PaymentTypeEnum.IRIS);
 
             int transType = this.InvoiceType.TransactionType;
             FinTransaction transaction = ftrans.SingleOrDefault(f => f.TransactionType == transType);

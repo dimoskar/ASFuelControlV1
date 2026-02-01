@@ -19,7 +19,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
         public MainSettingsForm()
         {
             InitializeComponent();
-            this.radPageView1.Pages.Remove(this.radPageViewPage5);
+            //this.radPageView1.Pages.Remove(this.radPageViewPage5);
             this.LoadData();
         }
 
@@ -35,6 +35,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
             this.cityTextBox.Text = Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
             this.postalCodeextBox.Text = Data.Implementation.OptionHandler.Instance.GetOption("CompanyPostalCode");
             this.taxOfficeTextBox.Text = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTaxOffice");
+            this.companyEmail.Text = Data.Implementation.OptionHandler.Instance.GetOption("CompanyEmail");
+            this.posTerminalIdTxt.Text = Data.Implementation.OptionHandler.Instance.GetOption("POSTerminalID");
 
             this.tinCompanyTextBox.Text = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN");
             this.efkTextBox.Text = Data.Implementation.OptionHandler.Instance.GetOption("CompanyEFK");
@@ -173,11 +175,37 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 this.radButton8.Image = img2;
             }
 
-            this.providerUserName.Text = Data.Implementation.OptionHandler.Instance.GetOption("ProviderUserName", "");
-            this.providerPassword.Text = Data.Implementation.OptionHandler.Instance.GetOption("ProviderPassword", "");
-            this.providerUrl.Text = Data.Implementation.OptionHandler.Instance.GetOption("ProviderUrl", "");
+            this.arbitransUserName.Text = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceArbitransName", "");
+            this.arbitransKey.Text = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceArbitransKey", "");
+            this.providerUserName.Text = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceUserName", "");
+            this.providerPassword.Text = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceUserPassword", "");
             this.providerEnabled.Checked = Data.Implementation.OptionHandler.Instance.GetBoolOption("ProviderEnabled", false);
+            this.providerUserNameTest.Text = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceTestUserName", "arambatsis_test");
+            this.providerPasswordTest.Text = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceUserTestPassword", "Gfykd@DbB!RD1$tdwxD&K6hl");
+            this.providerIsTest.Checked = Data.Implementation.OptionHandler.Instance.GetBoolOption("ProviderTestMode", true);
+            this.mellonGroupApiKeyTxt.Text = Data.Implementation.OptionHandler.Instance.GetOption("MellonGroupApiKey", "");
+            this.vivaWalletClientIdTxt.Text = Data.Implementation.OptionHandler.Instance.GetOption("VivaWalletClientId", "");
+            this.vivaWalletClientSecretTxt.Text = Data.Implementation.OptionHandler.Instance.GetOption("VivaWalletClientSecret", "");
+            var posDatasource = new Dictionary<string, string>()
+            {
+                { "", "(Χωρίς επιλογή)" },
+                { "Mellon.JCC", "JCC - Mellon" },
+                { "Mellon.AtticaBank", "Attica Bank - Mellon" },
+                { "Mellon.Pancreta", "Pancreta - Mellon" },
+                { "Mellon.Tora", "Tora - Mellon" },
+                { "Mellon.CardLink", "CardLink - Mellon" },
+                { "Mellon.PBT", "PBT (Thessalias) - Mellon" },
+                { "Mellon.Nexi", "Nexi - Mellon" },
+                { "Mellon.NBG", "NBG (National Bank of Greece) - Mellon" },
+                { "Mellon.Worldline", "Worldline - Mellon" },
+                { "VivaWallet.VivaWallet", "VivaWallet" }
+            };
 
+            this.posTypeCombo.DataSource = new BindingSource(posDatasource, null);
+            this.posTypeCombo.DisplayMember = "Value";
+            this.posTypeCombo.ValueMember = "Key";
+            var posType = Data.Implementation.OptionHandler.Instance.GetOption("POSType", "");
+            this.posTypeCombo.SelectedValue = posType;
             //this.startControllerButton.IsEnabled = !App.Mediator.MediatorWorking;
             //this.stopControllerButton.IsEnabled = App.Mediator.MediatorWorking;
         }
@@ -313,6 +341,21 @@ namespace ASFuelControl.Windows.UI.SettingForms
             Data.Implementation.OptionHandler.Instance.SetOption("CompanyCity", this.cityTextBox.Text);
             Data.Implementation.OptionHandler.Instance.SetOption("CompanyPostalCode", this.postalCodeextBox.Text);
             Data.Implementation.OptionHandler.Instance.SetOption("CompanyTaxOffice", this.taxOfficeTextBox.Text);
+            Data.Implementation.OptionHandler.Instance.SetOption("CompanyEmail", this.companyEmail.Text);
+            Data.Implementation.OptionHandler.Instance.SetOption("POSTerminalID", this.posTerminalIdTxt.Text);
+            
+
+            Data.Implementation.OptionHandler.Instance.SetOption("ProviderInvoiceArbitransName", this.arbitransUserName.Text);
+            Data.Implementation.OptionHandler.Instance.SetOption("ProviderInvoiceArbitransKey", this.arbitransKey.Text);
+            Data.Implementation.OptionHandler.Instance.SetOption("ProviderInvoiceUserName", this.providerUserName.Text);
+            Data.Implementation.OptionHandler.Instance.SetOption("ProviderInvoiceUserPassword", this.providerPassword.Text);
+            Data.Implementation.OptionHandler.Instance.SetOption("ProviderInvoiceTestUserName", this.providerUserNameTest.Text);
+            Data.Implementation.OptionHandler.Instance.SetOption("ProviderInvoiceUserTestPassword", this.providerPasswordTest.Text);
+            Data.Implementation.OptionHandler.Instance.SetOption("ProviderTestMode", this.providerIsTest.IsChecked);
+            Data.Implementation.OptionHandler.Instance.SetOption("POSType", this.posTypeCombo.SelectedValue.ToString());
+            Data.Implementation.OptionHandler.Instance.SetOption("MellonGroupApiKey", this.mellonGroupApiKeyTxt.Text);
+            Data.Implementation.OptionHandler.Instance.SetOption("VivaWalletClientId", this.vivaWalletClientIdTxt.Text);
+            Data.Implementation.OptionHandler.Instance.SetOption("VivaWalletClientSecret", this.vivaWalletClientSecretTxt.Text);
 
             Data.Implementation.OptionHandler.Instance.SetOption("VATValue", this.spinVAT.Value.ToString("N2"));
             Data.Implementation.OptionHandler.Instance.SetOption("SerialNumber", this.serialNumberText.Text);
@@ -336,10 +379,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
             Exedron.MyData.Settings.Username = Data.Implementation.OptionHandler.Instance.GetOption("MyDataUserName", "");
             Exedron.MyData.Settings.SubscriptionKey = Data.Implementation.OptionHandler.Instance.GetOption("MyDataSubscriptionKey", "");
 
-            Data.Implementation.OptionHandler.Instance.SetOption("ProviderUserName", this.providerUserName.Text);
-            Data.Implementation.OptionHandler.Instance.SetOption("ProviderPassword", this.providerPassword.Text);
-            Data.Implementation.OptionHandler.Instance.SetOption("ProviderUrl", this.providerUrl.Text);
-            Data.Implementation.OptionHandler.Instance.SetOption("ProviderActive", this.providerEnabled.IsChecked);
+            Data.Implementation.OptionHandler.Instance.SetOption("ProviderEnabled", this.providerEnabled.IsChecked);
         }
 
         private void MainSettingsForm_Load(object sender, EventArgs e)
@@ -437,423 +477,6 @@ namespace ASFuelControl.Windows.UI.SettingForms
 
             return Convert.ToBase64String(array);
         }
-
-
-        //private decimal GetStartLevel(Data.DatabaseModel database, DateTime dt, Guid tankId)
-        //{
-        //    Data.TankLevelStartView startLevel = database.TankLevelStartViews.Where(t => t.TansDate >= dt && t.TankId == tankId).OrderBy(t => t.TansDate).FirstOrDefault();
-        //    if (startLevel != null)
-        //        return startLevel.Level.Value;
-        //    Data.TankLevelEndView endLevel = database.TankLevelEndViews.Where(t => t.TansDate <= dt && t.TankId == tankId).OrderBy(t => t.TansDate).LastOrDefault();
-        //    if (endLevel == null)
-        //        return 0;
-        //    return endLevel.Level.Value;
-        //}
-
-        //private decimal GetEndLevel(Data.DatabaseModel database, DateTime dt, Guid tankId)
-        //{
-        //    Data.TankLevelEndView endLevel = database.TankLevelEndViews.Where(t => t.TansDate <= dt && t.TankId == tankId).OrderBy(t => t.TansDate).LastOrDefault();
-        //    if (endLevel == null)
-        //        return 0;
-        //    return endLevel.Level.Value;
-        //}
-
-        //private void CreateBalance(Data.DatabaseModel database, DateTime dt1, DateTime dt2)
-        //{
-        //    Guid literCheckType = Data.Implementation.OptionHandler.Instance.GetGuidOption("LiterCheckInvoiceType", Guid.Empty);
-        //    Guid deliveryType = Data.Implementation.OptionHandler.Instance.GetGuidOption("DeliveryCheckInvoiceType", Guid.Empty);
-
-        //    database.RefreshData();
-        //    Communication.BalanceClass balance = new Communication.BalanceClass();
-        //    balance.Date = dt1;
-        //    balance.TimeStart = dt1;
-        //    balance.TimeEnd = dt2;
-        //    //period.PeriodEnd = dt2;
-        //    balance.Reservoirs = new ASFuelControl.Communication.ReservoirsClass();
-        //    balance.Reservoirs.Reservoirs = new List<ASFuelControl.Communication.ReservoirClass>();
-
-        //    balance.PumpsPerFuel = new ASFuelControl.Communication.FuelTypeBalances();
-        //    balance.PumpsPerFuel.FuelTypes = new List<ASFuelControl.Communication.FuelTypeClass>();
-
-        //    balance.Movements = new ASFuelControl.Communication.FuelMovementsClass();
-        //    balance.Movements.FuelMovements = new List<ASFuelControl.Communication.FuelMovementClass>();
-
-        //    balance.Divergences = new ASFuelControl.Communication.FuelTypeDivsClass();
-        //    balance.Divergences.Divergences = new List<ASFuelControl.Communication.FuelTypeDivClass>();
-
-        //    Dictionary<Data.Tank, decimal> fillingsDelivery = new Dictionary<Data.Tank, decimal>();
-        //    Dictionary<Data.Tank, decimal> fillingsDelivery15 = new Dictionary<Data.Tank, decimal>();
-        //    Dictionary<Data.Tank, decimal> fillingRest = new Dictionary<Data.Tank, decimal>();
-        //    Dictionary<Data.Tank, decimal> fillingRest15 = new Dictionary<Data.Tank, decimal>();
-        //    Dictionary<Data.Tank, decimal> invoicedDeliveries = new Dictionary<Data.Tank, decimal>();
-        //    Dictionary<Data.Tank, decimal> invoicedDeliveries15 = new Dictionary<Data.Tank, decimal>();
-
-        //    foreach(Data.Tank tank in database.Tanks.OrderBy(t=>t.TankNumber))
-        //    {
-        //        ASFuelControl.Communication.ReservoirClass reservoir = new ASFuelControl.Communication.ReservoirClass();
-
-        //        decimal strartLevel = this.GetStartLevel(database, dt1, tank.TankId);
-        //        decimal endLevel = this.GetEndLevel(database, dt2, tank.TankId);
-
-        //        reservoir.Capacity = tank.TotalVolume;
-        //        reservoir.FuelType = (Communication.Enums.FuelTypeEnum)tank.FuelType.EnumeratorValue;
-        //        reservoir.LevelStart = strartLevel;                            //F_2232_MM
-        //        reservoir.LevelEnd = endLevel;                                  //F_2234_MM
-        //        reservoir.TankId = tank.TankNumber;
-        //        reservoir.TankSerialNumber = tank.TankSerialNumber;
-        //        reservoir.TemperatureStart = tank.GetTempmeratureAtTime(dt1);                 //F_2232_TEMP
-        //        reservoir.TemperatureEnd = tank.GetTempmeratureAtTime(dt2);                     //F_2234_TEMP
-        //        reservoir.VolumeStart = tank.GetTankVolume(reservoir.LevelStart);                           //F_2232_VOL
-        //        reservoir.VolumeEnd = tank.GetTankVolume(reservoir.LevelEnd);                               //F_2234_VOL
-        //        reservoir.VolumeStartNormalized = tank.FuelType.NormalizeVolume(reservoir.VolumeStart, reservoir.TemperatureStart, tank.GetDensityAtTime(dt1));   //F_2233
-        //        reservoir.VolumeEndNormalized = tank.FuelType.NormalizeVolume(reservoir.VolumeEnd, reservoir.TemperatureEnd, tank.GetDensityAtTime(dt2));           //F_2235
-
-        //        decimal fillingsVol = database.TankFillingInvoiceViews.Where(tfi => tfi.TankId == tank.TankId && tfi.TransactionTimeEnd <= balance.TimeEnd && tfi.TransactionTimeEnd >= balance.TimeStart && tfi.InvoiceTypeId == deliveryType).Sum(tfi => tfi.VolumeReal);
-        //        decimal fillingsVol15 = database.TankFillingInvoiceViews.Where(tfi => tfi.TankId == tank.TankId && tfi.TransactionTimeEnd <= balance.TimeEnd && tfi.TransactionTimeEnd >= balance.TimeStart && tfi.InvoiceTypeId == deliveryType).Sum(tfi => tfi.VolumeRealNormalized);
-        //        decimal fillingsRestVol = database.TankFillingInvoiceViews.Where(tfi => tfi.TankId == tank.TankId && tfi.TransactionTimeEnd <= balance.TimeEnd && tfi.TransactionTimeEnd >= balance.TimeStart && tfi.InvoiceTypeId != deliveryType && (tfi.InvoiceTypeId != literCheckType || tfi.TransactionType == 1)).Sum(tfi => tfi.VolumeReal);
-        //        decimal fillingsRestVol15 = database.TankFillingInvoiceViews.Where(tfi => tfi.TankId == tank.TankId && tfi.TransactionTimeEnd <= balance.TimeEnd && tfi.TransactionTimeEnd >= balance.TimeStart && tfi.InvoiceTypeId != deliveryType && (tfi.InvoiceTypeId != literCheckType || tfi.TransactionType == 1)).Sum(tfi => tfi.VolumeRealNormalized);
-        //        decimal invoicedVol = database.TankFillingInvoiceViews.Where(tfi => tfi.TankId == tank.TankId && tfi.TransactionTimeEnd <= balance.TimeEnd && tfi.TransactionTimeEnd >= balance.TimeStart && tfi.InvoiceTypeId == deliveryType).Sum(tfi => tfi.InvoiceVolume);
-        //        decimal invoicedVol15 = database.TankFillingInvoiceViews.Where(tfi => tfi.TankId == tank.TankId && tfi.TransactionTimeEnd <= balance.TimeEnd && tfi.TransactionTimeEnd >= balance.TimeStart && tfi.InvoiceTypeId == deliveryType).Sum(tfi => tfi.InvoiceVolumeNormalized);
-
-        //        fillingsDelivery.Add(tank, fillingsVol);
-        //        fillingsDelivery15.Add(tank, fillingsVol15);
-        //        fillingRest.Add(tank, fillingsRestVol);
-        //        fillingRest15.Add(tank, fillingsRestVol15);
-        //        invoicedDeliveries.Add(tank, invoicedVol);
-        //        invoicedDeliveries15.Add(tank, invoicedVol15);
-
-        //        balance.Reservoirs.Reservoirs.Add(reservoir);
-        //    }
-
-        //    if (balance.Reservoirs.Reservoirs.Count == 0)
-        //        return;
-
-        //    List<Data.FuelType> fuelTypes = database.Tanks.Select(t => t.FuelType).Distinct().ToList();
-        //    foreach (Data.FuelType ft in fuelTypes)
-        //    {
-        //        List<Data.Nozzle> nozzles = database.Tanks.Where(t => t.FuelTypeId == ft.FuelTypeId).SelectMany(t => t.NozzleFlows).Select(nf => nf.Nozzle).Distinct().ToList();
-        //        if (nozzles.Count == 0)
-        //            continue;
-        //        ASFuelControl.Communication.FuelTypeClass ftc = new ASFuelControl.Communication.FuelTypeClass();
-        //        ftc.FuelPumps = new List<ASFuelControl.Communication.FuelTypePumpClass>();
-        //        ftc.FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue;
-        //        var qst = ft.Nozzles.SelectMany(n => n.SalesTransactions).Where(st => st.TransactionTimeStamp <= balance.TimeEnd && st.TransactionTimeStamp >= balance.TimeStart);
-        //        foreach (Data.Nozzle n in nozzles)
-        //        {
-        //            var qs = n.SalesTransactions.Where(s => s.TransactionTimeStamp <= balance.TimeEnd && s.TransactionTimeStamp >= balance.TimeStart);
-        //            if (qs.Count() == 0)
-        //                continue;
-
-        //            ASFuelControl.Communication.FuelTypePumpClass ftpc = new ASFuelControl.Communication.FuelTypePumpClass();
-        //            ftpc.FuelPumpId = n.Dispenser.OfficialPumpNumber.ToString();
-        //            ftpc.FuelPumpSerialNumber = n.Dispenser.PumpSerialNumber;
-        //            ftpc.FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue;
-        //            ftpc.TotalizerStart = n.GetTotalizerStartAtTime(balance.TimeStart);             //F_2242
-        //            ftpc.TotalizerEnd = n.GetTotalizerEndAtTime(balance.TimeEnd);                   //F_2243
-
-        //            ftpc.TotalLiterCheck = n.GetLitercheckSum(balance.TimeStart, balance.TimeEnd);  //F_2244D
-        //            ftpc.TotalLiterCheckNormalized = n.GetLitercheckSum(balance.TimeStart, balance.TimeEnd);  //F_2244D
-        //            ftpc.TotalSales = qs.Sum(s => s.Volume) - ftpc.TotalLiterCheck;                 //F_2244A
-        //            ftpc.TotalSalesNormalized = qs.Sum(s => s.VolumeNormalized) - ftpc.TotalLiterCheckNormalized;
-        //            //ftpc.TotalOut = qs.Sum(s => s.Volume) + ftpc.TotalLiterCheck;                 //F_2244B
-        //            //ftpc.TotalOutNormalized = qs.Sum(s => s.VolumeNormalized);                    //F_2244C
-
-        //            ftpc.TotalizerDifference = ftpc.TotalizerEnd - ftpc.TotalizerStart;             //F_2245A
-        //            ftpc.NozzleId = n.OfficialNozzleNumber;
-
-        //            var qd = n.Dispenser.Nozzles.Where(nn => nn.FuelTypeId == n.FuelTypeId);
-        //            var qsd = qd.SelectMany(nn => nn.SalesTransactions).Where(s => s.TransactionTimeStamp <= balance.TimeEnd && s.TransactionTimeStamp >= balance.TimeStart);
-
-        //            //ftpc.SumTotalOut = qs.Sum(s => s.Volume);// qsd.Sum(s => s.Volume);                                                      //F_2244E
-        //            //ftpc.SumTotalOutNormalized = qs.Sum(s => s.VolumeNormalized); // qsd.Sum(s => s.VolumeNormalized);                                  //F_2244F
-        //            //ftpc.SumTotalOutTotalizer =  ftpc.TotalizerEnd - ftpc.TotalizerStart;                            //F_2245A   qs.Sum(s => s.TotalizerEnd - s.TotalizerStart);
-        //            //ftpc.SumTotalOutTotalizerNormalized = qsd.Sum(s => s.TotalizerEnd - s.TotalizerStart);          //F_2245B
-
-        //            // ********* ftpc.SumTotalOutTotalizerNormalized *************//
-        //            var qt = n.SalesTransactions.SelectMany(s => s.TankSales).Select(ts => ts.Tank).Distinct();
-        //            Data.Tank tank = qt.First();
-        //            ftpc.TankSerialNumber = tank.TankSerialNumber;
-        //            ftc.FuelPumps.Add(ftpc);
-        //        }
-        //        var qsdiff = ft.Nozzles.SelectMany(n => n.SalesTransactions).Where(s => s.TransactionTimeStamp <= balance.TimeEnd && s.TransactionTimeStamp >= balance.TimeStart);
-        //        ftc.SumTotalizerDifference = ftc.FuelPumps.Sum(f => f.TotalizerEnd - f.TotalizerStart);                                             //F_2245B
-        //        ftc.SumTotalizerDifferenceNormalized = ft.NormalizeVolume(ftc.SumTotalizerDifference, database.GetAvgTemperature(qsdiff), database.GetAvgDensity(qsdiff, ft));//F_2245C
-        //        ftc.TotalPumpsNumber = ftc.FuelPumps.Count;
-        //        foreach (ASFuelControl.Communication.FuelTypePumpClass ftpc in ftc.FuelPumps)
-        //        {
-        //            Data.FuelType fuelType = fuelTypes.Where(f => f.EnumeratorValue == (int)ftpc.FuelType).FirstOrDefault();
-        //            if(fuelType == null)
-        //                continue;
-        //            ftpc.TotalOut = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType).Sum(fp => fp.TotalSales + fp.TotalLiterCheck);                                   //F_2244B 
-        //            ftpc.TotalOutNormalized = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType).Sum(fp => fp.TotalSalesNormalized + fp.TotalLiterCheckNormalized);     //F_2244C
-        //            ftpc.SumTotalOut = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType).Sum(fp => fp.TotalLiterCheck);                                                //F_2244E 
-        //            ftpc.SumTotalOutNormalized = ftc.FuelPumps.Where(fp => fp.FuelType == ftc.FuelType).Sum(fp => fp.TotalLiterCheckNormalized);                            //F_2244F
-        //        }
-        //        balance.PumpsPerFuel.FuelTypes.Add(ftc);
-        //    }
-        //    foreach (Data.FuelType ft in fuelTypes)
-        //    {
-        //        ASFuelControl.Communication.FuelMovementClass mov = new ASFuelControl.Communication.FuelMovementClass();
-        //        mov.FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue;
-
-        //        //var qFill = database.TankFillings.Where(tf => tf.TransactionTimeEnd >= balance.TimeStart && tf.TransactionTime <= balance.TimeEnd && tf.Tank.FuelTypeId == ft.FuelTypeId).ToList();
-        //        //var qInvFillings = database.InvoiceLines.Where(il => il.FuelTypeId == ft.FuelTypeId && il.Invoice.InvoiceTypeId == deliveryType && il.TankFilling.TransactionTime <= balance.TimeEnd && il.TankFilling.TransactionTime >= balance.TimeStart && !il.TankFillingId.HasValue);
-        //        //var qInvOther = qFill.SelectMany(tf => tf.InvoiceLines).Where(il => il.FuelTypeId == ft.FuelTypeId && il.Invoice.InvoiceTypeId == literCheckType || (il.Invoice.InvoiceTypeId != deliveryType && il.Invoice.InvoiceType.TransactionType == 1) && il.TankFilling.TransactionTime <= balance.TimeEnd && il.TankFilling.TransactionTime >= balance.TimeStart);
-
-        //        mov.SumIn = fillingsDelivery.Where(t => t.Key.FuelTypeId == ft.FuelTypeId).Sum(t => t.Value);                           //F_2236A1
-        //        mov.SumAdditionalIn = fillingRest.Where(t => t.Key.FuelTypeId == ft.FuelTypeId).Sum(t => t.Value);                      //F_2236A2
-        //        mov.SumInNormalized = fillingsDelivery15.Where(t => t.Key.FuelTypeId == ft.FuelTypeId).Sum(t => t.Value);               //F_2236B1
-        //        mov.SumInInvoicedNormalized = fillingRest15.Where(t => t.Key.FuelTypeId == ft.FuelTypeId).Sum(t => t.Value);            //F_2236B2
-        //        mov.SumInInvoiced = invoicedDeliveries.Where(t => t.Key.FuelTypeId == ft.FuelTypeId).Sum(t => t.Value);                 //F_2237
-        //        mov.SumInInvoicedNormalized = invoicedDeliveries15.Where(t => t.Key.FuelTypeId == ft.FuelTypeId).Sum(t => t.Value);     //F_2238
-        //        mov.Diff = mov.SumIn - mov.SumInInvoiced;                                                                               //F_2239A
-        //        mov.DiffNormalized = mov.SumInNormalized - mov.SumInInvoicedNormalized;                                                 //F_2239B
-
-        //        mov.DaylyMove = balance.Reservoirs.Reservoirs.Where(t => t.FuelType == mov.FuelType).Sum(t => t.VolumeStart - t.VolumeEnd) + mov.SumIn + mov.SumAdditionalIn; //F_22310 
-        //        mov.DaylyMoveNormalized = balance.Reservoirs.Reservoirs.Where(t => t.FuelType == mov.FuelType).Sum(t => t.VolumeStartNormalized - t.VolumeEndNormalized) + mov.SumInNormalized + mov.SumAdditionalInNormalized;
-
-        //        balance.Movements.FuelMovements.Add(mov);
-
-        //        ASFuelControl.Communication.FuelTypeDivClass div = new ASFuelControl.Communication.FuelTypeDivClass();
-        //        div.FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue;
-        //        div.Divergence = mov.DaylyMove - balance.PumpsPerFuel.FuelTypes.Where(f => f.FuelType == mov.FuelType).SelectMany(f => f.FuelPumps).Sum(fp => fp.TotalSales);
-        //        div.DivergenceNormalized = mov.DaylyMoveNormalized - balance.PumpsPerFuel.FuelTypes.Where(f => f.FuelType == mov.FuelType).SelectMany(f => f.FuelPumps).Sum(fp => fp.TotalSalesNormalized);
-        //        if (mov.DaylyMove != 0)
-        //            div.Percentage = 100 * (div.Divergence / mov.DaylyMove);
-        //        else
-        //            div.Percentage = 0;
-
-        //        if (mov.DaylyMoveNormalized != 0)
-        //            div.PercentageNormalized = 100 * (div.DivergenceNormalized / mov.DaylyMoveNormalized);
-        //        else
-        //            div.PercentageNormalized = 0;
-
-        //        balance.Divergences.Divergences.Add(div);
-        //    }
-        //    System.Xml.Serialization.XmlSerializer ser = new System.Xml.Serialization.XmlSerializer(typeof(Communication.BalanceClass));
-        //    System.IO.StringWriter textWriter = new System.IO.StringWriter();
-        //    ser.Serialize(textWriter, balance);
-        //    string data = textWriter.ToString();
-        //    textWriter.Close();
-        //    textWriter.Dispose();
-        //    Data.Balance bal = new Data.Balance();// this.database.CreateEntity<Data.Balance>();
-        //    bal.BalanceId = Guid.NewGuid();
-        //    database.Add(bal);
-        //    bal.BalanceText = data;
-        //    bal.StartDate = balance.TimeStart;
-        //    bal.EndDate = balance.TimeEnd;
-        //    bal.ApplicationUserId = Data.DatabaseModel.CurrentUserId;
-        //    Data.TankFilling lastFil = database.TankFillings.Where(f => f.TransactionTime <= balance.TimeEnd).OrderBy(f => f.TransactionTimeEnd).LastOrDefault();
-        //    if (lastFil != null)
-        //        bal.LastFilling = lastFil.TankFillingId;
-        //}
-
-        //private void CreateBalance(Data.DatabaseModel database, DateTime dt1, DateTime dt2)
-        //{
-        //    Guid literCheckType = Data.Implementation.OptionHandler.Instance.GetGuidOption("LiterCheckInvoiceType", Guid.Empty);
-        //    Guid deliveryType = Data.Implementation.OptionHandler.Instance.GetGuidOption("DeliveryCheckInvoiceType", Guid.Empty);
-
-        //    Data.UsagePeriod period = null;
-
-        //    period = database.GetUsagePeriod(dt1);
-
-        //    //if (!period.PeriodEnd.HasValue && DateTime.Now.Subtract(period.PeriodStart).TotalDays < 1)
-        //    //    return;
-
-        //    database.RefreshData();
-        //    Communication.BalanceClass balance = new Communication.BalanceClass();
-        //    balance.Date = dt1;
-        //    balance.TimeStart = dt1;
-        //    balance.TimeEnd = dt2;
-        //    //period.PeriodEnd = dt2;
-        //    balance.Reservoirs = new ASFuelControl.Communication.ReservoirsClass();
-        //    balance.Reservoirs.Reservoirs = new List<ASFuelControl.Communication.ReservoirClass>();
-
-        //    balance.PumpsPerFuel = new ASFuelControl.Communication.FuelTypeBalances();
-        //    balance.PumpsPerFuel.FuelTypes = new List<ASFuelControl.Communication.FuelTypeClass>();
-
-        //    balance.Movements = new ASFuelControl.Communication.FuelMovementsClass();
-        //    balance.Movements.FuelMovements = new List<ASFuelControl.Communication.FuelMovementClass>();
-
-        //    balance.Divergences = new ASFuelControl.Communication.FuelTypeDivsClass();
-        //    balance.Divergences.Divergences = new List<ASFuelControl.Communication.FuelTypeDivClass>();
-            
-
-        //    foreach (Data.Tank tank in database.Tanks)
-        //    {
-        //        var q = tank.TankFillings.Where(tf => tf.TransactionTimeEnd >= balance.TimeStart && tf.TransactionTimeEnd <= balance.TimeEnd);
-        //        ASFuelControl.Communication.ReservoirClass reservoir = new ASFuelControl.Communication.ReservoirClass();
-        //        reservoir.Capacity = tank.TotalVolume;
-        //        reservoir.FuelType = (Communication.Enums.FuelTypeEnum)tank.FuelType.EnumeratorValue;
-        //        reservoir.LevelStart = tank.GetLevelAtTime(balance.TimeStart);                              //F_2232_MM
-        //        reservoir.LevelEnd = tank.GetLevelAtTime(balance.TimeEnd);                                  //F_2234_MM
-        //        reservoir.TankId = tank.TankNumber;
-        //        reservoir.TankSerialNumber = tank.TankSerialNumber;
-        //        reservoir.TemperatureStart = tank.GetTempmeratureAtTime(balance.TimeStart);                 //F_2232_TEMP
-        //        reservoir.TemperatureEnd = tank.GetTempmeratureAtTime(balance.TimeEnd);                     //F_2234_TEMP
-        //        reservoir.VolumeStart = tank.GetTankVolume(reservoir.LevelStart);                           //F_2232_VOL
-        //        reservoir.VolumeEnd = tank.GetTankVolume(reservoir.LevelEnd);                               //F_2234_VOL
-        //        reservoir.VolumeStartNormalized = tank.FuelType.NormalizeVolume(reservoir.VolumeStart, reservoir.TemperatureStart, tank.GetDensityAtTime(balance.TimeStart));   //F_2233
-        //        reservoir.VolumeEndNormalized = tank.FuelType.NormalizeVolume(reservoir.VolumeEnd, reservoir.TemperatureEnd, tank.GetDensityAtTime(balance.TimeEnd));           //F_2235
-
-        //        balance.Reservoirs.Reservoirs.Add(reservoir);
-        //    }
-        //    List<Data.FuelType> fuelTypes = database.Tanks.Select(t => t.FuelType).Distinct().ToList();
-        //    foreach (Data.FuelType ft in fuelTypes)
-        //    {
-        //        List<Data.Nozzle> nozzles = database.Tanks.Where(t => t.FuelTypeId == ft.FuelTypeId).SelectMany(t => t.NozzleFlows).Select(nf => nf.Nozzle).Distinct().ToList();
-        //        if (nozzles.Count == 0)
-        //            continue;
-        //        ASFuelControl.Communication.FuelTypeClass ftc = new ASFuelControl.Communication.FuelTypeClass();
-        //        ftc.FuelPumps = new List<ASFuelControl.Communication.FuelTypePumpClass>();
-        //        ftc.FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue;
-        //        var qst = ft.Nozzles.SelectMany(n => n.SalesTransactions).Where(st => st.TransactionTimeStamp <= balance.TimeEnd && st.TransactionTimeStamp >= balance.TimeStart);
-        //        Dictionary<string, decimal> f_2245b = new Dictionary<string, decimal>();
-        //        foreach (Data.Nozzle n in nozzles)
-        //        {
-        //            var qs = n.SalesTransactions.Where(s => s.TransactionTimeStamp <= balance.TimeEnd && s.TransactionTimeStamp >= balance.TimeStart);
-        //            if (qs.Count() == 0)
-        //                continue;
-
-        //            ASFuelControl.Communication.FuelTypePumpClass ftpc = new ASFuelControl.Communication.FuelTypePumpClass();
-        //            ftpc.FuelPumpId = n.Dispenser.OfficialPumpNumber.ToString();
-        //            ftpc.FuelPumpSerialNumber = n.Dispenser.PumpSerialNumber;
-        //            ftpc.FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue;
-        //            ftpc.TotalizerStart = n.GetTotalizerStartAtTime(balance.TimeStart);             //F_2242
-        //            ftpc.TotalizerEnd = n.GetTotalizerEndAtTime(balance.TimeEnd);                   //F_2243
-
-        //            ftpc.TotalSales = qs.Sum(s => s.Volume);                                        //F_2244A
-        //            ftpc.TotalLiterCheck = n.GetLitercheckSum(balance.TimeStart, balance.TimeEnd);  //F_2244D
-        //            ftpc.TotalOut = qs.Sum(s => s.Volume) + ftpc.TotalLiterCheck;                   //F_2244B
-        //            ftpc.TotalOutNormalized = qs.Sum(s => s.VolumeNormalized);                      //F_2244C
-
-        //            ftpc.TotalizerDifference = ftpc.TotalizerEnd - ftpc.TotalizerStart;
-        //            ftpc.NozzleId = n.OfficialNozzleNumber;
-
-        //            var qd = n.Dispenser.Nozzles.Where(nn => nn.FuelTypeId == n.FuelTypeId);
-        //            var qsd = qd.SelectMany(nn => nn.SalesTransactions).Where(s => s.TransactionTimeStamp <= balance.TimeEnd && s.TransactionTimeStamp >= balance.TimeStart);
-
-        //            ftpc.SumTotalOut = qsd.Sum(s => s.Volume);                                                      //F_2244E
-        //            ftpc.SumTotalOutNormalized = qsd.Sum(s => s.VolumeNormalized);                                  //F_2244F
-
-        //            ftpc.SumTotalOutTotalizer = ftpc.TotalizerEnd - ftpc.TotalizerStart;                            //F_2245A   qs.Sum(s => s.TotalizerEnd - s.TotalizerStart);
-        //            if (!f_2245b.ContainsKey(n.Dispenser.PumpSerialNumber))
-        //                f_2245b.Add(n.Dispenser.PumpSerialNumber, ftpc.TotalizerEnd - ftpc.TotalizerStart);
-        //            else
-        //                f_2245b[n.Dispenser.PumpSerialNumber] = f_2245b[n.Dispenser.PumpSerialNumber] + ftpc.TotalizerEnd - ftpc.TotalizerStart;
-
-        //            ftpc.SumTotalOutTotalizerNormalized = qsd.Sum(s => s.TotalizerEnd - s.TotalizerStart);          //F_2245B
-
-        //            // ********* ftpc.SumTotalOutTotalizerNormalized *************//
-        //            var qt = n.SalesTransactions.SelectMany(s => s.TankSales).Select(ts => ts.Tank).Distinct();
-        //            Data.Tank tank = qt.First();
-        //            ftpc.TankSerialNumber = tank.TankSerialNumber;
-        //            ftc.FuelPumps.Add(ftpc);
-        //        }
-
-        //        var qGroups = ftc.FuelPumps.GroupBy(fp => fp.FuelPumpSerialNumber).Select(g => new
-        //            GroupSum
-        //        {
-        //            PumpSerialNumber = g.Key,
-        //            TotalIn = g.Sum(f => f.TotalizerEnd - f.TotalizerStart),
-        //            TotalInNormalized = 0,
-        //            TotalOut = g.Sum(f => f.TotalOut),
-        //            TotalOutNormalized = g.Sum(f => f.TotalOutNormalized)
-        //        });
-
-        //        foreach (ASFuelControl.Communication.FuelTypePumpClass ftpc in ftc.FuelPumps)
-        //        {
-        //            GroupSum gr = qGroups.Where(g => g.PumpSerialNumber == ftpc.FuelPumpSerialNumber).FirstOrDefault();
-        //            if (gr == null)
-        //                continue;
-        //            Data.Nozzle nozzle = database.Nozzles.Where(n => n.Dispenser.OfficialPumpNumber == int.Parse(ftpc.FuelPumpId) && n.Dispenser.PumpSerialNumber == ftpc.FuelPumpSerialNumber && n.OfficialNozzleNumber == ftpc.NozzleId).FirstOrDefault();
-        //            var qd = nozzle.Dispenser.Nozzles.Where(nn => nn.FuelTypeId == nozzle.FuelTypeId);
-        //            var qsd = qd.SelectMany(nn => nn.SalesTransactions).Where(s => s.TransactionTimeStamp <= balance.TimeEnd && s.TransactionTimeStamp >= balance.TimeStart);
-        //            decimal temp = nozzle.GetAvgTemperature(qsd);
-        //            decimal density = nozzle.GetAvgDensity(qsd);
-        //            ftpc.SumTotalOutTotalizer = f_2245b[ftpc.FuelPumpSerialNumber];
-        //            ftpc.SumTotalOutTotalizerNormalized = nozzle.FuelType.NormalizeVolume(ftpc.SumTotalOutTotalizer, temp, density);
-                    
-        //        }
-        //        if (ftc.FuelPumps.Count > 0)
-        //        {
-        //            var qsdiff = ft.Nozzles.SelectMany(n => n.SalesTransactions).Where(s => s.TransactionTimeStamp <= balance.TimeEnd && s.TransactionTimeStamp >= balance.TimeStart);
-        //            ftc.SumTotalizerDifference = qsdiff.Sum(s => s.TotalizerEnd - s.TotalizerStart);
-        //            ftc.SumTotalizerDifferenceNormalized = ft.NormalizeVolume(ftc.SumTotalizerDifference, database.GetAvgTemperature(qsdiff), database.GetAvgDensity(qsdiff, ft));
-
-        //        }
-        //        else
-        //        {
-        //            ftc.SumTotalizerDifference = 0;
-        //            ftc.SumTotalizerDifferenceNormalized = 0;
-        //        }
-        //        ftc.TotalPumpsNumber = ftc.FuelPumps.Count;
-
-        //        balance.PumpsPerFuel.FuelTypes.Add(ftc);
-        //        ASFuelControl.Communication.FuelMovementClass mov = new ASFuelControl.Communication.FuelMovementClass();
-        //        mov.FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue;
-
-        //        var qFill = database.TankFillings.Where(tf => tf.TransactionTimeEnd >= balance.TimeStart && tf.TransactionTime <= balance.TimeEnd && tf.Tank.FuelTypeId == ft.FuelTypeId).ToList();
-        //        //varqFillInv = 
-        //        var qInvFillings = database.InvoiceLines.Where(il => il.FuelTypeId == ft.FuelTypeId && il.Invoice.InvoiceTypeId == deliveryType && il.Invoice.TransactionDate <= balance.TimeEnd && il.Invoice.TransactionDate >= balance.TimeStart && !il.TankFillingId.HasValue);
-        //        var qInvOther = qFill.SelectMany(tf => tf.InvoiceLines).Where(il => il.FuelTypeId == ft.FuelTypeId && il.Invoice.InvoiceTypeId == literCheckType || (il.Invoice.InvoiceTypeId != deliveryType && il.Invoice.InvoiceType.TransactionType == 1));
-                
-        //        mov.SumIn = qFill.Sum(tf => tf.VolumeReal);                                                                  //F_2236A1
-        //        mov.SumAdditionalIn = qInvOther.Sum(tf => tf.Volume);                                                    //F_2236A2
-        //        mov.SumInNormalized = qFill.Sum(tf => tf.VolumeRealNormalized);                                        //F_2236B1
-        //        mov.SumAdditionalInNormalized = qInvOther.Sum(tf => tf.Volume);                                          //F_2236B2
-        //        mov.SumInInvoiced = qInvFillings.Sum(il => il.Volume);                                                   //F_2237
-        //        mov.SumInInvoicedNormalized = qInvFillings.Sum(il => il.VolumeNormalized);                               //F_2238
-        //        mov.Diff = mov.SumIn - mov.SumInInvoiced;                                                                       //F_2239A
-        //        mov.DiffNormalized = mov.SumInNormalized - mov.SumInInvoicedNormalized;                                   //F_2239B
-
-        //        mov.DaylyMove = balance.Reservoirs.Reservoirs.Where(t => t.FuelType == mov.FuelType).Sum(t => t.VolumeStart - t.VolumeEnd) + mov.SumIn + mov.SumAdditionalIn;
-        //        mov.DaylyMoveNormalized = balance.Reservoirs.Reservoirs.Where(t => t.FuelType == mov.FuelType).Sum(t => t.VolumeStartNormalized - t.VolumeEndNormalized) + mov.SumInNormalized + mov.SumAdditionalInNormalized;
-
-        //        balance.Movements.FuelMovements.Add(mov);
-
-        //        decimal sumOut = ftc.FuelPumps.Where(f => (int)f.FuelType == ft.EnumeratorValue).Sum(f => f.SumTotalOut);
-        //        decimal sumOutNormal = ftc.FuelPumps.Where(f => (int)f.FuelType == ft.EnumeratorValue).Sum(f => f.SumTotalOutNormalized);
-
-        //        ASFuelControl.Communication.FuelTypeDivClass div = new ASFuelControl.Communication.FuelTypeDivClass();
-        //        div.FuelType = (Communication.Enums.FuelTypeEnum)ft.EnumeratorValue;
-        //        div.Divergence = mov.DaylyMove -sumOut;
-        //        div.DivergenceNormalized = mov.DaylyMoveNormalized - sumOutNormal;
-        //        if (mov.DaylyMove != 0)
-        //            div.Percentage = 100 * (div.Divergence / mov.DaylyMove);
-        //        else
-        //            div.Percentage = 0;
-
-        //        if (mov.DaylyMoveNormalized != 0)
-        //            div.PercentageNormalized = 100 * (div.DivergenceNormalized / mov.DaylyMoveNormalized);
-        //        else
-        //            div.PercentageNormalized = 0;
-
-        //        if (ftc.FuelPumps.Count > 0)
-        //            balance.Divergences.Divergences.Add(div);
-        //    }
-
-        //    System.Xml.Serialization.XmlSerializer ser = new System.Xml.Serialization.XmlSerializer(typeof(Communication.BalanceClass));
-        //    System.IO.StringWriter textWriter = new System.IO.StringWriter();
-        //    ser.Serialize(textWriter, balance);
-        //    string data = textWriter.ToString();
-        //    textWriter.Close();
-        //    textWriter.Dispose();
-        //    Data.Balance bal = new Data.Balance();// this.database.CreateEntity<Data.Balance>();
-        //    bal.BalanceId = Guid.NewGuid();
-        //    database.Add(bal);
-        //    bal.BalanceText = data;
-        //    bal.StartDate = balance.TimeStart;
-        //    bal.EndDate = balance.TimeEnd;
-        //    bal.ApplicationUserId = Data.DatabaseModel.CurrentUserId;
-        //    Data.TankFilling lastFil = database.TankFillings.Where(f=>f.TransactionTime <= balance.TimeEnd).OrderBy(f => f.TransactionTimeEnd).LastOrDefault();
-        //    if (lastFil != null)
-        //        bal.LastFilling = lastFil.TankFillingId;
-
-        //    Data.SalesTransaction lastSale = database.SalesTransactions.Where(s => s.TransactionTimeStamp <= balance.TimeEnd).OrderBy(f => f.TransactionTimeStamp).LastOrDefault();
-        //    if (lastSale != null)
-        //        bal.LastSale = lastSale.SalesTransactionId;
-        //}
 
         private class GroupSum
         {
@@ -968,6 +591,31 @@ namespace ASFuelControl.Windows.UI.SettingForms
             //    this.radButton9.Enabled = false;
             //else
             //    this.radButton9.Enabled = true;
+        }
+
+        private void radButton10_Click(object sender, EventArgs e)
+        {
+            var arbName = this.arbitransUserName.Text;
+            var arbKey = this.arbitransKey.Text;
+            var isTest = this.providerIsTest.Checked;
+            if(string.IsNullOrEmpty(arbName) || string.IsNullOrEmpty(arbKey))
+            {
+                MessageBox.Show(this, "Δεν εχετε ορισει σωστά τις παραμέτρους για την τιμολόγηση μέσω παρόχου", "Σφαλμα ρυθμίσεων...");
+                return;
+            }
+            var otp = this.mellonGroupOtpTxt.Text;
+            if (string.IsNullOrEmpty(otp))
+            {
+                MessageBox.Show(this, "Δεν εχετε ορισει OTP (Δειτε οδηγιες διασύνδεσης του POS)", "Σφαλμα ρυθμίσεων...");
+                return;
+            }
+            string apiKey = Exedron.ProviderInvoicing.MellonGroupHelper.ApiKeyGenerator(otp, arbName, arbKey, 1, isTest);
+            this.mellonGroupApiKeyTxt.Text = apiKey;
+        }
+
+        private void radPageViewPage3_Paint(object sender, PaintEventArgs e)
+        {
+
         }
     }
 }

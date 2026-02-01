@@ -430,6 +430,15 @@ namespace ASFuelControl.Common.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Πληρωμή IRIS.
+        /// </summary>
+        internal static string PaymentTypeEnum_IRIS {
+            get {
+                return ResourceManager.GetString("PaymentTypeEnum_IRIS", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to βάσει Ημερομηνίας.
         /// </summary>
         internal static string ScheduleTypeEnum_Date {

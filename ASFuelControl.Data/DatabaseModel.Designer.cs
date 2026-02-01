@@ -1072,6 +1072,8 @@ namespace ASFuelControl.Data
         private string _Country;
 
         private string _ZipCode;
+		
+		private int _Branch;
 
         private IList<Vehicle> _Vehicles;
 
@@ -1522,7 +1524,25 @@ namespace ASFuelControl.Data
                 }
             }
         }
-
+		
+		public virtual int Branch
+        {
+            get
+            {
+                return this._Branch;
+            }
+            set
+            {
+                if (this._Branch != value)
+                {
+                    this.OnBranchChanging(value);
+                    this._Branch = value;
+                    this.SendPropertyChanged("Branch");
+                    this.OnBranchChanged();
+                }
+            }
+        }			
+		
         public virtual IList<Vehicle> Vehicles
         {
             get
@@ -1679,6 +1699,9 @@ namespace ASFuelControl.Data
         partial void OnZipCodeChanging(string value);
         
         partial void OnZipCodeChanged();
+		partial void OnBranchChanging(int value);
+		
+		partial void OnBranchChanged();
         partial void OnInvoiceTypeChanging(InvoiceType value);
 
         partial void OnInvoiceTypeChanged();
@@ -21250,6 +21273,14 @@ namespace ASFuelControl.Data
         private long? _CancelationMark;
 
         private string _Errors;
+		
+		private string _InvoiceUrl;
+
+        private string _QrCodeUrl;
+
+        private string _VerificationHash;
+
+        private string _ProviderUrl;
 
         public MyDataInvoice()
         {
@@ -21435,6 +21466,78 @@ namespace ASFuelControl.Data
                 }
             }
         }
+		
+		public virtual string InvoiceUrl
+        {
+            get
+            {
+                return this._InvoiceUrl;
+            }
+            set
+            {
+                if (this._InvoiceUrl != value)
+                {
+                    this.OnInvoiceUrlChanging(value);
+                    this._InvoiceUrl = value;
+                    this.SendPropertyChanged("InvoiceUrl");
+                    this.OnInvoiceUrlChanged();
+                }
+            }
+        }
+		
+		public virtual string QrCodeUrl
+        {
+            get
+            {
+                return this._QrCodeUrl;
+            }
+            set
+            {
+                if (this._QrCodeUrl != value)
+                {
+                    this.OnQrCodeUrlChanging(value);
+                    this._QrCodeUrl = value;
+                    this.SendPropertyChanged("QrCodeUrl");
+                    this.OnQrCodeUrlChanged();
+                }
+            }
+        }
+		
+		public virtual string VerificationHash
+        {
+            get
+            {
+                return this._VerificationHash;
+            }
+            set
+            {
+                if (this._VerificationHash != value)
+                {
+                    this.OnVerificationHashChanging(value);
+                    this._VerificationHash = value;
+                    this.SendPropertyChanged("VerificationHash");
+                    this.OnVerificationHashChanged();
+                }
+            }
+        }
+		
+		public virtual string ProviderUrl
+        {
+            get
+            {
+                return this._ProviderUrl;
+            }
+            set
+            {
+                if (this._ProviderUrl != value)
+                {
+                    this.OnProviderUrlChanging(value);
+                    this._VerificationHash = value;
+                    this.SendPropertyChanged("ProviderUrl");
+                    this.OnProviderUrlChanged();
+                }
+            }
+        }
     
         #region Extensibility Method Definitions
 
@@ -21469,6 +21572,18 @@ namespace ASFuelControl.Data
         partial void OnErrorsChanging(string value);
         
         partial void OnErrorsChanged();
+		partial void OnInvoiceUrlChanging(string value);
+        
+        partial void OnInvoiceUrlChanged();
+		partial void OnQrCodeUrlChanging(string value);
+        
+        partial void OnQrCodeUrlChanged();
+		partial void OnVerificationHashChanging(string value);
+        
+        partial void OnVerificationHashChanged();
+		partial void OnProviderUrlChanging(string value);
+        
+        partial void OnProviderUrlChanged();
         
         #endregion
         #region INotifyPropertyChanged Members

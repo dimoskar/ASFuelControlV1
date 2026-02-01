@@ -104,6 +104,9 @@
     <property name="ZipCode" type="Varchar" p1:nullable="True" p1:ValidateRequired="false" p1:Guid="c12ecbde-c897-46d2-953c-2963bde694ba">
       <column name="ZipCode" not-null="False" length="50" sql-type="nvarchar" p1:unicode="True" />
     </property>
+    <property name="Branch" type="Int32" p1:ValidateRequired="true" p1:Guid="957ae89f-6d12-4cf0-84d2-b228f4ca7ff8">
+      <column name="Branch" default="0" not-null="True" precision="10" scale="0" sql-type="int" p1:unicode="False" />
+    </property>
   </class>
   <class name="TitrimetryLevel" entity-set="TitrimetryLevels" table="TitrimetryLevel" concurrency-mode="Changed" p1:Guid="e0a93996-b3bf-4e0c-81f3-8c510dd38dfd">
     <id name="TitrimetryLevelId" type="Guid" access="ReadWrite" p1:ValidateRequired="true" p1:Guid="cf5aa89d-9b68-4020-a4ae-b16d3472a931">
@@ -2216,6 +2219,18 @@
     </property>
     <property name="Errors" type="Clob" p1:nullable="True" p1:ValidateMaxLength="1073741823" p1:ValidateRequired="false" p1:Guid="616ca207-a7b3-462a-891c-1de1e1aef9bf">
       <column name="Errors" not-null="False" length="1073741823" sql-type="ntext" p1:unicode="True" />
+    </property>
+    <property name="InvoiceUrl" type="Varchar" p1:nullable="True" p1:ValidateRequired="false" p1:Guid="268da990-6133-4dcf-bf9a-820b8f6cf6d9">
+      <column name="InvoiceUrl" not-null="False" length="500" sql-type="nvarchar" p1:unicode="True" />
+    </property>
+    <property name="QrCodeUrl" type="Varchar" p1:nullable="True" p1:ValidateRequired="false" p1:Guid="bb9b8d30-d4b1-4701-9894-4fc212f0edcf">
+      <column name="QrCodeUrl" not-null="False" length="500" sql-type="nvarchar" p1:unicode="True" />
+    </property>
+    <property name="VerificationHash" type="Varchar" p1:nullable="True" p1:ValidateRequired="false" p1:Guid="6eb9f4c6-1eb5-469a-9df3-037c2413945f">
+      <column name="VerificationHash" not-null="False" length="50" sql-type="nvarchar" p1:unicode="True" />
+    </property>
+    <property name="ProviderUrl" type="Varchar" p1:nullable="True" p1:ValidateRequired="false" p1:Guid="0e379d21-7bfe-4b8d-ba7d-24949e219147">
+      <column name="ProviderUrl" not-null="False" length="255" sql-type="nvarchar" p1:unicode="True" />
     </property>
   </class>
   <class name="Country" entity-set="Countries" table="Country" concurrency-mode="Changed" p1:Guid="257ea7cc-13a8-4ad0-bf2a-d1f4c155afc1">

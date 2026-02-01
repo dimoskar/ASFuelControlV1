@@ -31,6 +31,9 @@
             Telerik.WinControls.UI.RadListDataItem radListDataItem1 = new Telerik.WinControls.UI.RadListDataItem();
             Telerik.WinControls.UI.RadListDataItem radListDataItem2 = new Telerik.WinControls.UI.RadListDataItem();
             Telerik.WinControls.UI.RadListDataItem radListDataItem3 = new Telerik.WinControls.UI.RadListDataItem();
+            Telerik.WinControls.UI.RadListDataItem radListDataItem4 = new Telerik.WinControls.UI.RadListDataItem();
+            Telerik.WinControls.UI.RadListDataItem radListDataItem5 = new Telerik.WinControls.UI.RadListDataItem();
+            Telerik.WinControls.UI.RadListDataItem radListDataItem6 = new Telerik.WinControls.UI.RadListDataItem();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainSettingsForm));
             this.radLabel1 = new Telerik.WinControls.UI.RadLabel();
             this.nameTextBox = new Telerik.WinControls.UI.RadTextBox();
@@ -101,6 +104,8 @@
             this.startThreadsOnStartCheck = new Telerik.WinControls.UI.RadCheckBox();
             this.radPageView1 = new Telerik.WinControls.UI.RadPageView();
             this.radPageViewPage1 = new Telerik.WinControls.UI.RadPageViewPage();
+            this.radLabel52 = new Telerik.WinControls.UI.RadLabel();
+            this.companyEmail = new Telerik.WinControls.UI.RadTextBox();
             this.radLabel30 = new Telerik.WinControls.UI.RadLabel();
             this.sxetArithAnaf = new Telerik.WinControls.UI.RadTextBox();
             this.radLabel29 = new Telerik.WinControls.UI.RadLabel();
@@ -122,6 +127,10 @@
             this.chkLockTank = new Telerik.WinControls.UI.RadCheckBox();
             this.monthBalance = new Telerik.WinControls.UI.RadCheckBox();
             this.radPageViewPage3 = new Telerik.WinControls.UI.RadPageViewPage();
+            this.posTypeCombo = new Telerik.WinControls.UI.RadDropDownList();
+            this.radLabel55 = new Telerik.WinControls.UI.RadLabel();
+            this.posTerminalId = new Telerik.WinControls.UI.RadLabel();
+            this.posTerminalIdTxt = new Telerik.WinControls.UI.RadTextBox();
             this.appLock = new Telerik.WinControls.UI.RadCheckBox();
             this.radLabel35 = new Telerik.WinControls.UI.RadLabel();
             this.txtIBAN2 = new Telerik.WinControls.UI.RadTextBox();
@@ -152,13 +161,31 @@
             this.radLabel40 = new Telerik.WinControls.UI.RadLabel();
             this.radPageViewPage5 = new Telerik.WinControls.UI.RadPageViewPage();
             this.radGroupBox4 = new Telerik.WinControls.UI.RadGroupBox();
+            this.providerIsTest = new Telerik.WinControls.UI.RadCheckBox();
+            this.providerUserNameTest = new Telerik.WinControls.UI.RadTextBox();
+            this.radLabel53 = new Telerik.WinControls.UI.RadLabel();
+            this.providerPasswordTest = new Telerik.WinControls.UI.RadTextBox();
+            this.radLabel54 = new Telerik.WinControls.UI.RadLabel();
+            this.providerUserName = new Telerik.WinControls.UI.RadTextBox();
+            this.radLabel51 = new Telerik.WinControls.UI.RadLabel();
             this.providerEnabled = new Telerik.WinControls.UI.RadCheckBox();
-            this.providerUrl = new Telerik.WinControls.UI.RadTextBox();
+            this.providerPassword = new Telerik.WinControls.UI.RadTextBox();
             this.radLabel50 = new Telerik.WinControls.UI.RadLabel();
             this.radLabel48 = new Telerik.WinControls.UI.RadLabel();
-            this.providerPassword = new Telerik.WinControls.UI.RadTextBox();
-            this.providerUserName = new Telerik.WinControls.UI.RadTextBox();
+            this.arbitransKey = new Telerik.WinControls.UI.RadTextBox();
+            this.arbitransUserName = new Telerik.WinControls.UI.RadTextBox();
             this.radLabel49 = new Telerik.WinControls.UI.RadLabel();
+            this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.radLabel56 = new Telerik.WinControls.UI.RadLabel();
+            this.vivaWalletClientSecretTxt = new Telerik.WinControls.UI.RadTextBox();
+            this.radLabel57 = new Telerik.WinControls.UI.RadLabel();
+            this.vivaWalletClientIdTxt = new Telerik.WinControls.UI.RadTextBox();
+            this.radLabel58 = new Telerik.WinControls.UI.RadLabel();
+            this.mellonGroupApiKeyTxt = new Telerik.WinControls.UI.RadTextBox();
+            this.radButton10 = new Telerik.WinControls.UI.RadButton();
+            this.radLabel59 = new Telerik.WinControls.UI.RadLabel();
+            this.mellonGroupOtpTxt = new Telerik.WinControls.UI.RadTextBox();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nameTextBox)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.addressTextBox)).BeginInit();
@@ -229,6 +256,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.radPageView1)).BeginInit();
             this.radPageView1.SuspendLayout();
             this.radPageViewPage1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel52)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.companyEmail)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel30)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.sxetArithAnaf)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel29)).BeginInit();
@@ -251,6 +280,10 @@
             ((System.ComponentModel.ISupportInitialize)(this.chkLockTank)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.monthBalance)).BeginInit();
             this.radPageViewPage3.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.posTypeCombo)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel55)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.posTerminalId)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.posTerminalIdTxt)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.appLock)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel35)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.txtIBAN2)).BeginInit();
@@ -284,13 +317,31 @@
             this.radPageViewPage5.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.radGroupBox4)).BeginInit();
             this.radGroupBox4.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.providerIsTest)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.providerUserNameTest)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel53)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.providerPasswordTest)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel54)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.providerUserName)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel51)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.providerEnabled)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.providerUrl)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.providerPassword)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel50)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel48)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.providerPassword)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.providerUserName)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.arbitransKey)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.arbitransUserName)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel49)).BeginInit();
+            this.groupBox1.SuspendLayout();
+            this.groupBox2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel56)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.vivaWalletClientSecretTxt)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel57)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.vivaWalletClientIdTxt)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel58)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.mellonGroupApiKeyTxt)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radButton10)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel59)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.mellonGroupOtpTxt)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this)).BeginInit();
             this.SuspendLayout();
             // 
@@ -417,7 +468,7 @@
             // cityTextBox
             // 
             this.cityTextBox.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.cityTextBox.Location = new System.Drawing.Point(179, 158);
+            this.cityTextBox.Location = new System.Drawing.Point(179, 189);
             this.cityTextBox.Margin = new System.Windows.Forms.Padding(4);
             this.cityTextBox.Name = "cityTextBox";
             this.cityTextBox.Size = new System.Drawing.Size(181, 23);
@@ -427,7 +478,7 @@
             // radLabel7
             // 
             this.radLabel7.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel7.Location = new System.Drawing.Point(4, 160);
+            this.radLabel7.Location = new System.Drawing.Point(4, 191);
             this.radLabel7.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel7.Name = "radLabel7";
             this.radLabel7.Size = new System.Drawing.Size(39, 21);
@@ -457,7 +508,7 @@
             // tinCompanyTextBox
             // 
             this.tinCompanyTextBox.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.tinCompanyTextBox.Location = new System.Drawing.Point(179, 189);
+            this.tinCompanyTextBox.Location = new System.Drawing.Point(179, 220);
             this.tinCompanyTextBox.Margin = new System.Windows.Forms.Padding(4);
             this.tinCompanyTextBox.Name = "tinCompanyTextBox";
             this.tinCompanyTextBox.Size = new System.Drawing.Size(181, 23);
@@ -467,7 +518,7 @@
             // radLabel9
             // 
             this.radLabel9.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel9.Location = new System.Drawing.Point(4, 191);
+            this.radLabel9.Location = new System.Drawing.Point(4, 222);
             this.radLabel9.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel9.Name = "radLabel9";
             this.radLabel9.Size = new System.Drawing.Size(46, 21);
@@ -477,7 +528,7 @@
             // tinSenderTextBox
             // 
             this.tinSenderTextBox.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.tinSenderTextBox.Location = new System.Drawing.Point(179, 251);
+            this.tinSenderTextBox.Location = new System.Drawing.Point(179, 282);
             this.tinSenderTextBox.Margin = new System.Windows.Forms.Padding(4);
             this.tinSenderTextBox.Name = "tinSenderTextBox";
             this.tinSenderTextBox.Size = new System.Drawing.Size(181, 23);
@@ -487,7 +538,7 @@
             // radLabel10
             // 
             this.radLabel10.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel10.Location = new System.Drawing.Point(4, 253);
+            this.radLabel10.Location = new System.Drawing.Point(4, 284);
             this.radLabel10.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel10.Name = "radLabel10";
             this.radLabel10.Size = new System.Drawing.Size(130, 21);
@@ -497,7 +548,7 @@
             // amdikaTextBox
             // 
             this.amdikaTextBox.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.amdikaTextBox.Location = new System.Drawing.Point(179, 282);
+            this.amdikaTextBox.Location = new System.Drawing.Point(179, 313);
             this.amdikaTextBox.Margin = new System.Windows.Forms.Padding(4);
             this.amdikaTextBox.Name = "amdikaTextBox";
             this.amdikaTextBox.Size = new System.Drawing.Size(181, 23);
@@ -507,7 +558,7 @@
             // radLabel11
             // 
             this.radLabel11.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel11.Location = new System.Drawing.Point(4, 284);
+            this.radLabel11.Location = new System.Drawing.Point(4, 315);
             this.radLabel11.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel11.Name = "radLabel11";
             this.radLabel11.Size = new System.Drawing.Size(56, 21);
@@ -874,7 +925,7 @@
             // 
             this.radLabel26.AutoSize = false;
             this.radLabel26.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel26.Location = new System.Drawing.Point(4, 313);
+            this.radLabel26.Location = new System.Drawing.Point(4, 344);
             this.radLabel26.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel26.Name = "radLabel26";
             this.radLabel26.Size = new System.Drawing.Size(130, 21);
@@ -885,7 +936,7 @@
             // 
             this.spinVAT.DecimalPlaces = 2;
             this.spinVAT.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.spinVAT.Location = new System.Drawing.Point(179, 312);
+            this.spinVAT.Location = new System.Drawing.Point(179, 343);
             this.spinVAT.Maximum = new decimal(new int[] {
             100000,
             0,
@@ -900,7 +951,7 @@
             // radLabel27
             // 
             this.radLabel27.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel27.Location = new System.Drawing.Point(258, 315);
+            this.radLabel27.Location = new System.Drawing.Point(258, 346);
             this.radLabel27.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel27.Name = "radLabel27";
             this.radLabel27.Size = new System.Drawing.Size(18, 21);
@@ -1014,14 +1065,16 @@
             this.radPageView1.Controls.Add(this.radPageViewPage5);
             this.radPageView1.Location = new System.Drawing.Point(12, 12);
             this.radPageView1.Name = "radPageView1";
-            this.radPageView1.SelectedPage = this.radPageViewPage1;
-            this.radPageView1.Size = new System.Drawing.Size(733, 516);
+            this.radPageView1.SelectedPage = this.radPageViewPage3;
+            this.radPageView1.Size = new System.Drawing.Size(733, 508);
             this.radPageView1.TabIndex = 70;
             this.radPageView1.Text = "radPageView1";
             ((Telerik.WinControls.UI.RadPageViewStripElement)(this.radPageView1.GetChildAt(0))).StripButtons = Telerik.WinControls.UI.StripViewButtons.None;
             // 
             // radPageViewPage1
             // 
+            this.radPageViewPage1.Controls.Add(this.radLabel52);
+            this.radPageViewPage1.Controls.Add(this.companyEmail);
             this.radPageViewPage1.Controls.Add(this.radLabel30);
             this.radPageViewPage1.Controls.Add(this.sxetArithAnaf);
             this.radPageViewPage1.Controls.Add(this.radLabel29);
@@ -1062,10 +1115,30 @@
             this.radPageViewPage1.Size = new System.Drawing.Size(712, 468);
             this.radPageViewPage1.Text = "Στοιχεία Πρατηρίου";
             // 
+            // radLabel52
+            // 
+            this.radLabel52.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.radLabel52.Location = new System.Drawing.Point(4, 160);
+            this.radLabel52.Margin = new System.Windows.Forms.Padding(4);
+            this.radLabel52.Name = "radLabel52";
+            this.radLabel52.Size = new System.Drawing.Size(44, 21);
+            this.radLabel52.TabIndex = 69;
+            this.radLabel52.Text = "E-Mail";
+            // 
+            // companyEmail
+            // 
+            this.companyEmail.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.companyEmail.Location = new System.Drawing.Point(179, 158);
+            this.companyEmail.Margin = new System.Windows.Forms.Padding(4);
+            this.companyEmail.Name = "companyEmail";
+            this.companyEmail.Size = new System.Drawing.Size(181, 23);
+            this.companyEmail.TabIndex = 70;
+            this.companyEmail.Text = "αδασδασδασδ";
+            // 
             // radLabel30
             // 
             this.radLabel30.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel30.Location = new System.Drawing.Point(4, 346);
+            this.radLabel30.Location = new System.Drawing.Point(4, 377);
             this.radLabel30.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel30.Name = "radLabel30";
             this.radLabel30.Size = new System.Drawing.Size(157, 21);
@@ -1075,7 +1148,7 @@
             // sxetArithAnaf
             // 
             this.sxetArithAnaf.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.sxetArithAnaf.Location = new System.Drawing.Point(179, 344);
+            this.sxetArithAnaf.Location = new System.Drawing.Point(179, 375);
             this.sxetArithAnaf.Margin = new System.Windows.Forms.Padding(4);
             this.sxetArithAnaf.Name = "sxetArithAnaf";
             this.sxetArithAnaf.Size = new System.Drawing.Size(181, 23);
@@ -1085,7 +1158,7 @@
             // radLabel29
             // 
             this.radLabel29.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel29.Location = new System.Drawing.Point(4, 222);
+            this.radLabel29.Location = new System.Drawing.Point(4, 253);
             this.radLabel29.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel29.Name = "radLabel29";
             this.radLabel29.Size = new System.Drawing.Size(116, 21);
@@ -1095,7 +1168,7 @@
             // efkTextBox
             // 
             this.efkTextBox.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.efkTextBox.Location = new System.Drawing.Point(179, 220);
+            this.efkTextBox.Location = new System.Drawing.Point(179, 251);
             this.efkTextBox.Margin = new System.Windows.Forms.Padding(4);
             this.efkTextBox.Name = "efkTextBox";
             this.efkTextBox.Size = new System.Drawing.Size(181, 23);
@@ -1113,10 +1186,10 @@
             this.radPageViewPage2.Controls.Add(this.brandDropDown);
             this.radPageViewPage2.Controls.Add(this.hasBrandQRCode);
             this.radPageViewPage2.Controls.Add(this.radGroupBox1);
-            this.radPageViewPage2.Controls.Add(this.chkLockTank);
-            this.radPageViewPage2.Controls.Add(this.monthBalance);
             this.radPageViewPage2.Controls.Add(this.radLabel12);
             this.radPageViewPage2.Controls.Add(this.startThreadsOnStartCheck);
+            this.radPageViewPage2.Controls.Add(this.chkLockTank);
+            this.radPageViewPage2.Controls.Add(this.monthBalance);
             this.radPageViewPage2.Controls.Add(this.tankCheckHour);
             this.radPageViewPage2.Controls.Add(this.startDateDatetimePicker);
             this.radPageViewPage2.Controls.Add(this.tankCheckMinute);
@@ -1356,6 +1429,10 @@
             // 
             // radPageViewPage3
             // 
+            this.radPageViewPage3.Controls.Add(this.groupBox2);
+            this.radPageViewPage3.Controls.Add(this.groupBox1);
+            this.radPageViewPage3.Controls.Add(this.posTypeCombo);
+            this.radPageViewPage3.Controls.Add(this.radLabel55);
             this.radPageViewPage3.Controls.Add(this.appLock);
             this.radPageViewPage3.Controls.Add(this.radLabel35);
             this.radPageViewPage3.Controls.Add(this.txtIBAN2);
@@ -1367,8 +1444,59 @@
             this.radPageViewPage3.Controls.Add(this.txtBank);
             this.radPageViewPage3.Location = new System.Drawing.Point(10, 37);
             this.radPageViewPage3.Name = "radPageViewPage3";
-            this.radPageViewPage3.Size = new System.Drawing.Size(712, 468);
+            this.radPageViewPage3.Size = new System.Drawing.Size(712, 460);
             this.radPageViewPage3.Text = "Λοιπά Στοιχεία";
+            this.radPageViewPage3.Paint += new System.Windows.Forms.PaintEventHandler(this.radPageViewPage3_Paint);
+            // 
+            // posTypeCombo
+            // 
+            this.posTypeCombo.DropDownStyle = Telerik.WinControls.RadDropDownStyle.DropDownList;
+            radListDataItem4.Tag = "0";
+            radListDataItem4.Text = "(Χωρίς Επιλογή)";
+            radListDataItem4.TextWrap = true;
+            radListDataItem5.Tag = "1";
+            radListDataItem5.Text = "EKO";
+            radListDataItem5.TextWrap = true;
+            radListDataItem6.Tag = "2";
+            radListDataItem6.Text = "BP";
+            radListDataItem6.TextWrap = true;
+            this.posTypeCombo.Items.Add(radListDataItem4);
+            this.posTypeCombo.Items.Add(radListDataItem5);
+            this.posTypeCombo.Items.Add(radListDataItem6);
+            this.posTypeCombo.Location = new System.Drawing.Point(179, 222);
+            this.posTypeCombo.Name = "posTypeCombo";
+            this.posTypeCombo.Size = new System.Drawing.Size(529, 20);
+            this.posTypeCombo.TabIndex = 85;
+            // 
+            // radLabel55
+            // 
+            this.radLabel55.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.radLabel55.Location = new System.Drawing.Point(4, 222);
+            this.radLabel55.Margin = new System.Windows.Forms.Padding(4);
+            this.radLabel55.Name = "radLabel55";
+            this.radLabel55.Size = new System.Drawing.Size(72, 21);
+            this.radLabel55.TabIndex = 84;
+            this.radLabel55.Text = "Τύπος POS";
+            // 
+            // posTerminalId
+            // 
+            this.posTerminalId.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.posTerminalId.Location = new System.Drawing.Point(7, 143);
+            this.posTerminalId.Margin = new System.Windows.Forms.Padding(4);
+            this.posTerminalId.Name = "posTerminalId";
+            this.posTerminalId.Size = new System.Drawing.Size(103, 21);
+            this.posTerminalId.TabIndex = 82;
+            this.posTerminalId.Text = "POS Terminal ID";
+            // 
+            // posTerminalIdTxt
+            // 
+            this.posTerminalIdTxt.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.posTerminalIdTxt.Location = new System.Drawing.Point(7, 164);
+            this.posTerminalIdTxt.Margin = new System.Windows.Forms.Padding(4);
+            this.posTerminalIdTxt.Name = "posTerminalIdTxt";
+            this.posTerminalIdTxt.Size = new System.Drawing.Size(319, 23);
+            this.posTerminalIdTxt.TabIndex = 83;
+            this.posTerminalIdTxt.Text = "αδασδασδασδ";
             // 
             // appLock
             // 
@@ -1693,20 +1821,100 @@
             // radGroupBox4
             // 
             this.radGroupBox4.AccessibleRole = System.Windows.Forms.AccessibleRole.Grouping;
+            this.radGroupBox4.Controls.Add(this.providerIsTest);
+            this.radGroupBox4.Controls.Add(this.providerUserNameTest);
+            this.radGroupBox4.Controls.Add(this.radLabel53);
+            this.radGroupBox4.Controls.Add(this.providerPasswordTest);
+            this.radGroupBox4.Controls.Add(this.radLabel54);
+            this.radGroupBox4.Controls.Add(this.providerUserName);
+            this.radGroupBox4.Controls.Add(this.radLabel51);
             this.radGroupBox4.Controls.Add(this.providerEnabled);
-            this.radGroupBox4.Controls.Add(this.providerUrl);
+            this.radGroupBox4.Controls.Add(this.providerPassword);
             this.radGroupBox4.Controls.Add(this.radLabel50);
             this.radGroupBox4.Controls.Add(this.radLabel48);
-            this.radGroupBox4.Controls.Add(this.providerPassword);
-            this.radGroupBox4.Controls.Add(this.providerUserName);
+            this.radGroupBox4.Controls.Add(this.arbitransKey);
+            this.radGroupBox4.Controls.Add(this.arbitransUserName);
             this.radGroupBox4.Controls.Add(this.radLabel49);
             this.radGroupBox4.Font = new System.Drawing.Font("Segoe UI", 9.75F);
             this.radGroupBox4.HeaderText = "Στοιχεία σύνδεσης";
             this.radGroupBox4.Location = new System.Drawing.Point(6, 3);
             this.radGroupBox4.Name = "radGroupBox4";
-            this.radGroupBox4.Size = new System.Drawing.Size(706, 160);
+            this.radGroupBox4.Size = new System.Drawing.Size(706, 285);
             this.radGroupBox4.TabIndex = 84;
             this.radGroupBox4.Text = "Στοιχεία σύνδεσης";
+            // 
+            // providerIsTest
+            // 
+            this.providerIsTest.AutoSize = false;
+            this.providerIsTest.CheckAlignment = System.Drawing.ContentAlignment.MiddleRight;
+            this.providerIsTest.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.providerIsTest.Location = new System.Drawing.Point(9, 245);
+            this.providerIsTest.Name = "providerIsTest";
+            this.providerIsTest.Size = new System.Drawing.Size(188, 23);
+            this.providerIsTest.TabIndex = 90;
+            this.providerIsTest.Text = "Δοκιμαστικό Περιβάλλον";
+            this.providerIsTest.TextWrap = true;
+            // 
+            // providerUserNameTest
+            // 
+            this.providerUserNameTest.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.providerUserNameTest.Location = new System.Drawing.Point(215, 183);
+            this.providerUserNameTest.Margin = new System.Windows.Forms.Padding(4);
+            this.providerUserNameTest.Name = "providerUserNameTest";
+            this.providerUserNameTest.Size = new System.Drawing.Size(485, 23);
+            this.providerUserNameTest.TabIndex = 89;
+            this.providerUserNameTest.Text = "αδασδασδασδ";
+            // 
+            // radLabel53
+            // 
+            this.radLabel53.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.radLabel53.Location = new System.Drawing.Point(5, 185);
+            this.radLabel53.Margin = new System.Windows.Forms.Padding(4);
+            this.radLabel53.Name = "radLabel53";
+            this.radLabel53.Size = new System.Drawing.Size(192, 21);
+            this.radLabel53.TabIndex = 88;
+            this.radLabel53.Text = "Όνομα Χρήστη (Πάροχος Test)";
+            // 
+            // providerPasswordTest
+            // 
+            this.providerPasswordTest.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.providerPasswordTest.Location = new System.Drawing.Point(215, 214);
+            this.providerPasswordTest.Margin = new System.Windows.Forms.Padding(4);
+            this.providerPasswordTest.Name = "providerPasswordTest";
+            this.providerPasswordTest.PasswordChar = '*';
+            this.providerPasswordTest.Size = new System.Drawing.Size(485, 23);
+            this.providerPasswordTest.TabIndex = 87;
+            this.providerPasswordTest.Text = "αδασδασδασδ";
+            // 
+            // radLabel54
+            // 
+            this.radLabel54.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.radLabel54.Location = new System.Drawing.Point(7, 216);
+            this.radLabel54.Margin = new System.Windows.Forms.Padding(4);
+            this.radLabel54.Name = "radLabel54";
+            this.radLabel54.Size = new System.Drawing.Size(152, 21);
+            this.radLabel54.TabIndex = 86;
+            this.radLabel54.Text = "Κωδικός (Πάροχος Test)";
+            // 
+            // providerUserName
+            // 
+            this.providerUserName.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.providerUserName.Location = new System.Drawing.Point(215, 121);
+            this.providerUserName.Margin = new System.Windows.Forms.Padding(4);
+            this.providerUserName.Name = "providerUserName";
+            this.providerUserName.Size = new System.Drawing.Size(485, 23);
+            this.providerUserName.TabIndex = 85;
+            this.providerUserName.Text = "αδασδασδασδ";
+            // 
+            // radLabel51
+            // 
+            this.radLabel51.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.radLabel51.Location = new System.Drawing.Point(5, 123);
+            this.radLabel51.Margin = new System.Windows.Forms.Padding(4);
+            this.radLabel51.Name = "radLabel51";
+            this.radLabel51.Size = new System.Drawing.Size(164, 21);
+            this.radLabel51.TabIndex = 84;
+            this.radLabel51.Text = "Όνομα Χρήστη (Πάροχος)";
             // 
             // providerEnabled
             // 
@@ -1720,25 +1928,25 @@
             this.providerEnabled.Text = "Ενεργή Αποστολή";
             this.providerEnabled.TextWrap = true;
             // 
-            // providerUrl
+            // providerPassword
             // 
-            this.providerUrl.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.providerUrl.Location = new System.Drawing.Point(180, 121);
-            this.providerUrl.Margin = new System.Windows.Forms.Padding(4);
-            this.providerUrl.Name = "providerUrl";
-            this.providerUrl.Size = new System.Drawing.Size(520, 23);
-            this.providerUrl.TabIndex = 82;
-            this.providerUrl.Text = "αδασδασδασδ";
+            this.providerPassword.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.providerPassword.Location = new System.Drawing.Point(215, 152);
+            this.providerPassword.Margin = new System.Windows.Forms.Padding(4);
+            this.providerPassword.Name = "providerPassword";
+            this.providerPassword.Size = new System.Drawing.Size(485, 23);
+            this.providerPassword.TabIndex = 82;
+            this.providerPassword.Text = "αδασδασδασδ";
             // 
             // radLabel50
             // 
             this.radLabel50.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel50.Location = new System.Drawing.Point(7, 123);
+            this.radLabel50.Location = new System.Drawing.Point(7, 154);
             this.radLabel50.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel50.Name = "radLabel50";
-            this.radLabel50.Size = new System.Drawing.Size(71, 21);
+            this.radLabel50.Size = new System.Drawing.Size(124, 21);
             this.radLabel50.TabIndex = 81;
-            this.radLabel50.Text = "Συνδεσμος";
+            this.radLabel50.Text = "Κωδικός (Πάροχος)";
             // 
             // radLabel48
             // 
@@ -1746,29 +1954,29 @@
             this.radLabel48.Location = new System.Drawing.Point(5, 92);
             this.radLabel48.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel48.Name = "radLabel48";
-            this.radLabel48.Size = new System.Drawing.Size(58, 21);
+            this.radLabel48.Size = new System.Drawing.Size(148, 21);
             this.radLabel48.TabIndex = 79;
-            this.radLabel48.Text = "Κωδικός";
+            this.radLabel48.Text = "Κωδικός (Arbitrans Key)";
             // 
-            // providerPassword
+            // arbitransKey
             // 
-            this.providerPassword.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.providerPassword.Location = new System.Drawing.Point(180, 90);
-            this.providerPassword.Margin = new System.Windows.Forms.Padding(4);
-            this.providerPassword.Name = "providerPassword";
-            this.providerPassword.Size = new System.Drawing.Size(520, 23);
-            this.providerPassword.TabIndex = 80;
-            this.providerPassword.Text = "αδασδασδασδ";
+            this.arbitransKey.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.arbitransKey.Location = new System.Drawing.Point(215, 90);
+            this.arbitransKey.Margin = new System.Windows.Forms.Padding(4);
+            this.arbitransKey.Name = "arbitransKey";
+            this.arbitransKey.Size = new System.Drawing.Size(485, 23);
+            this.arbitransKey.TabIndex = 80;
+            this.arbitransKey.Text = "αδασδασδασδ";
             // 
-            // providerUserName
+            // arbitransUserName
             // 
-            this.providerUserName.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.providerUserName.Location = new System.Drawing.Point(180, 59);
-            this.providerUserName.Margin = new System.Windows.Forms.Padding(4);
-            this.providerUserName.Name = "providerUserName";
-            this.providerUserName.Size = new System.Drawing.Size(520, 23);
-            this.providerUserName.TabIndex = 78;
-            this.providerUserName.Text = "αδασδασδασδ";
+            this.arbitransUserName.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.arbitransUserName.Location = new System.Drawing.Point(215, 59);
+            this.arbitransUserName.Margin = new System.Windows.Forms.Padding(4);
+            this.arbitransUserName.Name = "arbitransUserName";
+            this.arbitransUserName.Size = new System.Drawing.Size(485, 23);
+            this.arbitransUserName.TabIndex = 78;
+            this.arbitransUserName.Text = "αδασδασδασδ";
             // 
             // radLabel49
             // 
@@ -1776,9 +1984,129 @@
             this.radLabel49.Location = new System.Drawing.Point(5, 61);
             this.radLabel49.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel49.Name = "radLabel49";
-            this.radLabel49.Size = new System.Drawing.Size(97, 21);
+            this.radLabel49.Size = new System.Drawing.Size(202, 21);
             this.radLabel49.TabIndex = 77;
-            this.radLabel49.Text = "Όνομα Χρήστη";
+            this.radLabel49.Text = "Όνομα Χρήστη (Arbitrans Name)";
+            // 
+            // groupBox1
+            // 
+            this.groupBox1.Controls.Add(this.radLabel56);
+            this.groupBox1.Controls.Add(this.radLabel57);
+            this.groupBox1.Controls.Add(this.vivaWalletClientSecretTxt);
+            this.groupBox1.Controls.Add(this.vivaWalletClientIdTxt);
+            this.groupBox1.Controls.Add(this.posTerminalIdTxt);
+            this.groupBox1.Controls.Add(this.posTerminalId);
+            this.groupBox1.Location = new System.Drawing.Point(4, 250);
+            this.groupBox1.Name = "groupBox1";
+            this.groupBox1.Size = new System.Drawing.Size(333, 201);
+            this.groupBox1.TabIndex = 86;
+            this.groupBox1.TabStop = false;
+            this.groupBox1.Text = "Viva Wallet";
+            // 
+            // groupBox2
+            // 
+            this.groupBox2.Controls.Add(this.mellonGroupOtpTxt);
+            this.groupBox2.Controls.Add(this.radLabel59);
+            this.groupBox2.Controls.Add(this.radButton10);
+            this.groupBox2.Controls.Add(this.mellonGroupApiKeyTxt);
+            this.groupBox2.Controls.Add(this.radLabel58);
+            this.groupBox2.Location = new System.Drawing.Point(375, 250);
+            this.groupBox2.Name = "groupBox2";
+            this.groupBox2.Size = new System.Drawing.Size(333, 201);
+            this.groupBox2.TabIndex = 87;
+            this.groupBox2.TabStop = false;
+            this.groupBox2.Text = "Mellon Group";
+            // 
+            // radLabel56
+            // 
+            this.radLabel56.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.radLabel56.Location = new System.Drawing.Point(7, 82);
+            this.radLabel56.Margin = new System.Windows.Forms.Padding(4);
+            this.radLabel56.Name = "radLabel56";
+            this.radLabel56.Size = new System.Drawing.Size(81, 21);
+            this.radLabel56.TabIndex = 90;
+            this.radLabel56.Text = "Client Secret";
+            // 
+            // vivaWalletClientSecretTxt
+            // 
+            this.vivaWalletClientSecretTxt.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.vivaWalletClientSecretTxt.Location = new System.Drawing.Point(7, 112);
+            this.vivaWalletClientSecretTxt.Margin = new System.Windows.Forms.Padding(4);
+            this.vivaWalletClientSecretTxt.Name = "vivaWalletClientSecretTxt";
+            this.vivaWalletClientSecretTxt.Size = new System.Drawing.Size(319, 23);
+            this.vivaWalletClientSecretTxt.TabIndex = 91;
+            this.vivaWalletClientSecretTxt.Text = "αδασδασδασδ";
+            // 
+            // radLabel57
+            // 
+            this.radLabel57.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.radLabel57.Location = new System.Drawing.Point(7, 22);
+            this.radLabel57.Margin = new System.Windows.Forms.Padding(4);
+            this.radLabel57.Name = "radLabel57";
+            this.radLabel57.Size = new System.Drawing.Size(56, 21);
+            this.radLabel57.TabIndex = 88;
+            this.radLabel57.Text = "Client Id";
+            // 
+            // vivaWalletClientIdTxt
+            // 
+            this.vivaWalletClientIdTxt.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.vivaWalletClientIdTxt.Location = new System.Drawing.Point(7, 51);
+            this.vivaWalletClientIdTxt.Margin = new System.Windows.Forms.Padding(4);
+            this.vivaWalletClientIdTxt.Name = "vivaWalletClientIdTxt";
+            this.vivaWalletClientIdTxt.Size = new System.Drawing.Size(319, 23);
+            this.vivaWalletClientIdTxt.TabIndex = 89;
+            this.vivaWalletClientIdTxt.Text = "αδασδασδασδ";
+            // 
+            // radLabel58
+            // 
+            this.radLabel58.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.radLabel58.Location = new System.Drawing.Point(7, 34);
+            this.radLabel58.Margin = new System.Windows.Forms.Padding(4);
+            this.radLabel58.Name = "radLabel58";
+            this.radLabel58.Size = new System.Drawing.Size(52, 21);
+            this.radLabel58.TabIndex = 89;
+            this.radLabel58.Text = "Api Key";
+            // 
+            // mellonGroupApiKeyTxt
+            // 
+            this.mellonGroupApiKeyTxt.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.mellonGroupApiKeyTxt.Location = new System.Drawing.Point(7, 63);
+            this.mellonGroupApiKeyTxt.Margin = new System.Windows.Forms.Padding(4);
+            this.mellonGroupApiKeyTxt.Name = "mellonGroupApiKeyTxt";
+            this.mellonGroupApiKeyTxt.Size = new System.Drawing.Size(319, 23);
+            this.mellonGroupApiKeyTxt.TabIndex = 90;
+            this.mellonGroupApiKeyTxt.Text = "αδασδασδασδ";
+            // 
+            // radButton10
+            // 
+            this.radButton10.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.radButton10.Location = new System.Drawing.Point(8, 140);
+            this.radButton10.Name = "radButton10";
+            this.radButton10.Padding = new System.Windows.Forms.Padding(5, 0, 0, 0);
+            this.radButton10.Size = new System.Drawing.Size(319, 40);
+            this.radButton10.TabIndex = 91;
+            this.radButton10.Text = "Παραγωγή Api Key";
+            this.radButton10.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
+            this.radButton10.Click += new System.EventHandler(this.radButton10_Click);
+            // 
+            // radLabel59
+            // 
+            this.radLabel59.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.radLabel59.Location = new System.Drawing.Point(8, 112);
+            this.radLabel59.Margin = new System.Windows.Forms.Padding(4);
+            this.radLabel59.Name = "radLabel59";
+            this.radLabel59.Size = new System.Drawing.Size(31, 21);
+            this.radLabel59.TabIndex = 92;
+            this.radLabel59.Text = "OTP";
+            // 
+            // mellonGroupOtpTxt
+            // 
+            this.mellonGroupOtpTxt.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.mellonGroupOtpTxt.Location = new System.Drawing.Point(85, 110);
+            this.mellonGroupOtpTxt.Margin = new System.Windows.Forms.Padding(4);
+            this.mellonGroupOtpTxt.Name = "mellonGroupOtpTxt";
+            this.mellonGroupOtpTxt.Size = new System.Drawing.Size(241, 23);
+            this.mellonGroupOtpTxt.TabIndex = 93;
             // 
             // MainSettingsForm
             // 
@@ -1877,6 +2205,8 @@
             this.radPageView1.ResumeLayout(false);
             this.radPageViewPage1.ResumeLayout(false);
             this.radPageViewPage1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel52)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.companyEmail)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel30)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.sxetArithAnaf)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel29)).EndInit();
@@ -1902,6 +2232,10 @@
             ((System.ComponentModel.ISupportInitialize)(this.monthBalance)).EndInit();
             this.radPageViewPage3.ResumeLayout(false);
             this.radPageViewPage3.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.posTypeCombo)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel55)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.posTerminalId)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.posTerminalIdTxt)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.appLock)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel35)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.txtIBAN2)).EndInit();
@@ -1938,13 +2272,33 @@
             ((System.ComponentModel.ISupportInitialize)(this.radGroupBox4)).EndInit();
             this.radGroupBox4.ResumeLayout(false);
             this.radGroupBox4.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.providerIsTest)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.providerUserNameTest)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel53)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.providerPasswordTest)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel54)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.providerUserName)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel51)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.providerEnabled)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.providerUrl)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.providerPassword)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel50)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel48)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.providerPassword)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.providerUserName)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.arbitransKey)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.arbitransUserName)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel49)).EndInit();
+            this.groupBox1.ResumeLayout(false);
+            this.groupBox1.PerformLayout();
+            this.groupBox2.ResumeLayout(false);
+            this.groupBox2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel56)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.vivaWalletClientSecretTxt)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel57)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.vivaWalletClientIdTxt)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel58)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.mellonGroupApiKeyTxt)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radButton10)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel59)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.mellonGroupOtpTxt)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this)).EndInit();
             this.ResumeLayout(false);
 
@@ -2072,12 +2426,36 @@
         private Telerik.WinControls.UI.RadSpinEditor balanceThreshold;
         private Telerik.WinControls.UI.RadPageViewPage radPageViewPage5;
         private Telerik.WinControls.UI.RadGroupBox radGroupBox4;
-        private Telerik.WinControls.UI.RadTextBox providerUrl;
+        private Telerik.WinControls.UI.RadTextBox providerPassword;
         private Telerik.WinControls.UI.RadLabel radLabel50;
         private Telerik.WinControls.UI.RadLabel radLabel48;
-        private Telerik.WinControls.UI.RadTextBox providerPassword;
-        private Telerik.WinControls.UI.RadTextBox providerUserName;
+        private Telerik.WinControls.UI.RadTextBox arbitransKey;
+        private Telerik.WinControls.UI.RadTextBox arbitransUserName;
         private Telerik.WinControls.UI.RadLabel radLabel49;
         private Telerik.WinControls.UI.RadCheckBox providerEnabled;
+        private Telerik.WinControls.UI.RadTextBox providerUserName;
+        private Telerik.WinControls.UI.RadLabel radLabel51;
+        private Telerik.WinControls.UI.RadLabel radLabel52;
+        private Telerik.WinControls.UI.RadTextBox companyEmail;
+        private Telerik.WinControls.UI.RadLabel posTerminalId;
+        private Telerik.WinControls.UI.RadTextBox posTerminalIdTxt;
+        private Telerik.WinControls.UI.RadCheckBox providerIsTest;
+        private Telerik.WinControls.UI.RadTextBox providerUserNameTest;
+        private Telerik.WinControls.UI.RadLabel radLabel53;
+        private Telerik.WinControls.UI.RadTextBox providerPasswordTest;
+        private Telerik.WinControls.UI.RadLabel radLabel54;
+        private Telerik.WinControls.UI.RadDropDownList posTypeCombo;
+        private Telerik.WinControls.UI.RadLabel radLabel55;
+        private System.Windows.Forms.GroupBox groupBox2;
+        private Telerik.WinControls.UI.RadTextBox mellonGroupOtpTxt;
+        private Telerik.WinControls.UI.RadLabel radLabel59;
+        private Telerik.WinControls.UI.RadButton radButton10;
+        private Telerik.WinControls.UI.RadTextBox mellonGroupApiKeyTxt;
+        private Telerik.WinControls.UI.RadLabel radLabel58;
+        private System.Windows.Forms.GroupBox groupBox1;
+        private Telerik.WinControls.UI.RadLabel radLabel56;
+        private Telerik.WinControls.UI.RadLabel radLabel57;
+        private Telerik.WinControls.UI.RadTextBox vivaWalletClientSecretTxt;
+        private Telerik.WinControls.UI.RadTextBox vivaWalletClientIdTxt;
     }
 }

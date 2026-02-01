@@ -10,7 +10,8 @@ namespace ASFuelControl.Common.Enumerators
         Credit = 0,
         Cash = 1,
         CreditCard = 2,
-        FleetCard = 3
+        FleetCard = 3,
+        IRIS
     }
 
     public enum TransactionTypeEnum

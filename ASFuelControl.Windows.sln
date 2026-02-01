@@ -156,6 +156,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.NuovoPignoneM
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.HongYang", "ASFuelControl.HongYang\ASFuelControl.HongYang.csproj", "{444C1867-D774-45A4-AC30-555A92B51526}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Exedron.ProviderInvoicing", "Exedron.ProviderInvoicing\Exedron.ProviderInvoicing.csproj", "{66ED4E55-304E-452A-96A4-853982C5F602}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1038,6 +1040,18 @@ Global
 		{444C1867-D774-45A4-AC30-555A92B51526}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{444C1867-D774-45A4-AC30-555A92B51526}.Release|x86.ActiveCfg = Release|Any CPU
 		{444C1867-D774-45A4-AC30-555A92B51526}.Release|x86.Build.0 = Release|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Debug|x86.Build.0 = Debug|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Release|Any CPU.Build.0 = Release|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Release|x86.ActiveCfg = Release|Any CPU
+		{66ED4E55-304E-452A-96A4-853982C5F602}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1046,6 +1060,7 @@ Global
 		{3CF088D4-D549-4B77-B923-4F9420BFB2D2} = {1394E941-19C8-4054-A5B3-D246F0F06139}
 		{21A1350A-A84E-4601-BE6F-22ABCFA3517E} = {1394E941-19C8-4054-A5B3-D246F0F06139}
 		{D4FF3343-4238-4652-A6EA-01AC60F3D0C6} = {1394E941-19C8-4054-A5B3-D246F0F06139}
+		{66ED4E55-304E-452A-96A4-853982C5F602} = {1394E941-19C8-4054-A5B3-D246F0F06139}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4DD34B2E-C18C-4885-8404-22A09D728735}

@@ -240,6 +240,9 @@
   <data name="PaymentTypeEnum_FleetCard" xml:space="preserve">
     <value>Κάρτα Στόλου</value>
   </data>
+  <data name="PaymentTypeEnum_IRIS" xml:space="preserve">
+    <value>Πληρωμή IRIS</value>
+  </data>
   <data name="ScheduleTypeEnum_Date" xml:space="preserve">
     <value>βάσει Ημερομηνίας</value>
   </data>

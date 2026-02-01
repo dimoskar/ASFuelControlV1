@@ -2497,6 +2497,26 @@ namespace ASFuelControl.Windows.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to ALTER TABLE dbo.MyDataInvoice ADD
+        ///	InvoiceUrl nvarchar(500) NULL,
+        ///	QrCodeUrl nvarchar(500) NULL,
+        ///	VerificationHash nvarchar(50) NULL,
+        ///	ProviderUrl nvarchar(255) NULL
+        ///GO
+        ///
+        ///ALTER TABLE dbo.Trader ADD
+        ///	Branch int NOT NULL default 0
+        ///GO
+        ///
+        ///.
+        /// </summary>
+        internal static string UpdateDatabase56 {
+            get {
+                return ResourceManager.GetString("UpdateDatabase56", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to ALTER TABLE dbo.InvoiceType ADD
         ///	IsInternal bit NULL
         ///GO

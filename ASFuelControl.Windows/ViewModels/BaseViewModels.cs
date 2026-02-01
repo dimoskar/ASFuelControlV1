@@ -6672,6 +6672,19 @@ namespace ASFuelControl.Windows.ViewModels
             }
             get { return this.deliveryAddress; }
         }
+
+        private int branch;
+        public int Branch
+        {
+            set
+            {
+                if (this.branch == value)
+                    return;
+                this.branch = value;
+                this.OnPropertyChanged("Branch");
+            }
+            get { return this.branch; }
+        }
     }
 
     public partial class UsagePeriodViewModel : BaseViewModel<Data.UsagePeriod>

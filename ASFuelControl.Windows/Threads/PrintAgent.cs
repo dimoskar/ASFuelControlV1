@@ -7,6 +7,7 @@ using ASFuelControl.Logging;
 using System.Net.Sockets;
 using System.Drawing.Printing;
 using ASFuelControl.Communication.Enums;
+using System.Xml.Serialization;
 
 namespace ASFuelControl.Windows.Threads
 {
@@ -56,7 +57,7 @@ namespace ASFuelControl.Windows.Threads
         private bool printBalancesPhysical = false;
         private static bool oldInvoiceRunning = false;
         private static bool resendInvoiceRunning = false;
-        private static bool invoicingProviderEnabled = false;
+        private static bool invoicingProviderEnabled = Data.Implementation.OptionHandler.Instance.GetBoolOption("ProviderEnabled", false);
 
         private string samtecWSUrl = "";
         private string eftPosTid = "";
@@ -100,12 +101,93 @@ namespace ASFuelControl.Windows.Threads
             this.printBalancesPhysical = Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintBalancelsOnPrinter", true);
             this.invoiceReplaceCodeFrom = Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceReplaceCodeFrom", 173);
             this.invoiceReplaceCodeTo = Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceReplaceCodeTo", 222);
-            invoicingProviderEnabled = Data.Implementation.OptionHandler.Instance.GetBoolOption("ProviderEnabled", false);
+            SetInvoicingParameters();
             if (!System.IO.Directory.Exists(this.outFolder))
                 System.IO.Directory.CreateDirectory(this.outFolder);
             //signWatcher.Path = this.outFolder;
             //signWatcher.Created += SignWatcher_Created;
+        }
+        public static void SetInvoicingParameters()
+        {
+            if (!string.IsNullOrEmpty(Exedron.ProviderInvoicing.InvoiceHandler.Instance.AadeUserName))
+            {
+                return;
+            }
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.AadeUserName = Data.Implementation.OptionHandler.Instance.GetOption("MyDataUserName");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.AadeSubscriptionKey = Data.Implementation.OptionHandler.Instance.GetOption("MyDataSubscriptionKey");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.ArbitransName = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceArbitransName");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.ArbitransKey = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceArbitransKey");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.IlydaUsername = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceUserName");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.IlydaPassword = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceUserPassword");
+
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.IlydaUsernameTest = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceTestUserName");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.IlydaPasswordTest = Data.Implementation.OptionHandler.Instance.GetOption("ProviderInvoiceUserTestPassword");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.ProviderIsTestMode = Data.Implementation.OptionHandler.Instance.GetBoolOption("ProviderTestMode", true);
+            var posType = Data.Implementation.OptionHandler.Instance.GetOption("POSType", "");
+            var vivaPosTerminalId = Data.Implementation.OptionHandler.Instance.GetOption("POSTerminalID");
+            var mellonApiKey = Data.Implementation.OptionHandler.Instance.GetOption("MellonGroupApiKey");
+            var posTypeParams = posType.Split('.');
+            if (posTypeParams.Length == 2)
+            {
+                if (posTypeParams[0] == "Mellon")
+                {
+                    switch (posTypeParams[1])
+                    {
+                        case "JCC":
+                        case "AtticaBank":
+                        case "Pancreta":
+                            Exedron.ProviderInvoicing.InvoiceHandler.Instance.MellonGroupNsp = 1; break;
+                        case "Nexi":
+                            Exedron.ProviderInvoicing.InvoiceHandler.Instance.MellonGroupNsp = 2; break;
+                        case "NBG":
+                            Exedron.ProviderInvoicing.InvoiceHandler.Instance.MellonGroupNsp = 3; break;
+                        case "Worldline":
+                            Exedron.ProviderInvoicing.InvoiceHandler.Instance.MellonGroupNsp = 4; break;
+                        default:
+                            Exedron.ProviderInvoicing.InvoiceHandler.Instance.MellonGroupNsp = 1; break;
+
+                    }
+                    Exedron.ProviderInvoicing.InvoiceHandler.Instance.PosType = Exedron.ProviderInvoicing.InvoiceHandler.PosTypeEnum.Mellon;
+                    Exedron.ProviderInvoicing.InvoiceHandler.Instance.PosTerminalId = mellonApiKey;
+                    Exedron.ProviderInvoicing.InvoiceHandler.Instance.MellonGroupApiKey = mellonApiKey;
+                }
+                else if (posTypeParams[0] == "VivaWallet")
+                {
+                    Exedron.ProviderInvoicing.InvoiceHandler.Instance.PosTerminalId = vivaPosTerminalId;
+                    Exedron.ProviderInvoicing.InvoiceHandler.Instance.MellonGroupNsp = 0;
+                    Exedron.ProviderInvoicing.InvoiceHandler.Instance.PosType = Exedron.ProviderInvoicing.InvoiceHandler.PosTypeEnum.VivaWallet;
+                }
+                else
+                {
+                    Exedron.ProviderInvoicing.InvoiceHandler.Instance.MellonGroupNsp = 0;
+                    Exedron.ProviderInvoicing.InvoiceHandler.Instance.PosType = Exedron.ProviderInvoicing.InvoiceHandler.PosTypeEnum.None;
+                }
+                
+            }
+            else
+            {
+                Exedron.ProviderInvoicing.InvoiceHandler.Instance.PosType = Exedron.ProviderInvoicing.InvoiceHandler.PosTypeEnum.None;
+            }
+
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.Provider = (Exedron.ProviderInvoicing.InvoiceHandler.ProviderTypeEnum)Data.Implementation.OptionHandler.Instance.GetIntOption("ProviderInvoiceProvider", 0);
+
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyName = Data.Implementation.OptionHandler.Instance.GetOption("CompanyName");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyEmail = Data.Implementation.OptionHandler.Instance.GetOption("CompanyEmail");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyPhone = Data.Implementation.OptionHandler.Instance.GetOption("CompanyPhone");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyTaxOffice = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTaxOffice");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyVAT = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyBranch = Data.Implementation.OptionHandler.Instance.GetIntOption("CompanyBranch", 0);
+
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyAddressStreet = Data.Implementation.OptionHandler.Instance.GetOption("CompanyMainAddress");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyPostalCode = Data.Implementation.OptionHandler.Instance.GetOption("CompanyPostalCode");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyCity = Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyOccupation = Data.Implementation.OptionHandler.Instance.GetOption("CompanyOccupation");
+
+
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.VivaWalletClientId = Data.Implementation.OptionHandler.Instance.GetOption("VivaWalletClientId");
+            Exedron.ProviderInvoicing.InvoiceHandler.Instance.VivaWalletClientSecret = Data.Implementation.OptionHandler.Instance.GetOption("VivaWalletClientSecret");
             
+
         }
 
         private void SignWatcher_Created(object sender, FileSystemEventArgs e)
@@ -203,7 +285,7 @@ namespace ASFuelControl.Windows.Threads
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
                 var invoice = db.Invoices.FirstOrDefault(i => i.InvoiceId == invoiceId);
-                if (invoicingProviderEnabled == false && invoice.InvoiceType.SendToMyData)
+                if (invoicingProviderEnabled || invoice.InvoiceType.SendToMyData)
                 {
                     if (!MyDataSendInvoice(invoice.InvoiceId, 1))
                         return;
@@ -212,9 +294,14 @@ namespace ASFuelControl.Windows.Threads
                 var myDataQrCode = "";
                 if (myDataInvoice != null && myDataInvoice.Errors != null)
                 {
-                    var parms = myDataInvoice.Errors.Split('|');
-                    if (parms.Length > 1)
-                        myDataQrCode = parms[1];
+                    if (string.IsNullOrEmpty(myDataInvoice.QrCodeUrl))
+                    {
+                        var parms = myDataInvoice.Errors.Split('|');
+                        if (parms.Length > 1)
+                            myDataQrCode = parms[1];
+                    }
+                    else
+                        myDataQrCode = myDataInvoice.QrCodeUrl;
                 }
                 if (invoice.InvoiceType.IsLaserPrint.HasValue && invoice.InvoiceType.IsLaserPrint.Value)
                 {
@@ -1952,22 +2039,25 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintToPrinter(Data.DatabaseModel db, Data.Invoice invoice)
         {
-            if (invoicingProviderEnabled == false && invoice.InvoiceType.SendToMyData)
+            if (invoicingProviderEnabled || invoice.InvoiceType.SendToMyData)
             {
                 if (!MyDataSendInvoice(invoice.InvoiceId, 2))
                     return;
-            }
-            else if (invoicingProviderEnabled)
-            {
-
             }
             var myDataInvoice = db.MyDataInvoices.FirstOrDefault(m => m.InvoiceId == invoice.InvoiceId);
             var myDataQrCode = "";
             if (myDataInvoice != null && myDataInvoice.Errors != null)
             {
-                var parms = myDataInvoice.Errors.Split('|');
-                if (parms.Length > 1)
-                    myDataQrCode = parms[1];
+                if (string.IsNullOrEmpty(myDataInvoice.QrCodeUrl))
+                {
+                    var parms = myDataInvoice.Errors.Split('|');
+                    if (parms.Length > 1)
+                        myDataQrCode = parms[1];
+                }
+                else
+                {
+                    myDataQrCode = myDataInvoice.QrCodeUrl;
+                }
             }
             //if(invoice.InvoiceType.TransactionType == 1
             if (windowsPrint)
@@ -2153,7 +2243,7 @@ namespace ASFuelControl.Windows.Threads
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
                 var invoice = db.Invoices.FirstOrDefault(i => i.InvoiceId == invoiceId);
-                if (invoicingProviderEnabled == false && invoice.InvoiceType.SendToMyData)
+                if (invoicingProviderEnabled || invoice.InvoiceType.SendToMyData)
                 {
                     if (!MyDataSendInvoice(invoice.InvoiceId, 3))
                         return;
@@ -2166,9 +2256,16 @@ namespace ASFuelControl.Windows.Threads
                 var myDataQrCode = "";
                 if (myDataInvoice != null && myDataInvoice.Errors != null)
                 {
-                    var parms = myDataInvoice.Errors.Split('|');
-                    if (parms.Length > 1)
-                        myDataQrCode = parms[1];
+                    if (string.IsNullOrEmpty(myDataInvoice.QrCodeUrl))
+                    {
+                        var parms = myDataInvoice.Errors.Split('|');
+                        if (parms.Length > 1)
+                            myDataQrCode = parms[1];
+                    }
+                    else
+                    {
+                        myDataQrCode = myDataInvoice.QrCodeUrl;
+                    }
                 }
                 if (invoice.InvoiceType.IsInternal.HasValue && invoice.InvoiceType.IsInternal.Value)
                 {
@@ -2479,6 +2576,7 @@ namespace ASFuelControl.Windows.Threads
                             payType = 5;
                             break;
                         case Common.Enumerators.PaymentTypeEnum.CreditCard:
+                        case Common.Enumerators.PaymentTypeEnum.IRIS:
                             payType = 1;
                             break;
                     }
@@ -2679,23 +2777,17 @@ namespace ASFuelControl.Windows.Threads
         {
             string sign = "";
             string qrData = "";
-            if (invoicingProviderEnabled)
+            if (invoice.Number == 0)
             {
-                ApplySign(db, sign, qrData, invoice.InvoiceId, "Invoice");
+                invoice.Number = invoice.InvoiceType.LastNumber + 1;
+                invoice.Series = invoice.InvoiceType.DefaultSeries == null ? "" : invoice.InvoiceType.DefaultSeries;
+                invoice.InvoiceType.LastNumber = invoice.Number;
+                db.SaveChanges();
             }
+            if (invoicingProviderEnabled)
+                ApplySign(db, sign, qrData, invoice.InvoiceId, "Invoice");
             else
             {
-                //string fileName = string.Format(this.signFolder + "\\{0}.txt", invoice.InvoiceId);
-                //if (System.IO.File.Exists(fileName))
-                //    return;
-                if (invoice.Number == 0)
-                {
-                    invoice.Number = invoice.InvoiceType.LastNumber + 1;
-                    invoice.Series = invoice.InvoiceType.DefaultSeries == null ? "" : invoice.InvoiceType.DefaultSeries;
-                    invoice.InvoiceType.LastNumber = invoice.Number;
-                    db.SaveChanges();
-                }
-
                 List<string> lines = new List<string>(this.CreateInvoiceText(db, invoice));
 
                 var req = CreateInvoiceRequest(invoice);
@@ -3391,42 +3483,67 @@ namespace ASFuelControl.Windows.Threads
                 try
                 {
                     string msg = "";
-                    var invoice = InvoiceHelper.CreateInvoice(db, invoiceId, out msg);
-                    if (invoice == null)
+                    if (!invoicingProviderEnabled)
                     {
-                        if (myDataEntry == null)
+                        var invoice = InvoiceHelper.CreateInvoice(db, invoiceId, out msg);
+                        if (invoice == null)
                         {
-                            myDataEntry = new Data.MyDataInvoice();
-                            myDataEntry.MyDataInvoiceId = Guid.NewGuid();
-                            db.Add(myDataEntry);
+                            if (myDataEntry == null)
+                            {
+                                myDataEntry = new Data.MyDataInvoice();
+                                myDataEntry.MyDataInvoiceId = Guid.NewGuid();
+                                db.Add(myDataEntry);
+                            }
+                            myDataEntry.DateTimeSent = DateTime.Now;
+                            myDataEntry.Status = -1;
+                            myDataEntry.Data = "";
+                            myDataEntry.Errors = printMode.ToString() + "|" + msg;
+                            myDataEntry.InvoiceId = invoiceId;
+                            db.SaveChanges();
+                            return false;
                         }
-                        myDataEntry.DateTimeSent = DateTime.Now;
-                        myDataEntry.Status = -1;
-                        myDataEntry.Data = "";
-                        myDataEntry.Errors = printMode.ToString() + "|" + msg;
-                        myDataEntry.InvoiceId = invoiceId;
-                        db.SaveChanges();
-                        return false;
-                    }
-                    Exedron.MyData.InvoiceModels.InvoiceDoc doc = new Exedron.MyData.InvoiceModels.InvoiceDoc();
-                    doc.Invoices = new Exedron.MyData.Interfaces.IInvoice[] { invoice };
-                    string xml = doc.AsXml();
+                        Exedron.MyData.InvoiceModels.InvoiceDoc doc = new Exedron.MyData.InvoiceModels.InvoiceDoc();
+                        doc.Invoices = new Exedron.MyData.Interfaces.IInvoice[] { invoice };
+                        string xml = doc.AsXml();
 
-                    if(dbInvoice.InvoiceType.OfficialEnumerator == 158)
-                    {
-                        xml = xml.Replace("<currency>", "");
-                        xml = xml.Replace("</currency>", "");
-                        xml = xml.Replace("<paymentMethods>", "");
-                        xml = xml.Replace("</paymentMethods>", "");
+                        if (dbInvoice.InvoiceType.OfficialEnumerator == 158)
+                        {
+                            xml = xml.Replace("<currency>", "");
+                            xml = xml.Replace("</currency>", "");
+                            xml = xml.Replace("<paymentMethods>", "");
+                            xml = xml.Replace("</paymentMethods>", "");
+                        }
+                        else
+                        {
+                            xml = xml.Replace("<movePurpose>1</movePurpose>", "");
+                        }
+
+                        xml = xml.Replace("<deductionsAmount>0.00</deductionsAmount>", "");
+
+                        return SendInvoice(db, invoiceId, xml, printMode);
                     }
                     else
                     {
-                        xml = xml.Replace("<movePurpose>1</movePurpose>", "");
+                        Exedron.ProviderInvoicing.InvoiceModel invoice = InvoiceHelper.CreateProviderInvoice(db, invoiceId, out msg);
+                        if (invoice == null)
+                        {
+                            if (myDataEntry == null)
+                            {
+                                myDataEntry = new Data.MyDataInvoice();
+                                myDataEntry.MyDataInvoiceId = Guid.NewGuid();
+                                db.Add(myDataEntry);
+                            }
+                            myDataEntry.DateTimeSent = DateTime.Now;
+                            myDataEntry.Status = -1;
+                            myDataEntry.Data = "";
+                            myDataEntry.Errors = printMode.ToString() + "|" + msg;
+                            myDataEntry.InvoiceId = invoiceId;
+                            db.SaveChanges();
+                            Common.Logger.Instance.Error("Σφαλμα αποστολής παραστατικού: " +  msg);
+                            return false;
+                        }
+                        return SendInvoice(db, invoiceId, invoice, printMode);
                     }
-
-                    xml = xml.Replace("<deductionsAmount>0.00</deductionsAmount>", "");
-
-                    return SendInvoice(db, invoiceId, xml, printMode);
                 }
                 catch(Exception ex)
                 {
@@ -3467,31 +3584,6 @@ namespace ASFuelControl.Windows.Threads
             var myDataUrl = Data.Implementation.OptionHandler.Instance.GetOption("MyDataUrl", "https://mydata-dev.azure-api.net");
 
             var invoice = db.Invoices.FirstOrDefault(i => i.InvoiceId == invoiceId);
-            //if(invoice.InvoiceType.IsCancelation.HasValue && invoice.InvoiceType.IsCancelation.Value)
-            //{
-            //    var parentInvoices = invoice.ParentInvoiceRelations.Select(s => s.ParentInvoice).ToArray();
-            //    var noDateInvoice = parentInvoices.FirstOrDefault(s => s.TransactionDate.Date != invoice.TransactionDate.Date);
-            //    if (noDateInvoice == null && parentInvoices.Length > 0)
-            //    {
-            //        //foreach (var parInvoice in parentInvoices)
-            //        //{
-            //        //    var parMyDataInvoice = db.MyDataInvoices.FirstOrDefault(m => m.InvoiceId == parInvoice.InvoiceId);
-            //        //    if (parMyDataInvoice != null)
-            //        //    {
-            //        //        CancelInvoice(db, parMyDataInvoice);
-            //        //    }
-            //        //}
-            //        var mdCancelInvoice = new Data.MyDataInvoice();
-            //        mdCancelInvoice.MyDataInvoiceId = Guid.NewGuid();
-            //        mdCancelInvoice.InvoiceId = invoice.InvoiceId;
-            //        mdCancelInvoice.DateTimeSent = DateTime.Now;
-            //        mdCancelInvoice.Status = 4;
-            //        db.Add(mdCancelInvoice);
-            //        db.SaveChanges();
-            //        return;
-            //    }
-            //}
-
             Guid mdInvoiceId = Guid.NewGuid();
 
             Data.MyDataInvoice mdInvoice = db.MyDataInvoices.FirstOrDefault(d => d.InvoiceId == invoiceId);
@@ -3518,6 +3610,7 @@ namespace ASFuelControl.Windows.Threads
                     mdInvoice.Uid = resp.response.invoiceUid;
                     mdInvoice.Mark = (long)resp.response.invoiceMark.Value;
                     mdInvoice.Errors = printMode.ToString() + "|" + resp.response.qrUrl;
+                    mdInvoice.QrCodeUrl = resp.response.qrUrl;
                     mdInvoice.Status = 3;
                 }
                 else if (resp.response.errors != null)
@@ -3537,7 +3630,71 @@ namespace ASFuelControl.Windows.Threads
                 return true;
             return false;
         }
+        private static bool SendInvoice(Data.DatabaseModel db, Guid invoiceId, Exedron.ProviderInvoicing.InvoiceModel inv, int printMode)
+        {
+            var myDataEnabled = Data.Implementation.OptionHandler.Instance.GetBoolOption("MyDataIsActive", false);
+            if (!myDataEnabled)
+                return true;
+            var serializer = new XmlSerializer(typeof(Exedron.ProviderInvoicing.InvoiceModel));
+            string xml = "";
+            using (var sw = new StringWriter())
+            {
+                serializer.Serialize(sw, inv);
+                xml = sw.ToString();
+            }
 
+
+            var invoice = db.Invoices.FirstOrDefault(i => i.InvoiceId == invoiceId);
+            Guid mdInvoiceId = Guid.NewGuid();
+
+            Data.MyDataInvoice mdInvoice = db.MyDataInvoices.FirstOrDefault(d => d.InvoiceId == invoiceId);
+            if (mdInvoice == null)
+            {
+                mdInvoice = new Data.MyDataInvoice();
+                mdInvoice.MyDataInvoiceId = mdInvoiceId;
+                db.Add(mdInvoice);
+            }
+            mdInvoice.DateTimeSent = DateTime.Now;
+            mdInvoice.Status = 0;
+            mdInvoice.Data = xml;
+            mdInvoice.InvoiceId = invoiceId;
+            db.SaveChanges();
+
+            var resp = Exedron.ProviderInvoicing.InvoiceHandler.Instance.SendInvoice(inv);
+
+            if (resp != null)
+            {
+                mdInvoice.DateTimeSent = DateTime.Now;
+                if (!resp.HasErrors && !string.IsNullOrEmpty(resp.Uid))
+                {
+                    string errors = string.Join("\r\n", (resp.Errors.Union(resp.Warnings).Select(e => e)));
+                    mdInvoice.Uid = resp.Uid;
+                    mdInvoice.Mark = long.Parse(resp.Mark);
+                    mdInvoice.Errors = printMode.ToString() + "|" + errors;// resp.Url;
+                    mdInvoice.VerificationHash = resp.VerificationHash;
+                    mdInvoice.QrCodeUrl = resp.QrCodeUrl;
+                    mdInvoice.ProviderUrl = resp.ProviderUrl;
+                    mdInvoice.InvoiceUrl = resp.InvoiceUrl;
+                    invoice.InvoiceSignature = string.Format("{0} {1} {2}", resp.Mark, resp.Uid, resp.VerificationHash);// resp.InvoiceSignature;
+                    mdInvoice.Status = 3;
+                }
+                else if (resp.HasErrors)
+                {
+                    mdInvoice.Status = -1;
+                    mdInvoice.Errors = printMode.ToString() + "|" + string.Join("\r\n", resp.Errors.Select(e => e));
+                }
+            }
+            else
+            {
+                mdInvoice.DateTimeSent = DateTime.Now;
+                mdInvoice.Status = 0;
+                mdInvoice.Errors = mdInvoice.Errors = printMode.ToString() + "|" + "No response";
+            }
+            db.SaveChanges();
+            if (mdInvoice.Status == 3)
+                return true;
+            return false;
+        }
         //private static void ResendInvoice(Guid mdInvoiceId)
         //{
         //    var myDataEnabled = Data.Implementation.OptionHandler.Instance.GetBoolOption("MyDataIsActive", false);
@@ -3751,8 +3908,7 @@ namespace ASFuelControl.Windows.Threads
                         var dbParent = it.ParentInvoice;
                         if (!dbParent.InvoiceType.SendToMyData)
                         {
-                            errorMessage = "Parent's InvoiceType SendToMyData flag is set to false";
-                            return null;
+                            continue;
                         }
                         isRetail = !wholeSaleCodes.Contains(dbParent.InvoiceType.OfficialEnumerator);
                         Common.Logger.Instance.CurrentLogger.Debug(string.Format("Invoice {0} isRetail = {1}", dbParent.InvoiceId, isRetail));
@@ -3761,8 +3917,7 @@ namespace ASFuelControl.Windows.Threads
                         {
                             if (!invToCancel.Mark.HasValue)
                             {
-                                errorMessage = "Invoice to cancel has no Mark";
-                                return null;
+                                continue;
                             }
                             
                             corInvoices.Add(invToCancel.Mark.Value);
@@ -3770,8 +3925,6 @@ namespace ASFuelControl.Windows.Threads
                     }
                 }
             }
-
-
 
             Exedron.MyData.InvoiceModels.Invoice inv = new Exedron.MyData.InvoiceModels.Invoice();
             
@@ -3843,7 +3996,7 @@ namespace ASFuelControl.Windows.Threads
                 invHeader.OtherDeliveryNoteHeader.LoadingAddress = inv.Issuer.Address;
                 invHeader.OtherDeliveryNoteHeader.DeliveryAddress = inv.CounterPart.Address;
             }
-
+            
             invHeader.AA = invoice.Number.ToString();
             invHeader.Currency = "EUR";
             if (isDelivery)
@@ -4050,6 +4203,354 @@ namespace ASFuelControl.Windows.Threads
             inv.InvoiceDetails = rows.ToArray();
             errorMessage = "";
             return inv;
+        }
+        public static Exedron.ProviderInvoicing.InvoiceModel CreateProviderInvoice(Data.DatabaseModel db, Guid invoiceId, out string errorMessage)
+        {
+            PrintAgent.SetInvoicingParameters();
+            if (Exedron.ProviderInvoicing.InvoiceHandler.Instance.Errors.Length > 0)
+            {
+                errorMessage = string.Join(",", Exedron.ProviderInvoicing.InvoiceHandler.Instance.Errors);
+                return null;
+            }
+            List<int> wholeSaleCodes = new List<int>();
+            foreach (var wsc in Properties.Settings.Default.WholeSaleCodes)
+            {
+                wholeSaleCodes.Add(int.Parse(wsc));
+            }
+            
+            var invoice = db.Invoices.FirstOrDefault(i => i.InvoiceId == invoiceId);
+            //if (RecalculateInvoicePrices(invoice, invoice.InvoiceLines.ToArray()))
+            //    db.SaveChanges();
+            var invoceItems = invoice.InvoiceLines;
+            var invType = invoice.InvoiceType;
+            bool isService = false;
+            bool isCanceling = invType.IsCancelation.HasValue && invType.IsCancelation.Value;
+            bool isRetail = !wholeSaleCodes.Contains(invType.OfficialEnumerator);
+            List<long> corInvoices = new List<long>();
+            string corInvoice = null;
+            //if (isCanceling)
+            //{
+            var invTrans = invoice.ParentInvoiceRelations.ToArray();
+            if (invTrans != null)
+            {
+                foreach (var it in invTrans)
+                {
+                    var dbParent = it.ParentInvoice;
+                    var cancelInvType = GetInvoiceTypeContext(dbParent);
+                    var myDataCanInvoice = db.MyDataInvoices.FirstOrDefault(mi => mi.InvoiceId == dbParent.InvoiceId);
+                    if(string.IsNullOrEmpty(corInvoice))
+                        corInvoice = string.Format("{0:dd/MM/yyyy}|{1}|{2}|{3}|{4}", 
+                            dbParent.TransactionDate, Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyBranch, cancelInvType, dbParent.Series, dbParent.Number);
+                    if(myDataCanInvoice != null && myDataCanInvoice.Mark.HasValue)
+                        corInvoices.Add(myDataCanInvoice.Mark.Value);
+                }
+            }
+            //}
+
+            Exedron.ProviderInvoicing.InvoiceModel inv = new Exedron.ProviderInvoicing.InvoiceModel();
+
+            bool vatExemption = false;
+            if (invoice.Trader != null && invoice.Trader.VatExemption.HasValue && invoice.Trader.VatExemption.Value)
+            {
+                vatExemption = true;
+            }
+            string country = "GR";
+            if (invoice.Trader != null && !string.IsNullOrEmpty(invoice.Trader.Country))
+            {
+                country = invoice.Trader.Country;
+            }
+            else
+            {
+                if (invoice.Trader != null && !char.IsDigit(invoice.Trader.TaxRegistrationNumber[0]))
+                {
+                    country = "";
+                }
+            }
+            bool isGreece = false;
+            bool isEu = false;
+            if (country == "GR")
+                isGreece = true;
+            else
+            {
+                //vatExemption = true;
+                isGreece = false;
+                isEu = Data.Implementation.Country.IsEuCountry(country);
+            }
+
+            inv.Issuer = new Exedron.ProviderInvoicing.Trader();
+            inv.Issuer.Country = "GR";
+            inv.Issuer.Name = Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyName;
+            inv.Issuer.VATNumber = Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyVAT;
+            inv.Issuer.Branch = Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyBranch;
+            inv.Issuer.Email = Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyEmail;
+            inv.Issuer.TaxOffice = Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyTaxOffice;
+            inv.Issuer.Job = Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyOccupation;
+            inv.Issuer.Phone = Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyPhone;
+            inv.Issuer.Address = new Exedron.ProviderInvoicing.Address();
+            inv.Issuer.Address.Street = Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyAddressStreet;
+            inv.Issuer.Address.ReplaceNumber();
+            inv.Issuer.Address.PostalCode = Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyPostalCode;
+            inv.Issuer.Address.City = Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyCity;
+            //inv.Issuer.Email
+
+            bool isDelivery = (new int[] { 158, 159 }).Contains(invoice.InvoiceType.OfficialEnumerator);
+            if (!isRetail || isDelivery)
+            {
+                //country = invoice.Trader.Country;
+                inv.CounterPart = new Exedron.ProviderInvoicing.Trader();
+                inv.CounterPart.Country = country;
+                inv.CounterPart.VATNumber = invoice.Trader.TaxRegistrationNumber.Trim();
+                inv.CounterPart.Email = string.IsNullOrEmpty(invoice.Trader.Email) ? inv.Issuer.Email : invoice.Trader.Email;
+                inv.CounterPart.TaxOffice = invoice.Trader.TaxRegistrationOffice;
+                inv.CounterPart.Job = invoice.Trader.Occupation;
+                inv.CounterPart.Phone = invoice.Trader.Phone1;
+                //if (!isGreece || isDelivery)
+                //{
+                Data.CompanyData company = new Data.CompanyData();
+                inv.Issuer.KeepName = isDelivery;
+                inv.Issuer.Name = company.CompanyName;
+                inv.Issuer.Address = new Exedron.ProviderInvoicing.Address();
+                inv.Issuer.Address.City = company.CompanyCity;
+                inv.Issuer.Address.PostalCode = company.CompanyPostalCode;
+                inv.Issuer.Address.Street = company.CompanyAddress.Replace("&", "&amp;");
+                ((Exedron.ProviderInvoicing.Address)inv.Issuer.Address).ReplaceNumber();
+
+                inv.CounterPart.KeepName = isDelivery;
+                inv.CounterPart.Name = invoice.Trader.Name;
+                inv.CounterPart.Address = new Exedron.ProviderInvoicing.Address();
+                inv.CounterPart.Address.City = invoice.Trader.City;
+                inv.CounterPart.Address.PostalCode = invoice.Trader.ZipCode;
+                inv.CounterPart.Address.Street = invoice.Trader.Address.Replace("&", "&amp;");
+                ((Exedron.ProviderInvoicing.Address)inv.CounterPart.Address).ReplaceNumber();
+                //}
+            }
+            Exedron.ProviderInvoicing.InvoiceHeader invHeader = new Exedron.ProviderInvoicing.InvoiceHeader();
+            if (!string.IsNullOrEmpty(corInvoice))
+                invHeader.CorrelatedInvoice = corInvoice;
+            invHeader.AA = invoice.Number.ToString();
+            invHeader.Currency = "EUR";
+            if (isDelivery)
+            {
+                invHeader.Currency = "";
+                invHeader.DeliveryNote = true;
+            }
+            invHeader.IssueDate = invoice.TransactionDate;
+            invHeader.FuelInvoice = invoice.InvoiceLines.Any(i => i.FuelTypeName != "");
+            var ctxInvType = Exedron.ProviderInvoicing.Resolvers.InvoiceTypeResolver.Resolve(new Exedron.ProviderInvoicing.Resolvers.InvoiceContext()
+            {
+                CorInvoicesCount = corInvoices.Count,
+                CounterPartVatMatches = false,
+                IsCanceling = isCanceling,
+                IsDelivery = isDelivery,
+                IsEu = isEu,
+                IsGreece = isGreece,
+                IsRetail = isRetail,
+                IsService = isService
+            });
+            invHeader.InvoiceType = ctxInvType;
+            
+            
+            if (isDelivery)
+            {
+                invHeader.OtherDeliveryNoteHeader = new Exedron.ProviderInvoicing.OtherDeliveryNoteHeader();
+                if(ctxInvType == "1.1")
+                    invHeader.OtherDeliveryNoteHeader.IsDeliveryNote = true;
+                invHeader.OtherDeliveryNoteHeader.LoadingAddress = inv.Issuer.Address;
+                invHeader.OtherDeliveryNoteHeader.DeliveryAddress = inv.CounterPart.Address;
+            }
+
+            if (invHeader.InvoiceType == "5.1" && corInvoices != null && corInvoices.Count > 0)
+                invHeader.CorrelatedInvoices = corInvoices.ToArray();
+            if (invHeader.InvoiceType == "1.1" && corInvoices != null && corInvoices.Count > 0)
+                invHeader.CorrelatedInvoices = corInvoices.ToArray();
+            if (!string.IsNullOrEmpty(corInvoice))
+                invHeader.CorrelatedInvoice = corInvoice;
+
+            if (invoice.Vehicle != null)
+            {
+                if (invoice.Vehicle.PlateNumber != null && invoice.Vehicle.PlateNumber.Length > 0)
+                {
+                    if (invoice.Vehicle.PlateNumber.Length > 6 && invoice.Vehicle.PlateNumber.Length < 15)
+                    {
+                        if (invoice.Vehicle.PlateNumber.Where(a => char.IsDigit(a)).Count() > 0)
+                            invHeader.VehicleNumber = invoice.Vehicle.PlateNumber;
+                    }
+                }
+            }
+
+            invHeader.MovePurpose = Exedron.ProviderInvoicing.MovePurposeEnum.Sales;
+            invHeader.Series = string.IsNullOrEmpty(invoice.Series) ? "" : invoice.Series;
+            inv.InvoiceHeader = invHeader;
+
+            if (!isDelivery)
+            {
+                Exedron.ProviderInvoicing.PaymentMethod payment = new Exedron.ProviderInvoicing.PaymentMethod();
+                payment.Amount = invoice.TotalAmount.Value;
+                if (invoice.PaymentType.HasValue && invoice.PaymentType.Value == 0)
+                    payment.Type = Exedron.ProviderInvoicing.PaymentMethodEnum.Credit;
+                else if (invoice.PaymentType.HasValue && invoice.PaymentType.Value == 1)
+                    payment.Type = Exedron.ProviderInvoicing.PaymentMethodEnum.Cash;
+                else if(invoice.PaymentType.HasValue && invoice.PaymentType.Value == 4)
+                    payment.Type = Exedron.ProviderInvoicing.PaymentMethodEnum.IRIS;
+                else if (invoice.PaymentType.HasValue && invoice.PaymentType.Value == 2)
+                    payment.Type = Exedron.ProviderInvoicing.PaymentMethodEnum.POS;
+                else
+                    payment.Type = Exedron.ProviderInvoicing.PaymentMethodEnum.Cash;
+                inv.PaymentMethods = new Exedron.ProviderInvoicing.PaymentMethod[] { payment };
+            }
+            Exedron.ProviderInvoicing.InvoiceSummary summary = new Exedron.ProviderInvoicing.InvoiceSummary();
+            if (!isDelivery)
+            {
+                summary.TotalGrossValue = invoice.TotalAmount.Value;
+                summary.TotalNetValue = invoice.TotalAmount.Value - invoice.VatAmount.Value;// invoice.NettoAmount.Value;
+                summary.TotalVATAmount = invoice.VatAmount.Value;
+            }
+            else
+            {
+                summary.TotalGrossValue = 0;
+                summary.TotalNetValue = 0;
+                summary.TotalVATAmount = 0;
+            }
+            inv.InvoiceSummary = summary;
+
+
+            List<Exedron.ProviderInvoicing.InvoiceDetail> rows = new List<Exedron.ProviderInvoicing.InvoiceDetail>();
+            foreach (var line in invoceItems)
+            {
+                Exedron.ProviderInvoicing.InvoiceDetail row1 = new Exedron.ProviderInvoicing.InvoiceDetail();
+                if (vatExemption && isGreece)
+                {
+                    if (line.VatPercentage == 0)
+                    {
+                        row1.VATExemptionCategory = Exedron.ProviderInvoicing.VATExemptionCategoryEnum.Article27;
+                        invHeader.VATPaymentSuspension = true;
+                    }
+                    row1.VATInvoicingCategory = Exedron.ProviderInvoicing.VATInvoicingCategoryEnum.Excemption;
+                }
+                else
+                {
+                    if (!isGreece)
+                        row1.VATInvoicingCategory = Exedron.ProviderInvoicing.VATInvoicingCategoryEnum.Export;
+                    if(line.VatPercentage == 0)
+                        row1.VATInvoicingCategory = Exedron.ProviderInvoicing.VATInvoicingCategoryEnum.Zero;
+                }
+                row1.LineNumber = rows.Count + 1;
+                if (isService)
+                {
+                    row1.MeasurementUnit = Exedron.ProviderInvoicing.MeasurementUnitEnum.None;
+                    row1.Quantity = 0;
+                }
+                else
+                {
+                    row1.MeasurementUnit = Exedron.ProviderInvoicing.MeasurementUnitEnum.Items;
+                    row1.Quantity = line.Volume;
+                    if (invHeader.FuelInvoice)
+                    {
+                        row1.MeasurementUnit = Exedron.ProviderInvoicing.MeasurementUnitEnum.Liters;
+                        row1.FuelCode = line.FuelType.EnumeratorValue.ToString();
+                        //row1.Quantity15 = line.VolumeNormalized;
+                    }
+                }
+                if (!isDelivery)
+                {
+                    row1.NetValue = line.TotalPrice - line.VatAmount;
+                    row1.VATAmount = line.VatAmount;
+                    row1.VATCategory = Exedron.ProviderInvoicing.InvoiceDetail.GetVATCategory(line.VatPercentage);
+                }
+                else
+                {
+                    row1.NetValue = 0;
+                    row1.VATAmount = 0;
+                    row1.VATCategory = Exedron.ProviderInvoicing.VATCategoryEnum.NoVATEntry;
+                    row1.VATInvoicingCategory = Exedron.ProviderInvoicing.VATInvoicingCategoryEnum.Zero;
+                }
+                if (!isGreece && row1.VATAmount == 0)
+                {
+                    row1.VATCategory = Exedron.ProviderInvoicing.VATCategoryEnum.NoVAT;
+                    if (isEu)
+                        row1.VATExemptionCategory = Exedron.MyData.Interfaces.VATExemptionCategoryEnum.Article28;
+                    else
+                        row1.VATExemptionCategory = Exedron.MyData.Interfaces.VATExemptionCategoryEnum.Article24;
+                }
+                row1.IncomeClassification = new Exedron.ProviderInvoicing.IncomeClassification();
+                row1.IncomeClassification.Amount = row1.NetValue;
+
+                var ctxIncClass = Exedron.ProviderInvoicing.Resolvers.IncomeClassificationResolver.Resolve(new Exedron.ProviderInvoicing.Resolvers.InvoiceContext()
+                {
+                    CorInvoicesCount = 0,
+                    CounterPartVatMatches = false,
+                    IsCanceling = isCanceling,
+                    IsDelivery = isDelivery,
+                    IsEu = isEu,
+                    IsGreece = isGreece,
+                    IsRetail = isRetail,
+                    IsService = isService
+                });
+
+                
+                row1.ItemDescription = line.FuelType.Name;
+                row1.ItemCode = line.FuelType.EnumeratorValue.ToString();
+                
+
+                row1.IncomeClassification.ClassificationCategory = ctxIncClass.Category;
+                row1.IncomeClassification.ClassificationType = ctxIncClass.Type;
+                
+                rows.Add(row1);
+            }
+            inv.InvoiceDetails = rows.ToArray();
+            errorMessage = "";
+            return inv;
+        }
+        public static string GetInvoiceTypeContext(Data.Invoice invoice)
+        {
+            List<int> wholeSaleCodes = new List<int>();
+            foreach (var wsc in Properties.Settings.Default.WholeSaleCodes)
+            {
+                wholeSaleCodes.Add(int.Parse(wsc));
+            }
+            var invType = invoice.InvoiceType;
+            bool isService = false;
+            bool isCanceling = invType.IsCancelation.HasValue && invType.IsCancelation.Value;
+            bool isRetail = !wholeSaleCodes.Contains(invType.OfficialEnumerator);
+
+            string country = "GR";
+            if (invoice.Trader != null && !string.IsNullOrEmpty(invoice.Trader.Country))
+            {
+                country = invoice.Trader.Country;
+            }
+            else
+            {
+                if (invoice.Trader != null && !char.IsDigit(invoice.Trader.TaxRegistrationNumber[0]))
+                {
+                    country = "";
+                }
+            }
+            bool isGreece = false;
+            bool isEu = false;
+            if (country == "GR")
+                isGreece = true;
+            else
+            {
+                //vatExemption = true;
+                isGreece = false;
+                isEu = Data.Implementation.Country.IsEuCountry(country);
+            }
+
+            
+            bool isDelivery = (new int[] { 158, 159 }).Contains(invoice.InvoiceType.OfficialEnumerator);
+            
+            var ctxInvType = Exedron.ProviderInvoicing.Resolvers.InvoiceTypeResolver.Resolve(new Exedron.ProviderInvoicing.Resolvers.InvoiceContext()
+            {
+                CorInvoicesCount = isCanceling ? 1 : 0,
+                CounterPartVatMatches = false,
+                IsCanceling = isCanceling,
+                IsDelivery = isDelivery,
+                IsEu = isEu,
+                IsGreece = isGreece,
+                IsRetail = isRetail,
+                IsService = isService
+            });
+            return ctxInvType;
         }
     }
 
