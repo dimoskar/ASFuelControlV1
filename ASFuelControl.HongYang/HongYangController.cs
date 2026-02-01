@@ -26,9 +26,9 @@ namespace ASFuelControl.HongYang
         private System.Threading.Thread th;
 
         public Common.DebugValues foo = new Common.DebugValues();
-        public DispenserClient Client 
-        { 
-            get { return this.client; } 
+        public DispenserClient Client
+        {
+            get { return this.client; }
         }
         public Common.FuelPoint[] FuelPoints
         {
@@ -252,6 +252,20 @@ namespace ASFuelControl.HongYang
                                     {
                                         fp.DispensedAmount = amount / (decimal)System.Math.Pow(10, fp.AmountDecimalPlaces);
                                         fp.DispensedVolume = volume / (decimal)System.Math.Pow(10, fp.VolumeDecimalPlaces);
+                                        if (this.DataChanged != null)
+                                        {
+                                            Common.FuelPointValues values = new Common.FuelPointValues();
+                                            values.CurrentSalePrice = fp.ActiveNozzle.UnitPrice;
+                                            values.CurrentPriceTotal = fp.DispensedAmount;
+                                            values.CurrentVolume = fp.DispensedVolume;
+
+                                            this.DataChanged(this, new Common.FuelPointValuesArgs()
+                                            {
+                                                CurrentFuelPoint = fp,
+                                                CurrentNozzleId = fp.ActiveNozzle.Index,
+                                                Values = values
+                                            });
+                                        }
                                     }
                                 }
                                 else
@@ -261,7 +275,7 @@ namespace ASFuelControl.HongYang
                                     {
                                         if (fp.QueryAuthorize)
                                         {
-                                            if(client.AuthorizeDispenser((byte)fp.Address) == Common.Enumerators.FuelPointStatusEnum.Work)
+                                            if (client.AuthorizeDispenser((byte)fp.Address) == Common.Enumerators.FuelPointStatusEnum.Work)
                                             {
                                                 fp.QueryAuthorize = false;
                                                 System.Threading.Thread.Sleep(50);
@@ -282,7 +296,7 @@ namespace ASFuelControl.HongYang
                                         }
                                     }
                                 }
-                                
+
                                 if (status == Common.Enumerators.FuelPointStatusEnum.Idle)
                                 {
                                     if (fp.QuerySetPrice)
@@ -290,7 +304,7 @@ namespace ASFuelControl.HongYang
                                         foreach (var nz in fp.Nozzles)
                                         {
                                             diagnostic = "";
-                                            if(client.ChangePrice((byte)fp.Address, nz.UntiPriceInt) != Common.Enumerators.FuelPointStatusEnum.Offline)
+                                            if (client.ChangePrice((byte)fp.Address, nz.UntiPriceInt) != Common.Enumerators.FuelPointStatusEnum.Offline)
                                             {
                                                 fp.QuerySetPrice = false;
                                                 System.Threading.Thread.Sleep(50);
@@ -299,32 +313,31 @@ namespace ASFuelControl.HongYang
                                             {
                                                 Logger.Instance.Error(string.Format("Dispenser Set Price Failed (Address {1}, Channel {2}). Communication Port: {0}. Diagnostic: {3}", this.CommunicationPort, fp.Address, fp.Channel, diagnostic));
                                             }
-                                        }   
+                                        }
                                     }
                                     int nozzleForTotals = fp.Nozzles.Where(n => n.QueryTotals).Count();
                                     if (nozzleForTotals > 0)
                                     {
-                                        //var isOnSale = fp.GetExtendedProperty("IsOnSale");
-                                        //if (isOnSale != null && (bool)isOnSale)
-                                        //{
-                                        //    System.Threading.Thread.Sleep(5000);
-                                        //    fp.SetExtendedProperty("IsOnSale", false);
-                                        //}
                                         foreach (Common.Nozzle nz in fp.Nozzles)
                                         {
                                             if (nz.QueryTotals)
                                             {
-                                                var isOnSale = (bool)fp.GetExtendedProperty("Work", false);
-                                                if (isOnSale && nz.GetTotalsIndex() == 0)
+                                                int amount = 0;
+                                                int volume = 0;
+                                                var dispStatus = client.GetDisplay((byte)nz.ParentFuelPoint.Address, ref amount, ref volume);
+                                                if (dispStatus != Common.Enumerators.FuelPointStatusEnum.Offline)
                                                 {
-                                                    System.Threading.Thread.Sleep(2000);
+                                                    nz.ParentFuelPoint.DispensedAmount = (decimal)amount / (decimal)System.Math.Pow(10, nz.ParentFuelPoint.AmountDecimalPlaces);
+                                                    nz.ParentFuelPoint.DispensedVolume = (decimal)volume / (decimal)System.Math.Pow(10, nz.ParentFuelPoint.VolumeDecimalPlaces);
+                                                    Logger.Instance.Debug(string.Format("Address {0}, Channel {1}) -Dispensed Volume: {2}, Dispensed Amount: {3}",
+                                                        nz.ParentFuelPoint.Address, nz.ParentFuelPoint.Channel, nz.ParentFuelPoint.DispensedVolume, nz.ParentFuelPoint.DispensedAmount));
                                                 }
                                                 if (this.GetTotals(nz))
                                                 {
-                                                    //if (this.TotalsRecieved != null)
-                                                    //{
-                                                    //    this.TotalsRecieved(this, new Common.TotalsEventArgs(fp, nz.Index, nz.TotalVolume, nz.TotalPrice));
-                                                    //}
+                                                    if (this.TotalsRecieved != null)
+                                                    {
+                                                        this.TotalsRecieved(this, new Common.TotalsEventArgs(fp, nz.Index, nz.TotalVolume, nz.TotalPrice));
+                                                    }
                                                     nz.QueryTotals = false;
                                                 }
                                                 System.Threading.Thread.Sleep(50);
@@ -333,10 +346,6 @@ namespace ASFuelControl.HongYang
                                         continue;
                                     }
 
-                                }
-                                if(status == Common.Enumerators.FuelPointStatusEnum.Work)
-                                {
-                                    //fp.SetExtendedProperty("IsOnSale", true);
                                 }
                             }
                         }
@@ -365,7 +374,7 @@ namespace ASFuelControl.HongYang
                 f.ActiveNozzleIndex = 0;
             }
             string diagnostic = "";
-            if(client.AuthorizeDispenser((byte)f.Address) == Common.Enumerators.FuelPointStatusEnum.Offline)
+            if (client.AuthorizeDispenser((byte)f.Address) == Common.Enumerators.FuelPointStatusEnum.Offline)
             {
                 Logger.Instance.Error(string.Format("Dispenser Authorize Failed (Address {1}, Channel {2}). Communication Port: {0}. Diagnostic: {3}", this.CommunicationPort, f.Address, f.Channel, diagnostic));
                 return false;
@@ -407,6 +416,16 @@ namespace ASFuelControl.HongYang
 
         private void SetStatus(FuelPoint fp, Common.Enumerators.FuelPointStatusEnum newStatus)
         {
+            if(newStatus == Common.Enumerators.FuelPointStatusEnum.Error)
+            {
+                int errorCount = (int)fp.GetExtendedProperty("ErrorCount", 0);
+                if(errorCount < 5)
+                {
+                    fp.SetExtendedProperty("ErrorCount", errorCount + 1);
+                    return;
+                }
+            }
+            fp.SetExtendedProperty("ErrorCount", 0);
             var oldStatus = fp.Status;
             fp.Status = newStatus;
             if (newStatus == Common.Enumerators.FuelPointStatusEnum.Idle)
@@ -418,7 +437,7 @@ namespace ASFuelControl.HongYang
             if (this.DispenserStatusChanged != null)
             {
                 Common.FuelPointValues values = new Common.FuelPointValues();
-               
+
                 if (fp.Status != Common.Enumerators.FuelPointStatusEnum.Idle && fp.Status != Common.Enumerators.FuelPointStatusEnum.Offline)
                 {
                     fp.ActiveNozzleIndex = 0;

@@ -77,11 +77,11 @@ namespace ASFuelControl.HongYang
         public Common.Enumerators.FuelPointStatusEnum GetStatus(byte address)
         {
             var responsePackage = SendCommand(address, (byte)(int)CommandCode.Status, null);
+
+            if (responsePackage == null)
+                return Common.Enumerators.FuelPointStatusEnum.Error;
             var stateBytes = new byte[] { responsePackage.State };
             var text = (responsePackage == null ? "null" : BitConverter.ToString(stateBytes, 0));
-            if (responsePackage == null)
-                return Common.Enumerators.FuelPointStatusEnum.Offline;
-
             var status = responsePackage.ParseStatus();
             return status;
         }

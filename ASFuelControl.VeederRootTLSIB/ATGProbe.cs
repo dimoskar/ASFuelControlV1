@@ -50,6 +50,8 @@ namespace ASFuelControl.VeederRootTLSIB
         {
             get
             {
+                if (temperatures.Count == 0)
+                    return 0;
                 return this.temperatures.Average();
             }
             set
