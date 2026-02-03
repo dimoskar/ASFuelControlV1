@@ -96,6 +96,8 @@
     <Compile Include="RequestHelpers.cs" />
     <Content Include="Resources\AddressType.txt" />
     <Compile Include="RequestTransmitted.cs" />
+    <Compile Include="Resolver\DataMapping.cs" />
+    <Compile Include="Resolver\Enumerators.cs" />
     <Compile Include="Settings.cs" />
     <None Include="Resources\OtherDeliveryNoteHeader.txt" />
   </ItemGroup>

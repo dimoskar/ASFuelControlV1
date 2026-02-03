@@ -4304,6 +4304,7 @@ namespace ASFuelControl.Windows.Threads
                 inv.CounterPart.TaxOffice = invoice.Trader.TaxRegistrationOffice;
                 inv.CounterPart.Job = invoice.Trader.Occupation;
                 inv.CounterPart.Phone = invoice.Trader.Phone1;
+                inv.CounterPart.Branch = invoice.Trader.Branch;
                 //if (!isGreece || isDelivery)
                 //{
                 Data.CompanyData company = new Data.CompanyData();

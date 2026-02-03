@@ -1155,8 +1155,8 @@ namespace ASFuelControl.Data
 
                         decimal fillingsVol = qDelivery.Sum(t => t.TankFilling == null ? t.Volume : t.TankFilling.VolumeReal);
                         decimal fillingsVol15 = qDelivery.Sum(t => t.TankFilling == null ? t.VolumeNormalized : t.TankFilling.VolumeRealNormalized);
-                        decimal fillingsRestVol = qOtherIn.Sum(t => t.TankFilling == null ? t.Volume : t.TankFilling.VolumeReal);
-                        decimal fillingsRestVol15 = qOtherIn.Sum(t => t.TankFilling == null ? t.VolumeNormalized : t.TankFilling.VolumeNormalized);
+                        decimal fillingsRestVol = qOtherIn.Sum(t => GetLineVolume(t));
+                        decimal fillingsRestVol15 = qOtherIn.Sum(t => GetLineVolume(t, true));
                         decimal fillingsRestOutVol = qDrain.Sum(t => t.TankFilling == null ? t.Volume : t.TankFilling.VolumeReal);
                         decimal fillingsRestOutVol15 = qDrain.Sum(t => t.TankFilling == null ? t.VolumeNormalized : t.TankFilling.VolumeRealNormalized);
                         decimal invoicedVol = qDelivery.Sum(i => i.Volume);
@@ -1368,6 +1368,23 @@ namespace ASFuelControl.Data
             catch (Exception ex)
             {
                 return null;
+            }
+        }
+        private static decimal GetLineVolume(InvoiceLine invLine, bool normalized = false)
+        {
+            if(invLine.Invoice.InvoiceType.IsCancelation.HasValue && invLine.Invoice.InvoiceType.IsCancelation.Value)
+            {
+                if(normalized)
+                    return invLine.TankFilling == null ? -invLine.VolumeNormalized : -invLine.TankFilling.VolumeNormalized;
+                else
+                    return invLine.TankFilling == null ? -invLine.Volume : -invLine.TankFilling.Volume;
+            }
+            else
+            {
+                if (normalized)
+                    return invLine.TankFilling == null ? invLine.VolumeNormalized : invLine.TankFilling.VolumeNormalized;
+                else
+                    return invLine.TankFilling == null ? invLine.Volume : invLine.TankFilling.Volume;
             }
         }
     }

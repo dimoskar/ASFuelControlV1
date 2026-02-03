@@ -21933,6 +21933,7 @@ namespace ASFuelControl.Data
             configuration.HasProperty(x => x.DeliveryAddress).ToColumn(@"DeliveryAddress").HasFieldName(@"_DeliveryAddress").WithOpenAccessType(OpenAccessType.Varchar).HasColumnType("nvarchar").IsNullable().HasLength(150).IsUnicode();
             configuration.HasProperty(x => x.Country).ToColumn(@"Country").HasFieldName(@"_Country").WithOpenAccessType(OpenAccessType.Varchar).HasColumnType("nvarchar").IsNullable().HasLength(50).IsUnicode();
             configuration.HasProperty(x => x.ZipCode).ToColumn(@"ZipCode").HasFieldName(@"_ZipCode").WithOpenAccessType(OpenAccessType.Varchar).HasColumnType("nvarchar").IsNullable().HasLength(50).IsUnicode();
+			configuration.HasProperty(x => x.Branch).ToColumn(@"Branch").HasFieldName(@"_Branch").WithOpenAccessType(OpenAccessType.Int32).HasColumnType("int").IsNotNullable().HasPrecision(10).HasDefaultValue();		
             configuration.HasAssociation<Vehicle>(x => x.Vehicles).HasFieldName(@"_Vehicles").WithOpposite(op => op.Trader).WithDataAccessKind(DataAccessKind.ReadWrite).HasConstraint((x, y) =>  x.TraderId == y.TraderId);
             configuration.HasAssociation<InvoiceType>(x => x.InvoiceType).HasFieldName(@"_InvoiceType").WithOpposite(op => op.Traders).HasConstraint((x, y) =>  x.InvoiceTypeId == y.InvoiceTypeId).WithDataAccessKind(DataAccessKind.ReadWrite);
             configuration.HasAssociation<PriceList>(x => x.PriceList).HasFieldName(@"_PriceList").WithOpposite(op => op.Traders).HasConstraint((x, y) =>  x.PriceListId == y.PriceListId).WithDataAccessKind(DataAccessKind.ReadWrite);
@@ -24642,6 +24643,10 @@ namespace ASFuelControl.Data
             configuration.HasProperty(x => x.CanceledByMark).ToColumn(@"CanceledByMark").HasFieldName(@"_CanceledByMark").WithOpenAccessType(OpenAccessType.Int64).HasColumnType("bigint").IsNullable().HasPrecision(19);
             configuration.HasProperty(x => x.CancelationMark).ToColumn(@"CancelationMark").HasFieldName(@"_CancelationMark").WithOpenAccessType(OpenAccessType.Int64).HasColumnType("bigint").IsNullable().HasPrecision(19);
             configuration.HasProperty(x => x.Errors).ToColumn(@"Errors").HasFieldName(@"_Errors").WithOpenAccessType(OpenAccessType.Clob).HasColumnType("ntext").IsNullable().HasLength(1073741823).IsUnicode();
+			configuration.HasProperty(x => x.InvoiceUrl).ToColumn(@"InvoiceUrl").HasFieldName(@"_InvoiceUrl").WithOpenAccessType(OpenAccessType.Varchar).HasColumnType("nvarchar").IsNullable().HasLength(500).IsUnicode();
+            configuration.HasProperty(x => x.QrCodeUrl).ToColumn(@"QrCodeUrl").HasFieldName(@"_QrCodeUrl").WithOpenAccessType(OpenAccessType.Varchar).HasColumnType("nvarchar").IsNullable().HasLength(500).IsUnicode();
+            configuration.HasProperty(x => x.VerificationHash).ToColumn(@"VerificationHash").HasFieldName(@"_VerificationHash").WithOpenAccessType(OpenAccessType.Varchar).HasColumnType("nvarchar").IsNullable().HasLength(50).IsUnicode();
+            configuration.HasProperty(x => x.ProviderUrl).ToColumn(@"ProviderUrl").HasFieldName(@"_ProviderUrl").WithOpenAccessType(OpenAccessType.Varchar).HasColumnType("nvarchar").IsNullable().HasLength(255).IsUnicode();
         }
 
         partial void OnPrepareMyDataInvoiceConfigurations(MappingConfiguration<MyDataInvoice> configuration);
