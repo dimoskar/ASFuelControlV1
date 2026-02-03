@@ -1127,6 +1127,7 @@ namespace ASFuelControl.Data
                                       i.Invoice.InvoiceType.IncludeInBalance == true &&
                                       validReturnDeliveryTypes.Contains(i.Invoice.InvoiceType.DeliveryType));
                         var q1Cancel = db.InvoiceLines.Where(i =>
+                                      i.FuelTypeId == tank.FuelTypeId &&
                                       i.Invoice.InvoiceType.IncludeInBalance == true &&
                                       i.Invoice.InvoiceType.DeliveryType.HasValue &&
                                       validReturnDeliveryTypes.Contains(i.Invoice.InvoiceType.DeliveryType) && 
@@ -1146,8 +1147,8 @@ namespace ASFuelControl.Data
 
                         decimal fillingsVol = qDelivery.Sum(t => t.TankFilling.VolumeReal);
                         decimal fillingsVol15 = qDelivery.Sum(t => t.TankFilling.VolumeRealNormalized);
-                        decimal fillingsRestVol = qOtherIn.Sum(t => t.TankFilling.VolumeReal);
-                        decimal fillingsRestVol15 = qOtherIn.Sum(t => t.TankFilling.VolumeRealNormalized);
+                        decimal fillingsRestVol = qOtherIn.Sum(t => GetLineVolume(t));
+                        decimal fillingsRestVol15 = qOtherIn.Sum(t => GetLineVolume(t, true));
                         decimal fillingsRestOutVol = qDrain.Sum(t => t.TankFilling.VolumeReal);
                         decimal fillingsRestOutVol15 = qDrain.Sum(t => t.TankFilling.VolumeRealNormalized);
                         decimal invoicedVol = qDelivery.Sum(i => i.Volume);
@@ -1197,6 +1198,7 @@ namespace ASFuelControl.Data
                         {
                             var transactions = nozzle.SalesTransactions
                                 .Where(s =>
+                                    s.TotalizerStart != s.TotalizerEnd &&
                                     s.Volume >= 0 &&
                                     s.TransactionTimeStamp >= balance.TimeStart &&
                                     s.TransactionTimeStamp <= balance.TimeEnd &&
@@ -1230,7 +1232,7 @@ namespace ASFuelControl.Data
 
                         var allTransactions = ft.Nozzles
                             .SelectMany(n => n.SalesTransactions)
-                            .Where(s => s.TransactionTimeStamp >= balance.TimeStart && s.TransactionTimeStamp <= balance.TimeEnd)
+                            .Where(s => s.TransactionTimeStamp >= balance.TimeStart && s.TransactionTimeStamp <= balance.TimeEnd && s.TotalizerStart != s.TotalizerEnd)
                             .ToList();
 
                         ftc.SumTotalizerDifference = ftc.FuelPumps.Sum(f => f.TotalizerDifference);
@@ -1359,6 +1361,23 @@ namespace ASFuelControl.Data
             catch (Exception ex)
             {
                 return null;
+            }
+        }
+        private static decimal GetLineVolume(InvoiceLine invLine, bool normalized = false)
+        {
+            if (invLine.Invoice.InvoiceType.IsCancelation.HasValue && invLine.Invoice.InvoiceType.IsCancelation.Value)
+            {
+                if (normalized)
+                    return invLine.TankFilling == null ? -invLine.VolumeNormalized : -invLine.TankFilling.VolumeNormalized;
+                else
+                    return invLine.TankFilling == null ? -invLine.Volume : -invLine.TankFilling.Volume;
+            }
+            else
+            {
+                if (normalized)
+                    return invLine.TankFilling == null ? invLine.VolumeNormalized : invLine.TankFilling.VolumeNormalized;
+                else
+                    return invLine.TankFilling == null ? invLine.Volume : invLine.TankFilling.Volume;
             }
         }
     }
