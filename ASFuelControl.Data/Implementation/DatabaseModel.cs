@@ -1127,6 +1127,7 @@ namespace ASFuelControl.Data
                                       i.Invoice.InvoiceType.IncludeInBalance == true &&
                                       validReturnDeliveryTypes.Contains(i.Invoice.InvoiceType.DeliveryType));
                         var q1Cancel = db.InvoiceLines.Where(i =>
+                                      i.FuelTypeId == tank.FuelTypeId &&
                                       i.Invoice.InvoiceType.IncludeInBalance == true &&
                                       i.Invoice.InvoiceType.DeliveryType.HasValue &&
                                       validReturnDeliveryTypes.Contains(i.Invoice.InvoiceType.DeliveryType) && 
@@ -1207,6 +1208,7 @@ namespace ASFuelControl.Data
                             var transactions = nozzle.SalesTransactions
                                 .Where(s =>
                                     s.Volume >= 0 &&
+                                    s.TotalizerStart != s.TotalizerEnd &&
                                     s.TransactionTimeStamp >= balance.TimeStart &&
                                     s.TransactionTimeStamp <= balance.TimeEnd &&
                                     s.InvoiceLines.Any() &&
@@ -1239,7 +1241,7 @@ namespace ASFuelControl.Data
 
                         var allTransactions = ft.Nozzles
                             .SelectMany(n => n.SalesTransactions)
-                            .Where(s => s.TransactionTimeStamp >= balance.TimeStart && s.TransactionTimeStamp <= balance.TimeEnd)
+                            .Where(s => s.TransactionTimeStamp >= balance.TimeStart && s.TransactionTimeStamp <= balance.TimeEnd && s.TotalizerStart != s.TotalizerEnd)
                             .ToList();
 
                         ftc.SumTotalizerDifference = ftc.FuelPumps.Sum(f => f.TotalizerDifference);
@@ -4219,6 +4221,10 @@ namespace ASFuelControl.Data
         public decimal GetTankVolumeNormalized(decimal height)
         {
             return this.FuelType.NormalizeVolume(this.GetTankVolume(height), this.Temperatire, this.CurrentDensity);
+        }
+        public decimal GetTankVolumeNormalized(decimal height, decimal temperature)
+        {
+            return this.FuelType.NormalizeVolume(this.GetTankVolume(height), temperature, this.CurrentDensity);
         }
 
         public TankSaleView GetLastSale()

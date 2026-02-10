@@ -228,14 +228,19 @@ namespace Exedron.ProviderInvoicing
                 ln.fuelCode = string.IsNullOrEmpty(line.FuelCode) ? 0 : int.Parse(line.FuelCode);
                 ln.netValue = (double)line.NetValue;
                 ln.VatCategory = (int)line.VATCategory;
+                if (line.VATCategory == VATCategoryEnum.NoVAT)
+                {
+                    line.VATInvoicingCategory = VATInvoicingCategoryEnum.Excemption;
+                    ln.vatExemptionCategory = (int)line.VATExemptionCategory;
+                }
                 ln.VatAmount = (double)line.VATAmount;
                 ln.classification.Type = line.IncomeClassification.ClassificationType;
                 ln.classification.Category = line.IncomeClassification.ClassificationCategory;
                 ln.lineComments = line.LineComments;
 
                 ln.measurementUnit = (int)line.MeasurementUnit;
-                if (line.VATCategory == VATCategoryEnum.NoVAT || line.VATCategory == VATCategoryEnum.NoVATEntry)
-                    ln.itemDescr = line.ItemDescription;
+                //if (line.VATCategory == VATCategoryEnum.NoVAT || line.VATCategory == VATCategoryEnum.NoVATEntry)
+                //    ln.itemDescr = line.ItemDescription;
                 invoice.lines.Add(ln);
             }
             #endregion
@@ -314,6 +319,7 @@ namespace Exedron.ProviderInvoicing
                 ilydaData.extraDetails.partyCountryCode = "";
                 ilydaData.extraDetails.b2gAddDocs = new List<SendInvoices.B2GDocs>();
                 ilydaData.extraDetails.purchaseOrderReference = "";
+                
                 ilydaData.invoiceLines = new List<SendInvoices.provLine>();
                 foreach (var il in inv.InvoiceDetails)
                 {
@@ -345,7 +351,10 @@ namespace Exedron.ProviderInvoicing
                     invLine.countryOfOrigin = "";
                     invLine.peppolTaxCategory = vatCategory;
                     invLine.peppolMeasurementUnit = "";
-                    invLine.peppolExemptionCode = "";
+                    if (il.VATCategory == VATCategoryEnum.NoVAT)
+                        invLine.peppolExemptionCode = ((int)il.VATExemptionCategory).ToString();
+                    else
+                        invLine.peppolExemptionCode = "";
                     invLine.peppolExemptionText = "";
 
                     invLine.itemClass = new List<SendInvoices.peppolItemClass>();

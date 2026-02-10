@@ -2473,11 +2473,11 @@ namespace ASFuelControl.Windows.Threads
             }
             req.Doc.InvoiceDetails = invDetails;
         }
-        private void BuildInvoiceDetails(Samtec.WebService.Models.Request req, Guid id)
+        private void BuildInvoiceDetails(Samtec.WebService.Models.Request req, Guid id, int invoiceType = 501)
         {
             var invDetails = new Samtec.WebService.Models.Invoicedetails();
             invDetails.InvoiceUID = id.ToString();
-            invDetails.InvoiceType = 501;
+            invDetails.InvoiceType = invoiceType;
             invDetails.PrintDevice = 0;
             invDetails.ReqForToken = 0;
             invDetails.CancelInvType = 0;
@@ -2486,6 +2486,22 @@ namespace ASFuelControl.Windows.Threads
             invDetails.GasStationLicNum = 0;
             invDetails.GasStationInstalNum = 0;
             invDetails.InvWithholdingTaxTotal = 0;
+            req.Doc.InvoiceDetails = invDetails;
+        }
+        private void BuildTankFillingDetails(Samtec.WebService.Models.Request req, Guid id, int invoiceType = 40)
+        {
+            var invDetails = new Samtec.WebService.Models.Invoicedetails();
+            invDetails.InvoiceUID = id.ToString();
+            invDetails.InvoiceType = invoiceType;
+            invDetails.PrintDevice = 0;
+            invDetails.ReqForToken = 0;
+            invDetails.CancelInvType = 0;
+            invDetails.CancelDevDailyNum = 0;
+            invDetails.InvoiceTotal = (float)0;
+            invDetails.GasStationLicNum = 0;
+            invDetails.GasStationInstalNum = 0;
+            invDetails.InvWithholdingTaxTotal = 0;
+            
             req.Doc.InvoiceDetails = invDetails;
         }
         private void BuildTransactionLines(Samtec.WebService.Models.Request req, Data.Invoice invoice)
@@ -2650,16 +2666,92 @@ namespace ASFuelControl.Windows.Threads
             BuildInvoiceDetails(req, titrimetry.TitrimetryId);
             return req;
         }
-        private Samtec.WebService.Models.Request CreateTankFillingRequest(Data.TankFilling tankFilling)
+        private Samtec.WebService.Models.Request CreateTankFillingRequest(Data.DatabaseModel db, Data.TankFilling tankFilling, int invoiceType)
         {
             Samtec.WebService.Models.Request req = new Samtec.WebService.Models.Request();
             req.JobType = "Sign";
             req.InputType = 2;
             req.Doc = new Samtec.WebService.Models.Doc();
-            BuildInvoiceDetails(req, tankFilling.TankFillingId);
+            req.AtxtContent = GenerateTankFillingContext(db, tankFilling);
+            BuildTankFillingDetails(req, tankFilling.TankFillingId, invoiceType);
             return req;
         }
+        public static string GenerateTankFillingContext(Data.DatabaseModel db, Data.TankFilling tf)
+        {
+            System.Globalization.CultureInfo gr = new System.Globalization.CultureInfo("el-GR");
 
+            Func<DateTime, string> dt = d => d.ToString("dd-MM-yyyy", gr);
+            Func<DateTime, string> tm = d => d.ToString("HH:mm:ss", gr);
+
+            var invoiceLine = db.InvoiceLines.FirstOrDefault(i => i.TankFillingId.HasValue && i.TankFillingId == tf.TankFillingId);
+            if (invoiceLine == null)
+                return "";
+            var invoice = invoiceLine.Invoice;
+            var trader = invoice.Trader;
+            var vehicle = invoice.Vehicle;
+
+            List<string> lines = new List<string>();
+
+            lines.Add("Δελτίο Παραλαβής Καυσίμων");// No: " + invoice.Number);
+            lines.Add("");
+            //lines.Add(tf.DemoLine1);
+            //lines.Add(tf.DemoLine2);
+            lines.Add("Ημερομηνία Εναρξης Παραλαβής: " + dt(tf.TransactionTime) +
+                      "    Ωρα Εναρξης: " + tm(tf.TransactionTimeEnd));
+            lines.Add("Ανάλυση Δεξαμενών");
+            lines.Add("");
+
+            lines.Add("Κωδ.Δεξαμενής: " + tf.Tank.TankNumber +
+                      "   Δεξαμενή: " + tf.Tank.Description +
+                      " Αρ.Μητ: " + tf.Tank.TankSerialNumber +
+                      "   Κωδ.Καυσίμου: " + tf.Tank.FuelType.EnumeratorValue.ToString() +
+                      "   Καύσιμο: " + tf.Tank.FuelType.Name);
+
+            lines.Add("Ημερομηνία Λήξης Παραλαβής: " + dt(tf.TransactionTimeEnd) +
+                      "    Ωρα Λήξης Παραλαβής: " + tm(tf.TransactionTimeEnd));
+            lines.Add("");
+
+            lines.Add("Στοιχεία Δεξαμενής πριν την παραλαβή καυσίμου.");
+            lines.Add("Αρχικό ύψος στάθμης δεξαμενής:  " + tf.LevelStart.ToString("0.00", gr) + " mm");
+            lines.Add("Αρχικός όγκος καυσίμου δεξαμενής:  " + tf.Tank.GetTankVolume(tf.LevelStart).ToString("0.00", gr) + " lt");
+            lines.Add("Αρχική θερμοκρασία καυσίμου δεξαμενής:  " + tf.TankTemperatureStart.ToString("0.00", gr) + " oC");
+            lines.Add("Αρχικός ανηγμένος όγκος καυσίμου δεξαμενής (15oC):  " + tf.Tank.GetTankVolumeNormalized(tf.LevelStart, tf.TankTemperatureStart).ToString("0.00", gr) + " lt");
+            lines.Add("");
+
+            lines.Add("Στοιχεία Δεξαμενής μετά την παραλαβή καυσίμου.");
+            lines.Add("Τελικό ύψος στάθμης δεξαμενής:  " + tf.LevelEnd.ToString("0.00", gr) + " mm");
+            lines.Add("Τελικός όγκος καυσίμου δεξαμενής:  " + tf.Tank.GetTankVolume(tf.LevelEnd).ToString("0.00", gr) + " lt");
+            lines.Add("Τελική θερμοκρασία καυσίμου δεξαμενής:  " + tf.TankTemperatureEnd.ToString("0.00", gr) + " oC");
+            lines.Add("Τελικός ανηγμένος όγκος καυσίμου δεξαμενής (15oC):  " + tf.Tank.GetTankVolumeNormalized(tf.LevelEnd, tf.TankTemperatureEnd).ToString("0.00", gr) + " lt");
+            lines.Add("");
+            lines.Add("");
+
+            lines.Add("Στοιχεία Παραστατικών Αγοράς Καυσίμων");
+            lines.Add("Ονομασία Προμηθευτή: " + trader.Name + "   ΑΦΜ Προμηθευτή: " + trader.TaxRegistrationNumber);
+            lines.Add("Ειδος Παρ: " + invoice.InvoiceType.Description + "  Σειρά : " + invoice.Series + "  Αριθμός : " + invoice.Number + "  Ημ-νία : " + dt(invoice.TransactionDate));
+            lines.Add("Αριθμός Kυκλοφορίας Βυτιοφόρoυ:  " + (string.IsNullOrEmpty(vehicle.PlateNumber) ? "" : vehicle.PlateNumber));
+            lines.Add("Κωδ: : " + tf.Tank.FuelType.EnumeratorValue.ToString() + "  Καύσιμο:  " + tf.Tank.FuelType.Name + "  Παραλαμβανόμενη Ποσότητα: " + invoiceLine.Volume.ToString("0", gr) + "  Lt");
+            lines.Add("Θερμοκρασία φόρτωσης καυσίμου:  " + invoiceLine.Temperature.ToString("0", gr) + "  oC");
+            lines.Add("Πυκνότητα φόρτωσης καυσίμου:  " + invoiceLine.FuelDensity.ToString("0", gr) + "  gr-Lt");
+            lines.Add("Ανηγμένος όγκος φόρτωσης καυσίμου (15 oC):  " + invoiceLine.VolumeNormalized.ToString("0", gr) + "  Lt");
+            lines.Add("");
+            lines.Add("");
+
+            lines.Add("Ελεγχος Ποσοτήτων Καυσίμων  ");
+            lines.Add("");
+            lines.Add("Κωδ:  " + tf.Tank.FuelType.EnumeratorValue.ToString() + " Καύσιμο: " + tf.Tank.FuelType.Name + " Παραληφθ. Ποσότ. σε Φυσική θερμοκρασία: " + tf.VolumeReal.ToString("0.00", gr) + "  Lt");
+            lines.Add("Κωδ:  " + tf.Tank.FuelType.EnumeratorValue.ToString() + " Καύσιμο: " + tf.Tank.FuelType.Name + " Παραληφθ. Ανηγμένη Ποσότ. στους 15 oC     : " + tf.VolumeRealNormalized.ToString("0.00", gr) + "  Lt");
+            lines.Add("Κωδ:  " + tf.Tank.FuelType.EnumeratorValue.ToString() + " Καύσιμο: " + tf.Tank.FuelType.Name + " Παραληφθ. Ποσότ. βάσει παραστ. στους 15 oC: " + tf.VolumeNormalized.ToString("0.00", gr) + "  Lt");
+            lines.Add("Κωδ:  " + tf.Tank.FuelType.EnumeratorValue.ToString() + " Καύσιμο: " + tf.Tank.FuelType.Name + " Διαφ. ποσότ.(Παραστ.-Ληφθείσα) στους 15 oC: " + (tf.VolumeNormalized - tf.VolumeRealNormalized).ToString("0.00", gr) + "  Lt");
+            lines.Add("(Η Παραληφθείσα Ποσότητα στην Φυσική θερμοκρασία έχει γίνει αναγωγή στην Αρχική θερμοκρασία.)");
+            lines.Add("");
+            lines.Add("");
+            lines.Add("");
+            lines.Add("Τέλος Δελτίου Παραλαβής Καυσίμων");
+
+            // 🔑 LF-only newlines
+            return string.Join("\n", lines);
+        }
         private void RecalculateInvoice(Data.Invoice invoice)
         {
             if(invoice.Trader != null && invoice.Trader.VatExemption.HasValue && invoice.Trader.VatExemption.Value)
@@ -2906,29 +2998,30 @@ namespace ASFuelControl.Windows.Threads
                 ApplySign(db, sign, "", titrimetry.TitrimetryId, "Titrimetry");
             }
         }
-        private void SignTankFilling(Data.DatabaseModel db, Data.TankFilling tankFilling, string alertText)
+        private void SignTankFilling(Data.DatabaseModel db, Data.TankFilling tankFilling, string alertText, int invoiceTypeCode)
         {
-            //var req = CreateTankFillingRequest(tankFilling);
-            //req.AtxtContent = alertText;
-            //var resp = Samtec.WebService.HttpClient.CallWS(req, samtecWSUrl);
-            //var text = resp.ResultCode;
-            //if (text.Contains("Error"))
-            //{
-            //    return;
-            //}
-            //string sign = "";
-            //string qrData = "";
-            //if (text.Contains("ΔΦΣΣ"))
-            //{
-            //    //text = text.Replace("ΔΦΣΣ", "").Replace("[[", "").Replace("]]", "");
-            //    string[] vals = text.Split(',');
-            //    sign = vals[1];
-            //    if (vals[2].Contains("https://"))
-            //    {
-            //        qrData = vals[2];
-            //    }
-            //}
-            string sign = "-";
+            var req = CreateTankFillingRequest(db, tankFilling, invoiceTypeCode);
+            req.AtxtContent = alertText;
+            var resp = Samtec.WebService.HttpClient.CallWS(req, samtecWSUrl);
+            var text = resp.ResultCode;
+            if (text.Contains("Error"))
+            {
+                if (this.tankFillingsProcessed.Contains(tankFilling.TankFillingId))
+                    this.tankFillingsProcessed.Remove(tankFilling.TankFillingId);
+                return;
+            }
+            string sign = "";
+            string qrData = "";
+            if (text.Contains("ΔΦΣΣ"))
+            {
+                //text = text.Replace("ΔΦΣΣ", "").Replace("[[", "").Replace("]]", "");
+                string[] vals = text.Split(',');
+                sign = vals[1];
+                if (vals[2].Contains("https://"))
+                {
+                    qrData = vals[2];
+                }
+            }
             if (sign != "")
             {
                 ApplySign(db, sign, "", tankFilling.TankFillingId, "TankFilling");
@@ -3155,7 +3248,10 @@ namespace ASFuelControl.Windows.Threads
                 var fileName = this.processFolder + "\\" + "TankFilling_" + tankFilling.TankFillingId.ToString() + ".xls";
                 FileTypeInfo ft = GetFileTypeInfo(fileName, "xls");
                 string tankFillingText = ExcelTextStripper.GetText(fileName, ft.ReportName);
-                SignTankFilling(db, tankFilling, tankFillingText);
+                if (tankFilling.LevelStart > tankFilling.LevelEnd)
+                    SignTankFilling(db, tankFilling, tankFillingText, 181);
+                else
+                    SignTankFilling(db, tankFilling, tankFillingText, 40);
             }
         }
 
@@ -4227,7 +4323,7 @@ namespace ASFuelControl.Windows.Threads
             bool isCanceling = invType.IsCancelation.HasValue && invType.IsCancelation.Value;
             bool isRetail = !wholeSaleCodes.Contains(invType.OfficialEnumerator);
             List<long> corInvoices = new List<long>();
-            string corInvoice = null;
+            //string corInvoice = null;
             //if (isCanceling)
             //{
             var invTrans = invoice.ParentInvoiceRelations.ToArray();
@@ -4236,11 +4332,11 @@ namespace ASFuelControl.Windows.Threads
                 foreach (var it in invTrans)
                 {
                     var dbParent = it.ParentInvoice;
-                    var cancelInvType = GetInvoiceTypeContext(dbParent);
+                    //var cancelInvType = GetInvoiceTypeContext(dbParent);
                     var myDataCanInvoice = db.MyDataInvoices.FirstOrDefault(mi => mi.InvoiceId == dbParent.InvoiceId);
-                    if(string.IsNullOrEmpty(corInvoice))
-                        corInvoice = string.Format("{0:dd/MM/yyyy}|{1}|{2}|{3}|{4}", 
-                            dbParent.TransactionDate, Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyBranch, cancelInvType, dbParent.Series, dbParent.Number);
+                    //if(string.IsNullOrEmpty(corInvoice))
+                    //    corInvoice = string.Format("{0:dd/MM/yyyy}|{1}|{2}|{3}|{4}", 
+                    //        dbParent.TransactionDate, Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyBranch, cancelInvType, dbParent.Series, dbParent.Number);
                     if(myDataCanInvoice != null && myDataCanInvoice.Mark.HasValue)
                         corInvoices.Add(myDataCanInvoice.Mark.Value);
                 }
@@ -4326,8 +4422,8 @@ namespace ASFuelControl.Windows.Threads
                 //}
             }
             Exedron.ProviderInvoicing.InvoiceHeader invHeader = new Exedron.ProviderInvoicing.InvoiceHeader();
-            if (!string.IsNullOrEmpty(corInvoice))
-                invHeader.CorrelatedInvoice = corInvoice;
+            //if (!string.IsNullOrEmpty(corInvoice))
+            //    invHeader.CorrelatedInvoice = corInvoice;
             invHeader.AA = invoice.Number.ToString();
             invHeader.Currency = "EUR";
             if (isDelivery)
@@ -4364,8 +4460,8 @@ namespace ASFuelControl.Windows.Threads
                 invHeader.CorrelatedInvoices = corInvoices.ToArray();
             if (invHeader.InvoiceType == "1.1" && corInvoices != null && corInvoices.Count > 0)
                 invHeader.CorrelatedInvoices = corInvoices.ToArray();
-            if (!string.IsNullOrEmpty(corInvoice))
-                invHeader.CorrelatedInvoice = corInvoice;
+            //if (!string.IsNullOrEmpty(corInvoice))
+            //    invHeader.CorrelatedInvoice = corInvoice;
 
             if (invoice.Vehicle != null)
             {
@@ -4469,9 +4565,9 @@ namespace ASFuelControl.Windows.Threads
                 {
                     row1.VATCategory = Exedron.ProviderInvoicing.VATCategoryEnum.NoVAT;
                     if (isEu)
-                        row1.VATExemptionCategory = Exedron.MyData.Interfaces.VATExemptionCategoryEnum.Article28;
+                        row1.VATExemptionCategory = Exedron.ProviderInvoicing.VATExemptionCategoryEnum.Article28;
                     else
-                        row1.VATExemptionCategory = Exedron.MyData.Interfaces.VATExemptionCategoryEnum.Article24;
+                        row1.VATExemptionCategory = Exedron.ProviderInvoicing.VATExemptionCategoryEnum.Article24;
                 }
                 row1.IncomeClassification = new Exedron.ProviderInvoicing.IncomeClassification();
                 row1.IncomeClassification.Amount = row1.NetValue;

@@ -148,7 +148,7 @@ namespace Exedron.ProviderInvoicing
         public decimal NetValue { get; set; }
         public VATCategoryEnum VATCategory { get; set; }
         public decimal VATAmount { get; set; }
-        public object VATExemptionCategory { get; set; }
+        public Exedron.ProviderInvoicing.VATExemptionCategoryEnum VATExemptionCategory { get; set; }
         public Conduct Conduct { get; set; }
         public bool DiscountOption { get; set; }
         public decimal WithheldAmount { get; set; }

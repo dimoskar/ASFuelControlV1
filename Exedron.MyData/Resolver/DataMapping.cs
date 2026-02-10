@@ -250,6 +250,13 @@ namespace Exedron.MyData.Resolver
         {
             var vat = new VatDefinition();
 
+            if (Family == DocumentFamily.DeliveryNoteOnly)
+            {
+                vat.VatCategory = 8;
+                vat.VatExemptionCategory = null;
+                return vat;
+            }
+
             if (band == VatBand.Exempt)
             {
                 vat.VatCategory = 7; // Without VAT (Appendix 8.2)
