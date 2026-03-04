@@ -3771,7 +3771,9 @@ namespace ASFuelControl.Windows.Threads
                     mdInvoice.QrCodeUrl = resp.QrCodeUrl;
                     mdInvoice.ProviderUrl = resp.ProviderUrl;
                     mdInvoice.InvoiceUrl = resp.InvoiceUrl;
-                    invoice.InvoiceSignature = string.Format("{0} {1} {2}", resp.Mark, resp.Uid, resp.VerificationHash);// resp.InvoiceSignature;
+                    string sign = string.Format("Σήμανση {0} UNIQUE ID {1} ΜΑΡΚ {2} Υ.ΠΑ.Η.Ε.Σ {3} Ημ/νία Διαβίβασης myData {4:dd/MM/yyyy HH:mm:ss}",
+                        mdInvoice.VerificationHash, mdInvoice.Uid, mdInvoice.Mark, mdInvoice.ProviderUrl, mdInvoice.DateTimeSent);
+                    invoice.InvoiceSignature = sign;
                     mdInvoice.Status = 3;
                 }
                 else if (resp.HasErrors)
