@@ -553,91 +553,51 @@ namespace ASFuelControl.Windows.Threads
         {
             DateTime dtStart = DateTime.Today.AddDays(-1);
             DateTime dtEnd = dtStart.AddDays(1).AddMilliseconds(-1);
-            DateTime checkDate = dtStart.AddHours(12);
 
-            bool monthBalance = Data.Implementation.OptionHandler.Instance.GetBoolOption("MonthBalanceEnabled", false);
-            bool runningMonth = false;
+            bool monthBalanceEnabled = Data.Implementation.OptionHandler.Instance.GetBoolOption("MonthBalanceEnabled", false);
+            DateTime balanceSearchStart = this.GetBalanceSearchStartDate();
 
-            DateTime dtPrev = DateTime.Today.AddMonths(-3);
-            if (dtPrev < officialStartDate)
-                dtPrev = officialStartDate;
-            if (dtPrev > DateTime.Today.AddMonths(-2))
-                dtPrev = DateTime.Today.AddMonths(-2);
-            var qBalances = database.Balances.
-                Where(b => b.StartDate.Date >= dtPrev).
-                Select(b => new BalanceCheckClass() { BalanceId = b.BalanceId, StartDate = b.StartDate, EndDate = b.EndDate }).
-                OrderByDescending(b => b.EndDate).ToArray();
+            BalanceCheckClass[] balances = database.Balances
+                .Where(b => b.StartDate.Date >= balanceSearchStart)
+                .Select(b => new BalanceCheckClass() { BalanceId = b.BalanceId, StartDate = b.StartDate, EndDate = b.EndDate })
+                .OrderByDescending(b => b.EndDate)
+                .ToArray();
 
+            bool monthBalanceOK = balances.Any(b => b.IsMonthBalance());
+            bool currentBalanceOK = this.IsCurrentBalanceOK(balances);
 
-
-            bool monthBalanceOK = qBalances.Where(b => b.IsMonthBalance()).Count() > 0;
-            bool currentBalanceOK = qBalances.Where(b => b.IsCurrentBalance()).Count() > 0;
-            //DateTime dtReference = DateTime.Today.AddDays(1).AddMinutes(-4);
-            var bt = Data.Implementation.OptionHandler.Instance.GetIntOption("BalanceThreshold", 10);
-            DateTime dtReference = DateTime.Now.AddMinutes(bt);
-            if (!currentBalanceOK)
+            bool createBalance = false;
+            if (monthBalanceEnabled && !monthBalanceOK)
             {
-                if (dtReference.Date > DateTime.Today)
-                    currentBalanceOK = false;
-                else
-                    currentBalanceOK = true;
-            }
-            //Common.Logger.Instance.Debug("Current Balance: " + currentBalanceOK.ToString());
-            if (monthBalance && !monthBalanceOK)
-            {
-                DateTime previousDay = DateTime.Today.AddMonths(-1).Date;
-                
-                dtStart = new DateTime(previousDay.Year, previousDay.Month, 1);
-                DateTime nextMonthDay = dtStart.AddMonths(1).Date;
-                dtEnd = nextMonthDay.AddMilliseconds(-1);
-                checkDate = dtStart.AddDays(15);
-                runningMonth = true;
+                DateTime previousMonthDay = DateTime.Today.AddMonths(-1).Date;
+                dtStart = new DateTime(previousMonthDay.Year, previousMonthDay.Month, 1);
+                dtEnd = dtStart.AddMonths(1).AddMilliseconds(-1);
+                createBalance = true;
             }
             else if (!currentBalanceOK)
             {
                 dtStart = DateTime.Today;
                 dtEnd = dtStart.AddDays(1).AddMilliseconds(-1);
+                createBalance = true;
             }
             else
             {
-                bool balanceToCreate = false;
-
-                var qMindate = database.Balances.Where(b => b.StartDate.Date >= dtPrev).Min(b => b.StartDate);
-                int days = DateTime.Today.Subtract(qMindate).Days;
-                var q = database.Balances.Where(b => b.StartDate.Date >= dtPrev).Select(b => new { b.BalanceId, b.StartDate, b.EndDate }).OrderByDescending(b => b.EndDate).ToArray();
-                for (int i = 0; i < days; i++)
+                DateTime missingDay;
+                if (this.TryGetMissingBackfillDay(balances, out missingDay))
                 {
-                    DateTime cdate = qMindate.Date.AddDays(i);
-                    if (cdate.Date <= officialStartDate.Date)
-                        continue;
-                    if (cdate.Date == DateTime.Today)
-                        continue;
-                    var oldBalance = q.FirstOrDefault(b => b.StartDate.Date == cdate && b.EndDate.AddHours(-1).Date == cdate);
-                    if (oldBalance == null)
-                    {
-                        dtStart = cdate;
-                        dtEnd = cdate.AddDays(1).AddMilliseconds(-1);
-                        balanceToCreate = true;
-                        break;
-                    }
+                    dtStart = missingDay;
+                    dtEnd = missingDay.AddDays(1).AddMilliseconds(-1);
+                    createBalance = true;
                 }
 
-                if (currentBalanceOK && Program.ApplicationMainForm.ThreadControllerInstance.StationLocked)
-                {
-                    Program.ApplicationMainForm.Invoke(new Action(() =>
-                    {
-                        Program.ApplicationMainForm.ThreadControllerInstance.UnlockDispensers();
-                        Common.Logger.Instance.Debug(string.Format("Dispensers Unlocked"));
-                    }));
-                }
+                this.UnlockDispensersIfNeeded(currentBalanceOK);
 
-                if (balanceToCreate == false)
+                if (!createBalance)
                     return null;
             }
-            
-            Data.UsagePeriod period = null;
-            period = database.GetCreateUsagePeriod(dtStart);
-            
+
+            Data.UsagePeriod period = database.GetCreateUsagePeriod(dtStart);
+
             Common.Logger.Instance.Debug(string.Format("Balance Period: {0:dd-MM-yyyy HH:mm} - {1:dd-MM-yyyy HH:mm}", dtStart, dtEnd));
             if (dtStart.Date == DateTime.Today)
             {
@@ -653,14 +613,77 @@ namespace ASFuelControl.Windows.Threads
                     System.Threading.Thread.Sleep(500);
                 }
             }
-            //if(bt > 5)
-            //    System.Threading.Thread.Sleep(300000);
-            var balance = Data.Balance.CreateBalance(dtStart, dtEnd, AlertChecker.Instance);
-            Common.Logger.Instance.Debug(string.Format("Balance Ready"));
-            
-            
-            return balance;
 
+            Data.Balance balance = Data.Balance.CreateBalance(dtStart, dtEnd, AlertChecker.Instance);
+            Common.Logger.Instance.Debug(string.Format("Balance Ready"));
+            return balance;
+        }
+
+        private DateTime GetBalanceSearchStartDate()
+        {
+            DateTime dtPrev = DateTime.Today.AddMonths(-3);
+            if (dtPrev < officialStartDate)
+                dtPrev = officialStartDate;
+            if (dtPrev > DateTime.Today.AddMonths(-2))
+                dtPrev = DateTime.Today.AddMonths(-2);
+            return dtPrev;
+        }
+
+        private bool IsCurrentBalanceOK(BalanceCheckClass[] balances)
+        {
+            bool currentBalanceOK = balances.Any(b => b.IsCurrentBalance());
+            if (currentBalanceOK)
+                return true;
+
+            const int minutesBeforeMidnightToLock = 5;
+            DateTime dtReference = DateTime.Now.AddMinutes(minutesBeforeMidnightToLock);
+            return dtReference.Date <= DateTime.Today;
+        }
+
+        private bool TryGetMissingBackfillDay(BalanceCheckClass[] balances, out DateTime missingDay)
+        {
+            missingDay = DateTime.MinValue;
+            DateTime qMindate = balances.Select(b => b.StartDate).DefaultIfEmpty(DateTime.MinValue).Min();
+            if (qMindate == DateTime.MinValue)
+                return false;
+
+            int days = DateTime.Today.Subtract(qMindate).Days;
+            for (int i = 0; i < days; i++)
+            {
+                DateTime cdate = qMindate.Date.AddDays(i);
+                if (cdate.Date <= officialStartDate.Date)
+                    continue;
+                if (cdate.Date == DateTime.Today)
+                    continue;
+
+                var oldBalance = balances.FirstOrDefault(b => b.StartDate.Date == cdate && b.EndDate.AddHours(-1).Date == cdate);
+                if (oldBalance == null)
+                {
+                    missingDay = cdate;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void UnlockDispensersIfNeeded(bool currentBalanceOK)
+        {
+            if (!currentBalanceOK)
+                return;
+            if (!Program.ApplicationMainForm.ThreadControllerInstance.StationLocked)
+                return;
+
+            // Keep the station locked during the final 5 minutes of the day and
+            // unlock immediately after midnight on the next checks.
+            if (DateTime.Now.AddMinutes(5).Date > DateTime.Today)
+                return;
+
+            Program.ApplicationMainForm.Invoke(new Action(() =>
+            {
+                Program.ApplicationMainForm.ThreadControllerInstance.UnlockDispensers();
+                Common.Logger.Instance.Debug(string.Format("Dispensers Unlocked"));
+            }));
         }
             
         //private void LockDispensers()

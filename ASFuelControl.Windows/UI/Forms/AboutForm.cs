@@ -22,6 +22,7 @@ namespace ASFuelControl.Windows.UI.Forms
             this.labelCustomerContact.Text = Data.Implementation.OptionHandler.Instance.GetOption("CompanyPhone");
             this.labelAddress.Text = Data.Implementation.OptionHandler.Instance.GetOption("CompanyAddress") + "-" + Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
             this.labelTaxInfo.Text = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN") + " / " + Data.Implementation.OptionHandler.Instance.GetOption("CompanyTaxOffice");
+            this.labelAmdika.Text = Data.Implementation.OptionHandler.Instance.GetOption("AMDIKA");
 
             this.versionLab.Text = "v" + Program.MainVersion.ToString() + "." + Program.SubVersion.ToString() + "." + Program.Revision.ToString();
 
@@ -38,6 +39,7 @@ namespace ASFuelControl.Windows.UI.Forms
             string txt = Program.ApplicationCRC;
             txt = txt + "\r\n" + Data.Implementation.OptionHandler.Instance.GetOption("SerialNumber");
             txt = txt + "\r\n" + Data.Implementation.OptionHandler.Instance.GetOption("CompanyName");
+            txt = txt + "\r\n" + Data.Implementation.OptionHandler.Instance.GetOption("AMDIKA");
             txt = txt + "\r\n" + Data.Implementation.OptionHandler.Instance.GetOption("CompanyPhone");
             txt = txt + "\r\n" + Data.Implementation.OptionHandler.Instance.GetOption("CompanyAddress") + "-" + Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
             txt = txt + "\r\n" + Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN") + " / " + Data.Implementation.OptionHandler.Instance.GetOption("CompanyTaxOffice");

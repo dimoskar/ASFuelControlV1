@@ -609,6 +609,12 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 MessageBox.Show(this, "Δεν εχετε ορισει OTP (Δειτε οδηγιες διασύνδεσης του POS)", "Σφαλμα ρυθμίσεων...");
                 return;
             }
+            var posType = this.posTypeCombo.SelectedValue.ToString();
+            int nsp = Exedron.ProviderInvoicing.MellonGroupHelper.GetMellonNsp(posType);
+            if (nsp <= 0)
+            {
+                MessageBox.Show(this, "Δεν ειναι σωστή η επιλογή πρωτοκόλλου", "Σφαλμα ρυθμίσεων...");
+            }
             string apiKey = Exedron.ProviderInvoicing.MellonGroupHelper.ApiKeyGenerator(otp, arbName, arbKey, 1, isTest);
             this.mellonGroupApiKeyTxt.Text = apiKey;
         }

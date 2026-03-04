@@ -53,6 +53,8 @@
             this.radPageViewPage1 = new Telerik.WinControls.UI.RadPageViewPage();
             this.radPageViewPage2 = new Telerik.WinControls.UI.RadPageViewPage();
             this.radTextBox1 = new Telerik.WinControls.UI.RadTextBox();
+            this.radLabel9 = new Telerik.WinControls.UI.RadLabel();
+            this.labelAmdika = new Telerik.WinControls.UI.RadLabel();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel2)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.labSerial)).BeginInit();
@@ -77,6 +79,8 @@
             this.radPageViewPage1.SuspendLayout();
             this.radPageViewPage2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.radTextBox1)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel9)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.labelAmdika)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this)).BeginInit();
             this.SuspendLayout();
             // 
@@ -208,7 +212,7 @@
             // labelCustomerContact
             // 
             this.labelCustomerContact.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.labelCustomerContact.Location = new System.Drawing.Point(112, 161);
+            this.labelCustomerContact.Location = new System.Drawing.Point(112, 187);
             this.labelCustomerContact.Name = "labelCustomerContact";
             this.labelCustomerContact.Size = new System.Drawing.Size(118, 19);
             this.labelCustomerContact.TabIndex = 10;
@@ -218,7 +222,7 @@
             // labelTaxInfo
             // 
             this.labelTaxInfo.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.labelTaxInfo.Location = new System.Drawing.Point(112, 137);
+            this.labelTaxInfo.Location = new System.Drawing.Point(112, 163);
             this.labelTaxInfo.Name = "labelTaxInfo";
             this.labelTaxInfo.Size = new System.Drawing.Size(60, 19);
             this.labelTaxInfo.TabIndex = 11;
@@ -228,7 +232,7 @@
             // labelAddress
             // 
             this.labelAddress.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.labelAddress.Location = new System.Drawing.Point(112, 113);
+            this.labelAddress.Location = new System.Drawing.Point(112, 139);
             this.labelAddress.Name = "labelAddress";
             this.labelAddress.Size = new System.Drawing.Size(62, 19);
             this.labelAddress.TabIndex = 12;
@@ -238,7 +242,7 @@
             // radLabel3
             // 
             this.radLabel3.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel3.Location = new System.Drawing.Point(3, 137);
+            this.radLabel3.Location = new System.Drawing.Point(3, 163);
             this.radLabel3.Name = "radLabel3";
             this.radLabel3.Size = new System.Drawing.Size(71, 19);
             this.radLabel3.TabIndex = 15;
@@ -248,7 +252,7 @@
             // radLabel6
             // 
             this.radLabel6.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel6.Location = new System.Drawing.Point(3, 113);
+            this.radLabel6.Location = new System.Drawing.Point(3, 139);
             this.radLabel6.Name = "radLabel6";
             this.radLabel6.Size = new System.Drawing.Size(65, 19);
             this.radLabel6.TabIndex = 14;
@@ -268,7 +272,7 @@
             // radLabel8
             // 
             this.radLabel8.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel8.Location = new System.Drawing.Point(3, 161);
+            this.radLabel8.Location = new System.Drawing.Point(3, 187);
             this.radLabel8.Name = "radLabel8";
             this.radLabel8.Size = new System.Drawing.Size(64, 19);
             this.radLabel8.TabIndex = 16;
@@ -314,6 +318,8 @@
             // 
             // radPageViewPage1
             // 
+            this.radPageViewPage1.Controls.Add(this.radLabel9);
+            this.radPageViewPage1.Controls.Add(this.labelAmdika);
             this.radPageViewPage1.Controls.Add(this.radLabel1);
             this.radPageViewPage1.Controls.Add(this.radLabel2);
             this.radPageViewPage1.Controls.Add(this.labSerial);
@@ -328,9 +334,9 @@
             this.radPageViewPage1.Controls.Add(this.labelAddress);
             this.radPageViewPage1.Controls.Add(this.labelCustomerContact);
             this.radPageViewPage1.Controls.Add(this.labelTaxInfo);
-            this.radPageViewPage1.Location = new System.Drawing.Point(5, 31);
+            this.radPageViewPage1.Location = new System.Drawing.Point(10, 37);
             this.radPageViewPage1.Name = "radPageViewPage1";
-            this.radPageViewPage1.Size = new System.Drawing.Size(540, 257);
+            this.radPageViewPage1.Size = new System.Drawing.Size(529, 245);
             this.radPageViewPage1.Text = "Στοιχεία Εφαρμογής";
             // 
             // radPageViewPage2
@@ -355,6 +361,26 @@
             this.radTextBox1.Size = new System.Drawing.Size(537, 254);
             this.radTextBox1.TabIndex = 0;
             this.radTextBox1.ThemeName = "TelerikMetroBlue";
+            // 
+            // radLabel9
+            // 
+            this.radLabel9.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.radLabel9.Location = new System.Drawing.Point(3, 114);
+            this.radLabel9.Name = "radLabel9";
+            this.radLabel9.Size = new System.Drawing.Size(52, 19);
+            this.radLabel9.TabIndex = 18;
+            this.radLabel9.Text = "ΑΜΔΙΚΑ";
+            this.radLabel9.ThemeName = "TelerikMetroBlue";
+            // 
+            // labelAmdika
+            // 
+            this.labelAmdika.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.labelAmdika.Location = new System.Drawing.Point(112, 114);
+            this.labelAmdika.Name = "labelAmdika";
+            this.labelAmdika.Size = new System.Drawing.Size(66, 19);
+            this.labelAmdika.TabIndex = 17;
+            this.labelAmdika.Text = "[AMDIKA]";
+            this.labelAmdika.ThemeName = "TelerikMetroBlue";
             // 
             // AboutForm
             // 
@@ -401,6 +427,8 @@
             this.radPageViewPage1.PerformLayout();
             this.radPageViewPage2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.radTextBox1)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.radLabel9)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.labelAmdika)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this)).EndInit();
             this.ResumeLayout(false);
 
@@ -433,5 +461,7 @@
         private Telerik.WinControls.UI.RadPageViewPage radPageViewPage1;
         private Telerik.WinControls.UI.RadPageViewPage radPageViewPage2;
         private Telerik.WinControls.UI.RadTextBox radTextBox1;
+        private Telerik.WinControls.UI.RadLabel radLabel9;
+        private Telerik.WinControls.UI.RadLabel labelAmdika;
     }
 }

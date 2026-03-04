@@ -150,7 +150,7 @@ namespace Exedron.ProviderInvoicing
             //var movePurposes = tools.getMovePurpose();
             //var vivaPos = new ArbitransMyData.POS.VivaWalletPOS(ArbitransName, ArbitransKey, "", "", isTest);// VivaWallet.getAvailablePOS()
             //var mellonPos = new ArbitransMyData.POS.MellonGroupPOS(ArbitransName, ArbitransKey, 4, isTest);
-            //var mesUnits = tools.getMeasurementUnit();
+            var mesUnits = tools.getMeasurementUnit();
             //var movePurposes = tools.getMovePurpose();
 
             //tools.get
@@ -165,6 +165,7 @@ namespace Exedron.ProviderInvoicing
 
             if (inv.CounterPart != null)
             {
+
                 invoice.counterpart.vatNumber = inv.CounterPart.VATNumber;
                 invoice.counterpart.country = inv.CounterPart.Country;
                 invoice.counterpart.street = inv.CounterPart.Address.Street;
@@ -222,7 +223,9 @@ namespace Exedron.ProviderInvoicing
                     line.IncomeClassification.ClassificationCategory = "";
                     line.NetValue = 0;
                     line.VATAmount = 0;
-                    ln.itemCode = line.FuelCode;
+                    ln.itemCode = line.ItemCode;
+                    if (inv.InvoiceHeader.FuelInvoice)
+                        ln.fuelCode = int.Parse(line.FuelCode);
                     ln.notVAT195 = true;
                 }
                 ln.fuelCode = string.IsNullOrEmpty(line.FuelCode) ? 0 : int.Parse(line.FuelCode);
@@ -237,7 +240,8 @@ namespace Exedron.ProviderInvoicing
                 ln.classification.Type = line.IncomeClassification.ClassificationType;
                 ln.classification.Category = line.IncomeClassification.ClassificationCategory;
                 ln.lineComments = line.LineComments;
-
+                if (inv.InvoiceHeader.DeliveryNote)
+                    ln.itemDescr = line.ItemDescription;
                 ln.measurementUnit = (int)line.MeasurementUnit;
                 //if (line.VATCategory == VATCategoryEnum.NoVAT || line.VATCategory == VATCategoryEnum.NoVATEntry)
                 //    ln.itemDescr = line.ItemDescription;
@@ -283,6 +287,8 @@ namespace Exedron.ProviderInvoicing
                     ilydaData.extraDetails.counterpartCode = "";
                     ilydaData.extraDetails.counterpartJob = "";
                     ilydaData.extraDetails.counterpartTaxOffice = inv.CounterPart.TaxOffice;
+                    if (!string.IsNullOrEmpty(inv.CounterPart.SupplyAccountNo))
+                        ilydaData.extraDetails.invoiceNotes = "Αριθ. Παροχής: " + inv.CounterPart.SupplyAccountNo;
                 }
                 ilydaData.extraDetails.issuerName = inv.Issuer.Name;
                 ilydaData.extraDetails.issuerAddress = inv.Issuer.Address.ToString();
@@ -344,13 +350,13 @@ namespace Exedron.ProviderInvoicing
                             vatCategory = "S";
                             break;
                     }
-                    invLine.itemMeasurementUnit = il.MeasurementUnit.ToString();
+                    var mesUnit = mesUnits[((int)il.MeasurementUnit).ToString()].ToString();
+                    invLine.itemMeasurementUnit = mesUnit;
                     invLine.itemName = string.IsNullOrEmpty(il.ItemDescription) ? "" : il.ItemDescription;
                     invLine.itemCode = il.ItemCode;
-
                     invLine.countryOfOrigin = "";
                     invLine.peppolTaxCategory = vatCategory;
-                    invLine.peppolMeasurementUnit = "";
+                    invLine.peppolMeasurementUnit = mesUnit;
                     if (il.VATCategory == VATCategoryEnum.NoVAT)
                         invLine.peppolExemptionCode = ((int)il.VATExemptionCategory).ToString();
                     else

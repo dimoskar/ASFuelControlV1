@@ -1112,7 +1112,7 @@
             this.radPageViewPage1.Controls.Add(this.amdikaTextBox);
             this.radPageViewPage1.Location = new System.Drawing.Point(10, 37);
             this.radPageViewPage1.Name = "radPageViewPage1";
-            this.radPageViewPage1.Size = new System.Drawing.Size(712, 468);
+            this.radPageViewPage1.Size = new System.Drawing.Size(712, 460);
             this.radPageViewPage1.Text = "Στοιχεία Πρατηρίου";
             // 
             // radLabel52
@@ -1218,7 +1218,7 @@
             this.radPageViewPage2.Controls.Add(this.returnInvoiceType);
             this.radPageViewPage2.Location = new System.Drawing.Point(10, 37);
             this.radPageViewPage2.Name = "radPageViewPage2";
-            this.radPageViewPage2.Size = new System.Drawing.Size(712, 468);
+            this.radPageViewPage2.Size = new System.Drawing.Size(712, 460);
             this.radPageViewPage2.Text = "Γενικές Ρυθμίσεις Πρατηρίου";
             // 
             // radLabel47
