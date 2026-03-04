@@ -1369,6 +1369,7 @@ namespace ASFuelControl.Data
             }
             catch (Exception ex)
             {
+                Common.Logger.Instance.Error("Exception: " + ex.Message + "\r\nStack Trace: " + ex.StackTrace);
                 return null;
             }
         }
