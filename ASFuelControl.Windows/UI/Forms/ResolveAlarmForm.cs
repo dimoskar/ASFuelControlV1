@@ -60,7 +60,16 @@ namespace ASFuelControl.Windows.UI.Forms
                     this.Close();
                     return;
                 }
-
+                using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                {
+                    var alert = db.SystemEvents.FirstOrDefault(s => s.EventId == this.currentAlert.DatabaseEntityId);
+                    if(!alert.SentDate.HasValue)
+                    {
+                        Telerik.WinControls.RadMessageBox.Show("O Συναγερμός δεν έχει ακόμη αποσταλλει. Ξαναδοκιμάστε λίγο αργότερα.", "Αδυνατη η λύση του συναγερμού...", MessageBoxButtons.OK, Telerik.WinControls.RadMessageIcon.Exclamation);
+                        this.Close();
+                        return;
+                    }
+                }
                 long liters = (long)volDiff;
                 long mls = (long)(volDiff * 1000 - ((long)volDiff) * 1000);
                 string message = string.Format("Θέλετε να καταχωρηθεί πώληση {0} Lt {1} ml;\r\nΠροσοχή θα δημιουργηθεί απόδειξη πώλησης", liters, mls);
@@ -71,9 +80,10 @@ namespace ASFuelControl.Windows.UI.Forms
                     {
                         this.QueryCreateSaleEvent(this.currentAlert, new EventArgs());
                     }
+                    this.DialogResult = System.Windows.Forms.DialogResult.OK;
+                    this.Close();
                 }
             }
-            
             Threads.AlertChecker.Instance.ResolveAlert(this.currentAlert.DatabaseEntityId, this.radTextBox1.Text);
             this.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.Close();
