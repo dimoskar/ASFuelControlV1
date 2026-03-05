@@ -80,8 +80,6 @@ namespace ASFuelControl.Windows.UI.Forms
                     {
                         this.QueryCreateSaleEvent(this.currentAlert, new EventArgs());
                     }
-                    this.DialogResult = System.Windows.Forms.DialogResult.OK;
-                    this.Close();
                 }
             }
             Threads.AlertChecker.Instance.ResolveAlert(this.currentAlert.DatabaseEntityId, this.radTextBox1.Text);
