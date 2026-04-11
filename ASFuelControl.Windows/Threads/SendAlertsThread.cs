@@ -671,12 +671,14 @@ namespace ASFuelControl.Windows.Threads
         {
             if (!currentBalanceOK)
                 return;
-            if (!Program.ApplicationMainForm.ThreadControllerInstance.StationLocked)
-                return;
+            //if (!Program.ApplicationMainForm.ThreadControllerInstance.StationLocked)
+            //    return;
 
             // Keep the station locked during the final 5 minutes of the day and
             // unlock immediately after midnight on the next checks.
             if (DateTime.Now.AddMinutes(5).Date > DateTime.Today)
+                return;
+            if (Data.Implementation.OptionHandler.Instance.GetBoolOption("StartThreadsOnStart", true))
                 return;
 
             Program.ApplicationMainForm.Invoke(new Action(() =>

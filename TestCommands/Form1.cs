@@ -91,5 +91,14 @@ namespace TestCommands
                 return "";
             }
         }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            var act = new ArbitransMyData.Activation();
+            DataTable allInfo = act.getAllDLInfo("arai2048!s");
+            
+            Exedron.ProviderInvoicing.LicenseHandler lic = new Exedron.ProviderInvoicing.LicenseHandler("Exedron");
+            lic.EnsureActivated("ARAISKάKISDIMOSTH", "35V8ITQ36GNO7JAO534NA2BCQ8V");
+        }
     }
 }

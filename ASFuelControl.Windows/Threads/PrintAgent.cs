@@ -3001,7 +3001,6 @@ namespace ASFuelControl.Windows.Threads
         private void SignTankFilling(Data.DatabaseModel db, Data.TankFilling tankFilling, string alertText, int invoiceTypeCode)
         {
             var req = CreateTankFillingRequest(db, tankFilling, invoiceTypeCode);
-            req.AtxtContent = alertText;
             var resp = Samtec.WebService.HttpClient.CallWS(req, samtecWSUrl);
             var text = resp.ResultCode;
             if (text.Contains("Error"))

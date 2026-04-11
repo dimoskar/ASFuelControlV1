@@ -372,6 +372,7 @@ namespace ASFuelControl.Windows.Threads
 
         public bool StationLocked { set; get; }
         List<VirtualDispenser> lockedDispensers = new List<VirtualDispenser>();
+        string initialStartThreadState = "";
         public void LockDispensers()
         {
             var dispensers = this.GetDispensers();
@@ -383,6 +384,10 @@ namespace ASFuelControl.Windows.Threads
                 dispenser.DeviceLocked = true;
                 Common.Logger.Instance.Debug(string.Format("Dispenser {0} Locked", dispenser.DispenserId));
             }
+            this.controllerThread.StopControllers();
+            this.controllerThread.HaltThread = true;
+            initialStartThreadState = Data.Implementation.OptionHandler.Instance.GetBoolOption("StartThreadsOnStart", true).ToString();
+            Data.Implementation.OptionHandler.Instance.SetOption("StartThreadsOnStart", false);
             StationLocked = true;
         }
         public bool CanCreateBalance()
@@ -400,6 +405,13 @@ namespace ASFuelControl.Windows.Threads
         public void UnlockDispensers()
         {
             var dispensers = this.GetDispensers();
+            if (initialStartThreadState != "" && initialStartThreadState.ToLower() == "true")
+            {
+                initialStartThreadState = "";
+                Data.Implementation.OptionHandler.Instance.SetOption("StartThreadsOnStart", true);
+            }
+            this.controllerThread.StartControllers();
+
             //if (lockedDispensers.Count == 0)
             //    return;
             foreach (var dispenser in dispensers)

@@ -101,6 +101,7 @@ namespace ASFuelControl.Tank
 
             //Source State is Idle
             this.Process.AddProcessTransition(this.idleState, this.sallingState, new ASFuelControl.WorkFlow.WorkFlowProcess.ValidationkDelegate(this.IsOnSale), null);
+            this.Process.AddProcessTransition(this.idleState, this.offlineState, new ASFuelControl.WorkFlow.WorkFlowProcess.ValidationkDelegate(this.IsOffline), null);
             this.Process.AddProcessTransition(this.idleState, this.fillingInitializedState, new ASFuelControl.WorkFlow.WorkFlowProcess.ValidationkDelegate(this.QueryFilling), null);
             this.Process.AddProcessTransition(this.idleState, this.extractionInitializedState, new ASFuelControl.WorkFlow.WorkFlowProcess.ValidationkDelegate(this.QueryExtraction), null);
             this.Process.AddProcessTransition(this.sallingState, this.fillingState, new ASFuelControl.WorkFlow.WorkFlowProcess.ValidationkDelegate(this.QueryFilling), null);
@@ -277,9 +278,13 @@ namespace ASFuelControl.Tank
             }
             //if (this.Tank.Alerts.Length > 0 && !this.Tank.IsVirtualTank)
             //    return false;
-            bool isIdle = true;
+            bool isIdle = this.Tank.TankStatus != Common.Enumerators.TankStatusEnum.Offline;
             
             return isIdle;
+        }
+        private bool IsOffline(object _status)
+        {
+            return this.Tank.TankStatus == Common.Enumerators.TankStatusEnum.Offline;
         }
 
         private bool IsFilling(object foo)

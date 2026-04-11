@@ -714,7 +714,13 @@ namespace ASFuelControl.FuelPump
             foreach (VirtualDevices.VirtualTank tank in this.Dispenser.ActiveNozzle.ConnectedTanks)
             {
                 if (tank.CurrentFuelLevel < tank.MinAllowedHeight)
+                {
+                    if (System.IO.File.Exists("TankLock.txt"))
+                    {
+                        System.IO.File.AppendAllText("TankLock.txt", string.Format("Tank {0} Locked: CurrentLevel: {1}, Allowed: {2}\r\n", tank.TankNumber, tank.CurrentFuelLevel, tank.MinAllowedHeight));
+                    }
                     return true;
+                }
                 if (tank.TankStatus != Common.Enumerators.TankStatusEnum.Idle && tank.TankStatus != Common.Enumerators.TankStatusEnum.Selling)
                 {
                     this.Controller.HaltDispenser(this.Dispenser.ChannelId, this.Dispenser.AddressId);
