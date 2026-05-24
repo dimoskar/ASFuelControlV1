@@ -343,7 +343,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
             Data.Implementation.OptionHandler.Instance.SetOption("CompanyTaxOffice", this.taxOfficeTextBox.Text);
             Data.Implementation.OptionHandler.Instance.SetOption("CompanyEmail", this.companyEmail.Text);
             Data.Implementation.OptionHandler.Instance.SetOption("POSTerminalID", this.posTerminalIdTxt.Text);
-            
+            //Data.Implementation.OptionHandler.Instance.SetOption("POSTerminalID", this.posTerminalId2Txt.Text);
+
 
             Data.Implementation.OptionHandler.Instance.SetOption("ProviderInvoiceArbitransName", this.arbitransUserName.Text);
             Data.Implementation.OptionHandler.Instance.SetOption("ProviderInvoiceArbitransKey", this.arbitransKey.Text);
@@ -603,20 +604,53 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 MessageBox.Show(this, "Δεν εχετε ορισει σωστά τις παραμέτρους για την τιμολόγηση μέσω παρόχου", "Σφαλμα ρυθμίσεων...");
                 return;
             }
-            var otp = this.mellonGroupOtpTxt.Text;
-            if (string.IsNullOrEmpty(otp))
-            {
-                MessageBox.Show(this, "Δεν εχετε ορισει OTP (Δειτε οδηγιες διασύνδεσης του POS)", "Σφαλμα ρυθμίσεων...");
-                return;
-            }
-            var posType = this.posTypeCombo.SelectedValue.ToString();
-            int nsp = Exedron.ProviderInvoicing.MellonGroupHelper.GetMellonNsp(posType);
+            int nsp = getMellonNsp();
             if (nsp <= 0)
             {
                 MessageBox.Show(this, "Δεν ειναι σωστή η επιλογή πρωτοκόλλου", "Σφαλμα ρυθμίσεων...");
             }
-            string apiKey = Exedron.ProviderInvoicing.MellonGroupHelper.ApiKeyGenerator(otp, arbName, arbKey, 1, isTest);
+            string apiKey = Exedron.ProviderInvoicing.MellonGroupHelper.ApiKeyGenerator(GetOtpParameter, arbName, arbKey, nsp, isTest);
             this.mellonGroupApiKeyTxt.Text = apiKey;
+        }
+
+        private string GetOtpParameter()
+        {
+            using (GetOTPForm otpForm = new GetOTPForm())
+            {
+                if (otpForm.ShowDialog(this) == DialogResult.OK)
+                    return otpForm.OTP;
+            }
+            return "";
+        }
+
+        private int getMellonNsp()
+        {
+            var posType = this.posTypeCombo.SelectedValue.ToString();
+            var posTypeParams = posType.Split('.');
+            if (posTypeParams.Length == 2)
+            {
+                if (posTypeParams[0] == "Mellon")
+                {
+                    switch (posTypeParams[1])
+                    {
+                        case "JCC":
+                        case "AtticaBank":
+                        case "Pancreta":
+                            return 1;
+                        case "Nexi":
+                            return 2;
+                        case "NBG":
+                            return 3;
+                        case "Worldline":
+                            return 4;
+                        default:
+                            return 1;
+
+                    }
+                }
+                return 1;
+            }
+            return 0;
         }
 
         private void radPageViewPage3_Paint(object sender, PaintEventArgs e)

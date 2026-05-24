@@ -128,8 +128,6 @@
             this.monthBalance = new Telerik.WinControls.UI.RadCheckBox();
             this.radPageViewPage3 = new Telerik.WinControls.UI.RadPageViewPage();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
-            this.mellonGroupOtpTxt = new Telerik.WinControls.UI.RadTextBox();
-            this.radLabel59 = new Telerik.WinControls.UI.RadLabel();
             this.radButton10 = new Telerik.WinControls.UI.RadButton();
             this.mellonGroupApiKeyTxt = new Telerik.WinControls.UI.RadTextBox();
             this.radLabel58 = new Telerik.WinControls.UI.RadLabel();
@@ -281,8 +279,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.monthBalance)).BeginInit();
             this.radPageViewPage3.SuspendLayout();
             this.groupBox2.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.mellonGroupOtpTxt)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.radLabel59)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton10)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.mellonGroupApiKeyTxt)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel58)).BeginInit();
@@ -1065,7 +1061,7 @@
             this.radPageView1.Controls.Add(this.radPageViewPage5);
             this.radPageView1.Location = new System.Drawing.Point(12, 12);
             this.radPageView1.Name = "radPageView1";
-            this.radPageView1.SelectedPage = this.radPageViewPage1;
+            this.radPageView1.SelectedPage = this.radPageViewPage3;
             this.radPageView1.Size = new System.Drawing.Size(733, 508);
             this.radPageView1.TabIndex = 70;
             this.radPageView1.Text = "radPageView1";
@@ -1433,7 +1429,9 @@
             this.radPageViewPage3.Controls.Add(this.groupBox1);
             this.radPageViewPage3.Controls.Add(this.posTypeCombo);
             this.radPageViewPage3.Controls.Add(this.radLabel55);
+            this.radPageViewPage3.Controls.Add(this.posTerminalIdTxt);
             this.radPageViewPage3.Controls.Add(this.appLock);
+            this.radPageViewPage3.Controls.Add(this.posTerminalId);
             this.radPageViewPage3.Controls.Add(this.radLabel35);
             this.radPageViewPage3.Controls.Add(this.txtIBAN2);
             this.radPageViewPage3.Controls.Add(this.radLabel36);
@@ -1450,41 +1448,20 @@
             // 
             // groupBox2
             // 
-            this.groupBox2.Controls.Add(this.mellonGroupOtpTxt);
-            this.groupBox2.Controls.Add(this.radLabel59);
             this.groupBox2.Controls.Add(this.radButton10);
             this.groupBox2.Controls.Add(this.mellonGroupApiKeyTxt);
             this.groupBox2.Controls.Add(this.radLabel58);
-            this.groupBox2.Location = new System.Drawing.Point(375, 250);
+            this.groupBox2.Location = new System.Drawing.Point(375, 281);
             this.groupBox2.Name = "groupBox2";
-            this.groupBox2.Size = new System.Drawing.Size(333, 201);
+            this.groupBox2.Size = new System.Drawing.Size(333, 170);
             this.groupBox2.TabIndex = 87;
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Mellon Group";
             // 
-            // mellonGroupOtpTxt
-            // 
-            this.mellonGroupOtpTxt.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.mellonGroupOtpTxt.Location = new System.Drawing.Point(85, 110);
-            this.mellonGroupOtpTxt.Margin = new System.Windows.Forms.Padding(4);
-            this.mellonGroupOtpTxt.Name = "mellonGroupOtpTxt";
-            this.mellonGroupOtpTxt.Size = new System.Drawing.Size(241, 23);
-            this.mellonGroupOtpTxt.TabIndex = 93;
-            // 
-            // radLabel59
-            // 
-            this.radLabel59.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel59.Location = new System.Drawing.Point(8, 112);
-            this.radLabel59.Margin = new System.Windows.Forms.Padding(4);
-            this.radLabel59.Name = "radLabel59";
-            this.radLabel59.Size = new System.Drawing.Size(31, 21);
-            this.radLabel59.TabIndex = 92;
-            this.radLabel59.Text = "OTP";
-            // 
             // radButton10
             // 
             this.radButton10.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radButton10.Location = new System.Drawing.Point(8, 147);
+            this.radButton10.Location = new System.Drawing.Point(7, 104);
             this.radButton10.Name = "radButton10";
             this.radButton10.Padding = new System.Windows.Forms.Padding(5, 0, 0, 0);
             this.radButton10.Size = new System.Drawing.Size(319, 40);
@@ -1496,7 +1473,7 @@
             // mellonGroupApiKeyTxt
             // 
             this.mellonGroupApiKeyTxt.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.mellonGroupApiKeyTxt.Location = new System.Drawing.Point(7, 51);
+            this.mellonGroupApiKeyTxt.Location = new System.Drawing.Point(6, 60);
             this.mellonGroupApiKeyTxt.Margin = new System.Windows.Forms.Padding(4);
             this.mellonGroupApiKeyTxt.Name = "mellonGroupApiKeyTxt";
             this.mellonGroupApiKeyTxt.Size = new System.Drawing.Size(319, 23);
@@ -1506,7 +1483,7 @@
             // radLabel58
             // 
             this.radLabel58.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel58.Location = new System.Drawing.Point(8, 22);
+            this.radLabel58.Location = new System.Drawing.Point(7, 31);
             this.radLabel58.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel58.Name = "radLabel58";
             this.radLabel58.Size = new System.Drawing.Size(52, 21);
@@ -1519,11 +1496,9 @@
             this.groupBox1.Controls.Add(this.radLabel57);
             this.groupBox1.Controls.Add(this.vivaWalletClientSecretTxt);
             this.groupBox1.Controls.Add(this.vivaWalletClientIdTxt);
-            this.groupBox1.Controls.Add(this.posTerminalIdTxt);
-            this.groupBox1.Controls.Add(this.posTerminalId);
-            this.groupBox1.Location = new System.Drawing.Point(4, 250);
+            this.groupBox1.Location = new System.Drawing.Point(4, 281);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(333, 201);
+            this.groupBox1.Size = new System.Drawing.Size(333, 170);
             this.groupBox1.TabIndex = 86;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Viva Wallet";
@@ -1531,7 +1506,7 @@
             // radLabel56
             // 
             this.radLabel56.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel56.Location = new System.Drawing.Point(7, 82);
+            this.radLabel56.Location = new System.Drawing.Point(7, 91);
             this.radLabel56.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel56.Name = "radLabel56";
             this.radLabel56.Size = new System.Drawing.Size(81, 21);
@@ -1541,7 +1516,7 @@
             // radLabel57
             // 
             this.radLabel57.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel57.Location = new System.Drawing.Point(7, 22);
+            this.radLabel57.Location = new System.Drawing.Point(7, 31);
             this.radLabel57.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel57.Name = "radLabel57";
             this.radLabel57.Size = new System.Drawing.Size(56, 21);
@@ -1551,7 +1526,7 @@
             // vivaWalletClientSecretTxt
             // 
             this.vivaWalletClientSecretTxt.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.vivaWalletClientSecretTxt.Location = new System.Drawing.Point(7, 112);
+            this.vivaWalletClientSecretTxt.Location = new System.Drawing.Point(7, 121);
             this.vivaWalletClientSecretTxt.Margin = new System.Windows.Forms.Padding(4);
             this.vivaWalletClientSecretTxt.Name = "vivaWalletClientSecretTxt";
             this.vivaWalletClientSecretTxt.Size = new System.Drawing.Size(319, 23);
@@ -1561,7 +1536,7 @@
             // vivaWalletClientIdTxt
             // 
             this.vivaWalletClientIdTxt.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.vivaWalletClientIdTxt.Location = new System.Drawing.Point(7, 51);
+            this.vivaWalletClientIdTxt.Location = new System.Drawing.Point(7, 60);
             this.vivaWalletClientIdTxt.Margin = new System.Windows.Forms.Padding(4);
             this.vivaWalletClientIdTxt.Name = "vivaWalletClientIdTxt";
             this.vivaWalletClientIdTxt.Size = new System.Drawing.Size(319, 23);
@@ -1571,17 +1546,17 @@
             // posTerminalIdTxt
             // 
             this.posTerminalIdTxt.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.posTerminalIdTxt.Location = new System.Drawing.Point(7, 164);
+            this.posTerminalIdTxt.Location = new System.Drawing.Point(180, 210);
             this.posTerminalIdTxt.Margin = new System.Windows.Forms.Padding(4);
             this.posTerminalIdTxt.Name = "posTerminalIdTxt";
-            this.posTerminalIdTxt.Size = new System.Drawing.Size(319, 23);
+            this.posTerminalIdTxt.Size = new System.Drawing.Size(529, 23);
             this.posTerminalIdTxt.TabIndex = 83;
             this.posTerminalIdTxt.Text = "αδασδασδασδ";
             // 
             // posTerminalId
             // 
             this.posTerminalId.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.posTerminalId.Location = new System.Drawing.Point(7, 143);
+            this.posTerminalId.Location = new System.Drawing.Point(5, 212);
             this.posTerminalId.Margin = new System.Windows.Forms.Padding(4);
             this.posTerminalId.Name = "posTerminalId";
             this.posTerminalId.Size = new System.Drawing.Size(103, 21);
@@ -1603,7 +1578,7 @@
             this.posTypeCombo.Items.Add(radListDataItem4);
             this.posTypeCombo.Items.Add(radListDataItem5);
             this.posTypeCombo.Items.Add(radListDataItem6);
-            this.posTypeCombo.Location = new System.Drawing.Point(179, 222);
+            this.posTypeCombo.Location = new System.Drawing.Point(180, 183);
             this.posTypeCombo.Name = "posTypeCombo";
             this.posTypeCombo.Size = new System.Drawing.Size(529, 20);
             this.posTypeCombo.TabIndex = 85;
@@ -1611,7 +1586,7 @@
             // radLabel55
             // 
             this.radLabel55.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radLabel55.Location = new System.Drawing.Point(4, 222);
+            this.radLabel55.Location = new System.Drawing.Point(5, 183);
             this.radLabel55.Margin = new System.Windows.Forms.Padding(4);
             this.radLabel55.Name = "radLabel55";
             this.radLabel55.Size = new System.Drawing.Size(72, 21);
@@ -1623,7 +1598,7 @@
             this.appLock.AutoSize = false;
             this.appLock.CheckAlignment = System.Drawing.ContentAlignment.MiddleRight;
             this.appLock.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.appLock.Location = new System.Drawing.Point(4, 175);
+            this.appLock.Location = new System.Drawing.Point(4, 156);
             this.appLock.Name = "appLock";
             this.appLock.Size = new System.Drawing.Size(192, 21);
             this.appLock.TabIndex = 81;
@@ -1716,7 +1691,7 @@
             this.radPageViewPage4.Controls.Add(this.radGroupBox2);
             this.radPageViewPage4.Location = new System.Drawing.Point(10, 37);
             this.radPageViewPage4.Name = "radPageViewPage4";
-            this.radPageViewPage4.Size = new System.Drawing.Size(712, 468);
+            this.radPageViewPage4.Size = new System.Drawing.Size(712, 460);
             this.radPageViewPage4.Text = "Α.Α.Δ.Ε.";
             // 
             // radGroupBox3
@@ -2234,8 +2209,6 @@
             this.radPageViewPage3.PerformLayout();
             this.groupBox2.ResumeLayout(false);
             this.groupBox2.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.mellonGroupOtpTxt)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.radLabel59)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton10)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.mellonGroupApiKeyTxt)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel58)).EndInit();
@@ -2447,8 +2420,6 @@
         private Telerik.WinControls.UI.RadDropDownList posTypeCombo;
         private Telerik.WinControls.UI.RadLabel radLabel55;
         private System.Windows.Forms.GroupBox groupBox2;
-        private Telerik.WinControls.UI.RadTextBox mellonGroupOtpTxt;
-        private Telerik.WinControls.UI.RadLabel radLabel59;
         private Telerik.WinControls.UI.RadButton radButton10;
         private Telerik.WinControls.UI.RadTextBox mellonGroupApiKeyTxt;
         private Telerik.WinControls.UI.RadLabel radLabel58;

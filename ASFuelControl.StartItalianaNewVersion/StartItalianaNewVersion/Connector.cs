@@ -47,7 +47,7 @@ namespace ASFuelControl.StartItalianaNewVersion
 		{
 		}
 
-		public ATGProbe AddProbe(int addressId)
+		public ATGProbe AddProbe(int addressId, int channel)
 		{
 			ATGProbe aTGProbe;
 			if ((
@@ -57,7 +57,8 @@ namespace ASFuelControl.StartItalianaNewVersion
 			{
 				ATGProbe aTGProbe1 = new ATGProbe()
 				{
-					Address = addressId
+					Address = addressId,
+                    Channel = channel
 				};
 				this.probes.Add(aTGProbe1);
 				aTGProbe = aTGProbe1;
@@ -80,9 +81,11 @@ namespace ASFuelControl.StartItalianaNewVersion
 				this.th = new Thread(new ThreadStart(this.ThreadRun));
 				this.th.Start();
 			}
-			catch
+			catch(Exception ex)
 			{
-			}
+                if (System.IO.File.Exists("StartItaliana.log"))
+                    System.IO.File.WriteAllText("StartItaliana.log", "Exception: " + ex.Message + "\r\n");
+            }
 		}
 
 		public void DisConnect()
@@ -131,11 +134,18 @@ namespace ASFuelControl.StartItalianaNewVersion
 						this.errorOccured = false;
 					}
 					int num = 0;
-					foreach (ATGProbe probe in this.probes)
+                    
+                    foreach (ATGProbe probe in this.probes)
 					{
-						SerialPort serialPort = this.serialPort;
+                        string lineEnding = "\n\r";
+                        if(probe.Channel > 0)
+                            lineEnding = "\r\n";
+                        SerialPort serialPort = this.serialPort;
 						int address = probe.Address;
-						serialPort.Write(string.Concat("M", address.ToString(), "\n\r"));
+                        string request = string.Concat("M", address.ToString(), lineEnding);
+                        if (System.IO.File.Exists("StartItaliana.log"))
+                            System.IO.File.WriteAllText("StartItaliana.log", "Request: " + request + "\r\n");
+                        serialPort.Write(request);
 						Thread.Sleep(100);
 						num += 100;
 						string str = "";
@@ -157,13 +167,16 @@ namespace ASFuelControl.StartItalianaNewVersion
 							}
 							else if (DateTime.Now.Subtract(now).TotalMilliseconds > 500)
 							{
-								break;
+                                break;
 							}
 							Thread.Sleep(20);
 						}
 						if (str.Length > 0)
 						{
-							int num1 = str.IndexOf("\n\r");
+                            if (System.IO.File.Exists("StartItaliana.log"))
+                                System.IO.File.WriteAllText("StartItaliana.log", "Response: " + str + "\r\n");
+                            
+                            int num1 = str.IndexOf("\n\r");
 							if (num1 >= 0)
 							{
 								str = str.Substring(0, num1);
@@ -172,13 +185,16 @@ namespace ASFuelControl.StartItalianaNewVersion
 						}
 						else
 						{
-							Console.WriteLine("{0:HH:mm:ss.fff} - NO DATA RETURNED", DateTime.Now);
+                            if (System.IO.File.Exists("StartItaliana.log"))
+                                System.IO.File.WriteAllText("StartItaliana.log", "Response: NO DATA RETURNED\r\n");
+                            Console.WriteLine("{0:HH:mm:ss.fff} - NO DATA RETURNED", DateTime.Now);
 						}
 					}
 					Thread.Sleep(1500 - num);
 				}
-				catch
+				catch(Exception ex)
 				{
+                    ASFuelControl.Common.Logger.Instance.Error(ex);
 					this.errorOccured = true;
 					Thread.Sleep(500);
 				}

@@ -83,15 +83,22 @@ namespace Exedron.ProviderInvoicing
 
         public void CreatePosHandlers(bool reset = false)
         {
-            if (VivaWallet != null && !reset)
-                return;
-            this.VivaWallet = new ArbitransMyData.POS.VivaWalletPOS(ArbitransName, ArbitransKey, "ClientID", "ClientSecret", ProviderIsTestMode);
-            this.MellonGroup = new ArbitransMyData.POS.MellonGroupPOS(ArbitransName, ArbitransKey, MellonGroupNsp, ProviderIsTestMode);
-            var terminals = this.MellonGroup.getTerminalList(PosTerminalId);
-            if (terminals.Count > 0)
+            //if (VivaWallet != null && !reset)
+            //    return;
+
+            if (PosType == PosTypeEnum.VivaWallet)
+                this.VivaWallet = new ArbitransMyData.POS.VivaWalletPOS(ArbitransName, ArbitransKey, "ClientID", "ClientSecret", ProviderIsTestMode);
+            else
             {
-                MellonTerminalId = terminals[0].TerminalID;
-                MellonTerminalId2 = terminals[0].Id;
+                this.MellonGroup = new ArbitransMyData.POS.MellonGroupPOS(ArbitransName, ArbitransKey, MellonGroupNsp, ProviderIsTestMode);
+
+                var terminals = this.MellonGroup.getTerminalList(MellonGroupApiKey);
+
+                if (terminals.Count > 0)
+                {
+                    MellonTerminalId = terminals[0].TerminalID;
+                    MellonTerminalId2 = terminals[0].Id;
+                }
             }
         }
 
@@ -204,6 +211,14 @@ namespace Exedron.ProviderInvoicing
             invoice.elements.aa = long.Parse(inv.InvoiceHeader.AA);
             invoice.elements.issueDate = inv.InvoiceHeader.IssueDate;
             invoice.elements.invoiceType = inv.InvoiceHeader.InvoiceType;
+            if (inv.InvoiceDetails.Length == 1 &&
+                inv.InvoiceHeader.FuelInvoice &&
+                inv.CounterPart != null &&
+                !string.IsNullOrEmpty(inv.CounterPart.SupplyAccountNo)
+                && (inv.InvoiceDetails[0].FuelCode == "30" || inv.InvoiceDetails[0].FuelCode == "31"))
+            {
+                invoice.elements.specialInvoiceCategory = 11;
+            }
             if (inv.InvoiceHeader.OtherDeliveryNoteHeader != null)
                 invoice.elements.isDeliveryNote = inv.InvoiceHeader.OtherDeliveryNoteHeader.IsDeliveryNote;
             if (inv.InvoiceHeader.CorrelatedInvoices != null && inv.InvoiceHeader.CorrelatedInvoices.Length > 0)
@@ -242,6 +257,7 @@ namespace Exedron.ProviderInvoicing
                 ln.lineComments = line.LineComments;
                 if (inv.InvoiceHeader.DeliveryNote)
                     ln.itemDescr = line.ItemDescription;
+                ln.Quantity = (double)line.Quantity;
                 ln.measurementUnit = (int)line.MeasurementUnit;
                 //if (line.VATCategory == VATCategoryEnum.NoVAT || line.VATCategory == VATCategoryEnum.NoVATEntry)
                 //    ln.itemDescr = line.ItemDescription;
@@ -379,23 +395,25 @@ namespace Exedron.ProviderInvoicing
                 string sessionID = string.Format(DateTime.Now.ToString("yyyyMMddmmssfff-EX1")); // The SessionID must be unique. The same SessionID cannot be used twice.
                 if (inv.PaymentMethods != null && !string.IsNullOrEmpty(terminalId) && inv.PaymentMethods.Any(pp => pp.Type == PaymentMethodEnum.POS || pp.Type == PaymentMethodEnum.IRIS))
                 {
-                    if (PosType == PosTypeEnum.VivaWallet)
-                        terminalId = PosTerminalId;
-                    else
-                    {
-                        terminalId = MellonTerminalId;
-                    }
+                    //if (PosType == PosTypeEnum.VivaWallet)
+                    //    terminalId = PosTerminalId;
+                    //else
+                    //{
+                    //    terminalId = PosTerminalId;
+                    //}
                     ilydaData.extraDetails.paymentTerminalID = terminalId;
                     Dictionary<string, string> posSign = null;
                     if (PosType == PosTypeEnum.Mellon)
-                        posSign = ilyda.getPOSSignature(invoice, terminalId, 2);
+                    {
+                        posSign = ilyda.getPOSSignature(invoice, MellonTerminalId, 2);
+                    }
                     else
                         posSign = ilyda.getPOSSignature(invoice, terminalId, 1);
                     if (!posSign.ContainsKey("invoiceSignatures[0].signedContent"))
                     {
                         return new InvoiceResponse()
                         {
-                            Errors = new string[] { "POS Failed to send Signature" }
+                            Errors = new string[] { "POS Failed to send Signature", string.Join("\r\n", posSign.Select(e => e.Key + "::" + e.Value)) }
                         };
                     }
                     string signature = posSign["invoiceSignatures[0].signature"];
@@ -455,7 +473,7 @@ namespace Exedron.ProviderInvoicing
                         tra.CurrencyCode = "978";
                         tra.CustomerReference = Guid.NewGuid().ToString();
                         tra.Instalments = 1;
-                        tra.PaymentType = inv.PaymentMethods.Any(pp => pp.Type == PaymentMethodEnum.Credit) ? 0 : 1;
+                        tra.PaymentType = inv.PaymentMethods.Any(pp => pp.Type == PaymentMethodEnum.POS) ? 0 : 1;
                         tra.TxnType = 0;
                         tra.Timeout = 60;
 
@@ -466,8 +484,8 @@ namespace Exedron.ProviderInvoicing
                         tra.ProviderData.TotalAmount = int.Parse(payData[5]);
                         tra.ProviderData.ProviderId = 8; // 7 for PRIMER, 8 for ILYDA, 15 for ORIAN
                         tra.ProviderData.Signature = paymentSignature;
-                        var traRes = this.MellonGroup.sendTransaction(PosTerminalId, MellonTerminalId2, tra); // Send the sale to the POS.
-
+                        var mellonGroup = new ArbitransMyData.POS.MellonGroupPOS(ArbitransName, ArbitransKey, MellonGroupNsp, isTest);
+                        var traRes = mellonGroup.sendTransaction(MellonGroupApiKey, MellonTerminalId2, tra); // Send the sale to the POS.
                         if (traRes.ContainsKey("TransactionId"))
                         {
                             transactionId = traRes["TransactionId"];
@@ -493,7 +511,7 @@ namespace Exedron.ProviderInvoicing
                             if (payment.type == (int)PaymentMethodEnum.POS)
                                 payment.transactionID = transactionId;
                             else
-                                payment.ProviderSignature.EndToΕndReferenceID = transactionId;
+                                payment.ProviderSignature.EndToEndReferenceID = transactionId;
 
                             payment.tid = ilydaData.extraDetails.paymentTerminalID;
                             payment.ProviderSignature.Signature = signature;

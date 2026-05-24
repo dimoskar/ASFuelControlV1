@@ -21,16 +21,23 @@ namespace ASFuelControl.Communication
         }
 
         ETokenDomainManager _etoken;
+        readonly object etokenSync = new object();
         ETokenDomainManager etoken
         {
             get
             {
                 if (_etoken == null)
                 {
-                    //eTokenLib.eTokenLib
-                    GC.Collect(); GC.WaitForPendingFinalizers();
-                    _etoken = new ETokenDomainManager();
-                    _etoken.Load("C:\\ASFuelControl\\eTokenLib.dll", "eTokenLib.eTokenLib");
+                    lock (etokenSync)
+                    {
+                        if (_etoken == null)
+                        {
+                            //eTokenLib.eTokenLib
+                            GC.Collect(); GC.WaitForPendingFinalizers();
+                            _etoken = new ETokenDomainManager();
+                            _etoken.Load("C:\\ASFuelControl\\eTokenLib.dll", "eTokenLib.eTokenLib");
+                        }
+                    }
                 }
                 return _etoken;
             }

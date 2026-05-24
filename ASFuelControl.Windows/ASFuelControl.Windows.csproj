@@ -651,6 +651,12 @@
     <Compile Include="UI\SettingForms\FuelPumpSettings.Designer.cs">
       <DependentUpon>FuelPumpSettings.cs</DependentUpon>
     </Compile>
+    <Compile Include="UI\SettingForms\GetOTPForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\GetOTPForm.Designer.cs">
+      <DependentUpon>GetOTPForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="UI\SettingForms\InvoiceTypesForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -970,6 +976,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="UI\SettingForms\FuelPumpSettings.resx">
       <DependentUpon>FuelPumpSettings.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\SettingForms\GetOTPForm.resx">
+      <DependentUpon>GetOTPForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\SettingForms\InvoiceTypesForm.resx">
       <DependentUpon>InvoiceTypesForm.cs</DependentUpon>

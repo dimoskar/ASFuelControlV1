@@ -590,7 +590,7 @@ namespace ASFuelControl.Windows.Threads
                     createBalance = true;
                 }
 
-                this.UnlockDispensersIfNeeded(currentBalanceOK);
+                //this.UnlockDispensersIfNeeded(currentBalanceOK);
 
                 if (!createBalance)
                     return null;
@@ -603,11 +603,11 @@ namespace ASFuelControl.Windows.Threads
             {
                 if (currentBalanceOK)
                     return null;
-                Program.ApplicationMainForm.Invoke(new Action(() =>
-                {
-                    Program.ApplicationMainForm.ThreadControllerInstance.LockDispensers();
-                    Common.Logger.Instance.Debug(string.Format("Dispensers Locked"));
-                }));
+                //Program.ApplicationMainForm.Invoke(new Action(() =>
+                //{
+                //    Program.ApplicationMainForm.ThreadControllerInstance.LockDispensers();
+                //    Common.Logger.Instance.Debug(string.Format("Dispensers Locked"));
+                //}));
                 while (!Program.ApplicationMainForm.ThreadControllerInstance.CanCreateBalance())
                 {
                     System.Threading.Thread.Sleep(500);

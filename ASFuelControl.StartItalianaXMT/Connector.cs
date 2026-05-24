@@ -76,7 +76,7 @@ namespace ASFuelControl.StartItalianaXMT
                     int milsec = 0;
                     foreach (ATGProbe probe in this.probes)
                     {
-                        this.serialPort.Write("M" + probe.Address.ToString() + "\n\r");
+                        this.serialPort.Write(string.Concat("M", probe.Address.ToString().PadLeft(5, '0'), "\n\r"));
                         if (System.IO.File.Exists("xmt.log"))
                         {
                             System.IO.File.AppendAllText("xmt.log", "Response\t" + DateTime.Now.ToString("dd-MM HH:mm:ss.fff") + "\t TX: " + "M" + probe.Address.ToString() + "\r\n");

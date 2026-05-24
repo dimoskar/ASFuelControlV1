@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Drawing.Printing;
 using ASFuelControl.Communication.Enums;
 using System.Xml.Serialization;
+using System.Diagnostics;
 
 namespace ASFuelControl.Windows.Threads
 {
@@ -3619,7 +3620,9 @@ namespace ASFuelControl.Windows.Threads
                     }
                     else
                     {
+                        LogProviderMemory("CreateProviderInvoice start", invoiceId, printMode);
                         Exedron.ProviderInvoicing.InvoiceModel invoice = InvoiceHelper.CreateProviderInvoice(db, invoiceId, out msg);
+                        LogProviderMemory("CreateProviderInvoice end", invoiceId, printMode);
                         if (invoice == null)
                         {
                             if (myDataEntry == null)
@@ -3755,7 +3758,9 @@ namespace ASFuelControl.Windows.Threads
             mdInvoice.InvoiceId = invoiceId;
             db.SaveChanges();
 
+            LogProviderMemory("Provider send start", invoiceId, printMode);
             var resp = Exedron.ProviderInvoicing.InvoiceHandler.Instance.SendInvoice(inv);
+            LogProviderMemory("Provider send end", invoiceId, printMode);
 
             if (resp != null)
             {
@@ -3791,6 +3796,29 @@ namespace ASFuelControl.Windows.Threads
             if (mdInvoice.Status == 3)
                 return true;
             return false;
+        }
+
+        private static void LogProviderMemory(string stage, Guid invoiceId, int printMode)
+        {
+            try
+            {
+                Process process = Process.GetCurrentProcess();
+                long managedBytes = GC.GetTotalMemory(false);
+                long workingSet = process.WorkingSet64;
+                long privateBytes = process.PrivateMemorySize64;
+                Common.Logger.Instance.Debug(string.Format(
+                    "ProviderMemory|Stage:{0}|Invoice:{1}|PrintMode:{2}|ManagedMB:{3:N1}|WorkingSetMB:{4:N1}|PrivateMB:{5:N1}",
+                    stage,
+                    invoiceId,
+                    printMode,
+                    managedBytes / 1048576d,
+                    workingSet / 1048576d,
+                    privateBytes / 1048576d));
+            }
+            catch (Exception ex)
+            {
+                Common.Logger.Instance.Error(ex);
+            }
         }
         //private static void ResendInvoice(Guid mdInvoiceId)
         //{

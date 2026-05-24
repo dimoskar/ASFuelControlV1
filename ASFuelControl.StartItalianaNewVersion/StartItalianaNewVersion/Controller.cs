@@ -77,7 +77,7 @@ namespace ASFuelControl.StartItalianaNewVersion
 			if (!this.internalTankQueue.ContainsKey(tank1))
 			{
 				this.internalTankQueue.TryAdd(tank1, new ConcurrentQueue<TankValues>());
-				this.controller.AddProbe(address).CommonTank = tank1;
+				this.controller.AddProbe(address, channel).CommonTank = tank1;
 			}
 		}
 

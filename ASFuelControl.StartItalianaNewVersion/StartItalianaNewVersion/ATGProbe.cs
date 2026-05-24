@@ -33,8 +33,13 @@ namespace ASFuelControl.StartItalianaNewVersion
 			get;
 			set;
 		}
+        public int Channel
+        {
+            get;
+            set;
+        }
 
-		public Tank CommonTank
+        public Tank CommonTank
 		{
 			get;
 			set;

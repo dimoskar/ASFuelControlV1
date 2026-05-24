@@ -8,51 +8,25 @@ namespace Exedron.ProviderInvoicing
 {
     public class MellonGroupHelper
     {
-        public static string ApiKeyGenerator(string otp, string arbitransName, string arbitransKey, int nsp, bool isTest)
+        public static string ApiKeyGenerator(Func<string> otp, string arbitransName, string arbitransKey, int nsp, bool isTest)
         {
+            System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+            var otpValue = otp.Invoke();
+            if (string.IsNullOrEmpty(otpValue))
+                return "";
             var mel = new ArbitransMyData.POS.MellonGroupPOS(arbitransName, arbitransKey, nsp, isTest);
-            var myApi = mel.getApiKey(otp);
-            if (!myApi.ContainsKey("Id"))
+            var myApi = mel.getApiKey(otpValue);
+            if (myApi == null)
             {
-                for (int i = 0, loopTo = myApi.Count - 1; i <= loopTo; i++)
-                {
-                    if (myApi.Keys.Any(a => a == "errorIn"))
-                    {
-                        string error = string.Join("\r\n", myApi.Select(a => a.Key + ": " + a.Value));
-                        ASFuelControl.Common.Logger.Instance.Error("MellonGroupHelper.ApiKeyGenerator ERROR :: " + error);
-                    }
-                }
+                ASFuelControl.Common.Logger.Instance.Error("getApiKey returned null");
+                return "";
+            }
+            else
+            {
+                ASFuelControl.Common.Logger.Instance.Debug("getApiKey => " + string.Join("\r\n", myApi.Select(a => string.Format("Key: {0}, Value: {1}", a.Key, a.Value))));
             }
             var apiKey = myApi["Id"]; // => Αποθηκευση
             return apiKey;
-        }
-        public static int GetMellonNsp(string posType)
-        {
-            var posTypeParams = posType.Split('.');
-            if (posTypeParams.Length == 2)
-            {
-                if (posTypeParams[0] == "Mellon")
-                {
-                    switch (posTypeParams[1])
-                    {
-                        case "JCC":
-                        case "AtticaBank":
-                        case "Pancreta":
-                            return 1;
-                        case "Nexi":
-                            return 2;
-                        case "NBG":
-                            return 3;
-                        case "Worldline":
-                            return 4;
-                        default:
-                            return 1;
-
-                    }
-                }
-                return 1;
-            }
-            return 0;
         }
     }
 }

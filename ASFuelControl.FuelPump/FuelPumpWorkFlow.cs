@@ -394,6 +394,8 @@ namespace ASFuelControl.FuelPump
 
         private void AuthorizeSale()
         {
+            if (DateTime.Now.Hour == 23 && DateTime.Now.Minute >= 50)
+                return;
             if (this.Dispenser.DeviceLocked)
                 return;
             if (this.Dispenser.HasInvalidSale)
@@ -707,6 +709,8 @@ namespace ASFuelControl.FuelPump
 
         private bool IsTankLocked(object foo)
         {
+            if (DateTime.Now.Hour > 23 && DateTime.Now.Minute > 55)
+                return true;
             if (this.Dispenser.ActiveNozzle == null)
             {
                 return false;
@@ -765,6 +769,8 @@ namespace ASFuelControl.FuelPump
 
         private bool IsTankUnLocked(object foo)
         {
+            if (DateTime.Now.Hour > 23 && DateTime.Now.Minute > 55)
+                return false;
             if (this.Dispenser.ActiveNozzle == null)
             {
                 return true;
