@@ -841,11 +841,18 @@ namespace ASFuelControl.FuelPump
                 CancelEventArgs args = new CancelEventArgs();
                 this.QueryStationLocked(this, args);
                 if (args.Cancel)
+                {
+                    if (status == Common.Enumerators.FuelPointStatusEnum.Nozzle)
+                        Logger.Instance.LogToFile("Authorization", string.Format("{2} CurrentStatus: {0}, TargetStatus: {1} Station Locked", this.Dispenser.Status, this.Dispenser.TargetStatus, this.Dispenser.DispenserNumber));
                     return false;
+                }
             }
 
-            if (status == Common.Enumerators.FuelPointStatusEnum.Nozzle &&  this.IsTankLocked(null))
+            if (status == Common.Enumerators.FuelPointStatusEnum.Nozzle && this.IsTankLocked(null))
+            {
+                Logger.Instance.LogToFile("Authorization", "Tank Locked");
                 return false;
+            }
             //if (this.Process.CurrentState == this.workState)
             //{
             //    if (DateTime.Now.Subtract(this.Process.ChangedStateTime).TotalSeconds < 2)
@@ -853,7 +860,8 @@ namespace ASFuelControl.FuelPump
             //}
             if (this.Dispenser.TargetStatus == status && this.Dispenser.Initialized)
                 return true;
-
+            if(status == Common.Enumerators.FuelPointStatusEnum.Nozzle)
+                Logger.Instance.LogToFile("Authorization", string.Format("{2} CurrentStatus: {0}, TargetStatus: {1} Not Initialized", this.Dispenser.Status, this.Dispenser.TargetStatus, this.Dispenser.DispenserNumber));
             return false;
         }
         private bool TotalsUpdated(object foo)
@@ -866,11 +874,15 @@ namespace ASFuelControl.FuelPump
                 if (this.Dispenser.ActiveNozzle.TotalsUpdated)
                 {
                     if (this.HasAlerts(null))
+                    {
+                        Logger.Instance.LogToFile("Authorization", "Has Alerts");
                         return false;
+                    }
                     //if (this.Dispenser.ActiveNozzle.LastVolumeCounter != this.Dispenser.ActiveNozzle.TotalVolumeCounter)
                     //    this.Dispenser.ActiveNozzle.Status = Common.Enumerators.NozzleStateEnum.Locked;
                     return true;
                 }
+                Logger.Instance.LogToFile("Authorization", "Totals not Updated");
                 return false;
             }
             catch
@@ -913,6 +925,10 @@ namespace ASFuelControl.FuelPump
                     Common.Logger.Instance.Trace(string.Format("Transition Validated {0} - > {1}", transition.SourceState.Name, transition.SourceState.Name));
                     this.Process.PreviousState = transition.SourceState;
                     this.Process.CurrentState = transition.TargetState;
+                    if(transition.SourceState == this.idleState)
+                    {
+                        Logger.Instance.LogToFile("Transition ", string.Format("CurrentState: {0}, TargetState: {1}", transition.SourceState.Name, transition.TargetState.Name));
+                    }
                     break;
                 }
                 this.Dispenser.HasChanges = false;

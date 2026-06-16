@@ -1130,6 +1130,7 @@ namespace ASFuelControl.Data
                                       i.FuelTypeId == tank.FuelTypeId &&
                                       i.Invoice.InvoiceType.IncludeInBalance == true &&
                                       i.Invoice.InvoiceType.DeliveryType.HasValue &&
+                                      i.TankId == tank.TankId &&
                                       validReturnDeliveryTypes.Contains(i.Invoice.InvoiceType.DeliveryType) && 
                                       i.Invoice.TransactionDate <= balance.TimeEnd && i.Invoice.TransactionDate >= balance.TimeStart);
 

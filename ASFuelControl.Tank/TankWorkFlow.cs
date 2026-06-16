@@ -279,7 +279,8 @@ namespace ASFuelControl.Tank
             //if (this.Tank.Alerts.Length > 0 && !this.Tank.IsVirtualTank)
             //    return false;
             bool isIdle = this.Tank.TankStatus != Common.Enumerators.TankStatusEnum.Offline;
-            
+            if (this.Tank.IsVirtualTank)
+                isIdle = true;
             return isIdle;
         }
         private bool IsOffline(object _status)

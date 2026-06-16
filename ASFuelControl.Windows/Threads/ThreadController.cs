@@ -1668,6 +1668,26 @@ namespace ASFuelControl.Windows.Threads
                     VirtualNozzle nz = dispensers.SelectMany(d => d.Nozzles).Where(n => n.NozzleId == nozzle.NozzleId).FirstOrDefault();
                     nozzle.DiscountPercentage = nz.DiscountPercentage;
 
+                    Data.SalesTransaction previousSale = this.database.SalesTransactions
+                        .Where(s => s.NozzleId == sale.NozzleId)
+                        .OrderByDescending(s => s.TransactionTimeStamp)
+                        .FirstOrDefault();
+
+                    if (previousSale != null &&
+                        previousSale.TotalizerStart == sale.TotalizerStart &&
+                        previousSale.TotalizerEnd == sale.TotalizerEnd)
+                    {
+                        Logger.Instance.LogToFile(
+                            "controllerThread_SaleAvaliable",
+                            string.Format(
+                                "Duplicate sale ignored. NozzleId:{0}, TotalizerStart:{1}, TotalizerEnd:{2}, PreviousSaleId:{3}",
+                                sale.NozzleId,
+                                sale.TotalizerStart,
+                                sale.TotalizerEnd,
+                                previousSale.SalesTransactionId));
+                        return;
+                    }
+
                     newInvoice = nozzle.Dispenser.CreateSale(sale);
                     
                     nozzle.DiscountPercentage = 0;
