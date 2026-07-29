@@ -2726,11 +2726,13 @@ namespace ASFuelControl.Windows.Threads
             lines.Add("Τελικός ανηγμένος όγκος καυσίμου δεξαμενής (15oC):  " + tf.Tank.GetTankVolumeNormalized(tf.LevelEnd, tf.TankTemperatureEnd).ToString("0.00", gr) + " lt");
             lines.Add("");
             lines.Add("");
-
-            lines.Add("Στοιχεία Παραστατικών Αγοράς Καυσίμων");
-            lines.Add("Ονομασία Προμηθευτή: " + trader.Name + "   ΑΦΜ Προμηθευτή: " + trader.TaxRegistrationNumber);
-            lines.Add("Ειδος Παρ: " + invoice.InvoiceType.Description + "  Σειρά : " + invoice.Series + "  Αριθμός : " + invoice.Number + "  Ημ-νία : " + dt(invoice.TransactionDate));
-            lines.Add("Αριθμός Kυκλοφορίας Βυτιοφόρoυ:  " + (string.IsNullOrEmpty(vehicle.PlateNumber) ? "" : vehicle.PlateNumber));
+            if (trader != null)
+            {
+                lines.Add("Στοιχεία Παραστατικών Αγοράς Καυσίμων");
+                lines.Add("Ονομασία Προμηθευτή: " + trader.Name + "   ΑΦΜ Προμηθευτή: " + trader.TaxRegistrationNumber);
+                lines.Add("Ειδος Παρ: " + invoice.InvoiceType.Description + "  Σειρά : " + invoice.Series + "  Αριθμός : " + invoice.Number + "  Ημ-νία : " + dt(invoice.TransactionDate));
+                lines.Add("Αριθμός Kυκλοφορίας Βυτιοφόρoυ:  " + (string.IsNullOrEmpty(vehicle.PlateNumber) ? "" : vehicle.PlateNumber));
+            }
             lines.Add("Κωδ: : " + tf.Tank.FuelType.EnumeratorValue.ToString() + "  Καύσιμο:  " + tf.Tank.FuelType.Name + "  Παραλαμβανόμενη Ποσότητα: " + invoiceLine.Volume.ToString("0", gr) + "  Lt");
             lines.Add("Θερμοκρασία φόρτωσης καυσίμου:  " + invoiceLine.Temperature.ToString("0", gr) + "  oC");
             lines.Add("Πυκνότητα φόρτωσης καυσίμου:  " + invoiceLine.FuelDensity.ToString("0", gr) + "  gr-Lt");

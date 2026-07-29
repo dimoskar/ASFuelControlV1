@@ -53,6 +53,7 @@ namespace ASFuelControl.Windows.Threads
         private string outFolder;
         private bool restartDatabase = false;
         private int restartDatabaseIndex = 0;
+        private int tankFillingRetryScheduled = 0;
         
 
         #endregion
@@ -592,6 +593,7 @@ namespace ASFuelControl.Windows.Threads
                     vtank.DeliveryStarted = tank.DeliveryStrarted;
                     vtank.LastCalculatedStart = tank.FuelLevel;
                     vtank.FillingStartTankLevel = tank.FillingStartLevel;
+                    this.controllerThread.RestoreTankFillingWorkFlow(vtank.TankId);
                 }
                 
                 if (tank.Titrimetries.Count > 0)
@@ -1568,41 +1570,133 @@ namespace ASFuelControl.Windows.Threads
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        void controllerThread_TankFillingAvaliable(object sender, EventArgs e)
+        private Data.TankFilling GetExistingTankFilling(Common.Sales.TankFillingData filling)
         {
-            Common.Sales.TankFillingData filling = this.controllerThread.GetNextFilling();
-            if (filling.DeliveryStarted.Year < 2000)
-                filling.DeliveryStarted = DateTime.Now;
-            
-            Data.Tank tank = this.database.Tanks.Where(t => t.TankId == filling.TankId).FirstOrDefault();
-            VirtualTank vtank = this.controllerThread.GetTank(tank.TankId);
-            if (tank == null || vtank == null)
+            if (filling == null || filling.InvoiceLineId == Guid.Empty)
+                return null;
+
+            Data.InvoiceLine invoiceLine = this.database.InvoiceLines.Where(i => i.InvoiceLineId == filling.InvoiceLineId).FirstOrDefault();
+            if (invoiceLine == null || !invoiceLine.TankFillingId.HasValue)
+                return null;
+
+            return this.database.TankFillings.Where(tf => tf.TankFillingId == invoiceLine.TankFillingId.Value).FirstOrDefault();
+        }
+
+        private void VerifyTankFillingSaved(Guid tankFillingId)
+        {
+            Data.DatabaseModel verifyDb = null;
+            try
+            {
+                verifyDb = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
+                Data.TankFilling saved = verifyDb.TankFillings.Where(tf => tf.TankFillingId == tankFillingId).FirstOrDefault();
+                if (saved == null)
+                    throw new Exception(string.Format("TankFilling {0} was not found after SaveChanges", tankFillingId));
+            }
+            finally
+            {
+                if (verifyDb != null)
+                    verifyDb.Dispose();
+            }
+        }
+
+        private void ScheduleTankFillingRetry()
+        {
+            if (System.Threading.Interlocked.Exchange(ref this.tankFillingRetryScheduled, 1) == 1)
                 return;
 
-            if (filling.InvoiceTypeId != Guid.Empty && filling.InvoiceLineId == Guid.Empty)
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
             {
-                filling.InvoiceLineId = tank.CreateFillingInvoice(filling);
+                try
+                {
+                    System.Threading.Thread.Sleep(30000);
+                    if (this.controllerThread != null && this.controllerThread.HasPendingFillings)
+                        this.controllerThread.SignalTankFillingAvailable();
+                }
+                finally
+                {
+                    System.Threading.Interlocked.Exchange(ref this.tankFillingRetryScheduled, 0);
+                }
+            });
+        }
+
+        private void LogTankFillingFailure(Common.Sales.TankFillingData filling, Exception ex)
+        {
+            try
+            {
+                string json = Newtonsoft.Json.JsonConvert.SerializeObject(filling);
+                Logger.Instance.LogToFile("TankFillingAvaliable", json);
+            }
+            catch
+            {
+            }
+            Logger.Instance.LogToFile("TankFillingAvaliable", ex);
+        }
+
+        void controllerThread_TankFillingAvaliable(object sender, EventArgs e)
+        {
+            Common.Sales.TankFillingData filling = null;
+            if (!this.controllerThread.TryPeekNextFilling(out filling))
+                return;
+            if (filling == null)
+            {
+                Logger.Instance.LogToFile("TankFillingAvaliable", "Null TankFillingData found at queue head");
+                this.controllerThread.AcknowledgeNextFilling(filling);
+                return;
             }
 
-            Data.TankFilling tf = tank.CreateTankFilling(filling.InvoiceLineId, filling.StartValues, filling.EndValues, filling.DeliveryStarted);
-            //tank.ReferenceLevel = tank.FuelLevel;
-            this.database.Add(tf);
-            this.database.SaveChanges();
-            vtank.LastFuelHeight = tank.GetLastValidLevel();//vtank.FillingStartTankLevel;//;
-            //vtank.FillingStartTankLevel = 0;
-
-            vtank.LastTemperature = tank.GetLastValidTemperatur();
-            vtank.LastWaterHeight = tank.GetLastValidWaterLevel();
-            if (this.TankFillingAvaliableEvent != null)
+            try
             {
-                VirtualTankFillingInfo info = new VirtualTankFillingInfo();
-                info.VolumeInvoiced = tf.VolumeNormalized;
-                info.VolumeReal = tf.VolumeRealNormalized;
-                info.Difference = tf.VolumeNormalized - tf.VolumeRealNormalized;
-                info.DeviceDescription = string.Format("Παραλαβή Δεξαμενής {0}", tank.TankNumber);
-                info.MessageText = string.Format("Όγκος Παραστατικού: {0:N2} lt Όγκος Μέτρησης: {1:N2} lt", info.VolumeInvoiced, info.VolumeReal);
-                info.AlarmTime = DateTime.Now;
-                this.TankFillingAvaliableEvent(this, new TankFillingAvaliableArgs() { TankFillingInfo = info });
+                if (filling.DeliveryStarted.Year < 2000)
+                    filling.DeliveryStarted = DateTime.Now;
+
+                Data.Tank tank = this.database.Tanks.Where(t => t.TankId == filling.TankId).FirstOrDefault();
+                if (tank == null)
+                    throw new Exception(string.Format("Tank {0} not found while creating TankFilling", filling.TankId));
+
+                VirtualTank vtank = this.controllerThread.GetTank(filling.TankId);
+                if (vtank == null)
+                    throw new Exception(string.Format("Virtual tank {0} not found while creating TankFilling", filling.TankId));
+
+                Data.TankFilling tf = this.GetExistingTankFilling(filling);
+                if (tf == null)
+                {
+                    if (filling.InvoiceTypeId != Guid.Empty && filling.InvoiceLineId == Guid.Empty)
+                    {
+                        filling.InvoiceLineId = tank.CreateFillingInvoice(filling);
+                    }
+
+                    tf = tank.CreateTankFilling(filling.InvoiceLineId, filling.StartValues, filling.EndValues, filling.DeliveryStarted);
+                    //tank.ReferenceLevel = tank.FuelLevel;
+                    this.database.Add(tf);
+                    this.database.SaveChanges();
+                    this.VerifyTankFillingSaved(tf.TankFillingId);
+                }
+
+                if (!this.controllerThread.AcknowledgeNextFilling(filling))
+                    Logger.Instance.LogToFile("TankFillingAvaliable", string.Format("TankFilling {0} was saved but queue acknowledgement failed", tf.TankFillingId));
+
+                vtank.LastFuelHeight = tank.GetLastValidLevel();//vtank.FillingStartTankLevel;//;
+                //vtank.FillingStartTankLevel = 0;
+
+                vtank.LastTemperature = tank.GetLastValidTemperatur();
+                vtank.LastWaterHeight = tank.GetLastValidWaterLevel();
+                if (this.TankFillingAvaliableEvent != null)
+                {
+                    VirtualTankFillingInfo info = new VirtualTankFillingInfo();
+                    info.VolumeInvoiced = tf.VolumeNormalized;
+                    info.VolumeReal = tf.VolumeRealNormalized;
+                    info.Difference = tf.VolumeNormalized - tf.VolumeRealNormalized;
+                    info.DeviceDescription = string.Format("Παραλαβή Δεξαμενής {0}", tank.TankNumber);
+                    info.MessageText = string.Format("Όγκος Παραστατικού: {0:N2} lt Όγκος Μέτρησης: {1:N2} lt", info.VolumeInvoiced, info.VolumeReal);
+                    info.AlarmTime = DateTime.Now;
+                    this.TankFillingAvaliableEvent(this, new TankFillingAvaliableArgs() { TankFillingInfo = info });
+                }
+            }
+            catch (Exception ex)
+            {
+                this.LogTankFillingFailure(filling, ex);
+                this.restartDatabase = true;
+                this.ScheduleTankFillingRetry();
             }
             //if (this.AlarmRaised != null)
             //{

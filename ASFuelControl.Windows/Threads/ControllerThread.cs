@@ -57,6 +57,7 @@ namespace ASFuelControl.Windows.Threads
         #region private variables
         private string defaultTaxDevice = "";
         ConcurrentQueue<Common.Sales.TankFillingData> fillingsToProcess = new ConcurrentQueue<Common.Sales.TankFillingData>();
+        ConcurrentDictionary<Common.Sales.TankFillingData, string> persistedFillingsToProcess = new ConcurrentDictionary<Common.Sales.TankFillingData, string>();
         private List<ASFuelControl.WorkFlow.IFuelPumpWorkFlow> fpWorkFlows = new List<ASFuelControl.WorkFlow.IFuelPumpWorkFlow>();
         private bool haltThread = false;
         private DateTime lastTankCheck = DateTime.Now.AddMinutes(-1000);
@@ -326,6 +327,44 @@ namespace ASFuelControl.Windows.Threads
             return null;
         }
 
+        public bool TryPeekNextFilling(out Common.Sales.TankFillingData filling)
+        {
+            filling = null;
+            return this.fillingsToProcess.TryPeek(out filling);
+        }
+
+        public bool HasPendingFillings
+        {
+            get { return this.fillingsToProcess.Count > 0; }
+        }
+
+        public bool AcknowledgeNextFilling(Common.Sales.TankFillingData expectedFilling)
+        {
+            Common.Sales.TankFillingData filling = null;
+            if (!this.fillingsToProcess.TryPeek(out filling))
+                return false;
+            if (!object.ReferenceEquals(filling, expectedFilling))
+                return false;
+            if (!this.fillingsToProcess.TryDequeue(out filling))
+                return false;
+            this.DeletePersistedFilling(filling);
+            return true;
+        }
+
+        public void SignalTankFillingAvailable()
+        {
+            if (this.TankFillingAvaliable != null)
+                this.TankFillingAvaliable(this, new EventArgs());
+        }
+
+        public void RestoreTankFillingWorkFlow(Guid tankId)
+        {
+            ASFuelControl.Tank.TankWorkFlow workFlow = this.tankWorkFlows.Where(t => t.Tank.TankId == tankId).FirstOrDefault();
+            if (workFlow == null)
+                return;
+            workFlow.RestorePendingFillingDataFromTank();
+        }
+
         /// <summary>
         /// Gets the next sale avaliable in the salesToProcess Queue
         /// </summary>
@@ -391,6 +430,7 @@ namespace ASFuelControl.Windows.Threads
         public void StartControllers()
         {
             haltThread = false;
+            this.LoadPersistedFillings();
             //List<Common.IController> controllers = this.fpWorkFlows.Select(f => f.Controller).Union(this.tankWorkFlows.Select(t => t.Controller)).Distinct().ToList();
             //foreach (Common.IController controller in controllers)
             //{
@@ -405,6 +445,8 @@ namespace ASFuelControl.Windows.Threads
 
             this.th = new System.Threading.Thread(new System.Threading.ThreadStart(this.ThreadStart));
             this.th.Start();
+            if (this.HasPendingFillings)
+                this.SignalTankFillingAvailable();
         }
 
         /// <summary>
@@ -635,7 +677,7 @@ namespace ASFuelControl.Windows.Threads
                         tvalues.WaterHeight = workFlow.Tank.CurrentWaterLevel;
                         tdata.StartValues = new Common.TankValues() { FuelHeight = workFlow.Tank.FillingStartTankLevel };
                         tdata.EndValues = tvalues;
-                        this.fillingsToProcess.Enqueue(tdata);
+                        this.EnqueueFilling(tdata);
                         //LOGME
                         //System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
                         if (this.TankFillingAvaliable != null)
@@ -1140,6 +1182,89 @@ namespace ASFuelControl.Windows.Threads
                 this.ReadFleetData(sender, new EventArgs());
         }
 
+        private string PendingFillingsFolder
+        {
+            get { return Path.Combine(System.Environment.CurrentDirectory, "Logs", "TankFillings", "Pending"); }
+        }
+
+        private void EnqueueFilling(Common.Sales.TankFillingData filling)
+        {
+            if (filling == null)
+            {
+                Logging.Logger.Instance.LogToFile("TankFilling Queue", "Attempted to enqueue null TankFillingData");
+                return;
+            }
+
+            this.PersistFilling(filling);
+            this.fillingsToProcess.Enqueue(filling);
+        }
+
+        private void PersistFilling(Common.Sales.TankFillingData filling)
+        {
+            try
+            {
+                if (this.persistedFillingsToProcess.ContainsKey(filling))
+                    return;
+
+                string folder = this.PendingFillingsFolder;
+                if (!Directory.Exists(folder))
+                    Directory.CreateDirectory(folder);
+
+                string fileName = Path.Combine(folder, string.Format("TankFilling_{0:yyyyMMddHHmmssfff}_{1}.json", DateTime.Now, Guid.NewGuid()));
+                string json = Newtonsoft.Json.JsonConvert.SerializeObject(filling);
+                File.WriteAllText(fileName, json, Encoding.UTF8);
+                this.persistedFillingsToProcess.TryAdd(filling, fileName);
+            }
+            catch (Exception ex)
+            {
+                Logging.Logger.Instance.LogToFile("TankFilling Queue Persist", ex);
+            }
+        }
+
+        private void LoadPersistedFillings()
+        {
+            try
+            {
+                string folder = this.PendingFillingsFolder;
+                if (!Directory.Exists(folder))
+                    return;
+
+                foreach (string fileName in Directory.GetFiles(folder, "TankFilling_*.json").OrderBy(f => f))
+                {
+                    if (this.persistedFillingsToProcess.Values.Contains(fileName))
+                        continue;
+
+                    string json = File.ReadAllText(fileName, Encoding.UTF8);
+                    Common.Sales.TankFillingData filling = Newtonsoft.Json.JsonConvert.DeserializeObject<Common.Sales.TankFillingData>(json);
+                    if (filling == null)
+                        continue;
+
+                    this.persistedFillingsToProcess.TryAdd(filling, fileName);
+                    this.fillingsToProcess.Enqueue(filling);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.Logger.Instance.LogToFile("TankFilling Queue Load", ex);
+            }
+        }
+
+        private void DeletePersistedFilling(Common.Sales.TankFillingData filling)
+        {
+            try
+            {
+                string fileName = null;
+                if (!this.persistedFillingsToProcess.TryRemove(filling, out fileName))
+                    return;
+                if (!string.IsNullOrEmpty(fileName) && File.Exists(fileName))
+                    File.Delete(fileName);
+            }
+            catch (Exception ex)
+            {
+                Logging.Logger.Instance.LogToFile("TankFilling Queue Ack", ex);
+            }
+        }
+
         #endregion Private Methods
 
         #region events
@@ -1153,7 +1278,12 @@ namespace ASFuelControl.Windows.Threads
 
         void workFlow_FillingCompleted(object sender, Tank.TankFillingEventArgs e)
         {
-            this.fillingsToProcess.Enqueue(e.Data);
+            if (e == null || e.Data == null)
+            {
+                Logging.Logger.Instance.LogToFile("TankFilling Queue", "FillingCompleted raised without TankFillingData");
+                return;
+            }
+            this.EnqueueFilling(e.Data);
             if (this.TankFillingAvaliable != null)
                 this.TankFillingAvaliable(this, new EventArgs());
         }

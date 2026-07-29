@@ -18,7 +18,14 @@ namespace CreateTankFilling
             InitializeComponent();
             ASFuelControl.Data.Implementation.OptionHandler.ConnectionString = Properties.Settings.Default.DBConnection;
             DatabaseModel.ConnectionString = Properties.Settings.Default.DBConnection;
-            GetTanks();
+            try
+            {
+                GetTanks();
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show(ex.StackTrace, ex.Message);
+            }
         }
 
         private void GetTanks()
@@ -37,6 +44,7 @@ namespace CreateTankFilling
         private void ComboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
             GetInvoiceLines();
+            GetTankChecks();
         }
 
         private void GetInvoiceLines()
@@ -48,13 +56,15 @@ namespace CreateTankFilling
             {
                 var tank = database.Tanks.FirstOrDefault(t => t.TankId == tankId);
                 if (tank == null)
+                {
                     return;
+                }
                 var q1 = database.InvoiceLines.Where(il =>
                 !il.TankFillingId.HasValue &&
                 il.Invoice.InvoiceType.TransactionType == 1 &&
                 il.FuelTypeId == tank.FuelTypeId &&
-                il.Invoice.TransactionDate.Date <= DateTime.Now &&
-                il.Invoice.TransactionDate.Date >= DateTime.Now.AddDays(-10) &&
+                il.Invoice.TransactionDate.Date <= dateTimePicker1.Value.AddDays(1) &&
+                il.Invoice.TransactionDate.Date >= dateTimePicker1.Value.Date.AddDays(-10) &&
                 il.Invoice.Number > 0 &&
                 il.VolumeNormalized > 0 &&
                 il.Temperature < 60 &&
@@ -72,7 +82,17 @@ namespace CreateTankFilling
                 this.comboBox2.ValueMember = "InvoiceLineId";
             }
         }
+        private void GetTankChecks()
+        {
+            if (this.comboBox1.SelectedValue == null)
+                return;
+            Guid tankId = Guid.Parse(this.comboBox1.SelectedValue.ToString());
+            using (var database = new DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                this.dataGridView1.DataSource = database.TankChecks.Where(t => t.TankId == tankId && t.CheckDate.Date == dateTimePicker1.Value.Date).ToList().OrderBy(t=>t.CheckDate).ToList();
 
+            }
+        }
         private void button1_Click(object sender, EventArgs e)
         {
             try
@@ -98,7 +118,7 @@ namespace CreateTankFilling
                 };
                 filling.EndValues = new ASFuelControl.Common.TankValues()
                 {
-                    CurrentTemperatur = this.numericUpDown3.Value,
+                    CurrentTemperatur = this.numericUpDown4.Value,
                     FuelHeight = this.numericUpDown2.Value,
                     FuelRipple = false,
                     LastMeasureTime = DateTime.Now.AddSeconds(-10),
@@ -113,7 +133,7 @@ namespace CreateTankFilling
                         filling.InvoiceLineId = tank.CreateFillingInvoice(filling);
                     }
 
-                    TankFilling tf = tank.CreateTankFilling(filling.InvoiceLineId, filling.StartValues, filling.EndValues, filling.DeliveryStarted);
+                    TankFilling tf = tank.CreateTankFilling(filling.InvoiceLineId, filling.StartValues, filling.EndValues, dateTimePicker1.Value, dateTimePicker2.Value);
                     //tank.ReferenceLevel = tank.FuelLevel;
                     database.Add(tf);
                     database.SaveChanges();
@@ -123,6 +143,28 @@ namespace CreateTankFilling
             {
 
             }
+        }
+
+        private void dateTimePicker1_ValueChanged(object sender, EventArgs e)
+        {
+            GetInvoiceLines();
+            GetTankChecks();
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            var tc = this.dataGridView1.CurrentRow.DataBoundItem as TankCheck;
+            this.numericUpDown1.Value = tc.TankLevel;
+            this.numericUpDown3.Value = tc.Temperature.HasValue ? tc.Temperature.Value : 0;
+            this.dateTimePicker1.Value = tc.CheckDate;
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            var tc = this.dataGridView1.CurrentRow.DataBoundItem as TankCheck;
+            this.numericUpDown2.Value = tc.TankLevel;
+            this.numericUpDown4.Value = tc.Temperature.HasValue ? tc.Temperature.Value : 0;
+            this.dateTimePicker2.Value = tc.CheckDate;
         }
     }
     public class InvoiceData

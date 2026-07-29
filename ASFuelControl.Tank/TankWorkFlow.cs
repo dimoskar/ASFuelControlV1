@@ -210,6 +210,7 @@ namespace ASFuelControl.Tank
         {
             lock (this)
             {
+                this.RecoverWaitingState();
                 foreach (StateTransition transition in this.Process.Transitions)
                 {
                     if (transition.SourceState != this.Process.CurrentState)
@@ -282,6 +283,84 @@ namespace ASFuelControl.Tank
             if (this.Tank.IsVirtualTank)
                 isIdle = true;
             return isIdle;
+        }
+
+        public void RestorePendingFillingDataFromTank()
+        {
+            lock (this)
+            {
+                if (this.Process.CurrentState != this.waitingState &&
+                    this.Process.CurrentState != this.fillingState &&
+                    this.Process.CurrentState != this.extractionState)
+                    return;
+
+                Common.Sales.TankFillingData.DataModeEnum mode = Common.Sales.TankFillingData.DataModeEnum.Filling;
+                if (this.Process.CurrentState == this.extractionState || this.Process.PreviousState == this.extractionState)
+                    mode = Common.Sales.TankFillingData.DataModeEnum.Extraction;
+
+                if (this.CurrentFillingData == null)
+                    this.CurrentFillingData = this.CreateCurrentFillingData(mode);
+
+                if (this.Process.CurrentState == this.waitingState)
+                    this.RestoreWaitingTimer();
+            }
+        }
+
+        private Common.Sales.TankFillingData CreateCurrentFillingData(Common.Sales.TankFillingData.DataModeEnum mode)
+        {
+            DateTime deliveryStarted = this.Tank.DeliveryStarted;
+            if (deliveryStarted.Year < 2000)
+                deliveryStarted = this.Tank.WaitingStarted;
+            if (deliveryStarted.Year < 2000)
+                deliveryStarted = DateTime.Now;
+
+            Common.Sales.TankFillingData data = new Common.Sales.TankFillingData();
+            data.TankId = this.Tank.TankId;
+            data.Mode = mode;
+            data.InvoiceLineId = this.Tank.InvoiceLineId;
+            data.InvoiceTypeId = this.Tank.InvoiceTypeId;
+            data.FuelTypeId = this.Tank.FillingFuelTypeId;
+            data.VehicelId = this.Tank.VehicleId;
+            data.DeliveryStarted = deliveryStarted;
+            data.StartValues = new Common.TankValues() { FuelHeight = this.Tank.FillingStartTankLevel };
+            return data;
+        }
+
+        private void RecoverWaitingState()
+        {
+            if (this.Process.CurrentState != this.waitingState)
+                return;
+
+            if (this.CurrentFillingData == null)
+                this.RestorePendingFillingDataFromTank();
+
+            if (this.Tank.WaitingShouldEnd.Year >= 2000 && this.Tank.WaitingShouldEnd <= DateTime.Now)
+                this.waitingElapsed = true;
+        }
+
+        private void RestoreWaitingTimer()
+        {
+            if (this.waitingTimer != null)
+            {
+                this.waitingTimer.Dispose();
+                this.waitingTimer = null;
+            }
+
+            if (this.Tank.WaitingShouldEnd.Year < 2000)
+                return;
+
+            TimeSpan remaining = this.Tank.WaitingShouldEnd.Subtract(DateTime.Now);
+            if (remaining.TotalMilliseconds <= 0)
+            {
+                this.waitingElapsed = true;
+                Common.Logger.Instance.Trace(string.Format("Tank {0} waiting period already elapsed; pending filling will complete on next validation.", this.Tank.TankNumber));
+                return;
+            }
+
+            this.waitingElapsed = false;
+            this.CurrentWaitingTime = remaining;
+            int dueTime = remaining.TotalMilliseconds > int.MaxValue ? int.MaxValue : (int)remaining.TotalMilliseconds;
+            this.waitingTimer = new System.Threading.Timer(new System.Threading.TimerCallback(this.WaitingElapsed), null, dueTime, System.Threading.Timeout.Infinite);
         }
         private bool IsOffline(object _status)
         {
@@ -443,6 +522,10 @@ namespace ASFuelControl.Tank
 
         private bool IsWaitingFinished(object foo)
         {
+            if (this.Process.CurrentState == this.waitingState &&
+                this.Tank.WaitingShouldEnd.Year >= 2000 &&
+                this.Tank.WaitingShouldEnd <= DateTime.Now)
+                this.waitingElapsed = true;
             return this.waitingElapsed;
         }
 
@@ -769,14 +852,7 @@ namespace ASFuelControl.Tank
                 else if (this.Process.CurrentState == this.waitingState && this.Process.PreviousState == this.fillingState)
                 {
                     this.waitingElapsed = false;
-                    this.CurrentFillingData = new Common.Sales.TankFillingData();
-                    this.CurrentFillingData.TankId = this.Tank.TankId;
-                    this.CurrentFillingData.Mode = Common.Sales.TankFillingData.DataModeEnum.Filling;
-                    this.CurrentFillingData.InvoiceLineId = this.Tank.InvoiceLineId;
-                    this.CurrentFillingData.InvoiceTypeId = this.Tank.InvoiceTypeId;
-                    this.CurrentFillingData.FuelTypeId = this.Tank.FillingFuelTypeId;
-                    this.CurrentFillingData.VehicelId = this.Tank.VehicleId;
-                    this.CurrentFillingData.DeliveryStarted = this.Tank.DeliveryStarted;//.deliveryStarted;
+                    this.CurrentFillingData = this.CreateCurrentFillingData(Common.Sales.TankFillingData.DataModeEnum.Filling);
                     this.Tank.WaitingStarted = DateTime.Now;
                     if (this.Tank.IsLiterCheck)
                     {
@@ -795,15 +871,7 @@ namespace ASFuelControl.Tank
                 else if (this.Process.CurrentState == this.waitingState && this.Process.PreviousState == this.extractionState)
                 {
                     this.waitingElapsed = false;
-                    this.CurrentFillingData = new Common.Sales.TankFillingData();
-                    this.CurrentFillingData.TankId = this.Tank.TankId;
-                    this.CurrentFillingData.Mode = Common.Sales.TankFillingData.DataModeEnum.Extraction;
-                    this.CurrentFillingData.InvoiceLineId = this.Tank.InvoiceLineId;
-                    this.CurrentFillingData.InvoiceTypeId = this.Tank.InvoiceTypeId;
-                    this.CurrentFillingData.FuelTypeId = this.Tank.FillingFuelTypeId;
-                    this.CurrentFillingData.VehicelId = this.Tank.VehicleId;
-                    //this.CurrentFillingData.DeliveryStarted = this.deliveryStarted;
-                    this.CurrentFillingData.DeliveryStarted = this.Tank.DeliveryStarted;
+                    this.CurrentFillingData = this.CreateCurrentFillingData(Common.Sales.TankFillingData.DataModeEnum.Extraction);
                     this.Tank.WaitingStarted = DateTime.Now;
                     this.CurrentWaitingTime = TimeSpan.FromMilliseconds(this.Tank.DeliveryTime);
                     this.waitingTimer = new System.Threading.Timer(new System.Threading.TimerCallback(this.WaitingElapsed), null, this.Tank.DeliveryTime, System.Threading.Timeout.Infinite);

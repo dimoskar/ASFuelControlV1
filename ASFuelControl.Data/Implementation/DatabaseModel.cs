@@ -4787,6 +4787,94 @@ namespace ASFuelControl.Data
             tf.CRC = this.CalculateCRC32();
             return tf;
         }
+        public TankFilling CreateTankFilling(Guid invoiceLineId, Common.TankValues startParameters, Common.TankValues endParameters, DateTime dtStart, DateTime dtEnd)
+        {
+            DatabaseModel db = DatabaseModel.GetContext(this) as DatabaseModel;
+            TankFilling tf = db.CreateEntity<TankFilling>();
+            InvoiceLine il = db.InvoiceLines.Where(i => i.InvoiceLineId == invoiceLineId).FirstOrDefault();
+            if (il != null)
+            {
+                tf.FuelDensity = il.FuelDensity;
+                il.TankFillingId = tf.TankFillingId;
+                il.TankFilling = tf;
+                tf.InvoiceLines.Add(il);
+                tf.Volume = il.Volume;
+                tf.VolumeNormalized = il.VolumeNormalized;
+            }
+            tf.TankId = this.TankId;
+            tf.TankTemperatureEnd = endParameters.CurrentTemperatur;
+            tf.TankTemperatureStart = this.GetLastValidTemperatur();
+            tf.TransactionTime = dtStart;
+            tf.TransactionTimeEnd = dtEnd;
+            UsagePeriod up = db.GetUsagePeriod();
+            tf.UsagePeriodId = up.UsagePeriodId;
+            up.TankFillings.Add(tf);
+            //tf.UsagePeriod = up;
+            // this.GetTankVolume(endParameters.FuelHeight - startParameters.FuelHeight);
+            // db.NormalizeVolume(tf.Volume, endParameters.CurrentTemperatur);
+
+            tf.LevelStart = startParameters.FuelHeight;
+            tf.LevelEnd = endParameters.FuelHeight;
+
+            if (tf.LevelStart < this.MinFuelHeight + this.OffsetVolume)
+                tf.LevelStart = 0;
+            if (tf.LevelEnd < this.MinFuelHeight + this.OffsetVolume)
+                tf.LevelEnd = 0;
+
+            this.PeriodMaximum = this.FuelLevel;
+            this.PeriodMinimum = this.FuelLevel;
+
+            //if (tf.LevelStart < this.MinFuelHeight - 10)//LEVELCORRECTION
+            //    tf.LevelStart = 0;
+            //if (tf.LevelEnd < this.MinFuelHeight - 10)//LEVELCORRECTION
+            //    tf.LevelEnd = 0;
+
+            TankPrice lastTankPrice = this.TankPrices.OrderBy(tp => tp.ChangeDate).LastOrDefault();
+            if (lastTankPrice == null)
+            {
+                lastTankPrice = db.CreateEntity<TankPrice>();
+                lastTankPrice.ChangeDate = DateTime.Now;
+                if (il != null)
+                {
+                    lastTankPrice.Price = il.UnitPrice;
+                }
+                lastTankPrice.FuelDensity = FuelType.BaseDensity;
+                lastTankPrice.TankId = this.TankId;
+                this.TankPrices.Add(lastTankPrice);
+            }
+            TankPrice newTankPrice = db.CreateEntity<TankPrice>();
+
+            decimal volumeStart = this.GetTankVolume(tf.LevelStart);
+            decimal volumeStartNormalized = this.FuelType.NormalizeVolume(volumeStart, tf.TankTemperatureStart, lastTankPrice.FuelDensity);
+            decimal volumeEnd = this.GetTankVolume(tf.LevelEnd);
+            decimal volumeEndNormalized = this.FuelType.NormalizeVolume(volumeEnd, tf.TankTemperatureEnd, tf.FuelDensity);
+            decimal volDiff = volumeEndNormalized - volumeStartNormalized;
+
+            tf.VolumeReal = Math.Abs(volumeEnd - volumeStart);
+            tf.VolumeRealNormalized = Math.Abs(volDiff);
+
+            newTankPrice.ChangeDate = DateTime.Now;
+
+            if (volumeEndNormalized == 0)
+            {
+                newTankPrice.Price = 0;
+                newTankPrice.FuelDensity = 0;
+            }
+            else
+            {
+                if (il != null)
+                {
+                    newTankPrice.Price = ((volumeStartNormalized * lastTankPrice.Price) + (volDiff * il.UnitPrice)) / volumeEndNormalized;
+                }
+                newTankPrice.FuelDensity = ((volumeStartNormalized * lastTankPrice.FuelDensity) + (volDiff * tf.FuelDensity)) / volumeEndNormalized;
+            }
+            newTankPrice.TankId = this.TankId;
+            this.TankPrices.Add(newTankPrice);
+            tf.TankPriceId = newTankPrice.TankPriceId;
+            tf.TankPrice = newTankPrice;
+            tf.CRC = this.CalculateCRC32();
+            return tf;
+        }
     }
 
     public partial class DatabaseModel
