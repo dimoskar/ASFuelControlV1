@@ -2501,11 +2501,6 @@ namespace ASFuelControl.Windows.ViewModels
             }
             get
             {
-                if(this.vatpercentage == 0)
-                {
-                    decimal vat = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", 24);
-                    return vat;
-                }
                 return this.vatpercentage;
             }
         }

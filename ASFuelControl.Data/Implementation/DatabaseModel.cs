@@ -3276,11 +3276,23 @@ namespace ASFuelControl.Data
                 decimal lineVat = 0;
                 if (line.SalesTransaction != null && this.InvoiceType.OfficialEnumerator != 178)
                 {
-                    //totalDiscounted = line.SalesTransaction.TotalPrice;
                     discPercentage = line.SalesTransaction.DiscountPercentage.HasValue ? line.SalesTransaction.DiscountPercentage.Value : 0;
-                    discountRetail = decimal.Round((discPercentage * decimal.Round(line.SalesTransaction.Volume * line.SalesTransaction.UnitPrice, 2)) / 100, 2);
-                    totalDiscounted = line.SalesTransaction.TotalPrice;// decimal.Round(line.Volume * line.UnitPrice, 2);
-                    totalPreDiscount = totalDiscounted + discountRetail;
+                    if (line.VatPercentage == 0)
+                    {
+                        // A zero-VAT invoice line may have a net unit price that differs
+                        // from the VAT-inclusive values of the original sale. Rebuilding
+                        // it from SalesTransaction.TotalPrice would add that VAT back
+                        // during printing.
+                        totalPreDiscount = decimal.Round(line.Volume * line.UnitPrice, 2);
+                        discountRetail = decimal.Round((discPercentage * totalPreDiscount) / 100, 2);
+                        totalDiscounted = totalPreDiscount - discountRetail;
+                    }
+                    else
+                    {
+                        discountRetail = decimal.Round((discPercentage * decimal.Round(line.SalesTransaction.Volume * line.SalesTransaction.UnitPrice, 2)) / 100, 2);
+                        totalDiscounted = line.SalesTransaction.TotalPrice;
+                        totalPreDiscount = totalDiscounted + discountRetail;
+                    }
                 }
                 else
                 {

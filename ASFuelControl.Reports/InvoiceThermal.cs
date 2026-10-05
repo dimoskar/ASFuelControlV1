@@ -70,15 +70,6 @@ namespace ASFuelControl.Reports
         public void SetSupplyNumber(Data.Invoice inv)
         {
             
-            if (inv.Trader != null && inv.Trader.VatExemption.HasValue && inv.Trader.VatExemption.Value)
-            {
-                decimal vat = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", 24);
-                foreach (var inl in inv.InvoiceLines)
-                {
-                    inl.UnitPrice = inl.UnitPrice / ((100 + vat) / 100);
-                }
-            }
-
             foreach (var line in inv.InvoiceLines)
             {
                 if (line.FuelType == null)

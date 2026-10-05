@@ -40,6 +40,7 @@ namespace ASFuelControl.Common.Enumerators
         DartFalcon,
         NuovoPignoneMultiV2,
         HongYang,
-        None
+        None,
+        DartMithra
     }
 }

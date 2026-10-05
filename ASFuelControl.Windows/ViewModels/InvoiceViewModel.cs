@@ -776,7 +776,13 @@ namespace ASFuelControl.Windows.ViewModels
                     totalDiscounted = decimal.Round(volume * line.UnitPrice, 2);
                     discPercentage = line.SalesTransactionView.DiscountPercentage.HasValue ? line.SalesTransactionView.DiscountPercentage.Value : 0;
                     discountRetail = decimal.Round((discPercentage * decimal.Round(volume * line.UnitPrice, 2)) / 100, 2);
-                    totalPreDiscount = totalDiscounted + discountRetail;
+                    if (line.VatPercentage == 0)
+                    {
+                        totalPreDiscount = totalDiscounted;
+                        totalDiscounted = totalPreDiscount - discountRetail;
+                    }
+                    else
+                        totalPreDiscount = totalDiscounted + discountRetail;
                 }
                 else
                 {

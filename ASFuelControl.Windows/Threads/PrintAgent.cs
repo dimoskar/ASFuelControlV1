@@ -17,6 +17,9 @@ namespace ASFuelControl.Windows.Threads
     /// </summary>
     public class PrintAgent
     {
+        private const int PollBatchSize = 20;
+        private const int MaxRememberedSigns = 1000;
+
         public static List<Guid> ExcludeInvoices = new List<Guid>();
         private static string[] installedPrintrers = new string[] { };
         private static DateTime closeSalesDate = Data.Implementation.OptionHandler.Instance.GetDateTimeOption("CloseSalesDate", DateTime.Now.AddDays(-1));
@@ -52,6 +55,11 @@ namespace ASFuelControl.Windows.Threads
         private Guid income2InvoiceType;
         private List<string> filesInProcess = new List<string>();
         private List<string> signsApplied = new List<string>();
+        private int invoiceBacklogOffset = 0;
+        private int balanceBacklogOffset = 0;
+        private int alertBacklogOffset = 0;
+        private int titrimetryBacklogOffset = 0;
+        private int tankFillingBacklogOffset = 0;
 
         private bool printPhysical = false;
         private bool printAlertsPhysical = false;
@@ -239,7 +247,8 @@ namespace ASFuelControl.Windows.Threads
 
         public void Dispose()
         {
-            //this.database.Dispose();
+            this.StopThread();
+            this.signWatcher.Dispose();
         }
 
         /// <summary>
@@ -247,6 +256,9 @@ namespace ASFuelControl.Windows.Threads
         /// </summary>
         public void StartThread()
         {
+            if (this.th != null && this.th.IsAlive)
+                return;
+
             //this.database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
             this.agentRunning = true;
             th = new System.Threading.Thread(new System.Threading.ThreadStart(this.ThreadRun));
@@ -363,15 +375,6 @@ namespace ASFuelControl.Windows.Threads
                         {
                             var qil = db.InvoiceLines.Where(il => il.InvoiceId == invoice.InvoiceId).ToArray();
 
-                            if (invoice.Trader != null && invoice.Trader.VatExemption.HasValue && invoice.Trader.VatExemption.Value)
-                            {
-                                decimal vat = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", 24);
-                                foreach (var inl in qil)
-                                {
-                                    inl.UnitPrice = inl.UnitPrice / ((100 + vat) / 100);
-                                }
-                            }
-
                             report.DataSource = qil;
                             report.ReportParameters["ReplaceParameter"].Value = "";
                             //if (invoice.IsCanceling)
@@ -463,7 +466,7 @@ namespace ASFuelControl.Windows.Threads
                             report.ReportParameters[9].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyFax");
                             string efk = Data.Implementation.OptionHandler.Instance.GetOption("CompanyEFK");
                             report.ReportParameters[11].Value = efk == null ? "" : efk;
-                            report.SetSupplyNumber(invoice, myDataQrCode);
+                            SetNarrowReportSupplyNumber(report, invoice, myDataQrCode);
                             System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                             SetPrinter(printerSettings, invoice);
                             PrintReport(report, printerSettings);
@@ -732,6 +735,28 @@ namespace ASFuelControl.Windows.Threads
 
         #region Help Methods
 
+        private static void SetNarrowReportSupplyNumber(
+            Reports.Invoices.InvoiceReportNarrow report,
+            Data.Invoice invoice,
+            string myDataQrCode)
+        {
+            var unitPrices = invoice.InvoiceLines
+                .Select(line => new { Line = line, UnitPrice = line.UnitPrice })
+                .ToArray();
+
+            try
+            {
+                report.SetSupplyNumber(invoice, myDataQrCode);
+            }
+            finally
+            {
+                // InvoiceReportNarrow still contains legacy VAT-exemption handling.
+                // Printing must not remove VAT from an already recalculated net price.
+                foreach (var entry in unitPrices)
+                    entry.Line.UnitPrice = entry.UnitPrice;
+            }
+        }
+
         private static void SetPrinter(System.Drawing.Printing.PrinterSettings printerSettings, Data.Invoice invoice)
         {
             if (invoice.Printer == null || invoice.Printer == "")
@@ -950,28 +975,14 @@ namespace ASFuelControl.Windows.Threads
 
             invoiceLines.Add(headerData.CenterString(printerLineWidth));
 
-            decimal vat = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", 24);
-
             foreach (Data.InvoiceLine invLine in invoice.InvoiceLines)
             {
                 invoiceLines.Add(border1.CenterString(printerLineWidth));
 
-                if (invoice.Trader != null && invoice.Trader.VatExemption.HasValue && invoice.Trader.VatExemption.Value)
-                {
-                    decimal up = invLine.UnitPrice / ((100 + vat) / 100);
-
-                    string details = invLine.FuelType.Name.LeftString(eidosW) + invLine.Volume.ToString("N2").CenterString(posotW) + up.ToString("N3").CenterString(timiW) +
-                    (invLine.PreDiscountTotal - invLine.PreDiscountVAT).ToString("N2").CenterString(axiaW) +
-                    (invLine.VatPercentage.ToString("N2") + "%").CenterString(fpaW);
-                    invoiceLines.Add(details.CenterString(printerLineWidth));
-                }
-                else
-                {
-                    string details = invLine.FuelType.Name.LeftString(eidosW) + invLine.Volume.ToString("N2").CenterString(posotW) + invLine.UnitPrice.ToString("N3").CenterString(timiW) +
-                    (invLine.PreDiscountTotal - invLine.PreDiscountVAT).ToString("N2").CenterString(axiaW) +
-                    (invLine.VatPercentage.ToString("N2") + "%").CenterString(fpaW);
-                    invoiceLines.Add(details.CenterString(printerLineWidth));
-                }
+                string details = invLine.FuelType.Name.LeftString(eidosW) + invLine.Volume.ToString("N2").CenterString(posotW) + invLine.UnitPrice.ToString("N3").CenterString(timiW) +
+                (invLine.PreDiscountTotal - invLine.PreDiscountVAT).ToString("N2").CenterString(axiaW) +
+                (invLine.VatPercentage.ToString("N2") + "%").CenterString(fpaW);
+                invoiceLines.Add(details.CenterString(printerLineWidth));
 
 
                 if (invLine.SalesTransaction != null)
@@ -1117,6 +1128,47 @@ namespace ASFuelControl.Windows.Threads
         /// <summary>
         /// Main thread of the print agent
         /// </summary>
+        private List<T> LoadSigningBatch<T>(
+            IQueryable<T> newestFirst,
+            IQueryable<T> oldestFirst,
+            Func<T, Guid> idSelector,
+            ref int backlogOffset)
+        {
+            int priorityBatchSize = PollBatchSize / 2;
+            int backlogBatchSize = PollBatchSize - priorityBatchSize;
+
+            List<T> priority = newestFirst.Take(priorityBatchSize).ToList();
+            List<T> backlog = oldestFirst
+                .Skip(backlogOffset)
+                .Take(backlogBatchSize)
+                .ToList();
+
+            if (backlog.Count == 0 && backlogOffset > 0)
+            {
+                backlogOffset = 0;
+                backlog = oldestFirst.Take(backlogBatchSize).ToList();
+            }
+
+            if (backlog.Count < backlogBatchSize ||
+                backlogOffset > int.MaxValue - backlog.Count)
+            {
+                backlogOffset = 0;
+            }
+            else
+            {
+                backlogOffset += backlog.Count;
+            }
+
+            List<T> result = new List<T>(PollBatchSize);
+            HashSet<Guid> selectedIds = new HashSet<Guid>();
+            foreach (T entry in priority.Concat(backlog))
+            {
+                if (selectedIds.Add(idSelector(entry)))
+                    result.Add(entry);
+            }
+            return result;
+        }
+
         private void ThreadRun()
         {
             oldInvoiceRunning = false;
@@ -1131,6 +1183,7 @@ namespace ASFuelControl.Windows.Threads
                 }
                 if(this.defaultTaxDevice.ToLower() == "samtec" && this.outFolder == "")
                 {
+                    this.agentRunning = false;
                     return;
                 }
                 if(this.outFolder != "")
@@ -1154,6 +1207,7 @@ namespace ASFuelControl.Windows.Threads
             catch(Exception ex)
             {
                 Logger.Instance.LogToFile("Print Agent", ex);
+                this.agentRunning = false;
                 return;
             }
             int index = 0;
@@ -1224,7 +1278,44 @@ namespace ASFuelControl.Windows.Threads
                         var qFillings = db.TankFillings.Where(t => (t.SignSignature == null || t.SignSignature == "") && t.InvoiceLines.Count > 0);
 
                         //this.database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, qInvoice);
-                        List<Data.Invoice> invoices = qInvoice.Where(ii=>!ExcludeInvoices.Contains(ii.InvoiceId)).ToList();
+                        var invoiceQuery = qInvoice.Where(ii => !ExcludeInvoices.Contains(ii.InvoiceId));
+
+                        // Numbering is deliberately separate from signing. A signing
+                        // backlog must not leave a new invoice at Number == 0, and fiscal
+                        // numbers must be allocated in chronological order.
+                        List<Data.Invoice> invoicesToNumber = invoiceQuery
+                            .Where(ii => ii.Number == 0)
+                            .OrderBy(ii => ii.TransactionDate)
+                            .ThenBy(ii => ii.InvoiceId)
+                            .Take(PollBatchSize)
+                            .ToList();
+                        foreach (Data.Invoice invoiceToNumber in invoicesToNumber)
+                        {
+                            try
+                            {
+                                invoiceToNumber.Number = invoiceToNumber.InvoiceType.LastNumber + 1;
+                                invoiceToNumber.Series = invoiceToNumber.InvoiceType.DefaultSeries == null
+                                    ? ""
+                                    : invoiceToNumber.InvoiceType.DefaultSeries;
+                                invoiceToNumber.InvoiceType.LastNumber = invoiceToNumber.Number;
+                                db.SaveChanges();
+                            }
+                            catch (Exception ex)
+                            {
+                                Logging.Logger.Instance.LogToFile("Σφάλμα Αρίθμησης Παραστατικού", ex);
+                            }
+                        }
+
+                        var signingInvoiceQuery = invoiceQuery.Where(ii => ii.Number > 0);
+                        List<Data.Invoice> invoices = LoadSigningBatch(
+                            signingInvoiceQuery
+                                .OrderByDescending(ii => ii.TransactionDate)
+                                .ThenByDescending(ii => ii.InvoiceId),
+                            signingInvoiceQuery
+                                .OrderBy(ii => ii.TransactionDate)
+                                .ThenBy(ii => ii.InvoiceId),
+                            ii => ii.InvoiceId,
+                            ref this.invoiceBacklogOffset);
 
                         List<Data.Balance> balances = new List<Data.Balance>();
                         List<Data.SystemEvent> alerts = new List<Data.SystemEvent>();
@@ -1284,6 +1375,17 @@ namespace ASFuelControl.Windows.Threads
                             {
                                 Logging.Logger.Instance.LogToFile("Σφάλμα Εκτύπωσης Παραστατικού", ex);
                             }
+                            finally
+                            {
+                                lock (this.invoicesProcessed)
+                                {
+                                    this.invoicesProcessed.Remove(invoice.InvoiceId.ToString());
+                                }
+                                lock (this.invoiceProcessed)
+                                {
+                                    this.invoiceProcessed.Remove(invoice.InvoiceId);
+                                }
+                            }
                         }
 
                         if (index % 10 == 0)
@@ -1293,10 +1395,26 @@ namespace ASFuelControl.Windows.Threads
                             //this.database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, qAlert);
                             //this.database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, qTitration);
                             //this.database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, qFillings);
-                            balances = qBalances.ToList();
-                            alerts = qAlert.Take(100).ToList();
-                            titriemetries = qTitration.ToList();
-                            tankFillings = qFillings.ToList();
+                            balances = LoadSigningBatch(
+                                qBalances.OrderByDescending(b => b.EndDate).ThenByDescending(b => b.BalanceId),
+                                qBalances.OrderBy(b => b.EndDate).ThenBy(b => b.BalanceId),
+                                b => b.BalanceId,
+                                ref this.balanceBacklogOffset);
+                            alerts = LoadSigningBatch(
+                                qAlert.OrderByDescending(a => a.EventDate).ThenByDescending(a => a.EventId),
+                                qAlert.OrderBy(a => a.EventDate).ThenBy(a => a.EventId),
+                                a => a.EventId,
+                                ref this.alertBacklogOffset);
+                            titriemetries = LoadSigningBatch(
+                                qTitration.OrderByDescending(t => t.TitrationDate).ThenByDescending(t => t.TitrimetryId),
+                                qTitration.OrderBy(t => t.TitrationDate).ThenBy(t => t.TitrimetryId),
+                                t => t.TitrimetryId,
+                                ref this.titrimetryBacklogOffset);
+                            tankFillings = LoadSigningBatch(
+                                qFillings.OrderByDescending(t => t.TransactionTime).ThenByDescending(t => t.TankFillingId),
+                                qFillings.OrderBy(t => t.TransactionTime).ThenBy(t => t.TankFillingId),
+                                t => t.TankFillingId,
+                                ref this.tankFillingBacklogOffset);
 
                             foreach (Data.Balance balance in balances)
                             {
@@ -1308,6 +1426,13 @@ namespace ASFuelControl.Windows.Threads
                                 catch (Exception ex)
                                 {
                                     Logging.Logger.Instance.LogToFile("Σφάλμα Εκτύπωσης Ισοζυγίου", ex);
+                                }
+                                finally
+                                {
+                                    lock (this.balancesProcessed)
+                                    {
+                                        this.balancesProcessed.Remove(balance.BalanceId);
+                                    }
                                 }
                             }
 
@@ -1321,6 +1446,13 @@ namespace ASFuelControl.Windows.Threads
                                 {
                                     Logging.Logger.Instance.LogToFile("Σφάλμα Εκτύπωσης Συναγερμού", ex);
                                 }
+                                finally
+                                {
+                                    lock (this.alertsProcessed)
+                                    {
+                                        this.alertsProcessed.Remove(alert.EventId);
+                                    }
+                                }
                             }
 
 
@@ -1333,6 +1465,13 @@ namespace ASFuelControl.Windows.Threads
                                 catch (Exception ex)
                                 {
                                     Logging.Logger.Instance.LogToFile("Σφάλμα Εκτύπωσης Ογκομ. Πίνακα", ex);
+                                }
+                                finally
+                                {
+                                    lock (this.titrimetryProcessed)
+                                    {
+                                        this.titrimetryProcessed.Remove(titrimetry.TitrimetryId);
+                                    }
                                 }
                             }
 
@@ -1348,6 +1487,13 @@ namespace ASFuelControl.Windows.Threads
                                 {
                                     Logging.Logger.Instance.LogToFile("Σφάλμα Εκτύπωσης Παραλαβής / Εξαγωγής", ex);
                                 }
+                                finally
+                                {
+                                    lock (this.tankFillingsProcessed)
+                                    {
+                                        this.tankFillingsProcessed.Remove(tankFilling.TankFillingId);
+                                    }
+                                }
                             }
 
                             if (closeSalesDate.Date < DateTime.Now.Date)
@@ -1356,13 +1502,6 @@ namespace ASFuelControl.Windows.Threads
                             }
                             if (index % 100 == 0)
                             {
-                                try
-                                {
-                                    System.GC.Collect();
-                                }
-                                catch
-                                {
-                                }
                                 //this.database.Dispose();
                                 //this.database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
                                 //try
@@ -1637,10 +1776,9 @@ namespace ASFuelControl.Windows.Threads
         /// <param name="fileType"></param>
         private bool ApplySign(Data.DatabaseModel db, string sign, string qrData, Guid id, string fileType)
         {
-            if (sign != "-" && signsApplied.Contains(sign) && !sign.Contains("ΒΛΑΒΗ"))
+            if (IsRememberedSign(sign))
                 return true;
-            if(sign != "-")
-                signsApplied.Add(sign);
+
             try
             {
                 switch (fileType)
@@ -1652,6 +1790,7 @@ namespace ASFuelControl.Windows.Threads
                             balance.DocumentSign = sign;
                             balance.PrintDate = DateTime.Now;
                             db.SaveChanges();
+                            RememberAppliedSign(sign);
                             this.PrintToPrinter(balance, true);
                             return true;
                         }
@@ -1663,6 +1802,7 @@ namespace ASFuelControl.Windows.Threads
                             alert.DocumentSign = sign;
                             alert.PrintedDate = DateTime.Now;
                             db.SaveChanges();
+                            RememberAppliedSign(sign);
                             this.PrintToPrinter(alert);
                             return true;
                         }
@@ -1673,6 +1813,7 @@ namespace ASFuelControl.Windows.Threads
                         {
                             delicery.SignSignature = sign;
                             db.SaveChanges();
+                            RememberAppliedSign(sign);
                             this.PrintToPrinter(delicery);
                             return true;
                         }
@@ -1684,6 +1825,7 @@ namespace ASFuelControl.Windows.Threads
                             titrimetry.DocumentSign = sign;
                             titrimetry.PrintDate = DateTime.Now;
                             db.SaveChanges();
+                            RememberAppliedSign(sign);
                             this.PrintToPrinter(titrimetry);
                             return true;
                         }
@@ -1701,6 +1843,7 @@ namespace ASFuelControl.Windows.Threads
                             invoice.QRCodeData = qrData;
                             invoice.IsPrinted = true;
                             db.SaveChanges();
+                            RememberAppliedSign(sign);
 
                             if(invoice.InvoiceType.ForcesDelivery.HasValue && invoice.InvoiceType.ForcesDelivery.Value)
                             {
@@ -1741,6 +1884,32 @@ namespace ASFuelControl.Windows.Threads
                 
             }
             return false;
+        }
+
+        private bool IsRememberedSign(string sign)
+        {
+            if (string.IsNullOrEmpty(sign) || sign == "-" || sign.Contains("ΒΛΑΒΗ"))
+                return false;
+
+            lock (this.signsApplied)
+            {
+                return this.signsApplied.Contains(sign);
+            }
+        }
+
+        private void RememberAppliedSign(string sign)
+        {
+            if (string.IsNullOrEmpty(sign) || sign == "-")
+                return;
+
+            lock (this.signsApplied)
+            {
+                if (!this.signsApplied.Contains(sign))
+                    this.signsApplied.Add(sign);
+
+                if (this.signsApplied.Count > MaxRememberedSigns)
+                    this.signsApplied.RemoveRange(0, this.signsApplied.Count - MaxRememberedSigns);
+            }
         }
 
         /// <summary>
@@ -2124,7 +2293,7 @@ namespace ASFuelControl.Windows.Threads
                         report.ReportParameters[8].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyPhone");
                         report.ReportParameters[9].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyFax");
                         report.ReportParameters[11].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyEFK");
-                        report.SetSupplyNumber(invoice, myDataQrCode);
+                        SetNarrowReportSupplyNumber(report, invoice, myDataQrCode);
                         System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                         SetPrinter(printerSettings, invoice);
                         PrintReport(report, printerSettings);
@@ -2298,15 +2467,6 @@ namespace ASFuelControl.Windows.Threads
                     {
                         var qil = db.InvoiceLines.Where(il => il.InvoiceId == invoice.InvoiceId).ToList();
                         report.DataSource = qil;
-
-                        if (invoice.Trader != null && invoice.Trader.VatExemption.HasValue && invoice.Trader.VatExemption.Value)
-                        {
-                            decimal vat = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", 24);
-                            foreach (var inl in qil)
-                            {
-                                inl.UnitPrice = inl.UnitPrice / ((100 + vat) / 100);
-                            }
-                        }
 
                         report.ReportParameters["ReplaceParameter"].Value = "";
                         if (invoice.Notes == null)
@@ -4100,12 +4260,14 @@ namespace ASFuelControl.Windows.Threads
                     Data.CompanyData company = new Data.CompanyData();
                     inv.Issuer.KeepName = isDelivery;
                     inv.Issuer.Name = company.CompanyName;
-                    inv.Issuer.Address = new Exedron.MyData.InvoiceModels.Address();
-                    inv.Issuer.Address.City = company.CompanyCity;
-                    inv.Issuer.Address.PostalCode = company.CompanyPostalCode;
-                    inv.Issuer.Address.Street = company.CompanyAddress.Replace("&", "&amp;");
-                    ((Exedron.MyData.InvoiceModels.Address)inv.Issuer.Address).ReplaceNumber();
-
+                    if (isDelivery)
+                    {
+                        inv.Issuer.Address = new Exedron.MyData.InvoiceModels.Address();
+                        inv.Issuer.Address.City = company.CompanyCity;
+                        inv.Issuer.Address.PostalCode = company.CompanyPostalCode;
+                        inv.Issuer.Address.Street = company.CompanyAddress.Replace("&", "&amp;");
+                        ((Exedron.MyData.InvoiceModels.Address)inv.Issuer.Address).ReplaceNumber();
+                    }
                     inv.CounterPart.KeepName = isDelivery;
                     inv.CounterPart.Name = invoice.Trader.Name;
                     inv.CounterPart.Address = new Exedron.MyData.InvoiceModels.Address();
@@ -4173,13 +4335,10 @@ namespace ASFuelControl.Windows.Threads
                             {
                                 if (isGreece)
                                     invHeader.InvoiceType = "1.1";
+                                else if (isEu)
+                                    invHeader.InvoiceType = "1.2";
                                 else
-                                {
-                                    if (isEu)
-                                        invHeader.InvoiceType = "1.2";
-                                    else
-                                        invHeader.InvoiceType = "1.3";
-                                }
+                                    invHeader.InvoiceType = "1.3";
                             }
                         }
                     }

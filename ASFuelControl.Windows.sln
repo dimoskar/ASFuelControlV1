@@ -122,6 +122,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.PetrotecM_", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.Dart", "ASFuelControl.Dart\ASFuelControl.Dart.csproj", "{A5208FF8-FB37-4B7F-AB0C-43017A73C3DC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.DartMithra", "ASFuelControl.DartMithra\ASFuelControl.DartMithra.csproj", "{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.DartFalcon", "ASFuelControl.DartFalcon\ASFuelControl.DartFalcon.csproj", "{6BE6BE54-ADDD-4227-8AA9-D49B9D950EEB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.FuelsisBetaControl", "ASFuelControl.FuelsisBetaControl\ASFuelControl.FuelsisBetaControl.csproj", "{EFC6A8E9-F7F9-452E-84A6-996F2230ED81}"
@@ -850,6 +852,18 @@ Global
 		{A5208FF8-FB37-4B7F-AB0C-43017A73C3DC}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{A5208FF8-FB37-4B7F-AB0C-43017A73C3DC}.Release|x86.ActiveCfg = Release|Any CPU
 		{A5208FF8-FB37-4B7F-AB0C-43017A73C3DC}.Release|x86.Build.0 = Release|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Debug|x86.Build.0 = Debug|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Release|x86.ActiveCfg = Release|Any CPU
+		{B6E42EC9-2D73-4A7B-87D6-9C613D83F5A1}.Release|x86.Build.0 = Release|Any CPU
 		{6BE6BE54-ADDD-4227-8AA9-D49B9D950EEB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{6BE6BE54-ADDD-4227-8AA9-D49B9D950EEB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6BE6BE54-ADDD-4227-8AA9-D49B9D950EEB}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
