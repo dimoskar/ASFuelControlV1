@@ -62,6 +62,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Exedron.Invoicing.Core\Exedron.Invoicing.Core.csproj">
+      <Project>{932909FD-B288-47B8-80BB-8B11033109AC}</Project>
+      <Name>Exedron.Invoicing.Core</Name>
+    </ProjectReference>
     <ProjectReference Include="..\ASFuelControl.Common\ASFuelControl.Common.csproj">
       <Project>{88c17760-58e3-4890-95a4-a2e58fc14cf0}</Project>
       <Name>ASFuelControl.Common</Name>

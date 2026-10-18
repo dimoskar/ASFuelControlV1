@@ -845,6 +845,9 @@ namespace ASFuelControl.Windows.ViewModels
 
         public Guid TransformInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId, int mode)
         {
+            if (mode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation &&
+                (Threads.SharedInvoiceRuntime.ProtectsInvoices || invoiceIds.Any(Threads.SharedInvoiceRuntime.Owns)))
+                throw new InvalidOperationException("Η ακύρωση κοινής έκδοσης απαιτεί ειδική ροή ακύρωσης / συμφωνίας ιστορικού.");
             Common.Enumerators.InvoiceTransformationTypeEnum transMode = (Common.Enumerators.InvoiceTransformationTypeEnum)mode;
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
@@ -1047,6 +1050,9 @@ namespace ASFuelControl.Windows.ViewModels
 
         public void CreateInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId, int mode)
         {
+            if (mode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation &&
+                (Threads.SharedInvoiceRuntime.ProtectsInvoices || invoiceIds.Any(Threads.SharedInvoiceRuntime.Owns)))
+                throw new InvalidOperationException("Η ακύρωση κοινής έκδοσης απαιτεί ειδική ροή ακύρωσης / συμφωνίας ιστορικού.");
             Common.Enumerators.InvoiceTransformationTypeEnum transMode = (Common.Enumerators.InvoiceTransformationTypeEnum)mode;
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
@@ -1335,8 +1341,22 @@ namespace ASFuelControl.Windows.ViewModels
             this.CurrentLine = this.InvoiceLines.FirstOrDefault();
         }
 
+        public override bool Save(Guid id)
+        {
+            try
+            {
+                using (Threads.SharedInvoiceRuntime.EditUnissued(id)) return base.Save(id);
+            }
+            catch (Exception ex) { this.AddError("Σφάλμα παραστατικού",ex.Message); return false; }
+        }
+
         public override bool Save(DatabaseModel db, Guid id)
         {
+            if (Threads.SharedInvoiceRuntime.Owns(id))
+            {
+                this.AddError("Σφάλμα παραστατικού","Το παραστατικό έχει κοινό ιστορικό έκδοσης και δεν επιτρέπεται αλλαγή ή διαγραφή.");
+                return false;
+            }
             if (this.SelectedInvoiceType != null && this.SelectedInvoiceType.DispenserType.HasValue && this.SelectedInvoiceType.DispenserType.Value && this.EditEnabled && !this.IsEditLocked)
             {
                 this.CreateNewSale(false);
@@ -1588,6 +1608,7 @@ namespace ASFuelControl.Windows.ViewModels
                 var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
                 try
                 {
+                    if (Threads.SharedInvoiceRuntime.Owns(this.invoiceid)) return false;
                     if (db.InvoiceLines.Where(i => i.InvoiceId == this.invoiceid && (i.TankFillingId.HasValue || i.SaleTransactionId.HasValue)).Count() > 0)
                         return false;
 

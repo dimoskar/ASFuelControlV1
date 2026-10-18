@@ -1,0 +1,5 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Compile-only diagnostic: Unimep is unused by Windows source but its existing
+       project cannot build (missing ControllerTypeEnum.Unimep). No production change. -->
+  <ItemGroup><ProjectReference Remove="..\ASFuelControl.Unimep\ASFuelControl.Unimep.csproj" /></ItemGroup>
+</Project>

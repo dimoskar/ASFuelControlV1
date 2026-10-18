@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration><Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{B9969243-2B41-48C2-87D6-F155A944DA80}</ProjectGuid>
+    <OutputType>Library</OutputType><AssemblyName>ASFuelControl.Invoicing.Persistence</AssemblyName>
+    <RootNamespace>ASFuelControl.Invoicing.Persistence</RootNamespace>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion><LangVersion>7.3</LangVersion>
+    <OutputPath>bin\$(Configuration)\</OutputPath><Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Data" />
+    <Reference Include="Newtonsoft.Json"><HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath><Private>true</Private></Reference>
+    <!-- Explicit source items are required for reliable classic Visual Studio project tracking. -->
+    <Compile Include="SqlEvidenceLogger.cs" />
+    <Compile Include="SqlFiscalCatalogStore.cs" />
+    <Compile Include="SqlFiscalConfigurationStore.cs" />
+    <Compile Include="SqlFiscalDatabase.cs" />
+    <Compile Include="SqlFiscalHistoryStore.cs" />
+    <Compile Include="SqlFiscalMigrationStore.cs" />
+    <Compile Include="SqlFiscalOperationStore.cs" />
+    <Compile Include="SqlFiscalOwnershipStore.cs" />
+    <Compile Include="SqlFiscalSigningStore.cs" />
+    <Compile Include="SqlIlydaPosStore.cs" />
+    <Compile Include="SqlInvoiceWorkflowStore.cs" />
+    <Compile Include="SqlPaymentCompensationStore.cs" />
+    <Compile Include="SqlProviderPaymentStore.cs" />
+    <Compile Include="SqlStatements.cs" />
+    <Compile Include="SqlSubmissionStores.cs" />
+    <ProjectReference Include="..\Exedron.Invoicing.Core\Exedron.Invoicing.Core.csproj"><Project>{932909FD-B288-47B8-80BB-8B11033109AC}</Project><Name>Exedron.Invoicing.Core</Name></ProjectReference>
+    <EmbeddedResource Include="..\ASFuelControl.Windows\DBScripts\UpdateDatabase57.sql"><LogicalName>FiscalSchema.sql</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="..\ASFuelControl.Windows\DBScripts\UpdateDatabase58.sql"><LogicalName>FiscalWorkflowSchema.sql</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="..\ASFuelControl.Windows\DBScripts\UpdateDatabase59.sql"><LogicalName>FiscalConfigurationSchema.sql</LogicalName></EmbeddedResource>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

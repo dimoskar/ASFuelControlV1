@@ -54,6 +54,7 @@ namespace ASFuelControl.Windows.Threads
         private bool restartDatabase = false;
         private int restartDatabaseIndex = 0;
         private int tankFillingRetryScheduled = 0;
+        private bool databaseUpdateVerified;
         
 
         #endregion
@@ -133,6 +134,7 @@ namespace ASFuelControl.Windows.Threads
 
         public void CheckForDatabaseUpdate()
         {
+            this.databaseUpdateVerified = false;
             int version = this.GetDatabaseVersion();
 
             if (version == 0)
@@ -185,10 +187,13 @@ namespace ASFuelControl.Windows.Threads
             }
 
             Data.Implementation.OptionHandler.Instance.SetOption(this.database, "DBVersion", Program.CurrentDBVersion);
+            this.databaseUpdateVerified = true;
         }
 
         public void StartThreads()
         {
+            if (!this.databaseUpdateVerified)
+                throw new InvalidOperationException("Database updates must complete successfully before starting workers.");
             try
             {
                 this.IsRunning = true;
@@ -1097,17 +1102,21 @@ namespace ASFuelControl.Windows.Threads
             {
                 try
                 {
-                    System.Data.SqlClient.SqlCommand c = new System.Data.SqlClient.SqlCommand(command);
-                    c.Connection = new System.Data.SqlClient.SqlConnection(Properties.Settings.Default.DBConnection);
-                    c.CommandTimeout = 1000;
-                    c.Connection.Open();
-                    c.ExecuteNonQuery();//(command, new System.Data.Common.DbParameter[] { });
-                    c.Connection.Close();
+                    using (var connection = new System.Data.SqlClient.SqlConnection(Properties.Settings.Default.DBConnection))
+                    using (var c = new System.Data.SqlClient.SqlCommand(command, connection))
+                    {
+                        c.CommandTimeout = 1000;
+                        connection.Open();
+                        c.ExecuteNonQuery();
+                    }
                 }
                 catch (Exception ex)
                 {
                     Common.Logger.Instance.Error("Update Database to version: {value1}. Command {value2} failed", version, command, "", 2);
                     Logging.Logger.Instance.LogToFile(string.Format("UpdateDatabase Exception Veriosn {0}", version), ex);
+                    // Fiscal journals are required before issuing with the new stores. Do not
+                    // advance DBVersion or start workers after a failed journal migration.
+                    if (version >= 57) throw;
                 }
 
             }

@@ -1,0 +1,20 @@
+[
+  {"Id":"retail-cash","OfficialCode":200,"Payment":1,"ExpectedDirectType":"11.1","ExpectedProviderType":"11.1","ExpectedDirectPayment":3,"ExpectedProviderPayment":3},
+  {"Id":"wholesale-credit","Payment":0,"ExpectedDirectPayment":5,"ExpectedProviderPayment":5},
+  {"Id":"card","Payment":2,"ExpectedDirectPayment":3,"ExpectedProviderPayment":7},
+  {"Id":"iris","Payment":4,"ExpectedDirectPayment":3,"ExpectedProviderPayment":8},
+  {"Id":"fleet-card","Payment":3,"ExpectedDirectPayment":3,"ExpectedProviderPayment":3},
+  {"Id":"discounted-fuel","Gross":111.60,"Vat":21.60,"ExpectedNet":90},
+  {"Id":"vat-exempt-domestic","Gross":100,"Vat":0,"Rate":0,"VatExemption":true,"ExpectedNet":100,"ExpectedExemption":"Article27"},
+  {"Id":"eu-export","Country":"DE","Gross":100,"Vat":0,"Rate":0,"ExpectedNet":100,"ExpectedDirectType":"1.2","ExpectedProviderType":"1.2","ExpectedExemption":"Article28","ExpectedClassification":"E3_561_005"},
+  {"Id":"non-eu-export","Country":"US","Gross":100,"Vat":0,"Rate":0,"ExpectedNet":100,"ExpectedDirectType":"1.3","ExpectedProviderType":"1.3","ExpectedExemption":"Article24","ExpectedClassification":"E3_561_006"},
+  {"Id":"correlated-credit","Credit":true,"ParentMark":900001,"ExpectedDirectType":"5.1","ExpectedProviderType":"5.1","ExpectedDirectCorrelation":true,"ExpectedProviderCorrelation":true},
+  {"Id":"uncorrelated-credit","Credit":true,"ExpectedDirectType":"5.2","ExpectedProviderType":"5.2"},
+  {"Id":"retail-credit","OfficialCode":200,"Credit":true,"ParentMark":900001,"ExpectedDirectType":"11.4","ExpectedProviderType":"11.4"},
+  {"Id":"delivery-158","OfficialCode":158,"ExpectedDirectType":"9.3","ExpectedProviderType":"9.3","ExpectedNet":0,"ExpectedDirectPayment":0,"ExpectedProviderPayment":0,"ExpectedClassification":""},
+  {"Id":"delivery-159","OfficialCode":159,"ExpectedDirectType":"9.3","ExpectedProviderType":"9.3","ExpectedNet":0,"ExpectedDirectPayment":0,"ExpectedProviderPayment":0,"ExpectedClassification":""},
+  {"Id":"same-vat","SameVat":true,"ExpectedDirectType":"6.1","ExpectedProviderType":"1.1"},
+  {"Id":"linked-sale","ParentMark":900001,"ExpectedProviderCorrelation":true},
+  {"Id":"credit-with-cancelled-parent","Credit":true,"ParentMark":900001,"ParentCancelled":true,"ExpectedDirectType":"5.1","ExpectedProviderType":"5.1","ExpectedDirectCorrelation":true,"ExpectedProviderCorrelation":true},
+  {"Id":"two-fuel-lines","TwoLines":true,"Gross":248,"Vat":48,"ExpectedNet":200}
+]

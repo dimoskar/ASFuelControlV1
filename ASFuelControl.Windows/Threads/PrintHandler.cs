@@ -42,6 +42,7 @@ namespace ASFuelControl.Windows.Threads
 
         public bool SignInvoice(Data.Invoice invoice)
         {
+            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) return SharedInvoiceRuntime.Process(invoice.InvoiceId).Accepted;
             if (this.defaultTaxDevice == "SignA")
             {
                 string[] invoiceLines = this.CreateInvoiceText(invoice);

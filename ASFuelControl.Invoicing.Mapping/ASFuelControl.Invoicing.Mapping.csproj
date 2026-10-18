@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration><Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{B4F41327-760A-4AA0-8B04-61678814D3E9}</ProjectGuid><OutputType>Library</OutputType><RootNamespace>ASFuelControl.Invoicing.Mapping</RootNamespace><AssemblyName>ASFuelControl.Invoicing.Mapping</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion><LangVersion>7.3</LangVersion><Deterministic>true</Deterministic>
+    <OutputPath>bin\$(Configuration)\</OutputPath><DebugSymbols>true</DebugSymbols><DebugType>pdbonly</DebugType>
+    <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize><WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup><Reference Include="System" /><Reference Include="System.Core" /></ItemGroup>
+  <ItemGroup>
+    <!-- Explicit source items are required for reliable classic Visual Studio project tracking. -->
+    <Compile Include="HostInvoiceMapper.cs" />
+    <Compile Include="MappingContext.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ASFuelControl.Data\ASFuelControl.Data.csproj"><Project>{16EE9704-B2F3-4CBB-AB0E-93B26B4676E6}</Project><Name>ASFuelControl.Data</Name></ProjectReference>
+    <ProjectReference Include="..\Exedron.Invoicing.Core\Exedron.Invoicing.Core.csproj"><Project>{932909FD-B288-47B8-80BB-8B11033109AC}</Project><Name>Exedron.Invoicing.Core</Name></ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

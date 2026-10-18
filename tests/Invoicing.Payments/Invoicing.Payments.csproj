@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <OutputType>Exe</OutputType><AssemblyName>Invoicing.Payments</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion><LangVersion>7.3</LangVersion>
+    <OutputPath>bin\$(Configuration)\</OutputPath><Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" /><Reference Include="System.Core" />
+    <Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />
+    <Reference Include="Newtonsoft.Json"><HintPath>..\..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath><Private>true</Private></Reference>
+    <Compile Include="Program.cs" /><Compile Include="RecoveryTests.cs" /><Compile Include="ExtendedRecoveryTests.cs" /><Compile Include="Source.cs" /><ProjectReference Include="..\..\ASFuelControl.Invoicing\ASFuelControl.Invoicing.csproj"><Name>ASFuelControl.Invoicing</Name></ProjectReference><ProjectReference Include="..\..\ASFuelControl.Invoicing.Persistence\ASFuelControl.Invoicing.Persistence.csproj"><Name>ASFuelControl.Invoicing.Persistence</Name></ProjectReference><Reference Include="System.Data" /><Reference Include="System.Net.Http" /><ProjectReference Include="..\..\ASFuelControl.Invoicing.Mapping\ASFuelControl.Invoicing.Mapping.csproj"><Name>ASFuelControl.Invoicing.Mapping</Name></ProjectReference><ProjectReference Include="..\..\ASFuelControl.Data\ASFuelControl.Data.csproj"><Name>ASFuelControl.Data</Name></ProjectReference>
+    <ProjectReference Include="..\..\Exedron.Invoicing.Core\Exedron.Invoicing.Core.csproj"><Name>Exedron.Invoicing.Core</Name></ProjectReference>
+    <ProjectReference Include="..\..\Exedron.Invoicing.Adapters\Exedron.Invoicing.Adapters.csproj"><Name>Exedron.Invoicing.Adapters</Name></ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

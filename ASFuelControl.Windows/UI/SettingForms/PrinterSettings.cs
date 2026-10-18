@@ -79,6 +79,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
             else
                 this.radRadioButton1.IsChecked = true;
             this.Disposed += PrinterSettings_Disposed;
+            InitializeSharedPrinter();
         }
 
         private void PrinterSettings_Disposed(object sender, EventArgs e)

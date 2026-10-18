@@ -21,6 +21,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
             InitializeComponent();
             //this.radPageView1.Pages.Remove(this.radPageViewPage5);
             this.LoadData();
+            InitializeSharedInvoicing();
         }
 
         private void LoadData()
@@ -413,6 +414,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
 
                 
             }
+            if (!SaveSharedInvoicing()) return;
             this.SaveData();
             this.Close();
         }

@@ -33,9 +33,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Exedron.MyData">
-      <HintPath>..\..\..\2020\AADE\AadeServiceCaller\AadeServiceCaller.Main\bin\Debug\Exedron.MyData.dll</HintPath>
-    </Reference>
+    <Reference Include="Newtonsoft.Json"><HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath></Reference>
+    <ProjectReference Include="..\ASFuelControl.Invoicing.Persistence\ASFuelControl.Invoicing.Persistence.csproj"><Project>{B9969243-2B41-48C2-87D6-F155A944DA80}</Project><Name>ASFuelControl.Invoicing.Persistence</Name></ProjectReference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -49,7 +48,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Crypto.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>

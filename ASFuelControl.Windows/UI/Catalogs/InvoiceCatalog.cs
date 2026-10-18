@@ -424,7 +424,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
             }
             catch(Exception ex)
             {
-
+                RadMessageBox.Show(ex.Message,"Μετασχηματισμός παραστατικού",MessageBoxButtons.OK,RadMessageIcon.Exclamation);
             }
             finally
             {
@@ -573,32 +573,31 @@ namespace ASFuelControl.Windows.UI.Catalogs
                 return;
             }
             
-            Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-            var inv = db.Invoices.SingleOrDefault(i=>i.InvoiceId == dataRow.InvoiceId);
-
-            if (inv.InvoiceLines.FirstOrDefault(i=>i.TankFillingId.HasValue) != null)
+            try
             {
-                RadMessageBox.Show("Δεν επιτρέπεται η διαγραφή της εγγραφής που επιλέξατε!", "Σφάλμα Διαγραφής...", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
-                db.Dispose();
+                using (Threads.SharedInvoiceRuntime.EditUnissued(dataRow.InvoiceId))
+                using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                {
+                    var inv = db.Invoices.SingleOrDefault(i=>i.InvoiceId == dataRow.InvoiceId);
+                    if (inv == null) return;
+                    if (inv.IsPrinted == true || !string.IsNullOrWhiteSpace(inv.InvoiceSignature) || !string.IsNullOrWhiteSpace(inv.QRCodeData) ||
+                        db.MyDataInvoices.Any(m => m.InvoiceId == inv.InvoiceId) ||
+                        inv.InvoiceLines.Any(i => i.TankFillingId.HasValue || i.SaleTransactionId.HasValue))
+                        throw new InvalidOperationException("Δεν επιτρέπεται η διαγραφή παραστατικού με ιστορικό έκδοσης ή κίνησης.");
+                    if (RadMessageBox.Show("Θέλετε να διαγράψετε την εγγραφή που επιλέξατε;", "Διαγραφή...", MessageBoxButtons.YesNo, RadMessageIcon.Question) != DialogResult.Yes) return;
+                    db.Delete(inv.InvoiceLines);
+                    db.Delete(inv.ParentInvoiceRelations);
+                    db.Delete(inv.ChildInvoiceRelations);
+                    db.Delete(inv.FinTransactions);
+                    db.Delete(inv);
+                    db.SaveChanges();
+                }
+            }
+            catch (Exception ex)
+            {
+                RadMessageBox.Show(ex.Message,"Σφάλμα Διαγραφής...",MessageBoxButtons.OK,RadMessageIcon.Exclamation);
                 return;
             }
-            if (inv.InvoiceLines.FirstOrDefault(i => i.SaleTransactionId.HasValue) != null)
-            {
-                RadMessageBox.Show("Δεν επιτρέπεται η διαγραφή της εγγραφής που επιλέξατε!", "Σφάλμα Διαγραφής...", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
-                db.Dispose();
-                return;
-            }
-
-            if (RadMessageBox.Show("Θέλετε να διαγρέψετε την εγγραφή που επιλέξατε;", "Διαγραφή...", MessageBoxButtons.YesNo, RadMessageIcon.Question) == DialogResult.No)
-                return;
-            
-            db.Delete(inv.InvoiceLines);
-            db.Delete(inv.ParentInvoiceRelations);
-            db.Delete(inv.ChildInvoiceRelations);
-            db.Delete(inv.FinTransactions);
-            db.Delete(inv);
-            db.SaveChanges();
-            db.Dispose();
 
             this.RefreshData();
         }

@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration><Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{CB42C941-6142-4F12-AE60-FC867B9DDFD2}</ProjectGuid><OutputType>Library</OutputType><RootNamespace>Exedron.Invoicing.Adapters</RootNamespace><AssemblyName>Exedron.Invoicing.Adapters</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion><LangVersion>7.3</LangVersion><Deterministic>true</Deterministic>
+    <OutputPath>bin\$(Configuration)\</OutputPath><DebugSymbols>true</DebugSymbols><DebugType>pdbonly</DebugType>
+    <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize><WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup><Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Net.Http" /><Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" /><Reference Include="Newtonsoft.Json"><HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath><Private>true</Private></Reference></ItemGroup>
+  <ItemGroup>
+    <!-- Explicit source items are required for reliable classic Visual Studio project tracking. -->
+    <Compile Include="GBridgeClient.cs" />
+    <Compile Include="GBridgePOSSupport.cs" />
+    <Compile Include="IlydaInvoiceMapper.cs" />
+    <Compile Include="IlydaInvoiceProvider.cs" />
+    <Compile Include="IlydaPos.cs" />
+    <Compile Include="InvoiceAdapterFactory.cs" />
+    <Compile Include="InvoiceIssuanceService.cs" />
+    <Compile Include="InvoiceProviderRegistry.cs" />
+    <Compile Include="InvoicingService.cs" />
+    <Compile Include="ITimologiaInvoiceProvider.cs" />
+    <Compile Include="LoggedHttpClient.cs" />
+    <Compile Include="MyDataClient.cs" />
+    <Compile Include="MyDataRecovery.cs" />
+    <Compile Include="MyDataSchema.cs" />
+    <Compile Include="SamtecFiscalSigner.cs" />
+    <Compile Include="SamtecWireModels.cs" />
+    <Compile Include="WorkflowInvoiceXml.cs" />
+  </ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Schemas\MyDataV2\*.xsd" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="..\Exedron.Invoicing.Core\Exedron.Invoicing.Core.csproj"><Project>{932909FD-B288-47B8-80BB-8B11033109AC}</Project><Name>Exedron.Invoicing.Core</Name></ProjectReference></ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

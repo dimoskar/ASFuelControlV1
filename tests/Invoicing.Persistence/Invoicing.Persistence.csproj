@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration><Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <OutputType>Exe</OutputType><AssemblyName>Invoicing.Persistence</AssemblyName>
+    <!-- ScriptDom needs 4.7.2; production libraries remain on 4.6. -->
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion><LangVersion>7.3</LangVersion>
+    <OutputPath>bin\$(Configuration)\</OutputPath><Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Data" /><Reference Include="System.Net.Http" />
+    <Reference Include="Microsoft.SqlServer.TransactSql.ScriptDom"><HintPath>$(ScriptDomPath)</HintPath><Private>true</Private></Reference>
+    <Reference Include="Newtonsoft.Json"><HintPath>..\..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath><Private>true</Private></Reference>
+    <Compile Include="Program.cs" />
+    <ProjectReference Include="..\..\ASFuelControl.Invoicing.Persistence\ASFuelControl.Invoicing.Persistence.csproj"><Name>ASFuelControl.Invoicing.Persistence</Name></ProjectReference>
+    <ProjectReference Include="..\..\Exedron.Invoicing.Core\Exedron.Invoicing.Core.csproj"><Name>Exedron.Invoicing.Core</Name></ProjectReference>
+    <ProjectReference Include="..\..\Exedron.Invoicing.Adapters\Exedron.Invoicing.Adapters.csproj"><Name>Exedron.Invoicing.Adapters</Name></ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

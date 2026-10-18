@@ -21,6 +21,10 @@ namespace ASFuelControl.Windows.UI.Forms
         public InvoiceFormEx()
         {
             InitializeComponent();
+            InitializeFiscalStatus();
+            fiscalPanel.ActionCompleted += (s, e) => {
+                if (!IsDisposed && fiscalPanel.Owned) LoadInvoice(ivm.InvoiceId);
+            };
 
             //var dispColumn = this.radGridView1.Columns["Dispenser"] as GridViewComboBoxColumn;
             //dispColumn.DataSource = dispensersBindingSource;
@@ -82,6 +86,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 this.radSpinEditor3.DataBindings.Add(new System.Windows.Forms.Binding("Value", this.invoiceViewModelBindingSource, "DiscountAmount", true));
             }
             this.SetView();
+            fiscalPanel.LoadInvoice(invoiceId);
         }
 
         public void TransformInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId, int mode)
@@ -122,20 +127,18 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             if (this.relatedIds == null)
                 return;
+            using (Threads.SharedInvoiceRuntime.EditUnissued(this.relatedIds))
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
                 List<Data.InvoiceLine> invLinesToDelete = new List<Data.InvoiceLine>();
                 List<Data.Invoice> invToDelete = new List<Data.Invoice>();
                 List<Data.FinTransaction> finToDelete = new List<Data.FinTransaction>();
-                int minNumber = int.MaxValue;
                 foreach (var invId in this.relatedIds)
                 {
                     var invoice = db.Invoices.FirstOrDefault(i => i.InvoiceId == invId);
-                    if (minNumber > invoice.Number && invoice.Number > 0)
-                    {
-                        minNumber = invoice.Number;
-                        invoice.InvoiceType.LastNumber = minNumber - 1;
-                    }
+                    if (invoice == null) continue;
+                    // Never rewind a counter: another document may already use a
+                    // later number even when this unissued transformation is discarded.
                     if (invoice.FinTransactions.Count > 0)
                         db.Delete(invoice.FinTransactions);
                     if (invoice.InvoiceLines.Count > 0)
@@ -162,6 +165,18 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void InvoiceFormEx_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (fiscalPanel.Busy) { e.Cancel = true; return; }
+            try { CloseInvoice(e); }
+            catch (Exception ex)
+            {
+                e.Cancel = true;
+                RadMessageBox.Show(ex.Message,"Έλεγχος παραστατικού",MessageBoxButtons.OK,RadMessageIcon.Exclamation);
+            }
+        }
+
+        private void CloseInvoice(FormClosingEventArgs e)
+        {
+            if (Threads.SharedInvoiceRuntime.Owns(this.ivm.InvoiceId)) return;
             if (!this.ivm.HasChanges)
                 return;
             var res = RadMessageBox.Show("Θέλετε να αποθηκεύσετε τις αλλαγές?", "Εχούν γίνει αλλαγές...", MessageBoxButtons.YesNoCancel, RadMessageIcon.Question);
@@ -183,6 +198,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 DeleteRelatedInvoice();
                 if (this.ivm.RelatedInvoiceIds == null)
                     return;
+                using (Threads.SharedInvoiceRuntime.EditUnissued(this.ivm.RelatedInvoiceIds))
                 using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
                     foreach (var inv in this.ivm.RelatedInvoiceIds)
@@ -233,6 +249,7 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void btnSave_Click(object sender, EventArgs e)
         {
+            if (Threads.SharedInvoiceRuntime.Owns(this.ivm.InvoiceId)) return;
             
             var success = this.ivm.Save(ivm.InvoiceId);
             if (!success)
@@ -240,6 +257,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 string message = string.Join("\r\n", this.ivm.Errors.Select(s => s.ErrorMessage));
                 RadMessageBox.Show(message, "Σφάλμα Αποθήκευσης", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
             }
+            else fiscalPanel.LoadInvoice(this.ivm.InvoiceId);
         }
 
         private void btnDeleteVehicle_Click(object sender, EventArgs e)
@@ -289,8 +307,32 @@ namespace ASFuelControl.Windows.UI.Forms
             }
         }
 
-        private void btnPrint_Click(object sender, EventArgs e)
+        private async void btnPrint_Click(object sender, EventArgs e)
         {
+            if (fiscalPanel.Busy) return;
+            // Owned documents use their saved workflow; never save/recalculate edited
+            // screen data before a reprint. The status panel locks issued fields.
+            if (Threads.SharedInvoiceRuntime.Handles(this.ivm.InvoiceId))
+            {
+                try
+                {
+                    if (!Threads.SharedInvoiceRuntime.Owns(this.ivm.InvoiceId))
+                    {
+                        if (this.ivm.HasChanges && !this.ivm.Save(ivm.InvoiceId))
+                            throw new InvalidOperationException(string.Join("\r\n", this.ivm.Errors.Select(s => s.ErrorMessage)));
+                        if (RadMessageBox.Show("Θέλετε να εκτυπώσετε το αποθηκευμένο παραστατικό;", "Εκτύπωση Παραστατικού",
+                            MessageBoxButtons.YesNo, RadMessageIcon.Question) != DialogResult.Yes) return;
+                    }
+                    fiscalPanel.LoadInvoice(this.ivm.InvoiceId);
+                    await fiscalPanel.PrintInvoice();
+                }
+                catch (Exception ex)
+                {
+                    Logging.Logger.Instance.LogToFile("Shared invoice print", ex);
+                    RadMessageBox.Show(ex.Message, "Σφάλμα Εκτύπωσης", MessageBoxButtons.OK, RadMessageIcon.Error);
+                }
+                return;
+            }
             if (this.ivm.HasChanges)
             {
                 bool success = this.ivm.Save(ivm.InvoiceId);

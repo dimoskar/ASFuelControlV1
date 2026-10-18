@@ -15,7 +15,7 @@ namespace ASFuelControl.Windows.Threads
     /// <summary>
     ///Class that provides an thread that handles all printing jobs that are generated from the main controller thread.
     /// </summary>
-    public class PrintAgent
+    public partial class PrintAgent
     {
         private const int PollBatchSize = 20;
         private const int MaxRememberedSigns = 1000;
@@ -96,7 +96,7 @@ namespace ASFuelControl.Windows.Threads
                 this.outFolder = this.signFolder;
             }
             this.processFolder = this.signFolder + "\\" + "ProcessDocuments";
-            if(!Directory.Exists(this.processFolder))
+            if(!string.IsNullOrWhiteSpace(this.signFolder) && !Directory.Exists(this.processFolder))
                 Directory.CreateDirectory(this.processFolder);
             this.tailInvLines = Data.Implementation.OptionHandler.Instance.GetIntOption("TailInvoiceLine", 5);
             this.invoiceCopies = Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceCopies", 2);
@@ -111,13 +111,14 @@ namespace ASFuelControl.Windows.Threads
             this.invoiceReplaceCodeFrom = Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceReplaceCodeFrom", 173);
             this.invoiceReplaceCodeTo = Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceReplaceCodeTo", 222);
             SetInvoicingParameters();
-            if (!System.IO.Directory.Exists(this.outFolder))
+            if (!string.IsNullOrWhiteSpace(this.outFolder) && !System.IO.Directory.Exists(this.outFolder))
                 System.IO.Directory.CreateDirectory(this.outFolder);
             //signWatcher.Path = this.outFolder;
             //signWatcher.Created += SignWatcher_Created;
         }
         public static void SetInvoicingParameters()
         {
+            if (SharedInvoiceRuntime.ProtectsInvoices) return;
             if (!string.IsNullOrEmpty(Exedron.ProviderInvoicing.InvoiceHandler.Instance.AadeUserName))
             {
                 return;
@@ -294,6 +295,7 @@ namespace ASFuelControl.Windows.Threads
 
         public static void PrintInvoiceDirect(Data.Invoice inv)
         {
+            if (SharedInvoiceRuntime.Handles(inv.InvoiceId)) { SharedInvoiceRuntime.Process(inv.InvoiceId); return; }
             Guid invoiceId = inv.InvoiceId;
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
@@ -1181,7 +1183,7 @@ namespace ASFuelControl.Windows.Threads
                     entriesProcessed.Add("Alerts", new List<Guid>());
                     entriesProcessed.Add("Titrimetries", new List<Guid>());
                 }
-                if(this.defaultTaxDevice.ToLower() == "samtec" && this.outFolder == "")
+                if(!SharedInvoiceRuntime.ProtectsInvoices && this.defaultTaxDevice.ToLower() == "samtec" && this.outFolder == "")
                 {
                     this.agentRunning = false;
                     return;
@@ -1257,13 +1259,13 @@ namespace ASFuelControl.Windows.Threads
                             //continue;
                         }
                         index++;
+                        bool sharedInvoicing = SharedInvoiceRuntime.ProtectsInvoices;
                         var qBalances = db.Balances.Where(b => !b.PrintDate.HasValue);
                         var qInvoice = db.Invoices.Where(i =>
                             (
                                 !i.IsPrinted.HasValue ||
                                 i.IsPrinted.Value == false ||
-                                i.InvoiceSignature == null ||
-                                i.InvoiceSignature == ""
+                                (!sharedInvoicing && (i.InvoiceSignature == null || i.InvoiceSignature == ""))
                             ) &&
                             (i.InvoiceType.Printable) &&
                             i.InvoiceLines.Count > 0
@@ -1284,6 +1286,7 @@ namespace ASFuelControl.Windows.Threads
                         // backlog must not leave a new invoice at Number == 0, and fiscal
                         // numbers must be allocated in chronological order.
                         List<Data.Invoice> invoicesToNumber = invoiceQuery
+                            .Where(ii => !sharedInvoicing)
                             .Where(ii => ii.Number == 0)
                             .OrderBy(ii => ii.TransactionDate)
                             .ThenBy(ii => ii.InvoiceId)
@@ -1306,7 +1309,7 @@ namespace ASFuelControl.Windows.Threads
                             }
                         }
 
-                        var signingInvoiceQuery = invoiceQuery.Where(ii => ii.Number > 0);
+                        var signingInvoiceQuery = invoiceQuery.Where(ii => sharedInvoicing || ii.Number > 0);
                         List<Data.Invoice> invoices = LoadSigningBatch(
                             signingInvoiceQuery
                                 .OrderByDescending(ii => ii.TransactionDate)
@@ -1327,6 +1330,11 @@ namespace ASFuelControl.Windows.Threads
                         {
                             try
                             {
+                                if (SharedInvoiceRuntime.Handles(invoice.InvoiceId))
+                                {
+                                    SharedInvoiceRuntime.Process(invoice.InvoiceId);
+                                    continue;
+                                }
                                 lock (this.invoicesProcessed)
                                 {
                                     if (this.invoicesProcessed.Contains(invoice.InvoiceId.ToString()))
@@ -1565,6 +1573,7 @@ namespace ASFuelControl.Windows.Threads
                             Data.Balance entry = db.Balances.Where(e => e.BalanceId == id).FirstOrDefault();
                             if(entry == null)
                                 continue;
+                            if (SharedInvoiceRuntime.HandlesDocument("Balance", id)) continue;
                             entry.PrintDate = DateTime.Now;
                             db.SaveChanges();
                         }
@@ -1607,6 +1616,7 @@ namespace ASFuelControl.Windows.Threads
                     Data.Invoice inv = db.Invoices.Where(i => i.InvoiceId == id).FirstOrDefault();
                     if(inv == null)
                         continue;
+                    if (SharedInvoiceRuntime.Handles(id)) continue;
                     inv.IsPrinted = true;
                     inv.InvoiceSignature = keys[1];
                     db.SaveChanges();
@@ -1627,6 +1637,7 @@ namespace ASFuelControl.Windows.Threads
                     Data.TankFilling inv = db.TankFillings.Where(i => i.TankFillingId == id).FirstOrDefault();
                     if(inv == null)
                         continue;
+                    if (SharedInvoiceRuntime.HandlesDocument("TankFilling", id)) continue;
 
                     inv.SignSignature = keys[1];
                     db.SaveChanges();
@@ -1776,6 +1787,10 @@ namespace ASFuelControl.Windows.Threads
         /// <param name="fileType"></param>
         private bool ApplySign(Data.DatabaseModel db, string sign, string qrData, Guid id, string fileType)
         {
+            if ((fileType == "Balance" || fileType == "TankFilling") && SharedInvoiceRuntime.HandlesDocument(fileType, id))
+                throw new InvalidOperationException("Legacy callbacks cannot change a shared fiscal document.");
+            if (fileType == "Invoice" && SharedInvoiceRuntime.Handles(id))
+                throw new InvalidOperationException("Legacy signature callbacks cannot change a shared invoice.");
             if (IsRememberedSign(sign))
                 return true;
 
@@ -2038,6 +2053,7 @@ namespace ASFuelControl.Windows.Threads
 
         public void PrintToPrinter(Data.Balance balance, bool sendMail)
         {
+            if (SharedInvoiceRuntime.HandlesDocument("Balance", balance.BalanceId)) { SharedInvoiceRuntime.ProcessDocument("Balance", balance.BalanceId); return; }
             //Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
 
             Reports.BalanceReports.BalanceLoad bl = new Reports.BalanceReports.BalanceLoad();
@@ -2209,6 +2225,7 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintToPrinter(Data.DatabaseModel db, Data.Invoice invoice)
         {
+            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId); return; }
             if (invoicingProviderEnabled || invoice.InvoiceType.SendToMyData)
             {
                 if (!MyDataSendInvoice(invoice.InvoiceId, 2))
@@ -2353,6 +2370,7 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintToPrinter(Data.TankFilling tankFilling)
         {
+            if (SharedInvoiceRuntime.HandlesDocument("TankFilling", tankFilling.TankFillingId)) { SharedInvoiceRuntime.ProcessDocument("TankFilling", tankFilling.TankFillingId); return; }
             if(tankFilling.InvoiceLines.Count == 0)
                 return;
             try
@@ -2409,6 +2427,7 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintToPrinterInternalInvoice(Data.Invoice inv, bool showAdditionalData)
         {
+            if (SharedInvoiceRuntime.Handles(inv.InvoiceId)) { SharedInvoiceRuntime.Process(inv.InvoiceId); return; }
             Guid invoiceId = inv.InvoiceId;
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
@@ -2514,6 +2533,7 @@ namespace ASFuelControl.Windows.Threads
 
         public void SendMyDataToPrint(Guid invoiceId)
         {
+            if (SharedInvoiceRuntime.Handles(invoiceId)) { SharedInvoiceRuntime.Process(invoiceId); return; }
             int printMode = 0;
             using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
@@ -2545,6 +2565,7 @@ namespace ASFuelControl.Windows.Threads
 
         public static void TcpPrint(string host, Data.Invoice invoice)
         {
+            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId); return; }
             Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             int port = Properties.Settings.Default.TCPPrinterPort;
             s.Connect(host, port);
@@ -3030,6 +3051,7 @@ namespace ASFuelControl.Windows.Threads
 
         public void SignInvoice(Data.DatabaseModel db, Data.Invoice invoice)
         {
+            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId); return; }
             string sign = "";
             string qrData = "";
             if (invoice.Number == 0)
@@ -3106,6 +3128,7 @@ namespace ASFuelControl.Windows.Threads
         }
         private void SignBalance(Data.DatabaseModel db, Data.Balance balance, string balanceText)
         {
+            if (SharedInvoiceRuntime.HandlesDocument("Balance", balance.BalanceId)) { SharedInvoiceRuntime.ProcessDocument("Balance", balance.BalanceId); return; }
             var req = CreateBalanceRequest(balance);
             req.AtxtContent = balanceText;
             var resp = Samtec.WebService.HttpClient.CallWS(req, samtecWSUrl);
@@ -3163,6 +3186,7 @@ namespace ASFuelControl.Windows.Threads
         }
         private void SignTankFilling(Data.DatabaseModel db, Data.TankFilling tankFilling, string alertText, int invoiceTypeCode)
         {
+            if (SharedInvoiceRuntime.HandlesDocument("TankFilling", tankFilling.TankFillingId)) { SharedInvoiceRuntime.ProcessDocument("TankFilling", tankFilling.TankFillingId); return; }
             var req = CreateTankFillingRequest(db, tankFilling, invoiceTypeCode);
             var resp = Samtec.WebService.HttpClient.CallWS(req, samtecWSUrl);
             var text = resp.ResultCode;
@@ -3192,6 +3216,7 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintInvoice(Data.DatabaseModel db, Data.Invoice invoice)
         {
+            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId); return; }
             if (invoiceProcessed.Contains(invoice.InvoiceId))
                 return;
             invoiceProcessed.Add(invoice.InvoiceId);
@@ -3277,6 +3302,7 @@ namespace ASFuelControl.Windows.Threads
         List<Guid> balancesProcessed = new List<Guid>();
         private void PrintBalance(Data.DatabaseModel db, Data.Balance balance)
         {
+            if (SharedInvoiceRuntime.HandlesDocument("Balance", balance.BalanceId)) { SharedInvoiceRuntime.ProcessDocument("Balance", balance.BalanceId); return; }
             if (balancesProcessed.Contains(balance.BalanceId))
                 return;
             balancesProcessed.Add(balance.BalanceId);
@@ -3383,6 +3409,7 @@ namespace ASFuelControl.Windows.Threads
         List<Guid> tankFillingsProcessed = new List<Guid>();
         private void PrintTankFilling(Data.DatabaseModel db, Data.TankFilling tankFilling)
         {
+            if (SharedInvoiceRuntime.HandlesDocument("TankFilling", tankFilling.TankFillingId)) { SharedInvoiceRuntime.ProcessDocument("TankFilling", tankFilling.TankFillingId); return; }
             if (tankFillingsProcessed.Contains(tankFilling.TankFillingId))
                 return;
             tankFillingsProcessed.Add(tankFilling.TankFillingId);
@@ -3487,6 +3514,7 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintInternalInvoice(Data.DatabaseModel db, Data.Invoice invoice)
         {
+            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId); return; }
             try
             {
                 if (invoice.InvoiceType.Printable)
@@ -3718,6 +3746,7 @@ namespace ASFuelControl.Windows.Threads
 
         private static bool MyDataSendInvoice(Guid invoiceId, int printMode)
         {
+            if (SharedInvoiceRuntime.Handles(invoiceId)) return SharedInvoiceRuntime.Process(invoiceId, false).Accepted;
             if (!Exedron.MyData.Settings.IsActive)
                 return true;
 
@@ -3826,6 +3855,7 @@ namespace ASFuelControl.Windows.Threads
 
         public static void CancelInvoice(Data.DatabaseModel db, Data.MyDataInvoice invToCancel)
         {
+            if (SharedInvoiceRuntime.Handles(invToCancel.InvoiceId)) throw new InvalidOperationException("Use the journalled cancellation/reconciliation workflow for this invoice.");
             var url = Data.Implementation.OptionHandler.Instance.GetOption("MyDataUrl", "https://mydata-dev.azure-api.net");
             var respCancel = Exedron.MyData.InvoiceCancelation.MakeRequest(url, invToCancel.Mark.Value);
             if (respCancel.response.cancellationMark.HasValue)

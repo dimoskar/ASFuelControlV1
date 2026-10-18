@@ -1,0 +1,172 @@
+Exedron invoicing libraries
+==========================
+
+Both projects target .NET Framework 4.6. Build Exedron.Invoicing.Adapters.csproj
+directly; its project reference builds Exedron.Invoicing.Core.csproj. Neither
+project is registered in ASSalesManager.sln. The existing application still uses
+its existing implementations; switching it over is a separate integration step.
+
+Dependencies
+------------
+Core contains its own model contracts in Exedron.Invoicing.Core.Models and has
+only framework references. Adapters references Core and Newtonsoft.Json 13.0.3
+(the net45 assembly, compatible with Framework 4.6). Neither library references
+ASSalesManager, Entity Framework, Exedron.ProviderInvoicing, Arbitrans, WinForms,
+Samtec, or a database driver. Arbitrans is intentionally excluded.
+
+The build uses a modern C# compiler (language version 7.3) and the Framework 4.6
+targeting pack. The runtime target is 4.6; this does not require C# 7.3 on the
+deployment machine. Production/test selection and credentials come from the
+host through options, not app.config or environment variables. For a Framework
+4.6 host, enable TLS 1.2 in its startup/network policy before HTTPS calls. These
+libraries do not change process-wide ServicePointManager settings.
+
+Composition through interfaces
+------------------------------
+The composition root constructs concrete implementations once. Application
+workflows can depend entirely on the interfaces in Core:
+
+    IInvoiceTypeResolver resolver = new InvoiceTypeResolver();
+    IInvoiceAdapterFactory adapters = new InvoiceAdapterFactory(resolver);
+    IInvoiceProvider provider = adapters.CreateIlyda(new IlydaProviderOptions
+    {
+        TestMode = true,
+        IssuerVat = companyVat,
+        UserName = userName,
+        Password = password,
+        PosTerminalId = terminalId,
+        NspProtocol = "EDPS",
+        Store = hostIlydaStore,
+        PosStore = hostIlydaPosStore,
+        Logger = hostRequestResponseLogger
+    });
+    IPaymentGateway gateway = adapters.CreateGBridge(new GBridgeOptions
+    {
+        TerminalId = terminalId,
+        Logger = hostRequestResponseLogger
+    });
+    IPOSSupport pos = adapters.CreatePOSSupport(gateway, hostPaymentStore);
+    using (IInvoicingService service = adapters.CreateService(provider, pos))
+    {
+        InvoiceResponse result = service.SendInvoice(invoiceSnapshot);
+    }
+
+invoiceSnapshot is an InvoiceBuildRequest. The host loads its invoice, customer,
+lines, company, country, parent transmission evidence and optional MovementContext
+into plain Core input objects. No database entity or connection is accepted.
+PrintedDateTime and MovementContext.Departure are Greek fiscal wall-clock times,
+not UTC; logging and attempt timestamps explicitly use UTC.
+
+Choose CreateITimologia(options) or CreateMyData(options) for the other channels.
+Use the same factory/resolver instance for all destinations. IInvoicingService
+always calls IInvoiceBuilder, which invokes the injected IInvoiceTypeResolver
+once before mapping, payment or transmission. The resolver owns goods/services,
+retail/wholesale, country, credit correlation and correlated tanker 9.1 decisions.
+There is no independent resolver in any adapter. Lower-level IInvoiceProvider
+methods accept an already validated model and do not resolve its type again.
+
+IInvoicePayloadMapper exposes each channel's payload for inspection without
+network activity. IInvoiceXmlSerializer exposes the common XML generation, with
+explicit direct-myDATA versus provider party rules. IInvoiceProviderRegistry
+provides host-controlled registration and lookup. IInvoiceSignagePolicy exposes
+the copied routing rules; actual fiscal-device signing stays in the host. The
+extraction does not introduce any new fiscal-signature prerequisite.
+
+Lifecycle/capability interfaces include IInvoiceProviderRecovery,
+IInvoiceProviderLookup, IInvoiceProviderPaymentSigner,
+IInvoiceProviderPaymentLifecycle and IInvoiceDocumentUpload. Check capabilities
+through these interfaces, not concrete provider casts. Ilyda PDF upload remains
+available only through an explicit call; normal issuance never uploads a PDF.
+GBridge provider signing is supported for direct Ilyda and iTimologia. Direct
+myDATA does not itself provide a payment signature, so it does not gain a new
+GBridge signing capability merely by sharing the interface.
+
+Request/response logging
+------------------------
+The host MUST supply IRequestResponseLogger to each HTTP adapter. It implements
+the actual destination (database, file, telemetry, etc.). No logger implementation
+or Trace/file/database logging is installed by either library.
+
+RequestStarted receives an exchange ID, integration, environment, invoice ID
+when available, endpoint, method, content type, exact serialized text body and
+UTC start time. It runs before transport; an exception prevents that request.
+ResponseReceived receives the same exchange ID, HTTP status, exact text response,
+UTC completion time and transport exception type if communication failed.
+
+No request/response headers are logged. Authentication endpoint bodies are
+omitted on both sides, as are binary PDF uploads. Secret query parameters and
+exception messages are excluded; documented myDATA MARK and paging parameters
+are retained. Fiscal data and provider payment signatures in business payloads
+are retained. The host controls access/retention for this sensitive history.
+
+An exception from ResponseReceived is deliberately ignored: a logging failure
+after a successful payment/issuance must not trigger a second payment/submission.
+The host should make this callback durable and monitor its own failures. Fiscal
+attempt stores are separate from diagnostic logging. Tests use an in-memory
+logger; the libraries themselves do not include one or silently install a no-op.
+
+Host persistence and recovery
+-----------------------------
+Implement IIlydaSubmissionStore, IIlydaPosStore, IITimologiaSubmissionStore,
+IMyDataSubmissionStore and IProviderPaymentAttemptStore as required. Each provider
+must have its OWN tables; do not put iTimologia history in Ilyda tables or replace
+provider evidence with route-only history. Save the request before transport,
+retain every attempt, and preserve its response when a subsequent lookup runs.
+Acquire must provide an exclusive lease for the invoice across processes, not
+just an in-process lock. Isolate reads by environment and issuer. Store failures
+before transport prevent sending; a saved Sending attempt must survive a crash.
+
+iTimologia requires a submission store and checks prior attempts before another
+POST. Accepted/unknown attempts go through lookup; not-found after an uncertain
+result does not authorize a new POST. Only verified rejection permits a corrected
+send. Its State can be set to Rejected by host reconciliation after definitive
+evidence; merely missing a response is insufficient. Optional communication-token
+caching is exposed as ICommunicationTokenCache. Without it, tokens stay in memory
+for the adapter lifetime, never in environment variables or the registry.
+
+Ilyda retains its queue/POS-session recovery and signature conversion rules.
+GBridge retains authorization, lookup, refund and void behavior; payment state
+must be persisted by the host. Unknown payment outcomes are recovered without
+starting a new authorization.
+
+myDATA persists Sending before POST and classifies the response as Accepted,
+Rejected or Unknown. A prior accepted identical request is returned from stored
+evidence; unknown requests are blocked. IMyDataClient exposes CancelInvoice and
+RequestTransmittedDocs, including both paging keys, for reconciliation. Its
+RecoverInvoice returns accepted stored evidence; it does not guess an invoice
+match from a MARK range. The host must match retrieved fiscal identity and save
+verified reconciliation through its store. No automatic blind resend exists.
+
+Keep application policy in the host: pending-document checks within a series,
+issue-date corrections, selecting historical provider/environment, permissions,
+fiscal signing, UI, and transactions that update application invoice/route state.
+No migrations, SQL implementation, UI changes or switch of the running application
+are included in this extraction. Existing mapping behavior was copied, including
+existing limits on retail correlatedInvoices; that policy was not expanded here.
+
+ASFuelControl step 2 integration contracts
+---------------------------------------
+Core now supplies FiscalSignagePolicy, immutable fiscal signing request/result
+and attempt types, IFiscalSigner, optional IFiscalSignerRecovery, and host store/
+lease interfaces. FiscalStateTransitions defines separate stage states. Device
+transport and SQL implementations are not included in step 2. Existing signage
+wrappers delegate to Core; provider/payment contracts remain unchanged.
+
+InvoiceBuildRequest adds ordinary Delivery and explicit SaleCorrelations inputs.
+VAT payment suspension and contact data are explicit inputs. The direct XML
+serializer now retains VAT payment suspension; Ilyda still rejects that option.
+See docs/invoicing-refactor/step-2-contracts.md for limits and the step 3 handoff.
+Run tests/Verify-InvoicingContracts.ps1 and tests/Verify-InvoicingCharacterization.ps1
+in this repository for the available offline suites.
+
+Original extraction verification (source repository)
+---------------------------------------------------
+The following describes the originating extraction's tests. That script, test
+examples and supplied AADE schema are not included in this ASFuelControl checkout.
+Run tests/Verify-InvoicingLibraries.ps1 from the repository. Tests compile with
+Framework 4.6 reference assemblies and use fake HTTP handlers and host stores:
+46 interface/logging/recovery assertions, 84 mapping cases, 362 Ilyda/POS
+assertions, plus XML validation against the supplied AADE schema. The script
+accepts MSBuild, ExamplesDirectory and InvoiceSchema overrides. No live invoice
+or POS request is made. These checks ran on a machine with the installed newer
+.NET Framework runtime; they are not a physical POS test or a clean 4.6 VM test.

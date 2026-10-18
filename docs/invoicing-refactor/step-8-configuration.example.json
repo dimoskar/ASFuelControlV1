@@ -1,0 +1,40 @@
+{
+  "Version": 1,
+  "FirstInvoiceDate": "2099-01-01T00:00:00",
+  "Mapping": {
+    "WholesaleCodes": [100],
+    "Countries": [{"CountryCode": "GR", "DisplayMember": "Ελλάδα", "IsEu": true}]
+  },
+  "InvoiceTypes": {
+    "11111111-1111-1111-1111-111111111111": {
+      "Provider": {
+        "ProviderKey": "myDATA",
+        "TestMode": true,
+        "IssuerVat": "000000000",
+        "IssuerBranch": 0,
+        "CredentialProfile": "mydata-test-v1",
+        "Account": "REPLACE-TEST-ACCOUNT"
+      },
+      "Printer": {
+        "PrinterName": "REPLACE-WITH-REVIEWED-WINDOWS-PRINTER",
+        "WidthHundredths": 315,
+        "HeightHundredths": 1100,
+        "Copies": 1,
+        "FontSize": 8
+      }
+    }
+  },
+  "Credentials": [{
+    "Route": {
+      "ProviderKey": "myDATA",
+      "TestMode": true,
+      "IssuerVat": "000000000",
+      "IssuerBranch": 0,
+      "CredentialProfile": "mydata-test-v1",
+      "Account": "REPLACE-TEST-ACCOUNT"
+    },
+    "SubscriptionKeyOption": "SharedMyDataTestKeyV1"
+  }],
+  "Devices": [],
+  "Documents": {}
+}

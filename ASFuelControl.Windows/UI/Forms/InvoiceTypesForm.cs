@@ -19,6 +19,7 @@ namespace ASFuelControl.Windows.UI.Forms
         public InvoiceTypesForm()
         {
             InitializeComponent();
+            InitializeInvoicingPolicy();
             
             this.Load += InvoiceTypesForm_Load;
         }
@@ -36,7 +37,8 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void radButton1_Click(object sender, EventArgs e)
         {
-            this.vm.SaveChanges();
+            try { SaveInvoicingPolicies(); }
+            catch (Exception ex) { RadMessageBox.Show(ex.Message,"Ρυθμίσεις τιμολόγησης",MessageBoxButtons.OK,RadMessageIcon.Error); }
            
         }
 

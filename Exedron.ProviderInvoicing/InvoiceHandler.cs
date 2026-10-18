@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using ProviderCatalog = Exedron.Invoicing.Core.InvoiceProviderCatalog;
 
 namespace Exedron.ProviderInvoicing
 {
@@ -434,7 +435,7 @@ namespace Exedron.ProviderInvoicing
                         if (inv.PaymentMethods.Any(pp => pp.Type == PaymentMethodEnum.POS))
                             tra.paymentMethod = 1;
 
-                        tra.aadeProviderId = 008; // The Invoicing Provider Code. Check re "Remarks" of the field aadeProviderId to find the Provider code you need.
+                        tra.aadeProviderId = ProviderCatalog.Get(ProviderCatalog.DirectIlydaKey).AadeProviderId.Value;
                         tra.aadeProviderSignatureData = signature; // The aadeProviderSignatureData
                         tra.aadeProviderSignature = posSign["invoiceSignatures[0].signature"]; // The aadeProviderSignature
                         string resultVW = this.VivaWallet.newSale(tra); // Send the sale to the POS.
@@ -482,7 +483,7 @@ namespace Exedron.ProviderInvoicing
                         tra.ProviderData.NetAmount = int.Parse(payData[3]);
                         tra.ProviderData.VatAmount = int.Parse(payData[4]);
                         tra.ProviderData.TotalAmount = int.Parse(payData[5]);
-                        tra.ProviderData.ProviderId = 8; // 7 for PRIMER, 8 for ILYDA, 15 for ORIAN
+                        tra.ProviderData.ProviderId = ProviderCatalog.Get(ProviderCatalog.DirectIlydaKey).AadeProviderId.Value;
                         tra.ProviderData.Signature = paymentSignature;
                         var mellonGroup = new ArbitransMyData.POS.MellonGroupPOS(ArbitransName, ArbitransKey, MellonGroupNsp, isTest);
                         var traRes = mellonGroup.sendTransaction(MellonGroupApiKey, MellonTerminalId2, tra); // Send the sale to the POS.
@@ -515,7 +516,7 @@ namespace Exedron.ProviderInvoicing
 
                             payment.tid = ilydaData.extraDetails.paymentTerminalID;
                             payment.ProviderSignature.Signature = signature;
-                            payment.ProviderSignature.SigningAuthor = "008";
+                            payment.ProviderSignature.SigningAuthor = ProviderCatalog.Get(ProviderCatalog.DirectIlydaKey).AadeProviderCode;
                             invoice.payments[i] = payment;
                         }
                     }

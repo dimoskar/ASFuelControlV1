@@ -1,0 +1,60 @@
+using System;
+using System.Collections.Generic;
+using System.Windows.Forms;
+using ASFuelControl.Windows.UI.Controls;
+
+namespace ASFuelControl.Windows.UI.Forms
+{
+    public partial class InvoiceFormEx
+    {
+        private FiscalDocumentPanel fiscalPanel;
+        private readonly Dictionary<Control,bool> editableControls = new Dictionary<Control,bool>();
+        private bool lockedForIssuance;
+        private void InitializeFiscalStatus()
+        {
+            fiscalPanel = new FiscalDocumentPanel { Dock = DockStyle.Bottom,Height = 210 };
+            ClientSize = new System.Drawing.Size(ClientSize.Width,ClientSize.Height + fiscalPanel.Height);
+            Controls.Add(fiscalPanel);
+            fiscalPanel.StateChanged += (s,e) => LockIssuedInvoice();
+            Shown += (s,e) => fiscalPanel.LoadInvoice(ivm.InvoiceId);
+            paymentTypeDropDownList.SelectedIndexChanging += (s,e) => {
+                if (!Visible || lockedForIssuance || e.Position < 0 || e.Position >= paymentTypeDropDownList.Items.Count) return;
+                var value = paymentTypeDropDownList.Items[e.Position].Value;
+                if (value == null || Convert.ToInt32(value) != 4) return;
+                try
+                {
+                    if (!Threads.SharedInvoiceRuntime.Enabled || Threads.SharedInvoiceRuntime.SupportsIris) return;
+                    e.Cancel = true;
+                    Telerik.WinControls.RadMessageBox.Show("IRIS μέσω GBridge υποστηρίζεται μόνο με iTimologia και τρόπο POS Mellon.","Πληρωμή IRIS");
+                }
+                catch (Exception ex) { e.Cancel = true; Telerik.WinControls.RadMessageBox.Show(ex.Message,"Έλεγχος πληρωμής"); }
+            };
+        }
+        private void LockIssuedInvoice()
+        {
+            btnPrint.Enabled = !fiscalPanel.Busy && !fiscalPanel.ReadFailed;
+            bool locked = fiscalPanel.Owned || fiscalPanel.ReadFailed || fiscalPanel.Busy;
+            if (locked == lockedForIssuance) return;
+            lockedForIssuance = locked;
+            if (locked)
+            {
+                editableControls.Clear();
+                // Keep the original Print button available while freezing all invoice
+                // fields, including the other controls in its toolbar.
+                foreach (Control control in Controls) LockInvoiceControl(control);
+            }
+            else foreach (var entry in editableControls) entry.Key.Enabled = entry.Value;
+        }
+        private void LockInvoiceControl(Control control)
+        {
+            if (control == fiscalPanel || control == btnPrint) return;
+            if (control.Contains(btnPrint))
+            {
+                foreach (Control child in control.Controls) LockInvoiceControl(child);
+                return;
+            }
+            editableControls.Add(control,control.Enabled);
+            control.Enabled = false;
+        }
+    }
+}

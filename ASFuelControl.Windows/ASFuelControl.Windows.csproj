@@ -1650,6 +1650,9 @@
     <Content Include="DBScripts\UpdateDatabase54.sql" />
     <Content Include="DBScripts\UpdateDatabase55.sql" />
     <Content Include="DBScripts\UpdateDatabase56.sql" />
+    <Content Include="DBScripts\UpdateDatabase57.sql" />
+    <Content Include="DBScripts\UpdateDatabase58.sql" />
+    <Content Include="DBScripts\UpdateDatabase59.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />
@@ -1779,6 +1782,51 @@
     <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Compile Include="Threads\PrintAgent.Shared.cs" />
+    <Compile Include="Threads\SharedInvoiceRuntime.cs" />
+    <Compile Include="Threads\SharedInvoiceConfiguration.cs" />
+    <Compile Include="Threads\SharedInvoicingSettings.cs" />
+    <Compile Include="Threads\SharedInvoiceRuntime.Status.cs" />
+    <Compile Include="UI\Controls\FiscalDocumentPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\InvoiceFormEx.Invoicing.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\InvoiceTypesForm.Invoicing.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\MainSettingsForm.Invoicing.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SettingForms\PrinterSettings.Invoicing.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\InvoicingFields.cs" />
+    <Compile Include="Threads\SharedDocumentRuntime.cs" />
+    <Compile Include="Threads\SharedInvoicePrinting.cs" />
+    <ProjectReference Include="..\ASFuelControl.Invoicing\ASFuelControl.Invoicing.csproj">
+      <Project>{D29F8705-93AF-4496-8B93-9B9E910B732E}</Project>
+      <Name>ASFuelControl.Invoicing</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Invoicing.Mapping\ASFuelControl.Invoicing.Mapping.csproj">
+      <Project>{B4F41327-760A-4AA0-8B04-61678814D3E9}</Project>
+      <Name>ASFuelControl.Invoicing.Mapping</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.Invoicing.Persistence\ASFuelControl.Invoicing.Persistence.csproj">
+      <Project>{B9969243-2B41-48C2-87D6-F155A944DA80}</Project>
+      <Name>ASFuelControl.Invoicing.Persistence</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Exedron.Invoicing.Core\Exedron.Invoicing.Core.csproj">
+      <Project>{932909FD-B288-47B8-80BB-8B11033109AC}</Project>
+      <Name>Exedron.Invoicing.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Exedron.Invoicing.Adapters\Exedron.Invoicing.Adapters.csproj">
+      <Project>{CB42C941-6142-4F12-AE60-FC867B9DDFD2}</Project>
+      <Name>Exedron.Invoicing.Adapters</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="OpenAccessNuget.targets" />
   <Import Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.Sql.UnitTesting.targets" Condition="'$(SQLDBExtensionsRefPath)' != ''" />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.Sql.UnitTesting.targets" Condition="'$(SQLDBExtensionsRefPath)' == ''" />

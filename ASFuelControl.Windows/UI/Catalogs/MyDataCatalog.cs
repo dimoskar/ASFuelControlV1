@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using FiscalPanel = ASFuelControl.Windows.UI.Controls.FiscalDocumentPanel;
 
 namespace ASFuelControl.Windows.UI.Catalogs
 {
@@ -15,84 +16,62 @@ namespace ASFuelControl.Windows.UI.Catalogs
         private DateTime dateFrom;
         private DateTime dateTo;
         private string filter = "";
+        private readonly FiscalPanel fiscalPanel = new FiscalPanel { Dock = DockStyle.Bottom, Height = 220 };
 
         public MyDataCatalog()
         {
             InitializeComponent();
+            this.Controls.Remove(errorsTextBox);
+            this.Controls.Add(fiscalPanel);
+            this.Controls.SetChildIndex(fiscalPanel,1);
+            this.radLabel1.Text = "Φίλτρο";
+            this.invoiceRadGridView.AutoGenerateColumns = false;
+            this.invoiceRadGridView.Columns.Clear();
+            string[] fields = { "Description","TransactionDate","TraderName","Route","Signing","Payment","Submission","Printing","Mark" };
+            string[] titles = { "Παραστατικό","Ημερομηνία (έως 1000)","Συναλλασσόμενος","Διαδρομή","Σήμανση","Πληρωμή","Διαβίβαση","Εκτύπωση","MARK" };
+            for (int i = 0; i < fields.Length; i++) this.invoiceRadGridView.Columns.Add(new Telerik.WinControls.UI.GridViewTextBoxColumn(fields[i]) { HeaderText = titles[i], Width = i == 0 || i == 2 ? 180 : 130, ReadOnly = true });
             dateFrom = DateTime.Today;
             dateTo = DateTime.Today;
             this.radDateTimePicker1.Value = dateFrom;
             this.radDateTimePicker2.Value = dateTo;
             this.invoiceRadGridView.CurrentRowChanged += InvoiceRadGridView_CurrentRowChanged;
+            fiscalPanel.ActionCompleted += (s,e) => {
+                try { this.Load(); } catch (Exception ex) { Telerik.WinControls.RadMessageBox.Show(ex.Message,"Κατάλογος τιμολόγησης"); }
+            };
         }
 
         private void InvoiceRadGridView_CurrentRowChanged(object sender, Telerik.WinControls.UI.CurrentRowChangedEventArgs e)
         {
             if (e.CurrentRow == null)
-                this.errorsTextBox.Text = "";
+                fiscalPanel.LoadInvoice(Guid.Empty);
             else
             {
                 var invoice = e.CurrentRow.DataBoundItem as MyDataInvoice;
-                if(invoice == null)
-                    this.errorsTextBox.Text = "";
+                if(invoice == null) { fiscalPanel.LoadInvoice(Guid.Empty); return; }
                 this.errorsTextBox.Lines = invoice.Errors;
+                fiscalPanel.LoadInvoice(invoice.InvoiceId);
+                fiscalPanel.ShowLegacyErrors(invoice.Errors);
             }
         }
 
         private void Load()
         {
-            List<MyDataInvoice> invoices = new List<MyDataInvoice>();
-            using (System.Data.SqlClient.SqlConnection connection = new System.Data.SqlClient.SqlConnection(Properties.Settings.Default.DBConnection))
-            {
-                connection.Open();
-                string sql = Properties.Resources.Command_MyDataInvoice.
-                    Replace("[DateFrom]", dateFrom.ToString("yyyy/MM/dd")).
-                    Replace("[DateTo]", dateTo.ToString("yyyy/MM/dd")).
-                    Replace("[Filter]", this.filter);
-                System.Data.SqlClient.SqlCommand cmd = new System.Data.SqlClient.SqlCommand(sql, connection);
-                var reader = cmd.ExecuteReader();
-                while (true)
-                {
-                    bool hasRows = reader.Read();
-                    if (!hasRows)
-                        break;
-                    try
-                    {
-                        MyDataInvoice myInv = new MyDataInvoice();
-
-                        myInv.TransactionDate = reader.GetDateTime(0);
-                        myInv.Number = reader.GetInt32(1);
-                        myInv.Series = reader.IsDBNull(2) ? null : reader.GetString(2);
-                        myInv.Trader = reader.IsDBNull(3) ? null : reader.GetString(3);
-                        myInv.InvoiceDesc = reader.GetString(4);
-                        myInv.Mark = reader.IsDBNull(5) ? null : (long?)reader.GetInt64(5);
-                        myInv.InvoiceId = reader.GetGuid(6);
-                        myInv.DateTimeSent = reader.IsDBNull(7) ? null : (DateTime?)reader.GetDateTime(7);
-                        myInv.Status = reader.GetInt32(8);
-                        myInv.CanceledByMark = reader.IsDBNull(9) ? null : (long?)reader.GetInt64(9);
-                        myInv.CancelationMark = reader.IsDBNull(10) ? null : (long?)reader.GetInt64(10);
-                        myInv.MyDataInvoiceId = reader.GetGuid(11);
-                        myInv.UId = reader.IsDBNull(12) ? null : reader.GetString(12);
-                        myInv.Vehicle = reader.IsDBNull(13) ? null : reader.GetString(13);
-                        string errors = reader.IsDBNull(14) ? "" : reader.GetString(14);
-                        if(!string.IsNullOrEmpty(errors))
-                        {
-                            var errorList = errors.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-                            myInv.Errors = errorList;
-                        }
-                        else
-                            myInv.Errors = new string[] { };
-                        invoices.Add(myInv);
-                    }
-                    catch(Exception ex)
-                    {
-                        MyDataInvoice myInv = new MyDataInvoice();
-                        myInv.InvoiceDesc = "Error loading data";
-                        invoices.Add(myInv);
-                    }
-                }
-            }
-            this.invoiceRadGridView.DataSource = invoices;
+            var selected = (invoiceRadGridView.CurrentRow?.DataBoundItem as MyDataInvoice)?.InvoiceId;
+            var store = new ASFuelControl.Invoicing.Persistence.SqlFiscalCatalogStore(
+                new ASFuelControl.Invoicing.Persistence.SqlFiscalDatabase(Properties.Settings.Default.DBConnection));
+            var rows = store.Load(dateFrom.Date,dateTo.Date.AddDays(1),filter);
+            this.invoiceRadGridView.DataSource = rows.Select(row => new MyDataInvoice {
+                InvoiceId = row.InvoiceId, TransactionDate = row.Date, InvoiceDesc = row.Description,
+                Number = row.Number, Series = row.Series, Trader = row.Trader, Mark = row.Mark,
+                MyDataInvoiceId = row.LegacyId ?? Guid.Empty, Status = row.LegacyStatus,
+                Errors = new[] { row.LegacyErrors ?? "" }, Owned = row.Owned,
+                Route = row.Route == "Ilyda.Direct" ? "Ilyda" : row.Route,
+                Signing = FiscalPanel.StateLabel(row.Signing) ?? "—", Payment = FiscalPanel.StateLabel(row.Payment) ?? "—",
+                Submission = FiscalPanel.StateLabel(row.Submission) ?? (row.LegacyStatus == 3 ? "Παλαιό: αποδεκτό" : "—"),
+                Printing = FiscalPanel.StateLabel(row.Printing) ?? "—"
+            }).ToArray();
+            if (selected.HasValue)
+                invoiceRadGridView.CurrentRow = invoiceRadGridView.Rows.FirstOrDefault(r => (r.DataBoundItem as MyDataInvoice)?.InvoiceId == selected.Value);
         }
 
         private void radButton1_Click(object sender, EventArgs e)
@@ -100,7 +79,8 @@ namespace ASFuelControl.Windows.UI.Catalogs
             this.dateFrom = this.radDateTimePicker1.Value;
             this.dateTo = this.radDateTimePicker2.Value;
             this.filter = this.radTextBox1.Text == null ? "" : this.radTextBox1.Text;
-            this.Load();
+            try { this.Load(); }
+            catch (Exception ex) { Telerik.WinControls.RadMessageBox.Show(ex.Message,"Κατάλογος τιμολόγησης"); }
         }
 
         private void resendToolStripMenuItem_Click(object sender, EventArgs e)
@@ -110,6 +90,17 @@ namespace ASFuelControl.Windows.UI.Catalogs
             var invoice = this.invoiceRadGridView.CurrentRow.DataBoundItem as MyDataInvoice;
             if (invoice == null)
                 return;
+
+            if (invoice.Owned)
+            {
+                Telerik.WinControls.RadMessageBox.Show("Χρησιμοποιήστε τις ξεχωριστές ενέργειες ανάκτησης και εκτύπωσης στο κάτω πλαίσιο.","Κοινή τιμολόγηση");
+                return;
+            }
+            if (invoice.MyDataInvoiceId == Guid.Empty)
+            {
+                Telerik.WinControls.RadMessageBox.Show("Η αρχική έκδοση γίνεται από τη φόρμα παραστατικού.","Τιμολόγηση");
+                return;
+            }
 
             Threads.PrintAgent pa = new Threads.PrintAgent();
             pa.SendMyDataToPrint(invoice.InvoiceId);
@@ -151,6 +142,8 @@ namespace ASFuelControl.Windows.UI.Catalogs
             var item = this.invoiceRadGridView.CurrentRow.DataBoundItem as MyDataInvoice;
             if (item == null)
                 return;
+            if (item.Owned || item.MyDataInvoiceId == Guid.Empty) { this.radMenuItem1.Enabled = false; this.radMenuItem2.Enabled = false; return; }
+            this.radMenuItem1.Enabled = true;
             if (item.Status == 3)
             {
                 //this.radMenuItem1.Enabled = false;
@@ -168,6 +161,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
             if (this.invoiceRadGridView.CurrentRow == null)
                 return;
             var invoice = this.invoiceRadGridView.CurrentRow.DataBoundItem as MyDataInvoice;
+            if (invoice == null || invoice.Owned) return;
             using (var db = new Data.DatabaseModel())
             {
                 var invoiceToCancel = db.MyDataInvoices.FirstOrDefault(m => m.MyDataInvoiceId == invoice.MyDataInvoiceId);
@@ -212,6 +206,12 @@ namespace ASFuelControl.Windows.UI.Catalogs
         public Guid MyDataInvoiceId { set; get; }
         public string UId { set; get; }
         public string[] Errors { set; get; }
+        public bool Owned { set; get; }
+        public string Route { set; get; }
+        public string Signing { set; get; }
+        public string Payment { set; get; }
+        public string Submission { set; get; }
+        public string Printing { set; get; }
     }
 
     //  0     Invoice.TransactionDate, 

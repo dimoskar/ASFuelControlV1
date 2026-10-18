@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Invoicing.Characterization</AssemblyName>
+    <RootNamespace>Invoicing.Characterization</RootNamespace>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <LangVersion>7.3</LangVersion>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" /><Reference Include="System.Core" />
+    <Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Web.Extensions" />
+    <Compile Include="Program.cs" /><Compile Include="TestDoubles.cs" />
+    <!-- Generated from the live PrintAgent source on EVERY build; never a copied implementation. -->
+    <Compile Include="obj\LegacyMethods.g.cs" />
+    <Compile Include="..\..\Exedron.MyData\Interfaces\*.cs" />
+    <Compile Include="..\..\Exedron.MyData\InvoiceModels\*.cs" />
+    <Compile Include="..\..\Exedron.MyData\RequestHelpers.cs" />
+    <Compile Include="..\..\Exedron.MyData\Settings.cs" />
+    <Compile Include="..\..\Exedron.MyData\Models\Responses\ResponseDoc.cs" />
+    <Compile Include="..\..\Exedron.MyData\Properties\Resources.Designer.cs" />
+    <Compile Include="..\..\Exedron.ProviderInvoicing\InvoiceModel.cs" />
+    <Compile Include="..\..\Exedron.ProviderInvoicing\InvoiceResponse.cs" />
+    <Compile Include="..\..\Exedron.ProviderInvoicing\Resolvers\*.cs" />
+    <Compile Include="..\..\ASFuelControl.Common\Enumerators\PaymentTypeEnum.cs" />
+    <EmbeddedResource Include="..\..\Exedron.MyData\Properties\Resources.resx">
+      <LogicalName>Exedron.MyData.Properties.Resources.resources</LogicalName>
+    </EmbeddedResource>
+    <Content Include="Fixtures\**\*"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+  </ItemGroup>
+  <Target Name="ExtractLegacyMethods" BeforeTargets="BeforeBuild">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Extract-LegacyMethods.ps1&quot;" />
+  </Target>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

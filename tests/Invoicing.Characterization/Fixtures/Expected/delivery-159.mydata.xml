@@ -1,0 +1,82 @@
+<InvoicesDoc xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:icls="https://www.aade.gr/myDATA/incomeClassificaton/v1.0" xmlns:ecls="https://www.aade.gr/myDATA/expensesClassificaton/v1.0" xmlns="http://www.aade.gr/myDATA/invoice/v1.0">
+  <invoice>
+    <issuer>
+      <vatNumber>000000000</vatNumber>
+      <country>GR</country>
+      <branch>0</branch>
+      <name>SYNTHETIC FUEL COMPANY</name>
+      <address>
+        <street>Example Street</street>
+        <number>10</number>
+        <postalCode>10000</postalCode>
+        <city>Athens</city>
+      </address>
+    </issuer>
+    <counterpart>
+      <vatNumber>111111111</vatNumber>
+      <country>GR</country>
+      <branch>0</branch>
+      <name>SYNTHETIC CUSTOMER</name>
+      <address>
+        <street>Sample Road</street>
+        <number>20</number>
+        <postalCode>20000</postalCode>
+        <city>Test City</city>
+      </address>
+    </counterpart>
+    <invoiceHeader>
+      <series>TEST</series>
+      <aa>42</aa>
+      <issueDate>2026-10-15</issueDate>
+      <invoiceType>9.3</invoiceType>
+      <vatPaymentSuspension>false</vatPaymentSuspension>
+      <currency></currency>
+      <fuelInvoice>true</fuelInvoice>
+      <otherDeliveryNoteHeader>
+        <loadingAddress>
+          <street>Example Street</street>
+          <number>10</number>
+          <postalCode>10000</postalCode>
+          <city>Athens</city>
+        </loadingAddress>
+        <deliveryAddress>
+          <street>Sample Road</street>
+          <number>20</number>
+          <postalCode>20000</postalCode>
+          <city>Test City</city>
+        </deliveryAddress>
+      </otherDeliveryNoteHeader>
+    </invoiceHeader>
+    <paymentMethods></paymentMethods>
+    <invoiceDetails>
+      <lineNumber>1</lineNumber>
+      <itemDescr>Heating Diesel</itemDescr>
+      <fuelCode>30</fuelCode>
+      <quantity>50.00</quantity>
+      <measurementUnit>3</measurementUnit>
+      <netValue>0.00</netValue>
+      <vatCategory>8</vatCategory>
+      <vatAmount>0.00</vatAmount>
+      <incomeClassification>
+        <icls:classificationCategory>category3</icls:classificationCategory>
+        <icls:amount>0.00</icls:amount>
+        <icls:id>0</icls:id>
+      </incomeClassification>
+    </invoiceDetails>
+    <invoiceSummary>
+      <totalNetValue>0.00</totalNetValue>
+      <totalVatAmount>0.00</totalVatAmount>
+      <totalWithheldAmount>0.00</totalWithheldAmount>
+      <totalFeesAmount>0.00</totalFeesAmount>
+      <totalStampDutyAmount>0.00</totalStampDutyAmount>
+      <totalOtherTaxesAmount>0.00</totalOtherTaxesAmount>
+      <totalDeductionsAmount>0.00</totalDeductionsAmount>
+      <totalGrossValue>0.00</totalGrossValue>
+      <incomeClassification>
+        <icls:classificationCategory>category3</icls:classificationCategory>
+        <icls:amount>0.00</icls:amount>
+        <icls:id>0</icls:id>
+      </incomeClassification>
+    </invoiceSummary>
+  </invoice>
+</InvoicesDoc>
