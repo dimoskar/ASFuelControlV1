@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -12,7 +12,10 @@ namespace ASFuelControl.Windows.ViewModels
         public event PropertyChangedEventHandler PropertyChanged;
         public event EventHandler<QueryInvoiceDataArgs> QueryInvoiceData;
 
-        private List<Data.InvoiceCatalogView> invoices = new List<Data.InvoiceCatalogView>();
+        private Data.InvoiceCatalogView[] invoices = new Data.InvoiceCatalogView[0];
+        private readonly InvoiceCatalogLoadCoordinator loader = new InvoiceCatalogLoadCoordinator();
+        private InvoiceCatalogTotals totals = new InvoiceCatalogTotals(new Data.InvoiceCatalogView[0], new Dictionary<Guid, int>());
+        private bool isAdmin;
         private string filter = "";
         private bool selectCustomer = true;
         private DateTime invoicesFrom = DateTime.Today;
@@ -66,22 +69,10 @@ namespace ASFuelControl.Windows.ViewModels
 
         public Data.InvoiceCatalogView[] Invoices
         {
-            get { return this.invoices.ToArray(); }
+            get { return this.invoices; }
         }
 
-        public bool IsAdmin
-        {
-            get
-            {
-                Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-                bool isAdmin = false;
-                var user = db.ApplicationUsers.SingleOrDefault(a => a.ApplicationUserId == Data.DatabaseModel.UserLoggedIn);
-                if (user != null && user.UserLevel == 0)
-                    isAdmin = true;
-                db.Dispose();
-                return isAdmin;
-            }
-        }
+        public bool IsAdmin { get { return this.isAdmin; } }
 
         public Common.Enumerators.EnumItem[] PaymentTypes { set; get; }
 
@@ -91,54 +82,37 @@ namespace ASFuelControl.Windows.ViewModels
             this.PaymentTypes = list.ToArray();
         }
 
-        public void LoadData()
+        internal Task<InvoiceCatalogSnapshot> FetchDataAsync()
         {
-            using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
-            {
-                
-                var q = db.InvoiceCatalogViews.Where(i =>
-                    i.TransactionDate.Date >= this.InvoicesFrom.Date &&
-                    i.TransactionDate.Date <= this.InvoicesTo.Date);
-                if (this.FilterInvoiceTypeId != Guid.Empty)
-                    q = q.Where(i => i.InvoiceTypeId == this.FilterInvoiceTypeId);
-                if (filter != null && filter != "")
-                {
-                    if (filter.Contains(","))
-                    {
-                        var numbers = filter.Split(',');
-                        q = q.Where(f =>
-                            numbers.Contains(f.Number.ToString())
-                         );
-                    }
-                    else
-                    {
-                        q = q.Where(f =>
-                                f.Number.ToString().Contains(filter) ||
-                                (f.TraderName.Contains(filter)) ||
-                                (f.PlateNumber.Contains(filter)) ||
-                                (f.SupplyNumber.Contains(filter))
-                             );
-                    }
-                }
-                var qa = q.ToArray();
-                foreach (var inv in qa)
-                {
-                    if (!inv.TraderId.HasValue)
-                        continue;
-                    var trader = db.Traders.SingleOrDefault(t => t.TraderId == inv.TraderId.Value);
-                    if (trader == null)
-                        continue;
-                    inv.VATNumber = trader.TaxRegistrationNumber;
-                }
-                this.invoices.Clear();
-                this.invoices.AddRange(qa.OrderByDescending(t => t.TransactionDate));
-            }
+            var filterSnapshot = new InvoiceCatalogFilter(InvoicesFrom, InvoicesTo, FilterInvoiceTypeId, Filter);
+            var connection = Properties.Settings.Default.DBConnection;
+            var userId = Data.DatabaseModel.UserLoggedIn;
+            var transactionTypes = CommonCache.Instance.InvoiceTypes.GroupBy(t => t.InvoiceTypeId)
+                .ToDictionary(g => g.Key, g => g.First().TransactionType);
+            return loader.LoadAsync(() => InvoiceCatalogData.Read(connection, filterSnapshot, userId, transactionTypes));
+        }
+
+        internal void ApplyData(InvoiceCatalogSnapshot snapshot)
+        {
+            // Called on the UI thread inside the grid's BeginUpdate/EndUpdate scope.
+            this.invoices = snapshot.Invoices;
+            this.totals = snapshot.Totals;
+            this.isAdmin = snapshot.IsAdmin;
             this.OnPropertyChanged("Invoices");
             this.OnPropertyChanged("IsAdmin");
         }
 
+        internal void CancelPendingLoads() { loader.Invalidate(); }
+
+        public decimal GetSummary(int row, string column) { return totals.Get(row, column); }
+
         public void RefreshIsAdmin()
         {
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var userId = Data.DatabaseModel.UserLoggedIn;
+                this.isAdmin = db.ApplicationUsers.Any(u => u.ApplicationUserId == userId && u.UserLevel == 0);
+            }
             this.OnPropertyChanged("IsAdmin");
         }
 

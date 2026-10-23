@@ -11,6 +11,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Exedron.Invoicing.Adapters
@@ -20,6 +21,8 @@ namespace Exedron.Invoicing.Adapters
     /// </summary>
     public sealed class ITimologiaInvoiceProvider : IInvoiceProvider, IInvoiceProviderPaymentSigner, IInvoiceProviderRecovery, IInvoiceProviderLookup
     {
+        private const string TokenCachePrefix = "EXEDRON_INVOICING_ITIMOLOGIA_TOKEN_";
+        private const string TokenMutexPrefix = @"Local\EXEDRON_ITIMOLOGIA_TOKEN_LOCK_";
         private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
         {
             NullValueHandling = NullValueHandling.Ignore,
@@ -410,6 +413,36 @@ namespace Exedron.Invoicing.Adapters
             lock (TokenSync)
             {
                 var variable = TokenCacheVariableName;
+                if (options.TokenCache == null)
+                    return GetCommunicationTokenUnderLock(variable, forceRefresh);
+
+                // The host cache is shared with other processes. A process-local lock
+                // alone cannot prevent both applications from renewing the same token.
+                using (var mutex = new Mutex(false,
+                    TokenMutexPrefix + variable.Substring(TokenCachePrefix.Length)))
+                {
+                    bool acquired = false;
+                    try
+                    {
+                        try { acquired = mutex.WaitOne(TimeSpan.FromSeconds(60)); }
+                        catch (AbandonedMutexException) { acquired = true; }
+                        if (!acquired)
+                            throw new TimeoutException("Timed out waiting for the shared iTimologia token cache.");
+
+                        // Another process may have renewed the token while this process
+                        // waited, so the shared cache must only be read after acquisition.
+                        return GetCommunicationTokenUnderLock(variable, forceRefresh);
+                    }
+                    finally
+                    {
+                        if (acquired) mutex.ReleaseMutex();
+                    }
+                }
+            }
+        }
+
+        private string GetCommunicationTokenUnderLock(string variable, bool forceRefresh)
+        {
                 TokenCache cached = null;
                 var json = options.TokenCache == null ? memoryTokenCache : options.TokenCache.Load(variable);
                 if (!string.IsNullOrWhiteSpace(json))
@@ -471,7 +504,6 @@ namespace Exedron.Invoicing.Adapters
                 memoryTokenCache = cachedJson;
                 communicationToken = reply.Token;
                 return communicationToken;
-            }
         }
 
         public string TokenCacheVariableName
@@ -482,7 +514,7 @@ namespace Exedron.Invoicing.Adapters
                 var scope = JsonConvert.SerializeObject(new[] { BuildEndpoint(""),
                     (options.SubscriptionId ?? "").Trim(), (options.MasterToken ?? "").Trim() });
                 using (var hash = SHA256.Create())
-                    return "EXEDRON_INVOICING_ITIMOLOGIA_TOKEN_" +
+                    return TokenCachePrefix +
                         BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(scope))).Replace("-", "");
             }
         }
@@ -691,7 +723,7 @@ namespace Exedron.Invoicing.Adapters
                 Notes = EmptyToNull(source.PaymentTerms),
                 Issuer = MapTrader<IssuerRequest>(source.Issuer),
                 Counterpart = counterpart,
-                Header = MapHeader(source.InvoiceHeader),
+                Header = MapHeader(source.InvoiceHeader, MyDataHeaderFields.SpecialInvoiceCategory(source)),
                 PaymentMethods = (source.PaymentMethods ?? new PaymentMethod[0])
                     .Select(value => MapPaymentMethod(value, posPayment))
                     .ToList(),
@@ -745,7 +777,7 @@ namespace Exedron.Invoicing.Adapters
             return invoiceType == "9.1" || invoiceType == "9.2" || invoiceType == "9.3" || invoiceType == "10.1" || invoiceType == "10.2";
         }
 
-        private static InvoiceHeaderRequest MapHeader(InvoiceHeader source)
+        private static InvoiceHeaderRequest MapHeader(InvoiceHeader source, int? specialCategory)
         {
             // 10.1 receipt headers must not inherit transport fields from legacy callers.
             bool isReceipt = source.InvoiceType == "10.1";
@@ -773,6 +805,7 @@ namespace Exedron.Invoicing.Adapters
                     ? null
                     : (int?)Convert.ToInt32(source.MovePurpose, CultureInfo.InvariantCulture),
                 FuelInvoice = source.FuelInvoice ? (bool?)true : null,
+                SpecialInvoiceCategory = specialCategory?.ToString(CultureInfo.InvariantCulture),
                 IsDeliveryNote = source.DeliveryNote && !IsStandaloneDeliveryNote(source.InvoiceType) ? (bool?)true : null,
                 OtherDeliveryNoteHeader = isReceipt ? null : MapOtherDeliveryNoteHeader(source.OtherDeliveryNoteHeader)
             };
@@ -1300,6 +1333,10 @@ namespace Exedron.Invoicing.Adapters
 
             [JsonProperty("fuel_invoice")]
             public bool? FuelInvoice { get; set; }
+
+            // The vendor's iTimologiaClass.cs declares this JSON field as string.
+            [JsonProperty("special_invoice_category")]
+            public string SpecialInvoiceCategory { get; set; }
 
             [JsonProperty("is_delivery_note")]
             public bool? IsDeliveryNote { get; set; }

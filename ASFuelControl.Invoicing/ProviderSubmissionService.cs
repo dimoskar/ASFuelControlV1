@@ -29,14 +29,23 @@ namespace ASFuelControl.Invoicing
         private readonly SqlFiscalHistoryStore history;
         private readonly IProviderCredentialsResolver credentials;
         private readonly Func<ProviderRoute, HttpMessageHandler> transport;
+        private readonly ICommunicationTokenCache communicationTokenCache;
         private readonly InvoiceAdapterFactory factory = new InvoiceAdapterFactory(new InvoiceTypeResolver());
 
         public ProviderSubmissionService(SqlFiscalDatabase database, IProviderCredentialsResolver credentials,
             Func<ProviderRoute, HttpMessageHandler> transport = null)
+            : this(database, credentials, transport, new UserEnvironmentCommunicationTokenCache())
+        {
+        }
+
+        public ProviderSubmissionService(SqlFiscalDatabase database, IProviderCredentialsResolver credentials,
+            Func<ProviderRoute, HttpMessageHandler> transport,
+            ICommunicationTokenCache communicationTokenCache)
         {
             this.database = database ?? throw new ArgumentNullException(nameof(database));
             this.credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
             this.transport = transport;
+            this.communicationTokenCache = communicationTokenCache;
             history = new SqlFiscalHistoryStore(database);
         }
 
@@ -182,7 +191,8 @@ namespace ASFuelControl.Invoicing
                     return new ITimologiaInvoiceProvider(new ITimologiaProviderOptions { TestMode = route.TestMode,
                         IssuerVat = route.IssuerVat, SubscriptionId = route.Account, MasterToken = secret.MasterToken,
                         PosTerminalId = paymentRoute?.TerminalId, PosSignatureFormat = paymentRoute?.ITimologiaSignatureFormat ?? 0,
-                        Logger = logger, SubmissionStore = new SqlITimologiaSubmissionStore(database, routingContext) }, handler);
+                        Logger = logger, SubmissionStore = new SqlITimologiaSubmissionStore(database, routingContext),
+                        TokenCache = communicationTokenCache }, handler);
                 case InvoiceProviderCatalog.DirectIlydaKey:
                     Require(!string.IsNullOrWhiteSpace(secret.ApiKey) || !string.IsNullOrWhiteSpace(secret.Password),
                         "The original Ilyda credentials are unavailable.");

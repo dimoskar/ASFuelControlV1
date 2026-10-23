@@ -49,6 +49,8 @@ namespace Exedron.Invoicing.Adapters
             if (h.InvoiceType != "10.1" && !string.IsNullOrWhiteSpace(h.VehicleNumber)) header.Add(E("vehicleNumber", h.VehicleNumber));
             if (delivery && h.InvoiceType != "10.1") header.Add(E("movePurpose", (int)h.MovePurpose));
             if (h.FuelInvoice) header.Add(E("fuelInvoice", true));
+            var specialCategory = MyDataHeaderFields.SpecialInvoiceCategory(model);
+            if (specialCategory.HasValue) header.Add(E("specialInvoiceCategory", specialCategory.Value));
             if (h.InvoiceType != "10.1" && h.OtherDeliveryNoteHeader != null)
             {
                 var d = h.OtherDeliveryNoteHeader;

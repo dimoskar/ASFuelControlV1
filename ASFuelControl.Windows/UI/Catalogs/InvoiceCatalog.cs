@@ -16,10 +16,30 @@ namespace ASFuelControl.Windows.UI.Catalogs
     public partial class InvoiceCatalog : UserControl
     {
         ViewModels.InvoiceCatalogViewModel vm = new ViewModels.InvoiceCatalogViewModel();
+        private int refreshVersion;
+        private Font summaryFont;
+        private RadMenuItem heatingCorrectionMenu;
         public InvoiceCatalog()
         {
             InitializeComponent();
+            heatingCorrectionMenu = new RadMenuItem("Διόρθωση επιδόματος θέρμανσης…") { Visibility = ElementVisibility.Collapsed };
+            heatingCorrectionMenu.Click += delegate {
+                try {
+                    Threads.SharedInvoiceRuntime.RequireHeatingAdmin();
+                    using (var form = new Forms.HeatingCorrectionBatchForm(vm.InvoicesFrom, vm.InvoicesTo)) form.ShowDialog(this);
+                    RefreshData();
+                } catch (Exception ex) {
+                    RadMessageBox.Show(this, ex.Message, "Διόρθωση επιδόματος θέρμανσης", MessageBoxButtons.OK, RadMessageIcon.Error);
+                }
+            };
+            radDropDownButton1.Items.Add(heatingCorrectionMenu);
             vm.QueryInvoiceData += Vm_QueryInvoiceData;
+            this.Disposed += delegate
+            {
+                ++refreshVersion;
+                vm.CancelPendingLoads();
+                if (summaryFont != null) summaryFont.Dispose();
+            };
 
             Telerik.WinControls.UI.GridViewSummaryItem gridViewSummaryItem1 = new Telerik.WinControls.UI.GridViewSummaryItem();
             Telerik.WinControls.UI.GridViewSummaryItem gridViewSummaryItem2 = new Telerik.WinControls.UI.GridViewSummaryItem();
@@ -116,11 +136,40 @@ namespace ASFuelControl.Windows.UI.Catalogs
             this.invoiceRadGridView.GroupSummaryEvaluate += InvoiceRadGridView_GroupSummaryEvaluate;
         }
 
-        public void RefreshData()
+        public async void RefreshData()
         {
-            this.invoiceCatalogViewModelBindingSource.DataSource = vm;
-            this.vm.LoadData();
-            //this.invoiceCatalogViewModelBindingSource.ResetBindings(false);
+            if (IsDisposed || Disposing) return;
+            int request = ++refreshVersion;
+            SetLoading(true);
+            try
+            {
+                if (this.invoiceCatalogViewModelBindingSource.DataSource != vm)
+                    this.invoiceCatalogViewModelBindingSource.DataSource = vm;
+                var snapshot = await vm.FetchDataAsync();
+                if (snapshot == null || request != refreshVersion || IsDisposed || Disposing) return;
+                this.invoiceRadGridView.BeginUpdate();
+                try { vm.ApplyData(snapshot); }
+                finally { this.invoiceRadGridView.EndUpdate(); }
+            }
+            catch (Exception ex)
+            {
+                if (request == refreshVersion && !IsDisposed && !Disposing)
+                    RadMessageBox.Show(this, ex.Message, "Ανάκτηση παραστατικών", MessageBoxButtons.OK, RadMessageIcon.Error);
+            }
+            finally
+            {
+                if (request == refreshVersion && !IsDisposed && !Disposing) SetLoading(false);
+            }
+        }
+
+        private void SetLoading(bool loading)
+        {
+            this.labelTitle.Text = loading ? "Κατάλογος Παραστατικών — Ανάκτηση..." : "Κατάλογος Παραστατικών";
+            this.invoiceRadGridView.Enabled = !loading;
+            this.btnAdd.Enabled = !loading;
+            this.btnDelete.Enabled = !loading;
+            this.btnPrint.Enabled = !loading;
+            this.radDropDownButton1.Enabled = !loading;
         }
 
         private void ExporExceltData()
@@ -172,105 +221,27 @@ namespace ASFuelControl.Windows.UI.Catalogs
                     e.CellElement.TextAlignment = ContentAlignment.MiddleRight;
                 else
                     e.CellElement.TextAlignment = ContentAlignment.MiddleLeft;
-                e.CellElement.Font = new System.Drawing.Font(this.invoiceRadGridView.Font, FontStyle.Bold);
+                if (summaryFont == null) summaryFont = new Font(this.invoiceRadGridView.Font, FontStyle.Bold);
+                e.CellElement.Font = summaryFont;
             }
         }
 
         private void InvoiceRadGridView_GroupSummaryEvaluate(object sender, GroupSummaryEvaluationEventArgs e)
         {
-            if((e.SummaryItem.Name == "TotalAmount" || e.SummaryItem.Name == "RestAmount") && this.invoiceRadGridView.SummaryRowsBottom[0].Contains(e.SummaryItem))
+            if (e.SummaryItem.Name != "TotalAmount" && e.SummaryItem.Name != "RestAmount") return;
+            // Preserve the original full-result totals even when the grid's own
+            // column filters hide some rows. No per-cell scans or array copies.
+            for (int row = 0; row < 5; row++)
             {
-                decimal sum = 0;
-                foreach (var inv in vm.Invoices)
-                {
-                    if (inv.IsCanceled || inv.IsReplaced)
-                        continue;
-                    if (inv.PaymentType != (int)Common.Enumerators.PaymentTypeEnum.Cash)
-                        continue;
-                    var invType = ViewModels.CommonCache.Instance.InvoiceTypes.FirstOrDefault(i => i.InvoiceTypeId == inv.InvoiceTypeId);
-                    if (e.SummaryItem.Name == "TotalAmount" && invType.TransactionType == 1)
-                        continue;
-                    else if (e.SummaryItem.Name == "RestAmount" && invType.TransactionType == 0)
-                        continue;
-                    sum = sum + inv.TransactionSign * inv.TotalAmount;
-                }
-                e.Value = sum;
-            }
-            else if ((e.SummaryItem.Name == "TotalAmount" || e.SummaryItem.Name == "RestAmount") && this.invoiceRadGridView.SummaryRowsBottom[1].Contains(e.SummaryItem))
-            {
-                decimal sum = 0;
-                foreach (var inv in vm.Invoices)
-                {
-                    if (inv.IsCanceled || inv.IsReplaced)
-                        continue;
-                    if (inv.PaymentType != (int)Common.Enumerators.PaymentTypeEnum.Credit)
-                        continue;
-                    var invType = ViewModels.CommonCache.Instance.InvoiceTypes.FirstOrDefault(i => i.InvoiceTypeId == inv.InvoiceTypeId);
-                    if (e.SummaryItem.Name == "TotalAmount" && invType.TransactionType == 1)
-                        continue;
-                    else if (e.SummaryItem.Name == "RestAmount" && invType.TransactionType == 0)
-                        continue;
-                    sum = sum + inv.TransactionSign * inv.TotalAmount;
-                }
-                e.Value = sum;
-            }
-            else if ((e.SummaryItem.Name == "TotalAmount" || e.SummaryItem.Name == "RestAmount") && this.invoiceRadGridView.SummaryRowsBottom[2].Contains(e.SummaryItem))
-            {
-                decimal sum = 0;
-                foreach (var inv in vm.Invoices)
-                {
-                    if (inv.IsCanceled || inv.IsReplaced)
-                        continue;
-                    if (inv.PaymentType != (int)Common.Enumerators.PaymentTypeEnum.CreditCard)
-                        continue;
-                    var invType = ViewModels.CommonCache.Instance.InvoiceTypes.FirstOrDefault(i => i.InvoiceTypeId == inv.InvoiceTypeId);
-                    if (e.SummaryItem.Name == "TotalAmount" && invType.TransactionType == 1)
-                        continue;
-                    else if (e.SummaryItem.Name == "RestAmount" && invType.TransactionType == 0)
-                        continue;
-                    sum = sum + inv.TransactionSign * inv.TotalAmount;
-                }
-                e.Value = sum;
-            }
-            else if ((e.SummaryItem.Name == "TotalAmount" || e.SummaryItem.Name == "RestAmount") && this.invoiceRadGridView.SummaryRowsBottom[3].Contains(e.SummaryItem))
-            {
-                decimal sum = 0;
-                foreach(var inv in vm.Invoices)
-                {
-                    if (inv.IsCanceled || inv.IsReplaced)
-                        continue;
-                    var invType = ViewModels.CommonCache.Instance.InvoiceTypes.FirstOrDefault(i => i.InvoiceTypeId == inv.InvoiceTypeId);
-                    if (inv.PaymentType != (int)Common.Enumerators.PaymentTypeEnum.FleetCard)
-                        continue;
-                    if (e.SummaryItem.Name == "TotalAmount" && invType.TransactionType == 1)
-                        continue;
-                    else if (e.SummaryItem.Name == "RestAmount" && invType.TransactionType == 0)
-                        continue;
-                    sum = sum + inv.TransactionSign * inv.TotalAmount;
-                }
-                e.Value = sum;
-            }
-            else if ((e.SummaryItem.Name == "TotalAmount" || e.SummaryItem.Name == "RestAmount") && this.invoiceRadGridView.SummaryRowsBottom[4].Contains(e.SummaryItem))
-            {
-                decimal sum = 0;
-                foreach (var inv in vm.Invoices)
-                {
-                    if (inv.IsCanceled || inv.IsReplaced)
-                        continue;
-                    var invType = ViewModels.CommonCache.Instance.InvoiceTypes.FirstOrDefault(i => i.InvoiceTypeId == inv.InvoiceTypeId);
-                    if (e.SummaryItem.Name == "TotalAmount" && invType.TransactionType == 1)
-                        continue;
-                    else if (e.SummaryItem.Name == "RestAmount" && invType.TransactionType == 0)
-                        continue;
-                    sum = sum + inv.TransactionSign * inv.TotalAmount;
-                }
-                e.Value = sum;
+                if (!this.invoiceRadGridView.SummaryRowsBottom[row].Contains(e.SummaryItem)) continue;
+                e.Value = vm.GetSummary(row, e.SummaryItem.Name);
+                return;
             }
         }
 
         private void radButton1_Click(object sender, EventArgs e)
         {
-            this.vm.LoadData();
+            this.RefreshData();
         }
 
         private void menuInvoiceReplacement_Click(object sender, EventArgs e)
@@ -479,7 +450,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
                     invoiceForm.LoadInvoice(newInvoice);
                     invoiceForm.Show(this);
                     invoiceForm.FormClosed += InvForm_FormClosed;
-                    this.vm.LoadData();
+                    this.RefreshData();
                 }
             }
             catch(Exception ex)
@@ -634,6 +605,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
         private void radDropDownButton1_DropDownOpening(object sender, EventArgs e)
         {
             this.vm.RefreshIsAdmin();
+            heatingCorrectionMenu.Visibility = vm.IsAdmin ? ElementVisibility.Visible : ElementVisibility.Collapsed;
         }
 
         private void btnPrint_Click(object sender, EventArgs e)
@@ -668,7 +640,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
             if (e.KeyCode == Keys.Enter)
             {
                 this.vm.Filter = this.radTextBox1.Text;
-                this.vm.LoadData();
+                this.RefreshData();
             }
             e.Handled = true;
         }

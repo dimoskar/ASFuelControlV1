@@ -34,6 +34,7 @@
     <Compile Include="MovementQuantities.cs" />
     <Compile Include="MyDataContracts.cs" />
     <Compile Include="MyDataDocumentKind.cs" />
+    <Compile Include="MyDataHeaderFields.cs" />
     <Compile Include="MyDataLineFields.cs" />
     <Compile Include="MyDataPartyFields.cs" />
     <Compile Include="PaymentAttemptPersistence.cs" />

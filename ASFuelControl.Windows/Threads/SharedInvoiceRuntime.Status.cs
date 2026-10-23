@@ -90,6 +90,8 @@ namespace ASFuelControl.Windows.Threads
         }
         internal static InvoiceWorkflowResult ResumeIssuance(Guid id)
         {
+            if (new SqlHeatingCorrectionStore(sql.Value).IsChild(id,true))
+                throw new InvalidOperationException("Η επανέκδοση συνεχίζεται μόνο από την παρτίδα διόρθωσης επιδόματος θέρμανσης.");
             using (var lease = sql.Value.EnterInvoice(id))
             {
                 var status = ReadStatus(id);

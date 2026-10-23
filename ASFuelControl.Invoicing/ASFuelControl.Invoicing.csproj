@@ -12,6 +12,7 @@
   <ItemGroup>
     <!-- Explicit source items are required for reliable classic Visual Studio project tracking. -->
     <Compile Include="DatabaseInvoiceSource.cs" />
+    <Compile Include="HeatingCorrection.cs" />
     <Compile Include="FiscalPrintService.cs" />
     <Compile Include="FiscalSigningService.cs" />
     <Compile Include="HostFiscalSigningMapper.cs" />
@@ -22,6 +23,7 @@
     <Compile Include="ProviderRoute.cs" />
     <Compile Include="ProviderSubmissionService.cs" />
     <Compile Include="SignedDocumentWorkflowService.cs" />
+    <Compile Include="UserEnvironmentCommunicationTokenCache.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ASFuelControl.Data\ASFuelControl.Data.csproj"><Project>{16EE9704-B2F3-4CBB-AB0E-93B26B4676E6}</Project><Name>ASFuelControl.Data</Name></ProjectReference>

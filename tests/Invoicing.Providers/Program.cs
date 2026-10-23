@@ -292,7 +292,7 @@ internal static class Program
             return Task.FromResult(InvoicePost != null ? InvoicePost(LastPayload) : Reply(Key == InvoiceProviderCatalog.MyDataKey ? MyDataReply : Key == InvoiceProviderCatalog.ITimologiaKey ? TimReply(Id) : IlydaReply));
         }
     }
-    static ProviderSubmissionService Service(Http h, Credentials c = null) => new ProviderSubmissionService(database,c ?? new Credentials(),route => h);
+    static ProviderSubmissionService Service(Http h, Credentials c = null) => new ProviderSubmissionService(database,c ?? new Credentials(),route => h,null);
     static ProviderRoute Route(string key,bool test = true) => new ProviderRoute(key,test,"000000000",0,"credential-v1","account");
     const string MyDataReply = "<ResponseDoc><response><statusCode>Success</statusCode><invoiceMark>900010</invoiceMark><invoiceUid>UID</invoiceUid></response></ResponseDoc>";
     const string IlydaReply = "{\"invoiceMarking\":{\"invoiceIdentifier\":\"UID\",\"invoiceId\":\"provider-id\",\"mark\":\"900010\",\"verificationHash\":\"HASH\",\"qrCode\":\"https://example.invalid/qr\"},\"errors\":[]}";

@@ -22,8 +22,17 @@ ASFuelControl Version1
 - [Step 9 native settings, per-type transmission/signing and status/recovery UI](docs/invoicing-refactor/step-9-ui-configuration.md)
 - [Native form rendering and UI binding checks](tests/Invoicing.UI/README.md)
 - [Step 10 release verification, rollback protection and installation rollout](docs/invoicing-refactor/step-10-rollout.md)
+- [Proposed myDiesel integration implementation plan](docs/invoicing-refactor/mydiesel-implementation-plan.md)
 
 Database scripts and statements for this refactor must remain compatible with **SQL Server 2008 R2 (compatibility level 100)**.
+
+The one-off heating allowance correction is available to administrators under **Κατάλογος Παραστατικών → Ενέργειες → Διόρθωση επιδόματος θέρμανσης…** after database migration 61. Select the date range and retail/wholesale credit types, run **Έλεγχος παραστατικών**, review the eligible selection and exclusions, then choose **Έναρξη παρτίδας**. **Συνέχιση εκκρεμοτήτων** resumes saved work across restarts, including documents outside the current date filter. Pause finishes the current provider operation first. CSV export records the results; printing is a separate explicit action and repeated clicks do not generate copies.
+
+The batch accepts verified, accepted iTimologia/direct Ilyda sales missing category 11, including already printed sales. It freezes the original provider account/environment, amounts, recipient, supply number and lines; issues a full correlated credit; waits for confirmed acceptance; then reissues with category 11. Both new documents use credit/offset settlement and their ledger postings cancel out. Original documents/payments remain intact; no POS charge, refund, fiscal-device signature or physical fuel movement is created. POS/IRIS/fleet payments, movement documents, previous correlations/credits, changed source data and missing/unverifiable submission history are excluded with a reason. The immutable plan and reserved child identities in `FiscalHeatingCorrection` prevent duplicate pairs; provider journals retain request/response evidence. Uncertain submissions are looked up, never blindly resubmitted.
+
+Batch regression tests are included in `tests/Verify-InvoicingWorkflow.ps1`; `tests/Verify-HeatingBatchUI.ps1` checks the actual native form, administrator authorization and credit/offset ledger behavior in a disposable database after the Windows binary has been built. Test databases use compatibility level 100; actual SQL Server 2008 R2 and provider sandbox acceptance remain installation checks.
+
+Direct Ilyda can recover its documented offline queue. A normal Ilyda submission whose response was lost remains pending for provider reconciliation because its API has no documented general invoice lookup; resuming the batch never treats that uncertainty as permission for another POST.
 
 Run the baseline without accessing a database, provider, fiscal device or printer:
 

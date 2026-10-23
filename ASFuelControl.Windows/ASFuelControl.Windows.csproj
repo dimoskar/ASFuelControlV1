@@ -726,6 +726,7 @@
     <Compile Include="ViewModels\FinTransactionViewModel.cs" />
     <Compile Include="ViewModels\FuelTypeViewModel.cs" />
     <Compile Include="ViewModels\InvoiceCatalogViewModel.cs" />
+    <Compile Include="ViewModels\InvoiceCatalogData.cs" />
     <Compile Include="ViewModels\InvoiceLineViewModel.cs" />
     <Compile Include="ViewModels\InvoiceRelationViewModel.cs" />
     <Compile Include="ViewModels\InvoiceSimpleViewModel.cs" />
@@ -1653,6 +1654,8 @@
     <Content Include="DBScripts\UpdateDatabase57.sql" />
     <Content Include="DBScripts\UpdateDatabase58.sql" />
     <Content Include="DBScripts\UpdateDatabase59.sql" />
+    <Content Include="DBScripts\UpdateDatabase60.sql" />
+    <Content Include="DBScripts\UpdateDatabase61.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />
@@ -1785,6 +1788,8 @@
   <ItemGroup>
     <Compile Include="Threads\PrintAgent.Shared.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.cs" />
+    <Compile Include="Threads\SharedInvoiceRuntime.HeatingBatch.cs" />
+    <Compile Include="UI\Forms\HeatingCorrectionBatchForm.cs"><SubType>Form</SubType></Compile>
     <Compile Include="Threads\SharedInvoiceConfiguration.cs" />
     <Compile Include="Threads\SharedInvoicingSettings.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.Status.cs" />

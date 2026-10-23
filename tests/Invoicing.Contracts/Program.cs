@@ -9,7 +9,7 @@ using Exedron.Invoicing.Core.Models;
 using Exedron.Invoicing.Adapters;
 using Newtonsoft.Json.Linq;
 
-internal static class Program
+internal static partial class Program
 {
     private static int passed, failed;
     private static readonly InvoiceBuilder Builder = new InvoiceBuilder(new InvoiceTypeResolver());
@@ -21,10 +21,12 @@ internal static class Program
     {
         Contracts();
         Transitions();
+        ITimologiaTokenCache();
         foreach (var culture in new[] { "en-US", "el-GR" })
         {
             Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo(culture);
             Mapping(culture);
+            HeatingAllowance(culture);
         }
         Console.WriteLine("{0} passed, {1} failed", passed, failed);
         return failed == 0 ? 0 : 1;

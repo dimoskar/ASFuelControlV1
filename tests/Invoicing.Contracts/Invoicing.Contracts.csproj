@@ -9,10 +9,13 @@
     <OutputPath>bin\$(Configuration)\</OutputPath><Deterministic>true</Deterministic>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" /><Reference Include="System.Core" />
+    <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />
     <Reference Include="Newtonsoft.Json"><HintPath>..\..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath><Private>true</Private></Reference>
     <Compile Include="Program.cs" />
+    <Compile Include="HeatingAllowanceTests.cs" />
+    <Compile Include="ITimologiaTokenCacheTests.cs" />
+    <Compile Include="..\..\ASFuelControl.Invoicing\UserEnvironmentCommunicationTokenCache.cs"><Link>UserEnvironmentCommunicationTokenCache.cs</Link></Compile>
     <ProjectReference Include="..\..\Exedron.Invoicing.Core\Exedron.Invoicing.Core.csproj"><Name>Exedron.Invoicing.Core</Name></ProjectReference>
     <ProjectReference Include="..\..\Exedron.Invoicing.Adapters\Exedron.Invoicing.Adapters.csproj"><Name>Exedron.Invoicing.Adapters</Name></ProjectReference>
   </ItemGroup>

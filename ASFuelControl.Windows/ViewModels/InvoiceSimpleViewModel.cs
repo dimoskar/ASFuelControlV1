@@ -457,7 +457,9 @@ namespace ASFuelControl.Windows.ViewModels
                     invoice.VatAmount = invoice.TotalAmount.Value - decimal.Round(invoice.TotalAmount.Value / vatMult, 2);
                     invLine.VatAmount = invoice.VatAmount.Value;
                 }
-                invoice.IsPrinted = true;
+                // A newly saved invoice is pending issuance. Printing is projected only
+                // after the common workflow completes its printer handoff.
+                invoice.IsPrinted = false;
                 invoice.Notes = this.Notes;
                 db.SaveChanges();
             }

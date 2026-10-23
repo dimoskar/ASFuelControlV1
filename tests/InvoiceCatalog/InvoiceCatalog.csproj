@@ -1,0 +1,22 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <OutputType>Exe</OutputType><AssemblyName>InvoiceCatalog.Tests</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion><LangVersion>7.3</LangVersion>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Data" />
+    <Reference Include="Telerik.OpenAccess"><HintPath>..\..\packages\Telerik.DataAccess.Core.2018.0.1127.1\lib\net40\Telerik.OpenAccess.dll</HintPath></Reference>
+    <Reference Include="Telerik.OpenAccess.35.Extensions"><HintPath>..\..\packages\Telerik.DataAccess.Core.2018.0.1127.1\lib\net40\Telerik.OpenAccess.35.Extensions.dll</HintPath></Reference>
+    <Reference Include="Telerik.OpenAccess.40.Extensions"><HintPath>..\..\packages\Telerik.DataAccess.Core.2018.0.1127.1\lib\net40\Telerik.OpenAccess.40.Extensions.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Telerik.OpenAccess.Runtime"><HintPath>..\..\packages\Telerik.DataAccess.Core.2018.0.1127.1\lib\net40\Telerik.OpenAccess.Runtime.dll</HintPath><Private>true</Private></Reference>
+    <ProjectReference Include="..\..\ASFuelControl.Data\ASFuelControl.Data.csproj"><Name>ASFuelControl.Data</Name></ProjectReference>
+    <ProjectReference Include="..\..\ASFuelControl.Common\ASFuelControl.Common.csproj"><Name>ASFuelControl.Common</Name></ProjectReference>
+    <Compile Include="..\..\ASFuelControl.Windows\ViewModels\InvoiceCatalogData.cs"><Link>InvoiceCatalogData.cs</Link></Compile>
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

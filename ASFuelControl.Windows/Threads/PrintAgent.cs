@@ -1330,6 +1330,8 @@ namespace ASFuelControl.Windows.Threads
                         {
                             try
                             {
+                                // Correction pairs are issued and printed explicitly by their batch.
+                                if (SharedInvoiceRuntime.IsHeatingBatchChild(invoice.InvoiceId)) continue;
                                 if (SharedInvoiceRuntime.Handles(invoice.InvoiceId))
                                 {
                                     SharedInvoiceRuntime.Process(invoice.InvoiceId);

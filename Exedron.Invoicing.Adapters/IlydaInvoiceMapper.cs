@@ -21,7 +21,7 @@ namespace Exedron.Invoicing.Adapters
             var type = h.InvoiceType;
             if ((invoice.TaxesTotals ?? new TaxesTotal[0]).Length != 0 || h.SelfPricing || h.VATPaymentSuspension || (h.ExchangeRate != 0 && h.ExchangeRate != 1))
                 throw new InvalidOperationException("Ilyda: Η τρέχουσα διασύνδεση δεν υποστηρίζει πρόσθετους φόρους, αυτοτιμολόγηση, αναστολή ΦΠΑ ή μετατροπή νομίσματος.");
-            if (!new[] { "1.1", "1.2", "1.3", "2.1", "2.2", "2.3", "5.1", "5.2", "11.1", "11.2", "11.4", "9.1", "9.2", "9.3", "10.1" }.Contains(type))
+            if (!new[] { "1.1", "1.2", "1.3", "1.4", "1.6", "2.1", "2.2", "2.3", "5.1", "5.2", "11.1", "11.2", "11.4", "9.1", "9.2", "9.3", "10.1" }.Contains(type))
                 throw new InvalidOperationException("Ilyda: Μη υποστηριζόμενος τύπος παραστατικού: " + type);
             if (h.IssueDate == default(DateTime) || string.IsNullOrWhiteSpace(h.AA) || string.IsNullOrWhiteSpace(h.Series))
                 throw new InvalidOperationException("Ilyda: Απαιτούνται ημερομηνία, σειρά και αριθμός.");
@@ -33,6 +33,19 @@ namespace Exedron.Invoicing.Adapters
             var xinvoice = document.Root?.Element(ns + "invoice");
             if (xinvoice?.Element(ns + "invoiceHeader")?.Element(ns + "invoiceType")?.Value != type)
                 throw new InvalidOperationException("Ilyda: Το ενσωματωμένο myDATA XML δεν συμφωνεί με το παραστατικό.");
+            var specialCategory = MyDataHeaderFields.SpecialInvoiceCategory(invoice);
+            var xmlHeader = xinvoice.Element(ns + "invoiceHeader");
+            // Also support host-provided XML serializers. Keep JSON and embedded
+            // XML consistent, without changing the source model or duplicating the element.
+            xmlHeader.Elements(ns + "specialInvoiceCategory").Remove();
+            if (specialCategory.HasValue)
+            {
+                var fuel = xmlHeader.Element(ns + "fuelInvoice");
+                if (fuel == null || (fuel.Value != "true" && fuel.Value != "1"))
+                    throw new InvalidOperationException("Ilyda: Το ενσωματωμένο myDATA XML δεν περιέχει fuelInvoice=true.");
+                fuel.AddAfterSelf(new XElement(ns + "specialInvoiceCategory", specialCategory.Value));
+            }
+            xml = document.ToString(SaveOptions.DisableFormatting);
             if (type == "10.1")
             {
                 var purpose = ReceivingNotePurposes.Get(h);
@@ -126,6 +139,8 @@ namespace Exedron.Invoicing.Adapters
                 ["additionalSupportDocs"] = new JArray(new JObject { ["description"] = "##InvoicesDoc##", ["reference"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(xml)) })
             };
             if (invoice.CounterPart != null && (!type.StartsWith("11.", StringComparison.Ordinal) || retailDelivery || supplyAccount != null)) payload["buyer"] = Party(invoice.CounterPart, false);
+            if (specialCategory.HasValue)
+                payload["aadeData"] = new JObject { ["aadeSpecialInvoiceCategory"] = specialCategory.Value };
             if (h.OtherDeliveryNoteHeader?.DeliveryAddress != null && type != "10.1")
                 payload["delivery"] = new JObject { ["deliveryAddress"] = Address(h.OtherDeliveryNoteHeader.DeliveryAddress, "delivery", "GR") };
             if (h.CorrelatedInvoices != null && h.CorrelatedInvoices.Length > 0)

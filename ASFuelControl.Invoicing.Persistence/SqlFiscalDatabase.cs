@@ -31,7 +31,7 @@ namespace ASFuelControl.Invoicing.Persistence
         }
         public void InstallSchema()
         {
-            foreach (var resource in new[] { "FiscalSchema.sql", "FiscalWorkflowSchema.sql", "FiscalConfigurationSchema.sql" })
+            foreach (var resource in new[] { "FiscalSchema.sql", "FiscalWorkflowSchema.sql", "FiscalConfigurationSchema.sql", "HeatingCorrectionSchema.sql" })
             using (var stream = typeof(SqlFiscalDatabase).Assembly.GetManifestResourceStream(resource))
             using (var reader = new StreamReader(stream))
             using (var connection = Open())

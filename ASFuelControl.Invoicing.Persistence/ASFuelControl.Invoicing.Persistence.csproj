@@ -14,6 +14,7 @@
     <Reference Include="Newtonsoft.Json"><HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath><Private>true</Private></Reference>
     <!-- Explicit source items are required for reliable classic Visual Studio project tracking. -->
     <Compile Include="SqlEvidenceLogger.cs" />
+    <Compile Include="SqlHeatingCorrectionStore.cs" />
     <Compile Include="SqlFiscalCatalogStore.cs" />
     <Compile Include="SqlFiscalConfigurationStore.cs" />
     <Compile Include="SqlFiscalDatabase.cs" />
@@ -32,6 +33,7 @@
     <EmbeddedResource Include="..\ASFuelControl.Windows\DBScripts\UpdateDatabase57.sql"><LogicalName>FiscalSchema.sql</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="..\ASFuelControl.Windows\DBScripts\UpdateDatabase58.sql"><LogicalName>FiscalWorkflowSchema.sql</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="..\ASFuelControl.Windows\DBScripts\UpdateDatabase59.sql"><LogicalName>FiscalConfigurationSchema.sql</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="..\ASFuelControl.Windows\DBScripts\UpdateDatabase61.sql"><LogicalName>HeatingCorrectionSchema.sql</LogicalName></EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

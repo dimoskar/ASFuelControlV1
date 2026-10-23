@@ -66,6 +66,7 @@ internal static class Program
         Test("Migration and every production SQL batch parse with SQL Server 2008 grammar", () => {
             var assembly = typeof(SqlFiscalDatabase).Assembly;
             using (var reader = new StreamReader(assembly.GetManifestResourceStream("FiscalSchema.sql"))) ParseSql100(reader.ReadToEnd());
+            using (var reader = new StreamReader(assembly.GetManifestResourceStream("HeatingCorrectionSchema.sql"))) ParseSql100(reader.ReadToEnd());
             foreach (var type in new[] { "SqlStatements", "SqlFiscalConfigurationStore", "SqlFiscalCatalogStore", "SqlFiscalOwnershipStore", "SqlFiscalMigrationStore" })
             foreach (var statement in assembly.GetType("ASFuelControl.Invoicing.Persistence." + type).GetFields(BindingFlags.NonPublic | BindingFlags.Static).Where(f => f.IsLiteral && f.FieldType == typeof(string)))
                 ParseSql100((string)statement.GetRawConstantValue());
@@ -82,7 +83,7 @@ internal static class Program
         Test("Migration reruns without duplicating or deleting data", () => {
             db.InstallSchema(); db.InstallSchema();
             Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM dbo.FiscalSchemaVersion WHERE Version=1;")));
-            Equal(9, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.tables WHERE name LIKE 'Fiscal%' AND name <> 'FiscalSchemaVersion';")));
+            Equal(10, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.tables WHERE name LIKE 'Fiscal%' AND name <> 'FiscalSchemaVersion';")));
         });
     }
     private static void SigningTests()
@@ -408,6 +409,11 @@ internal static class Program
             t.TokenType != TSqlTokenType.UnicodeStringLiteral && t.TokenType != TSqlTokenType.SingleLineComment && t.TokenType != TSqlTokenType.MultilineComment).Select(t => t.Text));
         var newer = Regex.Match(code, @"(?<![@\w])(THROW|OFFSET)\b|\b(OPENJSON|JSON_VALUE|JSON_QUERY|JSON_MODIFY|STRING_AGG|STRING_SPLIT|TRY_CONVERT|TRY_CAST|DATEFROMPARTS|DATETIMEFROMPARTS|EOMONTH|FORMAT|IIF|CONCAT)\s*\(|\bCREATE\s+(SEQUENCE|OR\s+ALTER)\b|\bDROP\s+TABLE\s+IF\s+EXISTS\b", RegexOptions.IgnoreCase);
         if (newer.Success) throw new Exception("Post-SQL Server 2008 construct detected: " + newer.Value);
+        foreach(var token in fragment.ScriptTokenStream.Where(t=>t.TokenType==TSqlTokenType.UnicodeStringLiteral))
+        {
+            var inner=token.Text.Substring(2,token.Text.Length-3).Replace("''","'");
+            if(inner.TrimStart().StartsWith("ALTER VIEW",StringComparison.OrdinalIgnoreCase))ParseSql100(inner);
+        }
     }
     private sealed class FakeHttp : HttpMessageHandler
     {

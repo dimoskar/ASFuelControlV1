@@ -15,10 +15,12 @@ namespace ASFuelControl.Invoicing.Persistence
             EXISTS(SELECT 1 FROM dbo.FiscalAttempt WHERE DocumentKind=@kind AND DocumentId=@id)
             OR (@kind=1 AND EXISTS(SELECT 1 FROM dbo.FiscalInvoiceWorkflow WHERE InvoiceId=@id))
             OR EXISTS(SELECT 1 FROM dbo.FiscalDocumentWorkflow WHERE DocumentKind=@kind AND DocumentId=@id)
+            OR (@kind=1 AND EXISTS(SELECT 1 FROM dbo.FiscalHeatingCorrection WHERE CreditInvoiceId=@id OR ReplacementInvoiceId=@id))
             THEN 1 ELSE 0 END";
         internal const string ReadProtectedKinds = @"SELECT DocumentKind FROM dbo.FiscalAttempt
             UNION SELECT 1 FROM dbo.FiscalInvoiceWorkflow
-            UNION SELECT DocumentKind FROM dbo.FiscalDocumentWorkflow";
+            UNION SELECT DocumentKind FROM dbo.FiscalDocumentWorkflow
+            UNION SELECT 1 FROM dbo.FiscalHeatingCorrection";
         internal const string ReadActivations = "SELECT ConfigurationJson FROM dbo.FiscalConfiguration ORDER BY Revision";
 
         public bool Owns(IFiscalDocumentLease lease)

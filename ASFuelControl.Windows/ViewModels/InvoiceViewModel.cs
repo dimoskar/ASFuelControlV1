@@ -719,7 +719,10 @@ namespace ASFuelControl.Windows.ViewModels
                         invoice.DiscountAmountRetail = disountRetail;
                         invLine.VatAmount = invoice.VatAmount.Value;
                     }
-                    invoice.IsPrinted = true;
+                    // Creation only persists the sale and invoice. The shared workflow
+                    // assigns the fiscal number, submits it and marks it printed after
+                    // the printer handoff succeeds.
+                    invoice.IsPrinted = false;
                     invoice.Notes = this.Notes;
                     db.SaveChanges();
                 }

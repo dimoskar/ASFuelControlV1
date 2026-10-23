@@ -1708,6 +1708,10 @@ namespace ASFuelControl.Data
                 invoice.InvoiceId = Guid.NewGuid();
                 db.Add(invoice);
                 invoice.TransactionDate = DateTime.Now;
+                // Dispenser sales are persisted as pending. PrintAgent hands them to
+                // SharedInvoiceRuntime, which numbers, submits and finally marks them
+                // printed after the printer handoff succeeds.
+                invoice.IsPrinted = false;
                 if (currentSale.LiterCheck)// lastNozzle.NozzleState == (int)Common.Enumerators.NozzleStateEnum.LiterCheck)
                 {
                     Guid invoiceType = Implementation.OptionHandler.Instance.GetGuidOption("LiterCheckInvoiceType", Guid.Empty);
@@ -2001,6 +2005,9 @@ namespace ASFuelControl.Data
             invoice.InvoiceId = Guid.NewGuid();
             db.Add(invoice);
             invoice.TransactionDate = DateTime.Now;
+            // Keep recovered/manual dispenser sales on the same pending lifecycle as
+            // sales created directly by the dispenser controller.
+            invoice.IsPrinted = false;
             if (isLiterCheck)// lastNozzle.NozzleState == (int)Common.Enumerators.NozzleStateEnum.LiterCheck)
             {
                 Guid invoiceType = Implementation.OptionHandler.Instance.GetGuidOption("LiterCheckInvoiceType", Guid.Empty);
@@ -3134,7 +3141,15 @@ namespace ASFuelControl.Data
             var qf = parRels.Select(r => r.ParentInvoice.InvoiceType).Distinct().ToArray();
             var qi = parRels.Select(r => r.ParentInvoice).SelectMany(i => i.FinTransactions).Count();
             bool clearTransactions = false;
-            if(this.IsCanceling)
+            // Batch credits retain their original correlation in the immutable correction
+            // journal. Legacy Cancel/Replace relations would hide the original sale from
+            // catalog totals. They still need their normal credit ledger posting.
+            bool heatingCredit = false;
+            if (this.IsCanceling && parRels.Length == 0)
+                heatingCredit = db.ExecuteQuery<int>(@"IF OBJECT_ID(N'dbo.FiscalHeatingCorrection',N'U') IS NULL SELECT 0;
+ELSE SELECT COUNT(*) FROM dbo.FiscalHeatingCorrection WHERE CreditInvoiceId=@id",
+                    new System.Data.Common.DbParameter[] { new System.Data.SqlClient.SqlParameter("@id", this.InvoiceId) }).FirstOrDefault() > 0;
+            if(this.IsCanceling && !heatingCredit)
             {
                 if (qi == 0)
                 {

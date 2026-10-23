@@ -27,6 +27,16 @@ namespace ASFuelControl.Windows.Threads
             return SharedInvoicingSettings.Load(out revision);
         }
         private static ProviderRoute CurrentConnection(ProviderRoute saved) => CurrentSettings().ConfiguredConnection(saved);
+        private static CompanySettings ReadHostCompany()
+        {
+            var options=Data.Implementation.OptionHandler.Instance;
+            return new CompanySettings { CompanyTaxId=options.GetOption("CompanyTIN"),
+                CompanyBranch=options.GetIntOption("CompanyBranch",0).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                CompanyName=options.GetOption("CompanyName"),CompanyAddress=options.GetOption("CompanyAddress"),
+                CompanyCity=options.GetOption("CompanyCity"),CompanyZipCode=options.GetOption("CompanyPostalCode"),
+                CompanyTaxOffice=options.GetOption("CompanyTaxOffice"),CompanyEmail=options.GetOption("CompanyEmail"),
+                CompanyPhone=options.GetOption("CompanyPhone"),CompanyJob=options.GetOption("CompanyOccupation") };
+        }
         private static PaymentRoute CurrentPaymentConnection(PaymentRoute saved)
         {
             var current = CurrentSettings();
@@ -94,7 +104,11 @@ namespace ASFuelControl.Windows.Threads
             public void Dispose() { for (int i = Leases.Count - 1; i >= 0; i--) Leases[i].Dispose(); }
         }
         internal static InvoiceWorkflowResult Process(Guid id, bool print = true, string reason = null)
-        { return workflow.Value.Process(id, new Source(print), print, reason); }
+        {
+            if (new SqlHeatingCorrectionStore(sql.Value).IsChild(id,true))
+                throw new InvalidOperationException("Το παραστατικό ελέγχεται από την παρτίδα διόρθωσης επιδόματος θέρμανσης. Συνεχίστε την παρτίδα από τις Ενέργειες του καταλόγου.");
+            return workflow.Value.Process(id, new Source(print), print, reason);
+        }
         internal static InvoiceWorkflowResult SubmitPrintedInvoice(Guid id)
         {
             // Explicit operator action: a pre-cutover printed invoice is not picked
@@ -138,13 +152,7 @@ namespace ASFuelControl.Windows.Threads
                         // The same host company fields are used by CreateInvoiceText.
                         // Freeze them in this snapshot, rather than printing a different
                         // issuer from a separately maintained JSON company definition.
-                        var options = Data.Implementation.OptionHandler.Instance;
-                        mapping.Company = new CompanySettings { CompanyTaxId = options.GetOption("CompanyTIN"),
-                            CompanyBranch = options.GetIntOption("CompanyBranch",0).ToString(System.Globalization.CultureInfo.InvariantCulture),
-                            CompanyName = options.GetOption("CompanyName"), CompanyAddress = options.GetOption("CompanyAddress"),
-                            CompanyCity = options.GetOption("CompanyCity"), CompanyZipCode = options.GetOption("CompanyPostalCode"),
-                            CompanyTaxOffice = options.GetOption("CompanyTaxOffice"), CompanyEmail = options.GetOption("CompanyEmail"),
-                            CompanyPhone = options.GetOption("CompanyPhone"), CompanyJob = options.GetOption("CompanyOccupation") };
+                        mapping.Company = ReadHostCompany();
                         mapping.Environment = route.Provider.TestMode ? FiscalEnvironment.Test : FiscalEnvironment.Production;
                         var provider = new ProviderSubmissionService(sql.Value, config);
                         foreach (var parent in invoice.ParentInvoiceRelations) mapping.Parents[parent.ParentInvoiceId] = provider.LoadParentEvidence(parent.ParentInvoiceId);
@@ -158,6 +166,16 @@ namespace ASFuelControl.Windows.Threads
             {
                 var invoice = db.Invoices.Single(i => i.InvoiceId == id);
                 bool hasLegacy = db.MyDataInvoices.Any(i => i.InvoiceId == id);
+                // Older InvoiceFormEx/InvoiceSimpleForm builds saved a newly created
+                // invoice as printed before assigning its number. Recover that exact
+                // impossible first-issue state only during an explicit print request
+                // and only when no external fiscal evidence exists.
+                if (printRequested && !historicalPrinted && invoice.Number == 0 && invoice.IsPrinted == true && !hasLegacy &&
+                    string.IsNullOrWhiteSpace(invoice.InvoiceSignature) && string.IsNullOrWhiteSpace(invoice.QRCodeData))
+                {
+                    invoice.IsPrinted = false;
+                    db.SaveChanges();
+                }
                 if (historicalPrinted && !config.CanSubmitPrintedInvoice(invoice,hasLegacy))
                     throw new InvalidOperationException("Το παραστατικό δεν είναι διαθέσιμο για διαβίβαση ήδη εκτυπωμένου. Ελέγξτε τη σύνοψη και τα προηγούμενα φορολογικά στοιχεία.");
                 var route = config.PendingRoute(invoice,hasLegacy,historicalPrinted);
