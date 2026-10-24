@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using ASFuelControl.Invoicing.Persistence;
 using ASFuelControl.Invoicing.Mapping;
+using Exedron.Invoicing.Adapters;
 using Exedron.Invoicing.Core;
 using Newtonsoft.Json;
 
@@ -114,8 +115,12 @@ namespace ASFuelControl.Windows.Threads
                 problems.Add("myDiesel: το περιβάλλον δεν συμφωνεί με το κοινό περιβάλλον τιμολόγησης.");
             try { MyDieselCouponIdentity.NormalizeVat(profile.CompanyVat,"Company VAT"); }
             catch (ArgumentException ex) { problems.Add("myDiesel: " + ex.Message); }
+            if (profile.Environment == FiscalEnvironment.Test && !MyDieselUatCatalog.IsCompanyVat(profile.CompanyVat))
+                problems.Add("myDiesel UAT: επιλέξτε έναν από τους επίσημους δοκιμαστικούς ΑΦΜ επιχείρησης της έκδοσης 0.1.");
             if (profile.BranchNum < 0 || string.IsNullOrWhiteSpace(profile.StationName) || string.IsNullOrWhiteSpace(profile.StationAmdika))
                 problems.Add("myDiesel: επιλέξτε καταχωρημένο πρατήριο μετά από επιτυχή έλεγχο σύνδεσης.");
+            try { MyDieselTaxRules.NormalizeExciseDiscountPerLitre(profile.ExciseDiscountPerLitre); }
+            catch (ArgumentOutOfRangeException) { problems.Add("myDiesel: η έκπτωση ΕΦΚ πρέπει να είναι θετική, έως 10 €/λίτρο και με έως τέσσερα δεκαδικά."); }
             if (profile.PollMinutes < 5 || profile.PollMinutes > 1440) problems.Add("myDiesel: η συχνότητα ελέγχου πρέπει να είναι από 5 έως 1440 λεπτά.");
             var credential = (value.MyDieselCredentials ?? new SharedMyDieselCredentialProfile[0]).SingleOrDefault(p => p.Id == profile.CredentialProfileId);
             if (credential == null) problems.Add("myDiesel: λείπει το ιστορικό προφίλ διαπιστευτηρίων.");
@@ -123,12 +128,12 @@ namespace ASFuelControl.Windows.Threads
             {
                 if (credential.Environment != profile.Environment || credential.CompanyVat != profile.CompanyVat)
                     problems.Add("myDiesel: το προφίλ διαπιστευτηρίων δεν συμφωνεί με εταιρεία/περιβάλλον.");
-                if (profile.Environment == FiscalEnvironment.Test && string.IsNullOrWhiteSpace(credential.UatApiKeyOption))
-                    problems.Add("myDiesel: λείπει αναφορά κλειδιού UAT.");
                 if (profile.Environment == FiscalEnvironment.Production && (string.IsNullOrWhiteSpace(credential.AadeUserId) || string.IsNullOrWhiteSpace(credential.ProductionSubscriptionKeyOption)))
                     problems.Add("myDiesel: λείπουν χρήστης ΑΑΔΕ ή subscription key παραγωγής.");
             }
             if (!profile.LastReferenceCheckUtc.HasValue) problems.Add("myDiesel: απαιτείται επιτυχής έλεγχος εταιρείας, πρατηρίου και καυσίμων.");
+            if (profile.Environment == FiscalEnvironment.Test && profile.ContractVersion != MyDieselUatCatalog.ContractVersion)
+                problems.Add("myDiesel UAT: οι ρυθμίσεις πρέπει να αποθηκευτούν με τα επίσημα δεδομένα δοκιμών έκδοσης 0.1.");
             if (profile.Environment == FiscalEnvironment.Production && (string.IsNullOrWhiteSpace(profile.OpenApiSha256) || string.IsNullOrWhiteSpace(profile.ContractVersion)))
                 problems.Add("myDiesel: η παραγωγή παραμένει κλειδωμένη μέχρι να ελεγχθεί και να καταγραφεί το επίσημο OpenAPI contract.");
         }

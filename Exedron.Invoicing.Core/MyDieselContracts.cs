@@ -57,7 +57,8 @@ namespace Exedron.Invoicing.Core
         Redeemed = 7,
         VerificationPending = 8,
         Final = 9,
-        InterventionRequired = 10
+        InterventionRequired = 10,
+        Dismissed = 11
     }
 
     public static class MyDieselCaseTransitions
@@ -92,7 +93,8 @@ namespace Exedron.Invoicing.Core
                 case MyDieselCaseStage.InterventionRequired:
                     return to == MyDieselCaseStage.Reserved || to == MyDieselCaseStage.Released ||
                         to == MyDieselCaseStage.RedeemUnknown || to == MyDieselCaseStage.Redeemed ||
-                        to == MyDieselCaseStage.VerificationPending || to == MyDieselCaseStage.Final;
+                        to == MyDieselCaseStage.VerificationPending || to == MyDieselCaseStage.Final ||
+                        to == MyDieselCaseStage.Dismissed;
                 default:
                     return false;
             }
@@ -117,6 +119,19 @@ namespace Exedron.Invoicing.Core
                 default:
                     return false;
             }
+        }
+    }
+
+    public static class MyDieselTaxRules
+    {
+        public const decimal DefaultExciseDiscountPerLitre = 0.41m;
+        public const decimal MaximumExciseDiscountPerLitre = 10m;
+
+        public static decimal NormalizeExciseDiscountPerLitre(decimal value)
+        {
+            if (value <= 0 || value > MaximumExciseDiscountPerLitre || decimal.Round(value, 4) != value)
+                throw new ArgumentOutOfRangeException(nameof(value), "The myDiesel excise discount must be positive, no greater than 10 euros per litre, and have at most four decimals.");
+            return value;
         }
     }
 

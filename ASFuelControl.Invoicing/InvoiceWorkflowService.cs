@@ -24,6 +24,7 @@ namespace ASFuelControl.Invoicing
         public byte[] PrintContent { get; set; }
         public Guid? MyDieselCouponCaseId { get; set; }
         public MyDieselScope MyDieselScope { get; set; }
+        public decimal? MyDieselExciseDiscountPerLitre { get; set; }
         InvoiceBuildRequest IInvoiceSubmissionSource.Prepare(Guid id, ProviderRoute route)
         {
             if (id != InvoiceId || JsonConvert.SerializeObject(route) != JsonConvert.SerializeObject(Provider)) throw new InvalidOperationException("Workflow route mismatch.");
@@ -219,6 +220,10 @@ namespace ASFuelControl.Invoicing
                 throw new InvalidOperationException("myDiesel requires a version-2 electronic invoice workflow and a frozen non-secret coupon scope.");
             if (!value.MyDieselCouponCaseId.HasValue && value.MyDieselScope != null)
                 throw new InvalidOperationException("A myDiesel scope requires a coupon case.");
+            if (value.MyDieselCouponCaseId.HasValue && value.MyDieselExciseDiscountPerLitre.HasValue)
+                MyDieselTaxRules.NormalizeExciseDiscountPerLitre(value.MyDieselExciseDiscountPerLitre.Value);
+            if (!value.MyDieselCouponCaseId.HasValue && value.MyDieselExciseDiscountPerLitre.HasValue)
+                throw new InvalidOperationException("A myDiesel excise discount requires a coupon case.");
             // Applies to both first issuance and restored workflows, before any
             // device call. Provider issuance obtains its signature from the provider.
             if (value.Provider != null && value.Provider.ProviderKey != InvoiceProviderCatalog.MyDataKey && value.Signing != null)

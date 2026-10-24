@@ -11,6 +11,41 @@ using Newtonsoft.Json.Linq;
 
 namespace Exedron.Invoicing.Adapters
 {
+    /// <summary>
+    /// Public test fixtures distributed with the official myDiesel ERP examples v0.1.
+    /// They are valid only against the private UAT endpoint and must never be used for production.
+    /// </summary>
+    public static class MyDieselUatCatalog
+    {
+        public const string ContractVersion = "0.1";
+        public const string PrimaryErpApiKey = "082aea42ecea588c2b4171f9125cfe05d629b486c5cf1394";
+        public const string SecondaryErpApiKey = "f9674de8b57bd23437350819898b6706de677675245f952d";
+
+        private static readonly string[] companyVats = {
+            "444444003", "444444015", "444444027",
+            "444444039", "444444040", "444444052",
+            "444444064", "444444076", "444444088",
+            "444444090", "444444107", "444444119",
+            "444444120", "444444132", "444444144",
+            "444444156", "444444168", "444444170",
+            "444444181", "444444193", "444444200",
+            "444444212", "444444224", "444444236",
+            "444444248", "444444250", "444444261",
+            "444444273", "444444285", "444444297",
+            "444444304", "444444316", "444444328",
+            "444444330", "444444341", "444444353",
+            "444444365", "444444377", "444444389",
+            "444444390", "444444501", "444444513",
+            "444444525", "444444537", "444444549"
+        };
+
+        private static readonly string[] beneficiaryVats = { "111111102", "111111114" };
+
+        public static string[] CompanyVats => (string[])companyVats.Clone();
+        public static string[] BeneficiaryVats => (string[])beneficiaryVats.Clone();
+        public static bool IsCompanyVat(string value) => companyVats.Contains((value ?? "").Trim(), StringComparer.Ordinal);
+    }
+
     public sealed class MyDieselClientOptions
     {
         public MyDieselScope Scope { get; set; }

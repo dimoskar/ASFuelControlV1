@@ -63,7 +63,7 @@ namespace ASFuelControl.Windows.UI.Forms
         private void BuildAttemptPage()
         {
             var page = new RadPageViewPage { Text = "Ιστορικό myDiesel" };
-            var split = new SplitContainer { Dock = DockStyle.Fill,Orientation = Orientation.Horizontal,SplitterDistance = 290,Panel1MinSize = 180,Panel2MinSize = 180 };
+            var split = new SplitContainer { Dock = DockStyle.Fill,Orientation = Orientation.Horizontal,Size = new Size(1100,600),SplitterDistance = 290,Panel1MinSize = 180,Panel2MinSize = 180 };
             split.Panel1.Controls.Add(attemptGrid);
             split.Panel2.Controls.Add(PayloadPair("Ακριβές αίτημα",attemptRequest,"Απάντηση / διαγνωστικό",attemptResponse));
             page.Controls.Add(split); pages.Pages.Add(page);
@@ -73,7 +73,7 @@ namespace ASFuelControl.Windows.UI.Forms
         private void BuildHttpPage()
         {
             var page = new RadPageViewPage { Text = "HTTP τεκμήρια" };
-            var split = new SplitContainer { Dock = DockStyle.Fill,Orientation = Orientation.Horizontal,SplitterDistance = 290,Panel1MinSize = 180,Panel2MinSize = 180 };
+            var split = new SplitContainer { Dock = DockStyle.Fill,Orientation = Orientation.Horizontal,Size = new Size(1100,600),SplitterDistance = 290,Panel1MinSize = 180,Panel2MinSize = 180 };
             split.Panel1.Controls.Add(httpGrid);
             split.Panel2.Controls.Add(PayloadPair("Αίτημα χωρίς μυστικά headers",httpRequest,"Απάντηση",httpResponse));
             page.Controls.Add(split); pages.Pages.Add(page);
@@ -82,7 +82,7 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private static Control PayloadPair(string leftTitle, Control left, string rightTitle, Control right)
         {
-            var split = new SplitContainer { Dock = DockStyle.Fill,SplitterDistance = 555,Panel1MinSize = 300,Panel2MinSize = 300 };
+            var split = new SplitContainer { Dock = DockStyle.Fill,Size = new Size(1100,280),SplitterDistance = 555,Panel1MinSize = 300,Panel2MinSize = 300 };
             split.Panel1.Controls.Add(left); split.Panel1.Controls.Add(Header(leftTitle));
             split.Panel2.Controls.Add(right); split.Panel2.Controls.Add(Header(rightTitle));
             return split;
@@ -104,6 +104,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 AddSummary("Κατάσταση ΑΑΔΕ",string.IsNullOrWhiteSpace(value.RemoteStatus) ? "—" : value.RemoteStatus);
                 AddSummary("Λίτρα / καύσιμο",(value.IssuedLitres.HasValue ? value.IssuedLitres.Value.ToString("0.00") + " L" : "—") +
                     (string.IsNullOrWhiteSpace(value.FuelType) ? "" : " · " + value.FuelType + " (" + value.FuelCode + ")"));
+                AddSummary("Έκπτωση ΕΦΚ",value.ExciseDiscountPerLitre.ToString("0.0000") + " €/L");
                 AddSummary("Ισχύει έως",Local(value.ValidUntilUtc));
                 AddSummary("MARK",string.IsNullOrWhiteSpace(value.InvoiceMark) ? "—" : value.InvoiceMark);
                 AddSummary("Τελευταίος έλεγχος",Local(value.LastCheckedUtc));
@@ -202,6 +203,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 case "VerificationPending": return "Αναμονή επαλήθευσης ΑΑΔΕ";
                 case "Final": return "Ολοκληρωμένο";
                 case "InterventionRequired": return "Χρειάζεται παρέμβαση";
+                case "Dismissed": return "Αφαιρέθηκε ως άκυρο";
                 default: return value;
             }
         }

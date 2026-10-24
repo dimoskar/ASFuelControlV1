@@ -36,29 +36,36 @@ namespace ASFuelControl.Invoicing
         }
 
         public MyDieselCouponCaseRecord Capture(Guid invoiceId, MyDieselCouponIdentity identity, MyDieselScope scope,
-            DateTime? validUntilUtc = null, decimal? issuedLitres = null)
+            DateTime? validUntilUtc = null, decimal? issuedLitres = null,
+            decimal exciseDiscountPerLitre = MyDieselTaxRules.DefaultExciseDiscountPerLitre)
         {
             if (invoiceId == Guid.Empty) throw new ArgumentException("Invoice ID is required.", nameof(invoiceId));
             if (identity == null) throw new ArgumentNullException(nameof(identity));
             if (scope == null) throw new ArgumentNullException(nameof(scope));
             if (validUntilUtc.HasValue && validUntilUtc.Value.Kind != DateTimeKind.Utc) throw new ArgumentException("Coupon validity must be UTC.", nameof(validUntilUtc));
             if (issuedLitres <= 0) throw new ArgumentException("Issued litres must be positive when present.", nameof(issuedLitres));
-            var now = Now();
-            var value = new MyDieselCouponCaseRecord {
-                CouponCaseId = Guid.NewGuid(), InvoiceId = invoiceId, CouponCode = identity.CouponCode,
-                BeneficiaryVat = identity.BeneficiaryVat, CompanyVat = scope.CompanyVat, Environment = scope.Environment,
-                CredentialProfileId = scope.CredentialProfileId, ReservedBranchNum = scope.BranchNum,
-                LocalStage = MyDieselCaseStage.Captured, ValidUntilUtc = validUntilUtc, IssuedLitres = issuedLitres,
-                BlocksInvoice = true, BlocksCouponReuse = true, CreatedUtc = now, UpdatedUtc = now
-            };
-            using (var lease = store.Acquire(value.CouponCaseId)) store.Create(lease, value);
-            return value;
+            exciseDiscountPerLitre = MyDieselTaxRules.NormalizeExciseDiscountPerLitre(exciseDiscountPerLitre);
+            using (store.AcquireInvoiceForNewCoupon(invoiceId))
+            {
+                var now = Now();
+                var value = new MyDieselCouponCaseRecord {
+                    CouponCaseId = Guid.NewGuid(), InvoiceId = invoiceId, CouponCode = identity.CouponCode,
+                    BeneficiaryVat = identity.BeneficiaryVat, CompanyVat = scope.CompanyVat, Environment = scope.Environment,
+                    CredentialProfileId = scope.CredentialProfileId, ReservedBranchNum = scope.BranchNum,
+                    ExciseDiscountPerLitre = exciseDiscountPerLitre,
+                    LocalStage = MyDieselCaseStage.Captured, ValidUntilUtc = validUntilUtc, IssuedLitres = issuedLitres,
+                    BlocksInvoice = true, BlocksCouponReuse = true, CreatedUtc = now, UpdatedUtc = now
+                };
+                using (var lease = store.Acquire(value.CouponCaseId)) store.Create(lease, value);
+                return value;
+            }
         }
 
-        public MyDieselCouponCaseRecord Capture(Guid invoiceId, MyDieselQrCoupon qr, MyDieselScope scope)
+        public MyDieselCouponCaseRecord Capture(Guid invoiceId, MyDieselQrCoupon qr, MyDieselScope scope,
+            decimal exciseDiscountPerLitre = MyDieselTaxRules.DefaultExciseDiscountPerLitre)
         {
             if (qr == null) throw new ArgumentNullException(nameof(qr));
-            return Capture(invoiceId, qr.Identity, scope, qr.ValidUntilUtc.UtcDateTime, qr.IssuedLitres);
+            return Capture(invoiceId, qr.Identity, scope, qr.ValidUntilUtc.UtcDateTime, qr.IssuedLitres, exciseDiscountPerLitre);
         }
 
         public MyDieselServiceResult Reserve(Guid couponCaseId)
@@ -89,6 +96,27 @@ namespace ASFuelControl.Invoicing
                 var request = new MyDieselLookupRequest(value.CouponCode, value.CompanyVat, value.ReservedBranchNum);
                 return Execute(lease, value, MyDieselOperation.Release, LookupJson(request), client => client.Release(request), ApplyRelease);
             }
+        }
+
+        public MyDieselCouponCaseRecord DismissRejected(Guid couponCaseId)
+        {
+            using (var lease = store.Acquire(couponCaseId))
+            {
+                var value = Required(store.Load(lease));
+                var query = store.LoadAttempts(lease).LastOrDefault(a => a.Operation == MyDieselOperation.Query);
+                if (!CanDismissRejected(value) || query == null || query.State != MyDieselOperationState.Rejected)
+                    throw new InvalidOperationException("Only a definitively rejected, never-reserved coupon can be removed from an invoice.");
+                value.LocalStage = MyDieselCaseStage.Dismissed;
+                Advance(lease,value);
+                return value;
+            }
+        }
+
+        public static bool CanDismissRejected(MyDieselCouponCaseRecord value)
+        {
+            return value != null && value.LocalStage == MyDieselCaseStage.InterventionRequired &&
+                !value.BlocksInvoice && !value.BlocksCouponReuse && string.IsNullOrWhiteSpace(value.RemoteStatus) &&
+                string.IsNullOrWhiteSpace(value.InvoiceMark) && !value.MarkSourceInvoiceId.HasValue;
         }
 
         public MyDieselServiceResult Redeem(Guid couponCaseId, Guid invoiceId, string mark)

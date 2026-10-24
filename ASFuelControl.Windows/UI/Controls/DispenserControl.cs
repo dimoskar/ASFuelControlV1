@@ -423,41 +423,38 @@ namespace ASFuelControl.Windows.UI.Controls
         {
             if (this.Dispenser.NextSaleVehicle != Guid.Empty)
             {
+                ASFuelControl.Windows.Threads.PendingMyDieselSelectionStore.Clear(this.Dispenser.DispenserId);
                 this.Dispenser.NextSaleVehicle = Guid.Empty;
                 this.Dispenser.NextSaleTrader = Guid.Empty;
                 this.Dispenser.InvoiceTypeId = Guid.Empty;
                 this.Dispenser.Odometer = 0;
-                //this.btnCustomer.BackColor = Color.Transparent;
+                return;
             }
-            else
-            {
-                using (SelectionForms.VehicleSelectForm stf = new SelectionForms.VehicleSelectForm())
-                {
-                    
-                    stf.ShowDialog(this);
-                    if (stf.SelectedEntity == null)
-                        return;
-                    var vehicle = stf.SelectedEntity as ViewModels.VehicleViewModel;
-                    if (vehicle == null)
-                        return;
-                    using (SelectionForms.InvoiceTypeSelection sif = new SelectionForms.InvoiceTypeSelection())
-                    {
-                        sif.SelectedInvoiceTypeId = vehicle.DefaultInvoiceTypeId;
-                        sif.DispenserTypes = true;
-                        var res = sif.ShowDialog(this);
-                        if (res == DialogResult.Cancel)
-                            return;
 
-                        ViewModels.InvoiceTypeViewModel ivm = sif.SelectedEntity as ViewModels.InvoiceTypeViewModel;
-                        if (ivm == null)
-                            return;
-                        this.Dispenser.InvoiceTypeId = ivm.InvoiceTypeId;
-                        this.Dispenser.NextSaleVehicle = vehicle.VehicleId;
-                        this.Dispenser.NextSaleTrader = vehicle.TraderId;
-                        this.Dispenser.Odometer = vehicle.Odometer;
-                        //this.btnCustomer.BackColor = Color.Orange;
-                    }
+            using (SelectionForms.NextSaleSelectionForm dialog = new SelectionForms.NextSaleSelectionForm(
+                this.Dispenser.DispenserId,
+                this.Dispenser.NextSaleVehicle,
+                this.Dispenser.InvoiceTypeId,
+                this.Dispenser.Odometer))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return;
+                if (dialog.SelectionCleared)
+                {
+                    this.Dispenser.NextSaleVehicle = Guid.Empty;
+                    this.Dispenser.NextSaleTrader = Guid.Empty;
+                    this.Dispenser.InvoiceTypeId = Guid.Empty;
+                    this.Dispenser.Odometer = 0;
+                    return;
                 }
+
+                var vehicle = dialog.SelectedVehicle;
+                if (vehicle == null)
+                    return;
+                this.Dispenser.InvoiceTypeId = dialog.SelectedInvoiceTypeId;
+                this.Dispenser.NextSaleVehicle = vehicle.VehicleId;
+                this.Dispenser.NextSaleTrader = vehicle.TraderId;
+                this.Dispenser.Odometer = dialog.SelectedOdometer;
             }
         }
 

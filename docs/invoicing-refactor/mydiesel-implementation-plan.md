@@ -133,8 +133,9 @@ Create this host-owned projection table without modifying generated OpenAccess e
 | `Environment` | `tinyint` | Test or production. |
 | `CredentialProfileId` | `varchar(128)` | Immutable reference to the historical non-secret credential profile. |
 | `ReservedBranchNum` | `int` | Branch used by the successful reservation. |
+| `ExciseDiscountPerLitre` | `decimal(18,4)` | Configured EFK discount frozen when the coupon case is captured; defaults to €0.41/L. |
 | `CurrentBranchNum` | `int` NULL | Latest known redemption/correction branch. |
-| `LocalStage` | `varchar(32)` | Captured, ReserveUnknown, Reserved, Released, InvoiceAccepted, RedeemUnknown, Redeemed, VerificationPending, Final, or InterventionRequired. |
+| `LocalStage` | `varchar(32)` | Captured, ReserveUnknown, Reserved, Released, InvoiceAccepted, RedeemUnknown, Redeemed, VerificationPending, Final, InterventionRequired, or Dismissed. |
 | `RemoteStatus` | `varchar(32)` NULL | Exact AADE `couponStatus`. |
 | `Redeemable` | `bit` NULL | Latest AADE value. |
 | `IssuedLitres` | `decimal(18,2)` NULL | Coupon limit returned by AADE. |
@@ -226,24 +227,27 @@ Raise `SharedInvoiceConfiguration.Version` to 3 and add a `MyDieselProfile`:
 - enabled flag;
 - environment;
 - fixed base URL/API version;
-- company VAT;
+- production company VAT from the application settings, or one of the official synthetic company VATs in UAT;
 - selected `branchNum` and station display data;
+- EFK discount per litre, configurable with a default of `0.41` euros;
 - production AADE user ID plus immutable subscription-key option reference;
-- UAT API-key option reference;
+- the official shared UAT ERP API key from the AADE examples v0.1 (never myDATA test credentials);
 - last successful connection/reference check; and
 - polling policy.
 
-Secrets remain in encrypted immutable `Option` keys. Configuration JSON stores only option references. Production may explicitly reference the same AADE credential option used by direct myDATA, but reuse must be selected and scope-validated; it must not be inferred from a provider route.
+Production secrets remain in encrypted immutable `Option` keys. Configuration JSON stores only option references. Production may explicitly reference the same AADE credential option used by direct myDATA, but reuse must be selected and scope-validated; it must not be inferred from a provider route. The shared UAT ERP key is a public test fixture distributed by AADE and is versioned in the adapter alongside the supplied synthetic company and beneficiary VAT catalogues.
 
 Add a **myDiesel** group to General Options:
 
 - enable checkbox;
 - environment inherited from the common fiscal environment;
-- read-only company VAT from `CompanyTIN`;
+- read-only company VAT from `CompanyTIN` in production;
+- official synthetic company-VAT selector in UAT, preferring `CompanyTIN` when it already contains one of those values;
 - production AADE user ID and subscription key;
-- UAT API key;
+- no UAT credential entry: the official shared ERP key from examples v0.1 is used automatically;
 - `Έλεγχος σύνδεσης` button;
 - registered-station selector populated by company lookup; and
+- EFK discount per litre; each captured coupon stores the current value so later settings changes cannot alter an issued workflow; and
 - reference-data status showing last company/fuel refresh.
 
 The settings check must fail activation when company VAT, credentials, accepted station, fuel codes, or environment alignment are missing. Saving settings must not itself reserve a coupon.
@@ -277,9 +281,10 @@ Add a `MyDieselCouponPanel` above the existing fiscal status panel in `InvoiceFo
 - coupon state, expiry, issued litres, verified fuel, and MARK;
 - a visually prominent low-balance message;
 - `Έλεγχος και δέσμευση`, `Αποδέσμευση`, and `Ανανέωση κατάστασης` actions; and
+- an evidence-preserving `Αφαίρεση άκυρου` action only for a definitively rejected coupon that was never reserved; and
 - administrator-only `Διόρθωση ΜΑΡΚ` and `Αλλαγή πρατηρίου` actions when permitted.
 
-Reservation first saves the invoice draft, then creates the coupon case and calls `query`. A successful reservation does not allocate the invoice number and does not create `FiscalInvoiceWorkflow`.
+Reservation first saves the invoice draft, then creates the coupon case and calls `query`. A successful reservation does not allocate the invoice number and does not create `FiscalInvoiceWorkflow`. A new coupon is rejected when the invoice is already printed or has fiscal issuance evidence (a shared workflow/attempt, invoice signature, QR data, or myDATA row).
 
 While reserved, the operator may edit quantity, price, payment method, and permitted invoice data. The following are blocked unless the coupon is first released: deleting the invoice, changing the trader to another AFM, changing to an ineligible document type, removing all eligible diesel lines, or attaching a different coupon.
 

@@ -25,6 +25,18 @@ internal static partial class Program
             Throws<ArgumentException>(() => MyDieselQrParser.Parse("{\"code\":\"AYNY-1022-8625-7956-7356\",\"afm\":\"123456789\",\"validUntil\":1792666800,\"issuedLitres\":150,\"raw\":\"unexpected\"}"));
             Throws<ArgumentOutOfRangeException>(() => MyDieselQrParser.Parse("{\"code\":\"AYNY-1022-8625-7956-7356\",\"afm\":\"123456789\",\"validUntil\":1792666800,\"issuedLitres\":150.123}"));
         });
+        Test("myDiesel UAT catalog matches the official examples v0.1", () => {
+            Equal("0.1", MyDieselUatCatalog.ContractVersion);
+            Equal(45, MyDieselUatCatalog.CompanyVats.Length);
+            Equal(45, MyDieselUatCatalog.CompanyVats.Distinct(StringComparer.Ordinal).Count());
+            Check(MyDieselUatCatalog.CompanyVats.All(v => MyDieselCouponIdentity.NormalizeVat(v,"UAT company VAT") == v), "Invalid UAT company VAT.");
+            Equal(2, MyDieselUatCatalog.BeneficiaryVats.Length);
+            Check(MyDieselUatCatalog.BeneficiaryVats.All(v => MyDieselCouponIdentity.NormalizeVat(v,"UAT beneficiary VAT") == v), "Invalid UAT beneficiary VAT.");
+            Check(!string.IsNullOrWhiteSpace(MyDieselUatCatalog.PrimaryErpApiKey) &&
+                !string.IsNullOrWhiteSpace(MyDieselUatCatalog.SecondaryErpApiKey) &&
+                MyDieselUatCatalog.PrimaryErpApiKey != MyDieselUatCatalog.SecondaryErpApiKey,
+                "Official UAT ERP keys are missing or duplicated.");
+        });
         Test("myDiesel UAT sends private API key and company VAT with exact coupon JSON", () => {
             var logger = new MyDieselTestLogger();
             var handler = new MyDieselTestHandler(request => {

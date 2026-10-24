@@ -29,9 +29,9 @@ namespace ASFuelControl.Windows.UI.SettingForms
         private RadLabel providerEnvironment, providerCode, providerLicence;
         private RadCheckBox myDieselEnabled;
         private RadTextBox myDieselAadeUser, myDieselSecret;
-        private RadDropDownList myDieselStation;
-        private RadSpinEditor myDieselPoll;
-        private RadLabel myDieselEnvironment, myDieselCompany, myDieselReferenceStatus;
+        private RadDropDownList myDieselCompany, myDieselStation;
+        private RadSpinEditor myDieselExciseRate, myDieselPoll;
+        private RadLabel myDieselEnvironment, myDieselReferenceStatus;
         private InvoicingFields providerFields, myDieselFields;
         private DateTime? myDieselReferenceCheckedUtc;
         private readonly Dictionary<string,string> pendingSecrets = new Dictionary<string,string>();
@@ -116,7 +116,11 @@ namespace ASFuelControl.Windows.UI.SettingForms
             var dieselProfile = invoicing.MyDiesel;
             myDieselEnabled = diesel.Row("myDiesel",new RadCheckBox { Text = "Νέες δεσμεύσεις ενεργές μετά την επανεκκίνηση", IsChecked = dieselProfile?.Enabled == true });
             myDieselEnvironment = diesel.Row("Περιβάλλον",new RadLabel { Text = sharedEnvironment.Text });
-            myDieselCompany = diesel.Row("ΑΦΜ εταιρείας",new RadLabel { Text = tinCompanyTextBox.Text.Trim() });
+            myDieselExciseRate = diesel.Row("Έκπτωση ΕΦΚ",new RadSpinEditor { Minimum = 0.0001m, Maximum = MyDieselTaxRules.MaximumExciseDiscountPerLitre,
+                DecimalPlaces = 4, Value = dieselProfile?.ExciseDiscountPerLitre > 0 ? dieselProfile.ExciseDiscountPerLitre : MyDieselTaxRules.DefaultExciseDiscountPerLitre });
+            diesel.Row("",new RadLabel { Text = "€ ανά λίτρο — η τιμή αποθηκεύεται με κάθε νέο κουπόνι" });
+            myDieselCompany = diesel.Row("ΑΦΜ εταιρείας",InvoicingFields.Choice());
+            LoadMyDieselCompanyChoices(dieselProfile?.CompanyVat ?? tinCompanyTextBox.Text.Trim());
             myDieselAadeUser = diesel.Row("Χρήστης ΑΑΔΕ",InvoicingFields.Text(CurrentMyDieselCredential()?.AadeUserId));
             myDieselSecret = diesel.Row("Κλειδί πρόσβασης",InvoicingFields.Text("",true));
             myDieselStation = diesel.Row("Καταχωρημένο πρατήριο",InvoicingFields.Choice());
@@ -131,9 +135,25 @@ namespace ASFuelControl.Windows.UI.SettingForms
             myDieselReferenceStatus = diesel.Row("Στοιχεία αναφοράς",new RadLabel { Text = ReferenceCheckText() });
             var dieselCheck = diesel.Row("",new RadButton { Text = "Έλεγχος σύνδεσης και πρατηρίων…" });
             dieselCheck.Click += (s,e) => CheckMyDieselConnection();
+            diesel.Note("UAT: χρησιμοποιείται το κοινό κλειδί ERP της επίσημης έκδοσης 0.1 και ένας από τους δοκιμαστικούς ΑΦΜ.\r\n" +
+                "Δικαιούχοι δοκιμών: " + string.Join(" / ",MyDieselUatCatalog.BeneficiaryVats) + ". Εκδίδετε κουπόνια 5–10 λίτρων.");
             diesel.Note("Το query κουπονιού μεταβάλλει κατάσταση και δεν εκτελείται από αυτή τη φόρμα.\r\nΗ παραγωγή παραμένει κλειδωμένη μέχρι τον έλεγχο του επίσημου OpenAPI contract.");
             myDieselEnabled.ToggleStateChanged += (s,e) => RefreshMyDieselFields();
-            sharedEnvironment.SelectedIndexChanged += (s,e) => { myDieselReferenceCheckedUtc = null; RefreshMyDieselFields(); };
+            sharedEnvironment.SelectedIndexChanged += (s,e) => {
+                myDieselReferenceCheckedUtc = null;
+                LoadMyDieselCompanyChoices(invoicing.MyDiesel?.Environment == (sharedEnvironment.SelectedIndex == 0 ? FiscalEnvironment.Test : FiscalEnvironment.Production)
+                    ? invoicing.MyDiesel.CompanyVat : tinCompanyTextBox.Text.Trim());
+                myDieselStation.Items.Clear();
+                RefreshMyDieselFields();
+            };
+            tinCompanyTextBox.TextChanged += (s,e) => {
+                if (sharedEnvironment.SelectedIndex != 1) return;
+                myDieselReferenceCheckedUtc = null; LoadMyDieselCompanyChoices(tinCompanyTextBox.Text.Trim()); myDieselStation.Items.Clear(); RefreshMyDieselFields();
+            };
+            myDieselCompany.SelectedIndexChanged += (s,e) => {
+                if (!myDieselCompany.ContainsFocus) return;
+                myDieselReferenceCheckedUtc = null; myDieselStation.Items.Clear(); myDieselReferenceStatus.Text = ReferenceCheckText();
+            };
             myDieselAadeUser.TextChanged += (s,e) => myDieselReferenceCheckedUtc = null;
             myDieselStation.SelectedIndexChanged += (s,e) => { if (Focused) myDieselReferenceCheckedUtc = null; myDieselReferenceStatus.Text = ReferenceCheckText(); };
             RefreshMyDieselFields();
@@ -150,11 +170,40 @@ namespace ASFuelControl.Windows.UI.SettingForms
             if (myDieselFields == null) return;
             bool production = sharedEnvironment.SelectedIndex == 1;
             myDieselEnvironment.Text = sharedEnvironment.Text;
-            myDieselCompany.Text = tinCompanyTextBox.Text.Trim();
             myDieselFields.SetRowVisible(myDieselAadeUser,production);
-            myDieselSecret.Enabled = myDieselStation.Enabled = myDieselPoll.Enabled = myDieselEnabled.IsChecked;
+            myDieselFields.SetRowVisible(myDieselSecret,production);
+            myDieselCompany.Enabled = myDieselEnabled.IsChecked && !production;
+            myDieselSecret.Enabled = myDieselStation.Enabled = myDieselExciseRate.Enabled = myDieselPoll.Enabled = myDieselEnabled.IsChecked;
             myDieselAadeUser.Enabled = myDieselEnabled.IsChecked;
             myDieselReferenceStatus.Text = ReferenceCheckText();
+        }
+
+        private void LoadMyDieselCompanyChoices(string preferredVat)
+        {
+            if (myDieselCompany == null) return;
+            bool production = sharedEnvironment.SelectedIndex == 1;
+            myDieselCompany.Items.Clear();
+            if (production)
+            {
+                string vat = tinCompanyTextBox.Text.Trim();
+                myDieselCompany.Items.Add(new RadListDataItem(vat) { Value = vat });
+            }
+            else
+            {
+                var vats = MyDieselUatCatalog.CompanyVats;
+                for (int i = 0; i < vats.Length; i++)
+                    myDieselCompany.Items.Add(new RadListDataItem(vats[i] + " — Δοκιμαστής " + (i / 3 + 1).ToString("00") +
+                        " / Επιχείρηση " + (i % 3 + 1)) { Value = vats[i] });
+            }
+            int selected = -1;
+            for (int i = 0; i < myDieselCompany.Items.Count; i++)
+                if (string.Equals(myDieselCompany.Items[i].Value as string,preferredVat,StringComparison.Ordinal)) { selected = i; break; }
+            myDieselCompany.SelectedIndex = selected >= 0 ? selected : myDieselCompany.Items.Count == 0 ? -1 : 0;
+        }
+
+        private string SelectedMyDieselCompanyVat()
+        {
+            return (myDieselCompany.SelectedItem?.Value as string ?? myDieselCompany.Text).Trim();
         }
 
         private string ReferenceCheckText()
@@ -167,11 +216,12 @@ namespace ASFuelControl.Windows.UI.SettingForms
             try
             {
                 var environment = sharedEnvironment.SelectedIndex == 0 ? FiscalEnvironment.Test : FiscalEnvironment.Production;
-                string company = MyDieselCouponIdentity.NormalizeVat(tinCompanyTextBox.Text,"Company VAT");
-                var current = CurrentMyDieselCredential(); string secret = myDieselSecret.Text;
-                if (string.IsNullOrWhiteSpace(secret) && current != null)
+                string company = MyDieselCouponIdentity.NormalizeVat(SelectedMyDieselCompanyVat(),"Company VAT");
+                var current = CurrentMyDieselCredential();
+                string secret = environment == FiscalEnvironment.Test ? MyDieselUatCatalog.PrimaryErpApiKey : myDieselSecret.Text;
+                if (environment == FiscalEnvironment.Production && string.IsNullOrWhiteSpace(secret) && current != null && current.Environment == environment && current.CompanyVat == company)
                 {
-                    string option = environment == FiscalEnvironment.Test ? current.UatApiKeyOption : current.ProductionSubscriptionKeyOption;
+                    string option = current.ProductionSubscriptionKeyOption;
                     if (!string.IsNullOrWhiteSpace(option)) secret = Data.Implementation.OptionHandler.Instance.GetOption(option,"");
                 }
                 var temporaryScope = new MyDieselScope(environment,company,0,"settings-check");
@@ -272,20 +322,23 @@ namespace ASFuelControl.Windows.UI.SettingForms
         {
             var old = CurrentMyDieselCredential();
             var environment = value.TestMode ? FiscalEnvironment.Test : FiscalEnvironment.Production;
-            string company = tinCompanyTextBox.Text.Trim(); string secret = myDieselSecret.Text;
+            string company = SelectedMyDieselCompanyVat();
+            string secret = environment == FiscalEnvironment.Test ? null : myDieselSecret.Text;
             bool same = old != null && old.Environment == environment && old.CompanyVat == company &&
                 (environment == FiscalEnvironment.Test || old.AadeUserId == myDieselAadeUser.Text.Trim());
             var station = myDieselStation.SelectedItem?.Value as MyDieselGasStation;
             if (!myDieselEnabled.IsChecked && old == null && string.IsNullOrWhiteSpace(secret))
                 return new SharedMyDieselProfile { Enabled = false, Environment = environment, CompanyVat = company,
                     BranchNum = station?.BranchNum ?? -1, StationName = station?.Name, StationAmdika = station?.Amdika,
+                    ExciseDiscountPerLitre = MyDieselTaxRules.NormalizeExciseDiscountPerLitre(myDieselExciseRate.Value),
                     LastReferenceCheckUtc = myDieselReferenceCheckedUtc, PollMinutes = (int)myDieselPoll.Value };
-            if (string.IsNullOrWhiteSpace(secret) && !same && myDieselEnabled.IsChecked)
+            if (environment == FiscalEnvironment.Production && string.IsNullOrWhiteSpace(secret) && !same && myDieselEnabled.IsChecked)
                 throw new InvalidOperationException("myDiesel: το νέο προφίλ εταιρείας/περιβάλλοντος απαιτεί κλειδί πρόσβασης.");
             SharedMyDieselCredentialProfile credential = same && string.IsNullOrWhiteSpace(secret) ? old : null;
             if (credential == null)
             {
-                string id = Guid.NewGuid().ToString("N"); string option = "Fiscal_MyDiesel_" + id + "_Key";
+                string id = Guid.NewGuid().ToString("N");
+                string option = string.IsNullOrWhiteSpace(secret) ? null : "Fiscal_MyDiesel_" + id + "_Key";
                 if (!string.IsNullOrWhiteSpace(secret)) pendingSecrets.Add(option,secret);
                 credential = new SharedMyDieselCredentialProfile { Id = id, Environment = environment, CompanyVat = company,
                     AadeUserId = environment == FiscalEnvironment.Production ? myDieselAadeUser.Text.Trim() : null,
@@ -295,8 +348,9 @@ namespace ASFuelControl.Windows.UI.SettingForms
             }
             return new SharedMyDieselProfile { Enabled = myDieselEnabled.IsChecked, Environment = environment, CompanyVat = company,
                 BranchNum = station?.BranchNum ?? -1, StationName = station?.Name, StationAmdika = station?.Amdika,
-                CredentialProfileId = credential.Id, ContractVersion = invoicing.MyDiesel?.ContractVersion,
-                OpenApiSha256 = invoicing.MyDiesel?.OpenApiSha256, LastReferenceCheckUtc = myDieselReferenceCheckedUtc,
+                ExciseDiscountPerLitre = MyDieselTaxRules.NormalizeExciseDiscountPerLitre(myDieselExciseRate.Value),
+                CredentialProfileId = credential.Id, ContractVersion = environment == FiscalEnvironment.Test ? MyDieselUatCatalog.ContractVersion : invoicing.MyDiesel?.ContractVersion,
+                OpenApiSha256 = environment == FiscalEnvironment.Test ? null : invoicing.MyDiesel?.OpenApiSha256, LastReferenceCheckUtc = myDieselReferenceCheckedUtc,
                 PollMinutes = (int)myDieselPoll.Value };
         }
         private string PreserveImportedSecret(string key)

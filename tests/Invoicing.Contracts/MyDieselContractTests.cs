@@ -29,6 +29,13 @@ internal static partial class Program
             Throws<ArgumentException>(() => new MyDieselScope(FiscalEnvironment.Unspecified, "998877665", 0, "uat-1"));
             Throws<ArgumentOutOfRangeException>(() => new MyDieselScope(FiscalEnvironment.Test, "998877665", -1, "uat-1"));
         });
+        Test("myDiesel excise discount defaults to 0.41 euros per litre and validates configured rates", () => {
+            Equal(0.41m, MyDieselTaxRules.DefaultExciseDiscountPerLitre);
+            Equal(0.375m, MyDieselTaxRules.NormalizeExciseDiscountPerLitre(0.375m));
+            Throws<ArgumentOutOfRangeException>(() => MyDieselTaxRules.NormalizeExciseDiscountPerLitre(0m));
+            Throws<ArgumentOutOfRangeException>(() => MyDieselTaxRules.NormalizeExciseDiscountPerLitre(10.0001m));
+            Throws<ArgumentOutOfRangeException>(() => MyDieselTaxRules.NormalizeExciseDiscountPerLitre(0.41001m));
+        });
         Test("myDiesel retains future remote status text without treating it as a known state", () => {
             var info = new MyDieselCouponInfo { CouponStatus = "FUTURE_AADE_STATE", CreatedAt = 1792648800, ValidUntil = 1792666800 };
             Equal(MyDieselCouponStatus.UnknownValue, info.KnownStatus);
@@ -42,6 +49,8 @@ internal static partial class Program
                 "Prepared>Sending,Prepared>FailedBeforeDispatch,Sending>Succeeded,Sending>Rejected,Sending>Unknown,Sending>FailedBeforeDispatch,Unknown>Sending,Unknown>Succeeded,Unknown>Rejected,Unknown>Unknown");
         });
         Test("myDiesel coupon action rules match the documented lifecycle", () => {
+            Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.InterventionRequired, MyDieselCaseStage.Dismissed), "Rejected coupon cannot be dismissed.");
+            Check(!MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Reserved, MyDieselCaseStage.Dismissed), "Reserved coupon can be dismissed without release.");
             Check(MyDieselCouponStates.CanRedeem(MyDieselCouponStatus.Reserved), "Reserved coupon cannot redeem.");
             Check(MyDieselCouponStates.CanRedeem(MyDieselCouponStatus.VerificationInvalid), "Invalid verification cannot be corrected.");
             Check(!MyDieselCouponStates.CanRedeem(MyDieselCouponStatus.Verified), "Verified coupon can redeem again.");

@@ -483,6 +483,10 @@
     <Compile Include="UI\Forms\TraderForm.Designer.cs">
       <DependentUpon>TraderForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="UI\Forms\QuickCustomerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\MyDieselCouponCaptureDialog.cs" />
     <Compile Include="UI\Forms\UserVerificationForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -616,6 +620,9 @@
       <DependentUpon>TraderSelectForm.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\SelectionForms\VehicleSelectForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SelectionForms\NextSaleSelectionForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\SelectionForms\VehicleSelectForm.Designer.cs">
@@ -1657,6 +1664,7 @@
     <Content Include="DBScripts\UpdateDatabase60.sql" />
     <Content Include="DBScripts\UpdateDatabase61.sql" />
     <Content Include="DBScripts\UpdateDatabase62.sql" />
+    <Content Include="DBScripts\UpdateDatabase63.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />
@@ -1791,8 +1799,11 @@
     <Compile Include="Threads\SharedInvoiceRuntime.cs" />
     <Compile Include="Threads\SharedMyDieselRuntime.cs" />
     <Compile Include="Threads\MyDieselPollingWorker.cs" />
+    <Compile Include="Threads\PendingMyDieselSelectionStore.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.HeatingBatch.cs" />
-    <Compile Include="UI\Forms\HeatingCorrectionBatchForm.cs"><SubType>Form</SubType></Compile>
+    <Compile Include="UI\Forms\HeatingCorrectionBatchForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Threads\SharedInvoiceConfiguration.cs" />
     <Compile Include="Threads\SharedInvoicingSettings.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.Status.cs" />

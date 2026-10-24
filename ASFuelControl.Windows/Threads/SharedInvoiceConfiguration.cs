@@ -41,6 +41,7 @@ namespace ASFuelControl.Windows.Threads
     internal sealed class SharedMyDieselProfile
     {
         public bool Enabled { get; set; }
+        public decimal ExciseDiscountPerLitre { get; set; } = MyDieselTaxRules.DefaultExciseDiscountPerLitre;
         public FiscalEnvironment Environment { get; set; }
         public string CompanyVat { get; set; }
         public int BranchNum { get; set; }

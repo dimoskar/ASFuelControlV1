@@ -372,6 +372,7 @@ internal static class Program
         Test("Migration 62 installs myDiesel schema and document kind six", () => {
             Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.tables WHERE name='MyDieselCouponCase';")));
             Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.tables WHERE name='MyDieselReferenceCache';")));
+            Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.MyDieselCouponCase') AND name='ExciseDiscountPerLitre';")));
             using (db.Acquire(new FiscalDocumentReference(FiscalDocumentKind.MyDieselCoupon, Guid.NewGuid()))) { }
             db.InstallSchema();
             Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.check_constraints WHERE name='CK_FiscalDocumentLease_DocumentKind';")));
@@ -381,8 +382,12 @@ internal static class Program
             using (var lease = store.Acquire(row.CouponCaseId))
             {
                 store.Create(lease, row);
+                Equal(0.41m, store.Load(lease).ExciseDiscountPerLitre);
                 Equal(row.CouponCode, store.FindBlockingByInvoice(row.InvoiceId).CouponCode);
                 Equal(row.InvoiceId, store.FindBlockingByCoupon(row.CouponCode).InvoiceId);
+                var changedRate = store.Load(lease); changedRate.ExciseDiscountPerLitre = 0.50m;
+                changedRate.Revision++; changedRate.UpdatedUtc = DateTime.UtcNow;
+                Throws<InvalidOperationException>(() => store.Save(lease,0,changedRate));
                 var saved = store.Load(lease); saved.LocalStage = MyDieselCaseStage.Reserved; saved.RemoteStatus = "RESERVED";
                 saved.Redeemable = true; saved.CurrentBranchNum = 1; saved.IssuedLitres = 150m;
                 saved.CouponCreatedUtc = DateTime.UtcNow.AddDays(-1); saved.ValidUntilUtc = DateTime.UtcNow.AddDays(30);
@@ -477,7 +482,7 @@ internal static class Program
         var now = DateTime.UtcNow;
         return new MyDieselCouponCaseRecord { CouponCaseId = caseId, InvoiceId = invoiceId, CouponCode = code,
             BeneficiaryVat = "123456789", CompanyVat = "998877665", Environment = FiscalEnvironment.Test, ReservedBranchNum = 1,
-            CredentialProfileId = "fixture",
+            CredentialProfileId = "fixture", ExciseDiscountPerLitre = MyDieselTaxRules.DefaultExciseDiscountPerLitre,
             LocalStage = MyDieselCaseStage.Captured, BlocksInvoice = true, BlocksCouponReuse = true, CreatedUtc = now, UpdatedUtc = now };
     }
     private static MyDieselAttemptRecord Attempt(MyDieselOperation operation, string request)

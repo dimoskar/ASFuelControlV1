@@ -21,7 +21,7 @@ namespace ASFuelControl.Windows.UI.Controls
         private readonly RadLabel details = new RadLabel { AutoSize = false,Dock = DockStyle.Fill,TextAlignment = ContentAlignment.MiddleLeft };
         private readonly RadLabel warning = new RadLabel { AutoSize = false,Dock = DockStyle.Fill,ForeColor = Color.FromArgb(138,80,0),TextAlignment = ContentAlignment.MiddleLeft };
         private readonly FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill,FlowDirection = FlowDirection.LeftToRight,WrapContents = false,AutoScroll = true,Padding = new Padding(0,4,0,0) };
-        private readonly RadButton capture, reserve, release, refresh, correctMark, changeBranch, evidence;
+        private readonly RadButton capture, reserve, release, dismiss, refresh, correctMark, changeBranch, evidence;
         private Guid invoiceId;
         private SharedMyDieselStatus status;
         internal bool Busy { get; private set; }
@@ -45,6 +45,7 @@ namespace ASFuelControl.Windows.UI.Controls
             capture = Button("Σάρωση / καταχώριση",CaptureAndReserve);
             reserve = Button("Έλεγχος και δέσμευση",Reserve);
             release = Button("Αποδέσμευση",Release);
+            dismiss = Button("Αφαίρεση άκυρου",DismissRejected);
             refresh = Button("Ανανέωση κατάστασης",Refresh);
             correctMark = Button("Διόρθωση MARK",CorrectMark);
             changeBranch = Button("Αλλαγή πρατηρίου",ChangeBranch);
@@ -67,10 +68,19 @@ namespace ASFuelControl.Windows.UI.Controls
         private void Render()
         {
             var value = status?.CouponCase;
+            bool dismissed = value?.LocalStage == MyDieselCaseStage.Dismissed;
             if (value == null)
             {
                 state.Text = "Δεν έχει συνδεθεί κουπόνι";
-                details.Text = "Σαρώστε το QR ή καταχωρίστε κωδικό και ΑΦΜ δικαιούχου.";
+                details.Text = status?.CanAttachNewCoupon == true
+                    ? "Σαρώστε το QR ή καταχωρίστε κωδικό και ΑΦΜ δικαιούχου."
+                    : "Το παραστατικό έχει ήδη εκδοθεί ή εκτυπωθεί. Δεν μπορεί να προστεθεί κουπόνι myDiesel.";
+                warning.Text = "";
+            }
+            else if (dismissed)
+            {
+                state.Text = "Δεν έχει συνδεθεί κουπόνι";
+                details.Text = "Το προηγούμενο άκυρο κουπόνι αφαιρέθηκε. Μπορείτε να σαρώσετε νέο κουπόνι.";
                 warning.Text = "";
             }
             else
@@ -80,16 +90,20 @@ namespace ASFuelControl.Windows.UI.Controls
                 details.Text = value.CouponCode + " · ΑΦΜ " + value.BeneficiaryVat + " · πρατήριο " +
                     (value.CurrentBranchNum ?? value.ReservedBranchNum) +
                     (value.IssuedLitres.HasValue ? " · " + value.IssuedLitres.Value.ToString("0.00") + " L" : "") +
+                    " · ΕΦΚ " + value.ExciseDiscountPerLitre.ToString("0.0000") + " €/L" +
                     (string.IsNullOrWhiteSpace(value.InvoiceMark) ? "" : " · MARK " + value.InvoiceMark);
                 warning.Text = value.LowBalance ? value.LowBalanceMessageEl : value.LocalStage == MyDieselCaseStage.ReserveUnknown || value.LocalStage == MyDieselCaseStage.RedeemUnknown
                     ? "Η έκβαση είναι άγνωστη. Μην επαναλάβετε τυφλά την ενέργεια." : "";
             }
             bool active = !Busy && invoiceId != Guid.Empty;
-            capture.Visible = value == null; capture.Enabled = active && NewReservationsEnabled();
+            capture.Visible = (value == null || dismissed) && status?.CanAttachNewCoupon == true;
+            capture.Enabled = active && capture.Visible && NewReservationsEnabled();
             reserve.Visible = value != null && (value.LocalStage == MyDieselCaseStage.Captured || value.LocalStage == MyDieselCaseStage.ReserveUnknown);
             reserve.Enabled = active && reserve.Visible;
             release.Visible = value != null && value.LocalStage == MyDieselCaseStage.Reserved;
             release.Enabled = active && release.Visible;
+            dismiss.Visible = MyDieselCouponService.CanDismissRejected(value);
+            dismiss.Enabled = active && dismiss.Visible;
             refresh.Visible = value != null && (value.LocalStage == MyDieselCaseStage.RedeemUnknown || value.LocalStage == MyDieselCaseStage.Redeemed ||
                 value.LocalStage == MyDieselCaseStage.VerificationPending || value.LocalStage == MyDieselCaseStage.InterventionRequired);
             refresh.Enabled = active && refresh.Visible;
@@ -111,17 +125,24 @@ namespace ASFuelControl.Windows.UI.Controls
         private async void CaptureAndReserve(object sender, EventArgs e)
         {
             if (Busy) return;
-            CaptureInput input;
-            using (var dialog = new CaptureDialog())
+            string initialInvoiceVat;
+            try { initialInvoiceVat = ReadInvoiceTraderVat(); }
+            catch (Exception ex) { RadMessageBox.Show(ex.Message,"myDiesel",MessageBoxButtons.OK,RadMessageIcon.Exclamation); return; }
+            MyDieselCaptureInput input;
+            using (var dialog = new MyDieselCouponCaptureDialog(initialInvoiceVat,true))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 input = dialog.Value;
             }
             if (!ensureSaved()) return;
             string invoiceVat;
-            try { invoiceVat = MyDieselCouponIdentity.NormalizeVat(traderVat(),"Invoice trader VAT"); }
+            try { invoiceVat = ReadInvoiceTraderVat(); }
             catch (Exception ex) { RadMessageBox.Show(ex.Message,"myDiesel",MessageBoxButtons.OK,RadMessageIcon.Exclamation); return; }
-            if (invoiceVat != input.Identity.BeneficiaryVat)
+            if (initialInvoiceVat != null && invoiceVat == null)
+            {
+                RadMessageBox.Show("Ο πελάτης αφαιρέθηκε από το παραστατικό. Ανοίξτε ξανά τη σάρωση του κουπονιού.","myDiesel",MessageBoxButtons.OK,RadMessageIcon.Exclamation); return;
+            }
+            if (invoiceVat != null && invoiceVat != input.Identity.BeneficiaryVat)
             {
                 RadMessageBox.Show("Το ΑΦΜ του πελάτη στο παραστατικό δεν συμφωνεί με το ΑΦΜ δικαιούχου του κουπονιού.","myDiesel",MessageBoxButtons.OK,RadMessageIcon.Exclamation); return;
             }
@@ -129,9 +150,16 @@ namespace ASFuelControl.Windows.UI.Controls
                 var configuration = SharedInvoicingSettings.LoadRuntime();
                 var service = SharedMyDieselRuntime.CreateService(configuration);
                 var scope = SharedMyDieselRuntime.NewReservationScope(configuration);
-                var coupon = input.Qr == null ? service.Capture(invoiceId,input.Identity,scope) : service.Capture(invoiceId,input.Qr,scope);
+                decimal exciseRate = configuration.MyDiesel.ExciseDiscountPerLitre;
+                var coupon = input.Qr == null ? service.Capture(invoiceId,input.Identity,scope,null,null,exciseRate) : service.Capture(invoiceId,input.Qr,scope,exciseRate);
                 service.Reserve(coupon.CouponCaseId);
             });
+        }
+
+        private string ReadInvoiceTraderVat()
+        {
+            string value = traderVat();
+            return string.IsNullOrWhiteSpace(value) ? null : MyDieselCouponIdentity.NormalizeVat(value,"Invoice trader VAT");
         }
 
         private async void Reserve(object sender, EventArgs e)
@@ -145,6 +173,13 @@ namespace ASFuelControl.Windows.UI.Controls
             var value = status?.CouponCase; if (value == null) return;
             if (RadMessageBox.Show("Να αποδεσμευτεί το κουπόνι από το παραστατικό;","myDiesel",MessageBoxButtons.YesNo,RadMessageIcon.Question) != DialogResult.Yes) return;
             await Run(() => SharedMyDieselRuntime.CreateService().Release(value.CouponCaseId));
+        }
+
+        private async void DismissRejected(object sender, EventArgs e)
+        {
+            var value = status?.CouponCase; if (!MyDieselCouponService.CanDismissRejected(value)) return;
+            if (RadMessageBox.Show("Να αφαιρεθεί το απορριφθέν κουπόνι από το παραστατικό; Τα τεκμήρια θα διατηρηθούν.","myDiesel",MessageBoxButtons.YesNo,RadMessageIcon.Question) != DialogResult.Yes) return;
+            await Run(() => SharedMyDieselRuntime.CreateService().DismissRejected(value.CouponCaseId));
         }
 
         private async void Refresh(object sender, EventArgs e)
@@ -175,7 +210,8 @@ namespace ASFuelControl.Windows.UI.Controls
         private void ShowEvidence(object sender, EventArgs e)
         {
             if (invoiceId == Guid.Empty) return;
-            using (var form = new MyDieselEvidenceForm(invoiceId)) form.ShowDialog(this);
+            try { using (var form = new MyDieselEvidenceForm(invoiceId)) form.ShowDialog(this); }
+            catch (Exception ex) { RadMessageBox.Show(ex.Message,"Τεκμήρια myDiesel",MessageBoxButtons.OK,RadMessageIcon.Error); }
         }
 
         private async Task Run(Action action)
@@ -215,46 +251,5 @@ namespace ASFuelControl.Windows.UI.Controls
             }
         }
 
-        private sealed class CaptureInput
-        {
-            internal MyDieselCouponIdentity Identity { get; set; }
-            internal MyDieselQrCoupon Qr { get; set; }
-        }
-
-        private sealed class CaptureDialog : RadForm
-        {
-            private readonly RadTextBox qr = new RadTextBox { Multiline = true,Dock = DockStyle.Fill };
-            private readonly RadTextBox code = new RadTextBox { Dock = DockStyle.Fill };
-            private readonly RadTextBox vat = new RadTextBox { Dock = DockStyle.Fill };
-            internal CaptureInput Value { get; private set; }
-            internal CaptureDialog()
-            {
-                Text = "Σάρωση κουπονιού myDiesel"; StartPosition = FormStartPosition.CenterParent; ShowIcon = false;
-                ClientSize = new Size(720,390); MinimumSize = new Size(680,360);
-                var table = new TableLayoutPanel { Dock = DockStyle.Fill,ColumnCount = 2,RowCount = 5,Padding = new Padding(16) };
-                table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,190)); table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-                table.RowStyles.Add(new RowStyle(SizeType.Absolute,32)); table.RowStyles.Add(new RowStyle(SizeType.Percent,100));
-                table.RowStyles.Add(new RowStyle(SizeType.Absolute,36)); table.RowStyles.Add(new RowStyle(SizeType.Absolute,36)); table.RowStyles.Add(new RowStyle(SizeType.Absolute,45));
-                table.Controls.Add(new RadLabel { Text = "QR JSON (σάρωση ή επικόλληση)",Dock = DockStyle.Fill },0,0); table.SetColumnSpan(table.GetControlFromPosition(0,0),2);
-                table.Controls.Add(qr,0,1); table.SetColumnSpan(qr,2);
-                table.Controls.Add(new RadLabel { Text = "ή χειροκίνητος κωδικός",Dock = DockStyle.Fill },0,2); table.Controls.Add(code,1,2);
-                table.Controls.Add(new RadLabel { Text = "ΑΦΜ δικαιούχου (9 ψηφία)",Dock = DockStyle.Fill },0,3); table.Controls.Add(vat,1,3);
-                var accept = new RadButton { Text = "Έλεγχος και δέσμευση",Dock = DockStyle.Right,Width = 190,Height = 34 };
-                accept.Click += Accept; table.Controls.Add(accept,1,4); Controls.Add(table);
-            }
-            private void Accept(object sender, EventArgs e)
-            {
-                try
-                {
-                    if (!string.IsNullOrWhiteSpace(qr.Text))
-                    {
-                        var parsed = MyDieselQrParser.Parse(qr.Text.Trim()); Value = new CaptureInput { Identity = parsed.Identity,Qr = parsed };
-                    }
-                    else Value = new CaptureInput { Identity = new MyDieselCouponIdentity(code.Text,vat.Text) };
-                    DialogResult = DialogResult.OK;
-                }
-                catch (Exception ex) { RadMessageBox.Show(ex.Message,"Κουπόνι myDiesel",MessageBoxButtons.OK,RadMessageIcon.Exclamation); }
-            }
-        }
     }
 }

@@ -146,12 +146,21 @@ namespace ASFuelControl.Windows.UI.SelectionForms
 
         private void radButton2_Click(object sender, EventArgs e)
         {
-            using (Forms.TraderForm tf = new Forms.TraderForm())
+            using (Forms.QuickCustomerForm tf = new Forms.QuickCustomerForm())
             {
-                tf.CreateCustomer();
-                tf.ShowDialog(this);
-                if (tf.SelectedCustomerId != Guid.Empty)
-                    this.LoadDataById(tf.SelectedCustomerId);
+                if (tf.ShowDialog(this) != DialogResult.OK || tf.SelectedCustomerId == Guid.Empty)
+                    return;
+
+                this.LoadDataById(tf.SelectedCustomerId);
+                var selected = this.TheSource.Cast<ViewModels.VehicleViewModel>()
+                    .SingleOrDefault(value => value.VehicleId == tf.SelectedVehicleId);
+                if (selected == null)
+                    return;
+
+                selected.Odometer = tf.SelectedOdometer;
+                selected.DefaultInvoiceTypeId = tf.SelectedInvoiceTypeId;
+                this.SelectedEntity = selected;
+                this.DialogResult = DialogResult.OK;
             }
         }
 

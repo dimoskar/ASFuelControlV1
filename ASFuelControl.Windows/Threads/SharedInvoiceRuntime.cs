@@ -156,6 +156,7 @@ namespace ASFuelControl.Windows.Threads
                     {
                         value.Version = 2; value.MyDieselCouponCaseId = coupon.CouponCaseId;
                         value.MyDieselScope = new MyDieselScope(coupon.Environment,coupon.CompanyVat,coupon.ReservedBranchNum,coupon.CredentialProfileId);
+                        value.MyDieselExciseDiscountPerLitre = coupon.ExciseDiscountPerLitre;
                     }
                     if (route.Provider != null)
                     {
@@ -188,6 +189,9 @@ namespace ASFuelControl.Windows.Threads
                     throw new InvalidOperationException("Το περιβάλλον ή το ΑΦΜ εκδότη του παραστατικού διαφέρει από τη δεσμευμένη κλήση myDiesel.");
                 decimal litres = invoice.InvoiceLines.Sum(line => Math.Abs(line.Volume));
                 if (litres <= 0) throw new InvalidOperationException("Το παραστατικό myDiesel πρέπει να περιέχει θετική ποσότητα καυσίμου σε λίτρα.");
+                if (!coupon.FuelCode.HasValue || invoice.InvoiceLines.Any(line =>
+                    line.FuelType == null || line.FuelType.EnumeratorValue != coupon.FuelCode.Value))
+                    throw new InvalidOperationException("Το καύσιμο του παραστατικού δεν συμφωνεί με το επιλέξιμο καύσιμο του κουπονιού myDiesel.");
                 if (coupon.IssuedLitres.HasValue && litres > coupon.IssuedLitres.Value)
                     throw new InvalidOperationException("Τα λίτρα του παραστατικού υπερβαίνουν τα διαθέσιμα λίτρα του κουπονιού myDiesel. Διαχωρίστε την επιπλέον ποσότητα.");
                 var profile = config.MyDiesel;

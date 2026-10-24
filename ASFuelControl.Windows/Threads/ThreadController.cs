@@ -1867,6 +1867,17 @@ namespace ASFuelControl.Windows.Threads
             }
 
             this.database.SaveChanges();
+            if (newInvoice != null && nozzle != null)
+            {
+                try
+                {
+                    PendingMyDieselSelectionStore.AttachToInvoice(nozzle.DispenserId, newInvoice.InvoiceId);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.LogToFile("myDiesel next sale", ex);
+                }
+            }
             ///////////////////////////
             //here updates the tanks.//
             ///////////////////////////

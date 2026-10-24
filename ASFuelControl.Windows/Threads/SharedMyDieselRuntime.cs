@@ -12,6 +12,7 @@ namespace ASFuelControl.Windows.Threads
         internal MyDieselCouponCaseRecord CouponCase { get; set; }
         internal MyDieselAttemptRecord[] Attempts { get; set; } = new MyDieselAttemptRecord[0];
         internal MyDieselHttpEvidenceRecord[] HttpEvidence { get; set; } = new MyDieselHttpEvidenceRecord[0];
+        internal bool CanAttachNewCoupon { get; set; }
     }
 
     internal sealed class SharedMyDieselClientFactory : IMyDieselClientFactory
@@ -36,7 +37,10 @@ namespace ASFuelControl.Windows.Threads
             if (credential.Environment != couponCase.Environment || credential.CompanyVat != couponCase.CompanyVat)
                 throw new InvalidOperationException("Το ιστορικό προφίλ myDiesel δεν συμφωνεί με την αποθηκευμένη εταιρεία/περιβάλλον.");
             string productionKey = Read(credential.ProductionSubscriptionKeyOption);
-            string uatKey = Read(credential.UatApiKeyOption);
+            // The myDiesel UAT ERP key is a public, shared test fixture distributed
+            // with the official examples. UAT deliberately does not reuse myDATA
+            // test credentials or a secret saved by an older configuration.
+            string uatKey = credential.Environment == FiscalEnvironment.Test ? MyDieselUatCatalog.PrimaryErpApiKey : null;
             return new MyDieselClient(new MyDieselClientOptions {
                 Scope = new MyDieselScope(couponCase.Environment,couponCase.CompanyVat,couponCase.ReservedBranchNum,couponCase.CredentialProfileId),
                 AadeUserId = credential.AadeUserId, ProductionSubscriptionKey = productionKey, UatApiKey = uatKey,
@@ -88,13 +92,15 @@ namespace ASFuelControl.Windows.Threads
             if (invoiceId == Guid.Empty) return new SharedMyDieselStatus();
             var database = new SqlFiscalDatabase(Properties.Settings.Default.DBConnection);
             var store = new SqlMyDieselStore(database);
+            bool canAttachNewCoupon = store.CanAttachNewCoupon(invoiceId);
             var coupon = store.FindLatestByInvoice(invoiceId);
-            if (coupon == null) return new SharedMyDieselStatus();
+            if (coupon == null) return new SharedMyDieselStatus { CanAttachNewCoupon = canAttachNewCoupon };
             using (var lease = store.Acquire(coupon.CouponCaseId))
             {
                 coupon = store.Load(lease);
                 return new SharedMyDieselStatus {
                     CouponCase = coupon,
+                    CanAttachNewCoupon = canAttachNewCoupon,
                     Attempts = store.LoadAttempts(lease,null,includeHistory).ToArray(),
                     HttpEvidence = includeHistory ? store.LoadHttpEvidence(coupon.CouponCaseId).ToArray() : new MyDieselHttpEvidenceRecord[0]
                 };

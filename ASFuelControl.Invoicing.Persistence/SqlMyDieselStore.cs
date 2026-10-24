@@ -18,6 +18,7 @@ namespace ASFuelControl.Invoicing.Persistence
         public FiscalEnvironment Environment { get; set; }
         public string CredentialProfileId { get; set; }
         public int ReservedBranchNum { get; set; }
+        public decimal ExciseDiscountPerLitre { get; set; }
         public int? CurrentBranchNum { get; set; }
         public MyDieselCaseStage LocalStage { get; set; }
         public string RemoteStatus { get; set; }
@@ -81,10 +82,10 @@ namespace ASFuelControl.Invoicing.Persistence
     public sealed class SqlMyDieselStore
     {
         private readonly SqlFiscalDatabase db;
-        private const string CaseColumns = "CouponCaseId,InvoiceId,CouponCode,BeneficiaryVat,CompanyVat,Environment,CredentialProfileId,ReservedBranchNum,CurrentBranchNum,LocalStage,RemoteStatus,Redeemable,IssuedLitres,CouponCreatedUtc,ValidUntilUtc,FuelType,FuelCode,LowBalance,LowBalanceMessageEl,InvoiceMark,MarkSourceInvoiceId,BlocksInvoice,BlocksCouponReuse,LastCheckedUtc,Revision,FencingToken,CreatedUtc,UpdatedUtc";
+        private const string CaseColumns = "CouponCaseId,InvoiceId,CouponCode,BeneficiaryVat,CompanyVat,Environment,CredentialProfileId,ReservedBranchNum,CurrentBranchNum,LocalStage,RemoteStatus,Redeemable,IssuedLitres,CouponCreatedUtc,ValidUntilUtc,FuelType,FuelCode,LowBalance,LowBalanceMessageEl,InvoiceMark,MarkSourceInvoiceId,BlocksInvoice,BlocksCouponReuse,LastCheckedUtc,Revision,FencingToken,CreatedUtc,UpdatedUtc,ExciseDiscountPerLitre";
         internal const string InsertCase = @"INSERT dbo.MyDieselCouponCase
-(CouponCaseId,InvoiceId,CouponCode,BeneficiaryVat,CompanyVat,Environment,CredentialProfileId,ReservedBranchNum,CurrentBranchNum,LocalStage,RemoteStatus,Redeemable,IssuedLitres,CouponCreatedUtc,ValidUntilUtc,FuelType,FuelCode,LowBalance,LowBalanceMessageEl,InvoiceMark,MarkSourceInvoiceId,BlocksInvoice,BlocksCouponReuse,LastCheckedUtc,Revision,FencingToken,CreatedUtc,UpdatedUtc)
-VALUES(@case,@invoice,@code,@beneficiary,@company,@environment,@credential,@reservedBranch,@currentBranch,@stage,@remote,@redeemable,@litres,@couponCreated,@validUntil,@fuelType,@fuelCode,@lowBalance,@lowBalanceEl,@mark,@markInvoice,@blocksInvoice,@blocksCoupon,@lastChecked,0,@token,@created,@updated);";
+(CouponCaseId,InvoiceId,CouponCode,BeneficiaryVat,CompanyVat,Environment,CredentialProfileId,ReservedBranchNum,CurrentBranchNum,LocalStage,RemoteStatus,Redeemable,IssuedLitres,CouponCreatedUtc,ValidUntilUtc,FuelType,FuelCode,LowBalance,LowBalanceMessageEl,InvoiceMark,MarkSourceInvoiceId,BlocksInvoice,BlocksCouponReuse,LastCheckedUtc,Revision,FencingToken,CreatedUtc,UpdatedUtc,ExciseDiscountPerLitre)
+VALUES(@case,@invoice,@code,@beneficiary,@company,@environment,@credential,@reservedBranch,@currentBranch,@stage,@remote,@redeemable,@litres,@couponCreated,@validUntil,@fuelType,@fuelCode,@lowBalance,@lowBalanceEl,@mark,@markInvoice,@blocksInvoice,@blocksCoupon,@lastChecked,0,@token,@created,@updated,@exciseRate);";
         internal const string UpdateCase = @"UPDATE dbo.MyDieselCouponCase SET CurrentBranchNum=@currentBranch,LocalStage=@stage,RemoteStatus=@remote,Redeemable=@redeemable,
 IssuedLitres=@litres,CouponCreatedUtc=@couponCreated,ValidUntilUtc=@validUntil,FuelType=@fuelType,FuelCode=@fuelCode,LowBalance=@lowBalance,
 LowBalanceMessageEl=@lowBalanceEl,InvoiceMark=@mark,MarkSourceInvoiceId=@markInvoice,BlocksInvoice=@blocksInvoice,BlocksCouponReuse=@blocksCoupon,
@@ -94,6 +95,14 @@ WHERE CouponCaseId=@case AND Revision=@expected AND FencingToken<=@token;";
         internal const string ReadBlockingInvoice = "SELECT " + CaseColumns + " FROM dbo.MyDieselCouponCase WHERE InvoiceId=@invoice AND BlocksInvoice=1;";
         internal const string ReadLatestInvoice = "SELECT TOP 1 " + CaseColumns + " FROM dbo.MyDieselCouponCase WHERE InvoiceId=@invoice ORDER BY CreatedUtc DESC,CouponCaseId DESC;";
         internal const string ReadBlockingCoupon = "SELECT " + CaseColumns + " FROM dbo.MyDieselCouponCase WHERE CouponCode=@code AND BlocksCouponReuse=1;";
+        internal const string ReadInvoiceAllowsNewCoupon = @"SELECT CASE WHEN EXISTS(
+SELECT 1 FROM dbo.Invoice i
+WHERE i.InvoiceId=@invoice
+AND ISNULL(i.IsPrinted,0)=0
+AND ISNULL(i.InvoiceSignature,'')=''
+AND ISNULL(i.QRCodeData,'')=''
+AND NOT EXISTS(SELECT 1 FROM dbo.MyDataInvoice m WHERE m.InvoiceId=i.InvoiceId))
+THEN 1 ELSE 0 END;";
         internal const string ReadHttpEvidence = "SELECT RequestJson,ResponseJson FROM dbo.FiscalHttpExchange WHERE DocumentKind=6 AND DocumentId=@case ORDER BY StartedUtc,ExchangeId;";
         internal const string ReadPollCandidates = @"SELECT TOP (@maximum) CouponCaseId FROM dbo.MyDieselCouponCase
 WHERE LocalStage IN ('Redeemed','VerificationPending')
@@ -113,6 +122,36 @@ ELSE INSERT dbo.MyDieselReferenceCache(Environment,CompanyVat,FuelTypesJson,Fuel
         public IFiscalDocumentLease Acquire(Guid couponCaseId)
         {
             return db.Acquire(new FiscalDocumentReference(FiscalDocumentKind.MyDieselCoupon, couponCaseId));
+        }
+
+        public bool CanAttachNewCoupon(Guid invoiceId)
+        {
+            if (invoiceId == Guid.Empty) return false;
+            using (var lease = db.EnterInvoice(invoiceId)) return InvoiceAllowsNewCoupon(lease);
+        }
+
+        public IDisposable AcquireInvoiceForNewCoupon(Guid invoiceId)
+        {
+            if (invoiceId == Guid.Empty) throw new ArgumentException("Invoice ID is required.", nameof(invoiceId));
+            var lease = db.EnterInvoice(invoiceId);
+            try
+            {
+                if (!InvoiceAllowsNewCoupon(lease))
+                    throw new InvalidOperationException("Δεν μπορεί να προστεθεί κουπόνι myDiesel σε παραστατικό που έχει ήδη εκδοθεί ή εκτυπωθεί.");
+                return lease;
+            }
+            catch { lease.Dispose(); throw; }
+        }
+
+        private bool InvoiceAllowsNewCoupon(IFiscalDocumentLease lease)
+        {
+            if (new SqlFiscalOwnershipStore(db).Owns(lease)) return false;
+            return db.Locked(lease, (held, transaction) =>
+            {
+                using (var command = SqlFiscalDatabase.Command(held.Connection, transaction, ReadInvoiceAllowsNewCoupon,
+                    "@invoice", held.Document.DocumentId))
+                    return Convert.ToInt32(command.ExecuteScalar()) != 0;
+            });
         }
 
         public void Create(IFiscalDocumentLease lease, MyDieselCouponCaseRecord value)
@@ -161,6 +200,7 @@ ELSE INSERT dbo.MyDieselReferenceCache(Environment,CompanyVat,FuelTypesJson,Fuel
                 if (old == null || old.Revision != expectedRevision || value.Revision != expectedRevision + 1 ||
                     old.InvoiceId != value.InvoiceId || old.CouponCode != value.CouponCode || old.BeneficiaryVat != value.BeneficiaryVat ||
                     old.CompanyVat != value.CompanyVat || old.Environment != value.Environment || old.CredentialProfileId != value.CredentialProfileId || old.ReservedBranchNum != value.ReservedBranchNum ||
+                    old.ExciseDiscountPerLitre != value.ExciseDiscountPerLitre ||
                     old.CreatedUtc != value.CreatedUtc || !MyDieselCaseTransitions.CanTransition(old.LocalStage, value.LocalStage) ||
                     value.UpdatedUtc < old.UpdatedUtc)
                     throw new InvalidOperationException("Stale revision, changed coupon identity, or forbidden myDiesel transition.");
@@ -306,7 +346,7 @@ ELSE INSERT dbo.MyDieselReferenceCache(Environment,CompanyVat,FuelTypesJson,Fuel
                 "@fuelCode", value.FuelCode, "@lowBalance", value.LowBalance, "@lowBalanceEl", value.LowBalanceMessageEl,
                 "@mark", value.InvoiceMark, "@markInvoice", value.MarkSourceInvoiceId, "@blocksInvoice", value.BlocksInvoice,
                 "@blocksCoupon", value.BlocksCouponReuse, "@lastChecked", value.LastCheckedUtc, "@token", value.FencingToken,
-                "@created", value.CreatedUtc, "@updated", value.UpdatedUtc);
+                "@created", value.CreatedUtc, "@updated", value.UpdatedUtc, "@exciseRate", value.ExciseDiscountPerLitre);
         }
 
         private static MyDieselCouponCaseRecord ReadOne(SqlConnection connection, SqlTransaction transaction, string sql, string parameter, object value)
@@ -325,7 +365,8 @@ ELSE INSERT dbo.MyDieselReferenceCache(Environment,CompanyVat,FuelTypesJson,Fuel
                     LowBalance = reader.GetBoolean(17), LowBalanceMessageEl = DbString(reader, 18), InvoiceMark = DbString(reader, 19),
                     MarkSourceInvoiceId = DbGuid(reader, 20), BlocksInvoice = reader.GetBoolean(21), BlocksCouponReuse = reader.GetBoolean(22),
                     LastCheckedUtc = DbDate(reader, 23), Revision = reader.GetInt64(24), FencingToken = reader.GetInt64(25),
-                    CreatedUtc = SqlFiscalDatabase.Utc(reader.GetDateTime(26)), UpdatedUtc = SqlFiscalDatabase.Utc(reader.GetDateTime(27))
+                    CreatedUtc = SqlFiscalDatabase.Utc(reader.GetDateTime(26)), UpdatedUtc = SqlFiscalDatabase.Utc(reader.GetDateTime(27)),
+                    ExciseDiscountPerLitre = reader.GetDecimal(28)
                 };
             }
         }
@@ -347,6 +388,7 @@ ELSE INSERT dbo.MyDieselReferenceCache(Environment,CompanyVat,FuelTypesJson,Fuel
             if (value.Environment != FiscalEnvironment.Test && value.Environment != FiscalEnvironment.Production) throw new ArgumentException("Invalid myDiesel environment.");
             if (string.IsNullOrWhiteSpace(value.CredentialProfileId) || value.CredentialProfileId.Length > 128) throw new ArgumentException("Credential profile ID is required.");
             if (value.ReservedBranchNum < 0 || value.CurrentBranchNum < 0) throw new ArgumentException("Branch numbers cannot be negative.");
+            MyDieselTaxRules.NormalizeExciseDiscountPerLitre(value.ExciseDiscountPerLitre);
             if (value.LocalStage == MyDieselCaseStage.Unspecified || !Enum.IsDefined(typeof(MyDieselCaseStage), value.LocalStage)) throw new ArgumentException("A local myDiesel stage is required.");
             if (value.RemoteStatus != null && value.RemoteStatus.Length > 32) throw new ArgumentException("Remote status is too long.");
             if (value.IssuedLitres <= 0 || value.FuelCode <= 0) throw new ArgumentException("Litres and fuel code must be positive when present.");
@@ -360,6 +402,9 @@ ELSE INSERT dbo.MyDieselReferenceCache(Environment,CompanyVat,FuelTypesJson,Fuel
             if ((value.LocalStage == MyDieselCaseStage.Released || remote == MyDieselCouponStatus.Expired || remote == MyDieselCouponStatus.Cancelled) &&
                 (value.BlocksInvoice || value.BlocksCouponReuse)) throw new ArgumentException("Released or unavailable coupons cannot remain locally blocking.");
             if (value.LocalStage == MyDieselCaseStage.Final && !MyDieselCouponStates.IsFinal(remote)) throw new ArgumentException("A final local case requires a final remote status.");
+            if (value.LocalStage == MyDieselCaseStage.Dismissed && (value.BlocksInvoice || value.BlocksCouponReuse ||
+                !string.IsNullOrWhiteSpace(value.RemoteStatus) || !string.IsNullOrWhiteSpace(value.InvoiceMark) || value.MarkSourceInvoiceId.HasValue))
+                throw new ArgumentException("Only a rejected, never-reserved coupon can be dismissed.");
         }
 
         private static void ValidateAttempt(MyDieselAttemptRecord value, bool creating)
