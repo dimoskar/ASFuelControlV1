@@ -48,7 +48,10 @@ namespace ASFuelControl.Windows.UI.Controls
             resume = Button("Συνέχιση έκδοσης",async () => {
                 if (!Owned) { await SubmitPrintedInvoice(); return; }
                 var id = invoiceId;
-                var question = status.State("Payment") == "Declined" || status.State("Payment") == "Failed"
+                bool rejectedSubmission = status.State("Submission") == "Rejected";
+                var question = rejectedSubmission
+                    ? "Να γίνει νέα διαβίβαση με το διορθωμένο αίτημα; Η απορριφθείσα προσπάθεια θα παραμείνει στο ιστορικό."
+                    : status.State("Payment") == "Declined" || status.State("Payment") == "Failed"
                     ? "Νέα προσπάθεια πληρωμής POS και συνέχιση έκδοσης με τα αρχικά στοιχεία;"
                     : status.ConfiguredProvider != null && !status.Attempts.Any()
                     ? "Συνέχιση με τα αποθηκευμένα στοιχεία παραστατικού και τον λογαριασμό / συνδρομή από τις ρυθμίσεις: " + status.ConfiguredProvider.Account + ";"
@@ -93,7 +96,8 @@ namespace ASFuelControl.Windows.UI.Controls
                 var snapshot = status?.Snapshot;
                 retryPayment.Visible = snapshot?.Payment != null;
                 retryPayment.Enabled = snapshot?.Payment != null && status.RetryPaymentAttemptId.HasValue;
-                resume.Text = snapshot == null && status?.CanSubmitPrinted == true ? "Διαβίβαση" : "Συνέχιση έκδοσης";
+                resume.Text = snapshot == null && status?.CanSubmitPrinted == true ? "Διαβίβαση" :
+                    status?.State("Submission") == "Rejected" ? "Επανάληψη διαβίβασης" : "Συνέχιση έκδοσης";
                 if (snapshot == null)
                 {
                     summary.Text = Owned ? "Υπάρχει κοινό φορολογικό ιστορικό χωρίς αποθηκευμένη ροή. Απαιτείται έλεγχος ιστορικών στοιχείων." :
@@ -110,6 +114,8 @@ namespace ASFuelControl.Windows.UI.Controls
                     "\r\nΣήμανση: " + (snapshot.Signing != null ? StateLabel(status.State("Signing")) : snapshot.Provider != null && snapshot.Provider.ProviderKey != "myDATA" ? "Μέσω παρόχου" : "Δεν απαιτείται") + "    Πληρωμή: " + (snapshot.Payment == null ? "Δεν απαιτείται" : status.RetryPaymentAttemptId.HasValue ? "Αναμονή επανάληψης" : StateLabel(status.State("Payment"))) +
                     "\r\nΔιαβίβαση: " + (snapshot.Provider == null ? "Χωρίς διαβίβαση" : StateLabel(status.State("Submission"))) + "    Εκτύπωση: " + PrintStatus();
                 if (!string.IsNullOrWhiteSpace(status.ConnectionProblem)) summary.Text += "\r\nΈλεγχος σύνδεσης: " + status.ConnectionProblem;
+                if (status.State("Submission") == "Rejected")
+                    summary.Text += "\r\nΗ προηγούμενη διαβίβαση απορρίφθηκε. Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια με το διορθωμένο αίτημα.";
                 if (string.IsNullOrWhiteSpace(CurrentActionMessage) && snapshot.Provider != null && snapshot.Payment == null && snapshot.Signing == null && !status.Attempts.Any(a => a.Family == "Submission"))
                     summary.Text += "\r\nΈχουν αποθηκευτεί τα στοιχεία έκδοσης, αλλά δεν έχει καταγραφεί αποστολή παραστατικού.\r\nΗ σύνδεση / προετοιμασία μπορεί να μην ολοκληρώθηκε. Η «Συνέχιση έκδοσης» εμφανίζει το αποτέλεσμα.";
                 history.Text = string.Join("\r\n",status.Revisions.Select(a => a.UpdatedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") + " · " + a.Family + " · " + StateLabel(a.State) + " · " + a.AttemptId));

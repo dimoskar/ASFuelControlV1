@@ -698,21 +698,25 @@ namespace Exedron.Invoicing.Adapters
             string externalSystemId,
             ProviderPaymentContext posPayment)
         {
+            var specialCategory = MyDataHeaderFields.SpecialInvoiceCategory(source);
+            var isDeliveryNote = MyDataHeaderFields.IsDeliveryNote(source);
+            var movePurpose = MyDataHeaderFields.EffectiveMovePurpose(source);
+            var deliveryHeader = MyDataHeaderFields.EffectiveDeliveryHeader(source);
             // Validate the shared AADE representation even for JSON transport.
             WorkflowInvoiceXml.Build(source);
             bool isRetail = source.InvoiceHeader.InvoiceType.StartsWith("11.", StringComparison.Ordinal);
             // Keep the recipient for delivery receipts and for fuel supply numbers,
             // even when the fuel receipt is not also a delivery note.
-            bool isRetailDelivery = source.InvoiceHeader.InvoiceType == "11.1" && source.InvoiceHeader.DeliveryNote;
+            bool isRetailDelivery = source.InvoiceHeader.InvoiceType == "11.1" && isDeliveryNote;
             string supplyAccount = MyDataPartyFields.SupplyAccountNumber(source);
             if (isRetailDelivery && source.CounterPart == null)
                 throw new InvalidOperationException("A retail delivery receipt requires recipient details. No invoice was submitted.");
-            if (source.InvoiceHeader.DeliveryNote || IsStandaloneDeliveryNote(source.InvoiceHeader.InvoiceType))
+            if (isDeliveryNote || IsStandaloneDeliveryNote(source.InvoiceHeader.InvoiceType))
                 foreach (var detail in source.InvoiceDetails ?? new InvoiceDetail[0])
                     if (detail == null || string.IsNullOrWhiteSpace(detail.ItemDescription))
                         throw new InvalidOperationException("itemDescr is required for every delivery invoice line. No invoice was submitted.");
             List<InvoiceDetailRequest> details = (source.InvoiceDetails ?? new InvoiceDetail[0])
-                .Select(value => MapDetail(value, source.InvoiceHeader.DeliveryNote || IsStandaloneDeliveryNote(source.InvoiceHeader.InvoiceType),
+                .Select(value => MapDetail(value, isDeliveryNote || IsStandaloneDeliveryNote(source.InvoiceHeader.InvoiceType),
                     MyDataLineFields.IncludeQuantityAndUnit(source.InvoiceHeader.InvoiceType)))
                 .ToList();
             var counterpart = isRetail && !isRetailDelivery && supplyAccount == null ? null : MapTrader<CounterpartRequest>(source.CounterPart);
@@ -723,7 +727,7 @@ namespace Exedron.Invoicing.Adapters
                 Notes = EmptyToNull(source.PaymentTerms),
                 Issuer = MapTrader<IssuerRequest>(source.Issuer),
                 Counterpart = counterpart,
-                Header = MapHeader(source.InvoiceHeader, MyDataHeaderFields.SpecialInvoiceCategory(source)),
+                Header = MapHeader(source.InvoiceHeader, specialCategory, isDeliveryNote, movePurpose, deliveryHeader),
                 PaymentMethods = (source.PaymentMethods ?? new PaymentMethod[0])
                     .Select(value => MapPaymentMethod(value, posPayment))
                     .ToList(),
@@ -777,7 +781,8 @@ namespace Exedron.Invoicing.Adapters
             return invoiceType == "9.1" || invoiceType == "9.2" || invoiceType == "9.3" || invoiceType == "10.1" || invoiceType == "10.2";
         }
 
-        private static InvoiceHeaderRequest MapHeader(InvoiceHeader source, int? specialCategory)
+        private static InvoiceHeaderRequest MapHeader(InvoiceHeader source, int? specialCategory, bool isDeliveryNote,
+            MovePurposeEnum movePurpose, OtherDeliveryNoteHeader deliveryHeader)
         {
             // 10.1 receipt headers must not inherit transport fields from legacy callers.
             bool isReceipt = source.InvoiceType == "10.1";
@@ -801,13 +806,13 @@ namespace Exedron.Invoicing.Adapters
                     ? null
                     : source.DispatchDateTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
                 VehicleNumber = isReceipt ? null : EmptyToNull(source.VehicleNumber),
-                MovePurpose = isReceipt || Convert.ToInt32(source.MovePurpose, CultureInfo.InvariantCulture) == 0
+                MovePurpose = isReceipt || Convert.ToInt32(movePurpose, CultureInfo.InvariantCulture) == 0
                     ? null
-                    : (int?)Convert.ToInt32(source.MovePurpose, CultureInfo.InvariantCulture),
+                    : (int?)Convert.ToInt32(movePurpose, CultureInfo.InvariantCulture),
                 FuelInvoice = source.FuelInvoice ? (bool?)true : null,
                 SpecialInvoiceCategory = specialCategory?.ToString(CultureInfo.InvariantCulture),
-                IsDeliveryNote = source.DeliveryNote && !IsStandaloneDeliveryNote(source.InvoiceType) ? (bool?)true : null,
-                OtherDeliveryNoteHeader = isReceipt ? null : MapOtherDeliveryNoteHeader(source.OtherDeliveryNoteHeader)
+                IsDeliveryNote = isDeliveryNote && !IsStandaloneDeliveryNote(source.InvoiceType) ? (bool?)true : null,
+                OtherDeliveryNoteHeader = isReceipt ? null : MapOtherDeliveryNoteHeader(deliveryHeader)
             };
         }
 
@@ -1304,6 +1309,10 @@ namespace Exedron.Invoicing.Adapters
             [JsonProperty("invoice_type")]
             public string InvoiceType { get; set; }
 
+            // The vendor's iTimologiaClass.cs declares this JSON field as string.
+            [JsonProperty("special_invoice_category")]
+            public string SpecialInvoiceCategory { get; set; }
+
             [JsonProperty("vat_payment_suspension")]
             public bool? VatPaymentSuspension { get; set; }
 
@@ -1333,10 +1342,6 @@ namespace Exedron.Invoicing.Adapters
 
             [JsonProperty("fuel_invoice")]
             public bool? FuelInvoice { get; set; }
-
-            // The vendor's iTimologiaClass.cs declares this JSON field as string.
-            [JsonProperty("special_invoice_category")]
-            public string SpecialInvoiceCategory { get; set; }
 
             [JsonProperty("is_delivery_note")]
             public bool? IsDeliveryNote { get; set; }

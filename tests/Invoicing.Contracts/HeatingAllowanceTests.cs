@@ -65,7 +65,10 @@ internal static partial class Program
             var before = JsonConvert.SerializeObject(model);
             Func<InvoiceModel, string> oldSerializer = m => {
                 var xml = XDocument.Parse(WorkflowInvoiceXml.Build(m));
+                xml.Descendants(Ns + "movePurpose").Remove();
                 xml.Descendants(Ns + "specialInvoiceCategory").Remove();
+                xml.Descendants(Ns + "otherDeliveryNoteHeader").Remove();
+                xml.Descendants(Ns + "isDeliveryNote").Remove();
                 return xml.ToString(SaveOptions.DisableFormatting);
             };
             var json = JObject.Parse(IlydaInvoiceProvider.PrepareRequestJson(model, oldSerializer));
@@ -89,6 +92,9 @@ internal static partial class Program
         var model = Builder.Build(Invoice());
         model.InvoiceHeader.InvoiceType = type;
         model.InvoiceHeader.FuelInvoice = true;
+        // Reproduce invoices saved before heating-allowance documents were
+        // transmitted as delivery notes.
+        model.InvoiceHeader.MovePurpose = MovePurposeEnum.None;
         model.InvoiceDetails[0].FuelCode = code;
         model.CounterPart.SupplyAccountNo = " 123456789 ";
         if (type == "5.1") model.InvoiceHeader.CorrelatedInvoices = new long[] { 123456 };
@@ -105,13 +111,31 @@ internal static partial class Program
 
         var itimologia = JObject.Parse(Factory.CreatePayloadMapper(InvoiceProviderCatalog.ITimologiaKey).Serialize(model, Guid.NewGuid()));
         var category = itimologia["invoice_header"]["special_invoice_category"];
-        if (expected) { Equal(JTokenType.String, category.Type); Equal("11", (string)category); }
-        else Check(category == null, "iTimologia must omit the property, not send null or zero.");
+        var deliveryNote = itimologia["invoice_header"]["is_delivery_note"];
+        var movePurpose = itimologia["invoice_header"]["move_purpose"];
+        var deliveryHeader = itimologia["invoice_header"]["other_delivery_note_header"];
+        if (expected)
+        {
+            Equal(JTokenType.String, category.Type); Equal("11", (string)category);
+            Equal(JTokenType.Boolean, deliveryNote.Type); Equal(true, (bool)deliveryNote);
+            Equal(JTokenType.Integer, movePurpose.Type); Equal(1, (int)movePurpose);
+            Check(deliveryHeader?["loading_address"]?["city"] != null, "iTimologia loading address is missing.");
+            Check(deliveryHeader?["delivery_address"]?["city"] != null, "iTimologia delivery address is missing.");
+        }
+        else
+        {
+            Check(category == null, "iTimologia must omit the property, not send null or zero.");
+            Check(deliveryNote == null, "iTimologia must omit the derived delivery flag when category 11 is absent.");
+        }
         Equal(before, JsonConvert.SerializeObject(model));
 
         var ilyda = JObject.Parse(Factory.CreatePayloadMapper(InvoiceProviderCatalog.DirectIlydaKey).Serialize(model, Guid.NewGuid()));
         category = ilyda["aadeData"]?["aadeSpecialInvoiceCategory"];
-        if (expected) { Equal(JTokenType.Integer, category.Type); Equal(11, (int)category); }
+        if (expected)
+        {
+            Equal(JTokenType.Integer, category.Type); Equal(11, (int)category);
+            Check(ilyda["delivery"]?["deliveryAddress"]?["deliveryCity"] != null, "Ilyda delivery address is missing.");
+        }
         else Check(category == null && ilyda["aadeData"] == null, "Ilyda must omit the category and unnecessary aadeData.");
         CheckHeatingXml(EmbeddedXml(ilyda), expected);
         Equal(before, JsonConvert.SerializeObject(model));
@@ -133,6 +157,16 @@ internal static partial class Program
         {
             Equal("11", categories[0].Value);
             Equal(Ns + "fuelInvoice", ((XElement)categories[0].PreviousNode).Name);
+        }
+        var deliveryNotes = header.Elements(Ns + "isDeliveryNote").ToArray();
+        Equal(expected ? 1 : 0, deliveryNotes.Length);
+        if (expected)
+        {
+            Equal("true", deliveryNotes[0].Value);
+            Equal("1", header.Elements(Ns + "movePurpose").Single().Value);
+            var deliveryHeader = header.Elements(Ns + "otherDeliveryNoteHeader").Single();
+            Check(deliveryHeader.Element(Ns + "loadingAddress")?.Element(Ns + "city") != null, "XML loading address is missing.");
+            Check(deliveryHeader.Element(Ns + "deliveryAddress")?.Element(Ns + "city") != null, "XML delivery address is missing.");
         }
     }
 }

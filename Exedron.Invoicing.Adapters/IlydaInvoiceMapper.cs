@@ -34,6 +34,9 @@ namespace Exedron.Invoicing.Adapters
             if (xinvoice?.Element(ns + "invoiceHeader")?.Element(ns + "invoiceType")?.Value != type)
                 throw new InvalidOperationException("Ilyda: Το ενσωματωμένο myDATA XML δεν συμφωνεί με το παραστατικό.");
             var specialCategory = MyDataHeaderFields.SpecialInvoiceCategory(invoice);
+            var isDeliveryNote = MyDataHeaderFields.IsDeliveryNote(invoice);
+            var movePurpose = MyDataHeaderFields.EffectiveMovePurpose(invoice);
+            var effectiveDeliveryHeader = MyDataHeaderFields.EffectiveDeliveryHeader(invoice);
             var xmlHeader = xinvoice.Element(ns + "invoiceHeader");
             // Also support host-provided XML serializers. Keep JSON and embedded
             // XML consistent, without changing the source model or duplicating the element.
@@ -44,6 +47,27 @@ namespace Exedron.Invoicing.Adapters
                 if (fuel == null || (fuel.Value != "true" && fuel.Value != "1"))
                     throw new InvalidOperationException("Ilyda: Το ενσωματωμένο myDATA XML δεν περιέχει fuelInvoice=true.");
                 fuel.AddAfterSelf(new XElement(ns + "specialInvoiceCategory", specialCategory.Value));
+            }
+            if (specialCategory == 11)
+            {
+                var purpose = xmlHeader.Element(ns + "movePurpose");
+                if (purpose == null)
+                {
+                    purpose = new XElement(ns + "movePurpose", (int)movePurpose);
+                    var fuel = xmlHeader.Element(ns + "fuelInvoice");
+                    if (fuel != null) fuel.AddBeforeSelf(purpose);
+                    else xmlHeader.Element(ns + "specialInvoiceCategory").AddBeforeSelf(purpose);
+                }
+                else purpose.Value = ((int)movePurpose).ToString(CultureInfo.InvariantCulture);
+                var normalizedDeliveryHeader = DeliveryHeader(ns, effectiveDeliveryHeader);
+                var existingDeliveryHeader = xmlHeader.Element(ns + "otherDeliveryNoteHeader");
+                if (existingDeliveryHeader != null) existingDeliveryHeader.ReplaceWith(normalizedDeliveryHeader);
+                else xmlHeader.Element(ns + "specialInvoiceCategory").AddAfterSelf(normalizedDeliveryHeader);
+                xmlHeader.Elements(ns + "isDeliveryNote").Remove();
+                var deliveryFlag = new XElement(ns + "isDeliveryNote", isDeliveryNote);
+                var deliveryHeader = xmlHeader.Element(ns + "otherDeliveryNoteHeader");
+                if (deliveryHeader != null) deliveryHeader.AddAfterSelf(deliveryFlag);
+                else xmlHeader.Element(ns + "specialInvoiceCategory").AddAfterSelf(deliveryFlag);
             }
             xml = document.ToString(SaveOptions.DisableFormatting);
             if (type == "10.1")
@@ -141,11 +165,27 @@ namespace Exedron.Invoicing.Adapters
             if (invoice.CounterPart != null && (!type.StartsWith("11.", StringComparison.Ordinal) || retailDelivery || supplyAccount != null)) payload["buyer"] = Party(invoice.CounterPart, false);
             if (specialCategory.HasValue)
                 payload["aadeData"] = new JObject { ["aadeSpecialInvoiceCategory"] = specialCategory.Value };
-            if (h.OtherDeliveryNoteHeader?.DeliveryAddress != null && type != "10.1")
-                payload["delivery"] = new JObject { ["deliveryAddress"] = Address(h.OtherDeliveryNoteHeader.DeliveryAddress, "delivery", "GR") };
+            if (effectiveDeliveryHeader?.DeliveryAddress != null && type != "10.1")
+                payload["delivery"] = new JObject { ["deliveryAddress"] = Address(effectiveDeliveryHeader.DeliveryAddress, "delivery", "GR") };
             if (h.CorrelatedInvoices != null && h.CorrelatedInvoices.Length > 0)
                 payload["precedingInvoices"] = new JArray(h.CorrelatedInvoices.Select(mark => new JObject { ["precedingInvoiceReference"] = mark.ToString(CultureInfo.InvariantCulture) }));
             return payload;
+        }
+        private static XElement DeliveryHeader(XNamespace ns, OtherDeliveryNoteHeader source)
+        {
+            return new XElement(ns + "otherDeliveryNoteHeader",
+                XmlAddress(ns, "loadingAddress", source.LoadingAddress),
+                XmlAddress(ns, "deliveryAddress", source.DeliveryAddress),
+                new XElement(ns + "startShippingBranch", source.StartShippingBranch),
+                new XElement(ns + "completeShippingBranch", source.CompleteShippingBranch));
+        }
+        private static XElement XmlAddress(XNamespace ns, string name, Exedron.Invoicing.Core.Models.Address source)
+        {
+            return new XElement(ns + name,
+                string.IsNullOrWhiteSpace(source.Street) ? null : new XElement(ns + "street", source.Street),
+                string.IsNullOrWhiteSpace(source.Number) ? null : new XElement(ns + "number", source.Number),
+                new XElement(ns + "postalCode", source.PostalCode),
+                new XElement(ns + "city", source.City));
         }
         internal static string FormatIssueDate(DateTime issueDate)
         {

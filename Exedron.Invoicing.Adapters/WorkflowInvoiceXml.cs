@@ -25,8 +25,12 @@ namespace Exedron.Invoicing.Adapters
         {
             InvoiceValidation.Validate(model);
             var h = model.InvoiceHeader;
+            var specialCategory = MyDataHeaderFields.SpecialInvoiceCategory(model);
+            var isDeliveryNote = MyDataHeaderFields.IsDeliveryNote(model);
+            var movePurpose = MyDataHeaderFields.EffectiveMovePurpose(model);
+            var deliveryHeader = MyDataHeaderFields.EffectiveDeliveryHeader(model);
             var movementOnly = h.InvoiceType == "9.1" || h.InvoiceType == "9.2" || h.InvoiceType == "9.3" || h.InvoiceType == "10.1";
-            var delivery = movementOnly || h.DeliveryNote;
+            var delivery = movementOnly || isDeliveryNote;
             var deliveryParties = directMyData && delivery;
             var supplyAccount = MyDataPartyFields.SupplyAccountNumber(model);
             if (deliveryParties)
@@ -47,17 +51,16 @@ namespace Exedron.Invoicing.Adapters
                 header.Add(E("dispatchTime", h.DispatchDateTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture)));
             }
             if (h.InvoiceType != "10.1" && !string.IsNullOrWhiteSpace(h.VehicleNumber)) header.Add(E("vehicleNumber", h.VehicleNumber));
-            if (delivery && h.InvoiceType != "10.1") header.Add(E("movePurpose", (int)h.MovePurpose));
+            if (delivery && h.InvoiceType != "10.1") header.Add(E("movePurpose", (int)movePurpose));
             if (h.FuelInvoice) header.Add(E("fuelInvoice", true));
-            var specialCategory = MyDataHeaderFields.SpecialInvoiceCategory(model);
             if (specialCategory.HasValue) header.Add(E("specialInvoiceCategory", specialCategory.Value));
-            if (h.InvoiceType != "10.1" && h.OtherDeliveryNoteHeader != null)
+            if (h.InvoiceType != "10.1" && deliveryHeader != null)
             {
-                var d = h.OtherDeliveryNoteHeader;
+                var d = deliveryHeader;
                 header.Add(E("otherDeliveryNoteHeader", Address("loadingAddress", d.LoadingAddress),
                     Address("deliveryAddress", d.DeliveryAddress), E("startShippingBranch", d.StartShippingBranch), E("completeShippingBranch", d.CompleteShippingBranch)));
             }
-            if (h.DeliveryNote && !movementOnly) header.Add(E("isDeliveryNote", true));
+            if (isDeliveryNote && !movementOnly) header.Add(E("isDeliveryNote", true));
             var invoice = E("invoice", Party("issuer", model.Issuer, deliveryParties));
             if (model.CounterPart != null && (!h.InvoiceType.StartsWith("11.", StringComparison.Ordinal) || deliveryParties || supplyAccount != null))
                 invoice.Add(Party("counterpart", model.CounterPart, deliveryParties, supplyAccount));
