@@ -164,7 +164,9 @@ namespace ASFuelControl.Invoicing
         private ProviderSubmissionResult Recover(IFiscalDocumentLease lease, Guid invoiceId, FiscalAttemptEvidence saved)
         {
             var context = ReadContext(saved);
-            if (saved.State == "Rejected") return Result(saved, Error("This attempt was rejected; recovery does not resubmit it."));
+            if (saved.State == "Rejected") return Result(saved, Error(
+                "Η προηγούμενη προσπάθεια απορρίφθηκε. Η ανάκτηση κατάστασης δεν κάνει νέα αποστολή. " +
+                "Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια με το διορθωμένο αίτημα."));
             var route = context["Route"].ToObject<ProviderRoute>();
             using (var provider = Open(route, context.ToString(Formatting.None), invoiceId))
             {
