@@ -5,7 +5,7 @@ using Exedron.Invoicing.Core;
 
 namespace ASFuelControl.Invoicing.Persistence
 {
-    public enum FiscalJournalFamily { Signing, Submission, ProviderSession, Payment, Print, Cancellation }
+    public enum FiscalJournalFamily { Signing, Submission, ProviderSession, Payment, Print, Cancellation, MyDiesel }
     public sealed class FiscalAttemptEvidence
     {
         private readonly byte[] payload;

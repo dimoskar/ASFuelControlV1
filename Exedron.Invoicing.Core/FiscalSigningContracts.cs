@@ -8,7 +8,7 @@ namespace Exedron.Invoicing.Core
 {
     public enum FiscalDocumentKind
     {
-        Unspecified = 0, Invoice = 1, Balance = 2, TankFilling = 3, Alert = 4, Titrimetry = 5
+        Unspecified = 0, Invoice = 1, Balance = 2, TankFilling = 3, Alert = 4, Titrimetry = 5, MyDieselCoupon = 6
     }
     public enum FiscalEnvironment { Unspecified = 0, Test = 1, Production = 2 }
 

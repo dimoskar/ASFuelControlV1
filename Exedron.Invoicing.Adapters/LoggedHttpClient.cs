@@ -7,9 +7,17 @@ using Exedron.Invoicing.Core;
 
 namespace Exedron.Invoicing.Adapters
 {
+    internal sealed class RequestEvidenceException : Exception
+    {
+        internal RequestEvidenceException(Exception inner)
+            : base("Request evidence could not be persisted before transport.", inner) { }
+    }
+
     internal static class LoggedHttpClient
     {
         internal const string InvoiceIdKey = "Exedron.Invoicing.InvoiceId";
+        internal const string DocumentKindKey = "Exedron.Invoicing.DocumentKind";
+        internal const string DocumentIdKey = "Exedron.Invoicing.DocumentId";
         internal static readonly AsyncLocal<Guid?> CurrentInvoice = new AsyncLocal<Guid?>();
         internal static HttpClient Create(IRequestResponseLogger logger, string integration, string environment, HttpMessageHandler handler)
         {
@@ -42,6 +50,8 @@ namespace Exedron.Invoicing.Adapters
                 {
                     ExchangeId = Guid.NewGuid(), Integration = integration, Environment = environment,
                     InvoiceId = request.Properties.ContainsKey(InvoiceIdKey) ? (Guid?)request.Properties[InvoiceIdKey] : CurrentInvoice.Value,
+                    DocumentKind = request.Properties.ContainsKey(DocumentKindKey) ? (FiscalDocumentKind?)request.Properties[DocumentKindKey] : null,
+                    DocumentId = request.Properties.ContainsKey(DocumentIdKey) ? (Guid?)request.Properties[DocumentIdKey] : null,
                     Method = request.Method.Method,
                     // No authorization headers, user-info or potentially secret query parameters.
                     Endpoint = SafeEndpoint(request.RequestUri), ContentType = media,
@@ -49,7 +59,8 @@ namespace Exedron.Invoicing.Adapters
                     Body = authentication ? "[Authentication payload omitted]" : binary ? "[Binary document payload omitted]" :
                         request.Content == null ? null : await request.Content.ReadAsStringAsync().ConfigureAwait(false)
                 };
-                logger.RequestStarted(entry); // Failure prevents transport. Never swallow this call.
+                try { logger.RequestStarted(entry); }
+                catch (Exception ex) { throw new RequestEvidenceException(ex); }
                 var completed = new InvoiceResponseLog { ExchangeId = entry.ExchangeId };
                 HttpResponseMessage response = null;
                 try

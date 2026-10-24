@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Forms;
 using ASFuelControl.Windows.UI.Controls;
 
@@ -8,15 +9,22 @@ namespace ASFuelControl.Windows.UI.Forms
     public partial class InvoiceFormEx
     {
         private FiscalDocumentPanel fiscalPanel;
+        private MyDieselCouponPanel myDieselPanel;
+        private Panel invoicingStatusHost;
         private readonly Dictionary<Control,bool> editableControls = new Dictionary<Control,bool>();
         private bool lockedForIssuance;
         private void InitializeFiscalStatus()
         {
-            fiscalPanel = new FiscalDocumentPanel { Dock = DockStyle.Bottom,Height = 210 };
-            ClientSize = new System.Drawing.Size(ClientSize.Width,ClientSize.Height + fiscalPanel.Height);
-            Controls.Add(fiscalPanel);
+            fiscalPanel = new FiscalDocumentPanel { Dock = DockStyle.Fill };
+            myDieselPanel = new MyDieselCouponPanel(EnsureInvoiceSavedForMyDiesel,InvoiceTraderVat) { Dock = DockStyle.Top };
+            invoicingStatusHost = new Panel { Dock = DockStyle.Bottom,Height = 342 };
+            invoicingStatusHost.Controls.Add(fiscalPanel);
+            invoicingStatusHost.Controls.Add(myDieselPanel);
+            ClientSize = new System.Drawing.Size(ClientSize.Width,ClientSize.Height + invoicingStatusHost.Height);
+            Controls.Add(invoicingStatusHost);
             fiscalPanel.StateChanged += (s,e) => LockIssuedInvoice();
-            Shown += (s,e) => fiscalPanel.LoadInvoice(ivm.InvoiceId);
+            myDieselPanel.StateChanged += (s,e) => LockIssuedInvoice();
+            Shown += (s,e) => { fiscalPanel.LoadInvoice(ivm.InvoiceId); myDieselPanel.LoadInvoice(ivm.InvoiceId); };
             paymentTypeDropDownList.SelectedIndexChanging += (s,e) => {
                 if (!Visible || lockedForIssuance || e.Position < 0 || e.Position >= paymentTypeDropDownList.Items.Count) return;
                 var value = paymentTypeDropDownList.Items[e.Position].Value;
@@ -32,8 +40,8 @@ namespace ASFuelControl.Windows.UI.Forms
         }
         private void LockIssuedInvoice()
         {
-            btnPrint.Enabled = !fiscalPanel.Busy && !fiscalPanel.ReadFailed;
-            bool locked = fiscalPanel.Owned || fiscalPanel.ReadFailed || fiscalPanel.Busy;
+            btnPrint.Enabled = !fiscalPanel.Busy && !myDieselPanel.Busy && !fiscalPanel.ReadFailed;
+            bool locked = fiscalPanel.Owned || fiscalPanel.ReadFailed || fiscalPanel.Busy || myDieselPanel.Busy;
             if (locked == lockedForIssuance) return;
             lockedForIssuance = locked;
             if (locked)
@@ -47,7 +55,7 @@ namespace ASFuelControl.Windows.UI.Forms
         }
         private void LockInvoiceControl(Control control)
         {
-            if (control == fiscalPanel || control == btnPrint) return;
+            if (control == fiscalPanel || control == myDieselPanel || control == invoicingStatusHost || control == btnPrint) return;
             if (control.Contains(btnPrint))
             {
                 foreach (Control child in control.Controls) LockInvoiceControl(child);
@@ -55,6 +63,30 @@ namespace ASFuelControl.Windows.UI.Forms
             }
             editableControls.Add(control,control.Enabled);
             control.Enabled = false;
+        }
+
+        private bool EnsureInvoiceSavedForMyDiesel()
+        {
+            if (ivm.InvoiceId == Guid.Empty) return false;
+            if (!ivm.HasChanges) return true;
+            if (ivm.Save(ivm.InvoiceId))
+            {
+                fiscalPanel.LoadInvoice(ivm.InvoiceId);
+                return true;
+            }
+            Telerik.WinControls.RadMessageBox.Show(string.Join("\r\n",ivm.Errors.Select(error => error.ErrorMessage)),
+                "Σφάλμα Αποθήκευσης",MessageBoxButtons.OK,Telerik.WinControls.RadMessageIcon.Exclamation);
+            return false;
+        }
+
+        private string InvoiceTraderVat()
+        {
+            if (!ivm.TraderId.HasValue) return null;
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var trader = db.Traders.SingleOrDefault(value => value.TraderId == ivm.TraderId.Value);
+                return trader == null ? null : trader.TaxRegistrationNumber;
+            }
         }
     }
 }

@@ -65,7 +65,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
         {
             try
             {
-                if (sharedPrinterConfiguration.Version != 2) throw new InvalidOperationException("Αποθηκεύστε πρώτα τις κοινές ρυθμίσεις στην φόρμα Γενικές Επιλογές.");
+                if (sharedPrinterConfiguration.Version != 2 && sharedPrinterConfiguration.Version != 3) throw new InvalidOperationException("Αποθηκεύστε πρώτα τις κοινές ρυθμίσεις στην φόρμα Γενικές Επιλογές.");
                 var value = JsonConvert.DeserializeObject<SharedInvoiceConfiguration>(JsonConvert.SerializeObject(sharedPrinterConfiguration));
                 value.DefaultPrinter = new SharedPrinterProfile { PrinterName = sharedPrinterName.Text.Trim(), WidthHundredths = (int)sharedPaperWidth.Value,
                     HeightHundredths = (int)sharedPaperHeight.Value, Copies = (short)sharedCopies.Value, FontSize = (float)sharedFontSize.Value };

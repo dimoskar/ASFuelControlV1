@@ -22,6 +22,8 @@ namespace ASFuelControl.Invoicing
         public string PrintDestination { get; set; }
         public string PrintFormat { get; set; }
         public byte[] PrintContent { get; set; }
+        public Guid? MyDieselCouponCaseId { get; set; }
+        public MyDieselScope MyDieselScope { get; set; }
         InvoiceBuildRequest IInvoiceSubmissionSource.Prepare(Guid id, ProviderRoute route)
         {
             if (id != InvoiceId || JsonConvert.SerializeObject(route) != JsonConvert.SerializeObject(Provider)) throw new InvalidOperationException("Workflow route mismatch.");
@@ -43,7 +45,13 @@ namespace ASFuelControl.Invoicing
         public bool Accepted => AcceptedAttemptId.HasValue;
         public bool LocalOnly { get; internal set; }
         public Guid? OfflineAttemptId { get; internal set; }
+        public Guid? MyDieselAttemptId { get; internal set; }
+        public string MyDieselState { get; internal set; }
         public bool ReadyToPrint => Accepted || LocalOnly || OfflineAttemptId.HasValue;
+    }
+    public interface IMyDieselRedemptionCoordinator
+    {
+        MyDieselServiceResult RedeemOrRecover(Guid couponCaseId, Guid invoiceId, string mark);
     }
     public interface IInvoiceWorkflowSource
     {
@@ -63,17 +71,19 @@ namespace ASFuelControl.Invoicing
         private readonly Func<InvoiceWorkflowSnapshot, InvoiceResponse, byte[]> render;
         private readonly Action<Guid, InvoiceWorkflowResult> project;
         private readonly Func<ProviderRoute, ProviderRoute> currentConnection;
+        private readonly IMyDieselRedemptionCoordinator myDiesel;
 
         public InvoiceWorkflowService(SqlFiscalDatabase database, ProviderSubmissionService providers,
             ProviderPaymentService payments, FiscalSigningService signing, FiscalPrintService printing,
             Func<InvoiceWorkflowSnapshot, InvoiceResponse, byte[]> render, Action<Guid, InvoiceWorkflowResult> project,
-            Func<ProviderRoute, ProviderRoute> currentConnection = null)
+            Func<ProviderRoute, ProviderRoute> currentConnection = null, IMyDieselRedemptionCoordinator myDiesel = null)
         {
             this.database = database; this.providers = providers; this.payments = payments;
             this.signing = signing; this.printing = printing;
             this.render = render ?? throw new ArgumentNullException(nameof(render));
             this.project = project ?? throw new ArgumentNullException(nameof(project));
             this.currentConnection = currentConnection;
+            this.myDiesel = myDiesel;
             snapshots = new SqlInvoiceWorkflowStore(database); history = new SqlFiscalHistoryStore(database);
         }
 
@@ -176,6 +186,18 @@ namespace ASFuelControl.Invoicing
                     // Project acceptance independently of physical printing. If this
                     // write fails, the next call recovers durable fiscal acceptance.
                     project(invoiceId, result);
+                    if (snapshot.MyDieselCouponCaseId.HasValue)
+                    {
+                        if (myDiesel == null) throw new InvalidOperationException("The saved myDiesel redemption coordinator is unavailable.");
+                        if (!result.Accepted || result.Response == null || string.IsNullOrWhiteSpace(result.Response.Mark))
+                            throw new InvalidOperationException("myDiesel requires an accepted invoice with a 15-digit MARK before redemption.");
+                        var redemption = myDiesel.RedeemOrRecover(snapshot.MyDieselCouponCaseId.Value,invoiceId,result.Response.Mark);
+                        result.MyDieselAttemptId = redemption.AttemptId;
+                        result.MyDieselState = redemption.CouponCase == null ? redemption.OperationState.ToString() : redemption.CouponCase.LocalStage.ToString();
+                        if (redemption.CouponCase == null || (redemption.CouponCase.LocalStage != MyDieselCaseStage.Redeemed &&
+                            redemption.CouponCase.LocalStage != MyDieselCaseStage.VerificationPending && redemption.CouponCase.LocalStage != MyDieselCaseStage.Final))
+                            return result;
+                    }
                 }
                 if (print)
                 {
@@ -188,11 +210,15 @@ namespace ASFuelControl.Invoicing
         }
         private static void Validate(InvoiceWorkflowSnapshot value, Guid id, bool validateInvoice = true)
         {
-            if (value == null || value.Version != 1 || value.InvoiceId != id ||
+            if (value == null || value.Version != 1 && value.Version != 2 || value.InvoiceId != id ||
                 !value.LocalOnly && value.Provider == null && value.Signing == null || value.PrintContent == null || value.PrintContent.Length == 0 ||
                 string.IsNullOrWhiteSpace(value.PrintDestination) || string.IsNullOrWhiteSpace(value.PrintFormat)) throw new InvalidOperationException("Incomplete workflow snapshot.");
             if (value.LocalOnly && (value.Provider != null || value.Signing != null || value.Payment != null))
                 throw new InvalidOperationException("Local-only processing cannot include external fiscal or payment operations.");
+            if (value.MyDieselCouponCaseId.HasValue && (value.Version != 2 || value.MyDieselScope == null || value.LocalOnly || value.Provider == null))
+                throw new InvalidOperationException("myDiesel requires a version-2 electronic invoice workflow and a frozen non-secret coupon scope.");
+            if (!value.MyDieselCouponCaseId.HasValue && value.MyDieselScope != null)
+                throw new InvalidOperationException("A myDiesel scope requires a coupon case.");
             // Applies to both first issuance and restored workflows, before any
             // device call. Provider issuance obtains its signature from the provider.
             if (value.Provider != null && value.Provider.ProviderKey != InvoiceProviderCatalog.MyDataKey && value.Signing != null)

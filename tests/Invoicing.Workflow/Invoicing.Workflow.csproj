@@ -17,6 +17,7 @@
     <Compile Include="ConnectionTests.cs" />
     <Compile Include="RolloutTests.cs" />
     <Compile Include="HeatingBatchTests.cs" />
+    <Compile Include="MyDieselServiceTests.cs" />
     <Reference Include="System" /><Reference Include="System.Core" />
     <Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />
     <Reference Include="Newtonsoft.Json"><HintPath>..\..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath><Private>true</Private></Reference>

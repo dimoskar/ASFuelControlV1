@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using ASFuelControl.Windows.Threads;
+using ASFuelControl.Windows.UI.Forms;
 using Newtonsoft.Json.Linq;
 using Telerik.WinControls;
 using Telerik.WinControls.UI;
@@ -171,6 +172,7 @@ namespace ASFuelControl.Windows.UI.Controls
             var warnings = (result.Response?.Warnings ?? new string[0]).Where(e => !string.IsNullOrWhiteSpace(e));
             if (errors.Any()) message += "\r\n" + string.Join("\r\n",errors);
             if (warnings.Any()) message += "\r\n" + string.Join("\r\n",warnings);
+            if (!string.IsNullOrWhiteSpace(result.MyDieselState)) message += "\r\nmyDiesel: " + MyDieselEvidenceForm.StageLabel(result.MyDieselState);
             if (result.Print != null) message += "\r\nΕκτύπωση: " + StateLabel(result.Print.State);
             return message;
         }

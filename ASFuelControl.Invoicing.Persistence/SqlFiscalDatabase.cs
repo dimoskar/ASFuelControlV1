@@ -31,7 +31,7 @@ namespace ASFuelControl.Invoicing.Persistence
         }
         public void InstallSchema()
         {
-            foreach (var resource in new[] { "FiscalSchema.sql", "FiscalWorkflowSchema.sql", "FiscalConfigurationSchema.sql", "HeatingCorrectionSchema.sql" })
+            foreach (var resource in new[] { "FiscalSchema.sql", "FiscalWorkflowSchema.sql", "FiscalConfigurationSchema.sql", "HeatingCorrectionSchema.sql", "MyDieselSchema.sql" })
             using (var stream = typeof(SqlFiscalDatabase).Assembly.GetManifestResourceStream(resource))
             using (var reader = new StreamReader(stream))
             using (var connection = Open())
@@ -214,7 +214,7 @@ namespace ASFuelControl.Invoicing.Persistence
                 if (value is DateTime) p.SqlDbType = SqlDbType.DateTime2;
                 if (value is string) { p.SqlDbType = SqlDbType.NVarChar; p.Size = -1; }
                 if (value is byte[]) { p.SqlDbType = SqlDbType.VarBinary; p.Size = -1; }
-                if (value == null && ((string)parameters[i] == "@attempt" || (string)parameters[i] == "@original" || (string)parameters[i] == "@invoice")) p.SqlDbType = SqlDbType.UniqueIdentifier;
+                if (value == null && ((string)parameters[i] == "@attempt" || (string)parameters[i] == "@original" || (string)parameters[i] == "@invoice" || (string)parameters[i] == "@document")) p.SqlDbType = SqlDbType.UniqueIdentifier;
             }
             return command;
         }

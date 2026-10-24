@@ -71,7 +71,7 @@ SELECT Number FROM dbo.Invoice WHERE InvoiceId=@id;";
         internal const string FindPaymentDocument =
             "SELECT DocumentId FROM dbo.FiscalAttempt WHERE AttemptId=@id AND Family='Payment' AND DocumentKind=1;";
         internal const string InsertExchange =
-            "INSERT dbo.FiscalHttpExchange(ExchangeId,InvoiceId,StartedUtc,RequestJson) VALUES(@id,@invoice,@started,@request);";
+            "INSERT dbo.FiscalHttpExchange(ExchangeId,InvoiceId,DocumentKind,DocumentId,StartedUtc,RequestJson) VALUES(@id,@invoice,@kind,@document,@started,@request);";
         internal const string CompleteExchange =
             "UPDATE dbo.FiscalHttpExchange SET CompletedUtc=@completed,ResponseJson=@response WHERE ExchangeId=@id AND ResponseJson IS NULL AND StartedUtc<=@completed;";
         internal const string InsertPaymentEvent =

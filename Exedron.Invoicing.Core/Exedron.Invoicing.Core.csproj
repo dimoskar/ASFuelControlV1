@@ -37,6 +37,7 @@
     <Compile Include="MyDataHeaderFields.cs" />
     <Compile Include="MyDataLineFields.cs" />
     <Compile Include="MyDataPartyFields.cs" />
+    <Compile Include="MyDieselContracts.cs" />
     <Compile Include="PaymentAttemptPersistence.cs" />
     <Compile Include="PosModeCatalog.cs" />
     <Compile Include="ProviderPaymentCoordinator.cs" />

@@ -15,6 +15,8 @@
     <Compile Include="Program.cs" />
     <Compile Include="HeatingAllowanceTests.cs" />
     <Compile Include="ITimologiaTokenCacheTests.cs" />
+    <Compile Include="MyDieselContractTests.cs" />
+    <Compile Include="MyDieselAdapterTests.cs" />
     <Compile Include="..\..\ASFuelControl.Invoicing\UserEnvironmentCommunicationTokenCache.cs"><Link>UserEnvironmentCommunicationTokenCache.cs</Link></Compile>
     <ProjectReference Include="..\..\Exedron.Invoicing.Core\Exedron.Invoicing.Core.csproj"><Name>Exedron.Invoicing.Core</Name></ProjectReference>
     <ProjectReference Include="..\..\Exedron.Invoicing.Adapters\Exedron.Invoicing.Adapters.csproj"><Name>Exedron.Invoicing.Adapters</Name></ProjectReference>

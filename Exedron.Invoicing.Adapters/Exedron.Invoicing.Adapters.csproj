@@ -25,6 +25,7 @@
     <Compile Include="MyDataClient.cs" />
     <Compile Include="MyDataRecovery.cs" />
     <Compile Include="MyDataSchema.cs" />
+    <Compile Include="MyDieselClient.cs" />
     <Compile Include="SamtecFiscalSigner.cs" />
     <Compile Include="SamtecWireModels.cs" />
     <Compile Include="WorkflowInvoiceXml.cs" />

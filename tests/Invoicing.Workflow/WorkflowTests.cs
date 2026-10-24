@@ -65,10 +65,10 @@ internal static partial class Program
     }
     static InvoiceWorkflowService Workflow(Http http, Printer printer, Action<Guid,InvoiceWorkflowResult> project = null,
         Func<InvoiceWorkflowSnapshot,Exedron.Invoicing.Core.Models.InvoiceResponse,byte[]> render = null, Signer signer = null,
-        Func<ProviderRoute,ProviderRoute> currentConnection = null, Credentials credentials = null) =>
+        Func<ProviderRoute,ProviderRoute> currentConnection = null, Credentials credentials = null, IMyDieselRedemptionCoordinator myDiesel = null) =>
         new InvoiceWorkflowService(database, Service(http,credentials), new ProviderPaymentService(database,credentials ?? new Credentials(), r => http),
             new FiscalSigningService(database,s => signer), new FiscalPrintService(database,printer),
-            render ?? ((s,r) => Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(s.PrintContent) + " MARK=" + r.Mark)), project ?? ((id,r) => {}), currentConnection);
+            render ?? ((s,r) => Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(s.PrintContent) + " MARK=" + r.Mark)), project ?? ((id,r) => {}), currentConnection,myDiesel);
     static FiscalOperationRecord[] Prints(Guid id) { using(var lease = database.EnterInvoice(id)) return new SqlFiscalOperationStore(database).Load(lease,true).ToArray(); }
     static void WorkflowTests()
     {

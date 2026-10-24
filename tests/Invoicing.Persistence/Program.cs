@@ -36,7 +36,7 @@ internal static class Program
         {
             Execute(Connection("master"), "CREATE DATABASE [" + databaseName + "];"); created = true;
             Execute(Connection("master"), "ALTER DATABASE [" + databaseName + "] SET COMPATIBILITY_LEVEL = 100;");
-            SchemaTests(); SigningTests(); SubmissionTests(); PaymentTests(); OperationTests(); EvidenceTests();
+            SchemaTests(); SigningTests(); SubmissionTests(); PaymentTests(); OperationTests(); MyDieselTests(); EvidenceTests();
             Console.WriteLine("RESULT: {0} passed, {1} failed", passed, failed);
             return failed == 0 ? 0 : 1;
         }
@@ -67,8 +67,9 @@ internal static class Program
             var assembly = typeof(SqlFiscalDatabase).Assembly;
             using (var reader = new StreamReader(assembly.GetManifestResourceStream("FiscalSchema.sql"))) ParseSql100(reader.ReadToEnd());
             using (var reader = new StreamReader(assembly.GetManifestResourceStream("HeatingCorrectionSchema.sql"))) ParseSql100(reader.ReadToEnd());
-            foreach (var type in new[] { "SqlStatements", "SqlFiscalConfigurationStore", "SqlFiscalCatalogStore", "SqlFiscalOwnershipStore", "SqlFiscalMigrationStore" })
-            foreach (var statement in assembly.GetType("ASFuelControl.Invoicing.Persistence." + type).GetFields(BindingFlags.NonPublic | BindingFlags.Static).Where(f => f.IsLiteral && f.FieldType == typeof(string)))
+            using (var reader = new StreamReader(assembly.GetManifestResourceStream("MyDieselSchema.sql"))) ParseSql100(reader.ReadToEnd());
+            foreach (var type in new[] { "SqlStatements", "SqlFiscalConfigurationStore", "SqlFiscalCatalogStore", "SqlFiscalOwnershipStore", "SqlFiscalMigrationStore", "SqlMyDieselStore" })
+            foreach (var statement in assembly.GetType("ASFuelControl.Invoicing.Persistence." + type).GetFields(BindingFlags.NonPublic | BindingFlags.Static).Where(f => f.IsLiteral && f.FieldType == typeof(string) && !f.Name.EndsWith("Columns", StringComparison.Ordinal)))
                 ParseSql100((string)statement.GetRawConstantValue());
             Equal(100, Convert.ToInt32(Scalar("SELECT compatibility_level FROM sys.databases WHERE name=DB_NAME();")));
             // Negative control: the older grammar must reject a SQL Server 2012-only statement.
@@ -366,6 +367,84 @@ internal static class Program
             Equal(2, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM dbo.FiscalPaymentEvent WHERE TransactionUid='fixture-uid';")));
         });
     }
+    private static void MyDieselTests()
+    {
+        Test("Migration 62 installs myDiesel schema and document kind six", () => {
+            Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.tables WHERE name='MyDieselCouponCase';")));
+            Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.tables WHERE name='MyDieselReferenceCache';")));
+            using (db.Acquire(new FiscalDocumentReference(FiscalDocumentKind.MyDieselCoupon, Guid.NewGuid()))) { }
+            db.InstallSchema();
+            Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.check_constraints WHERE name='CK_FiscalDocumentLease_DocumentKind';")));
+        });
+        Test("myDiesel coupon projection enforces identity, uniqueness, transitions and CAS", () => {
+            var store = new SqlMyDieselStore(db); var row = CapturedCase(Guid.NewGuid(), Guid.NewGuid(), "AYNY-1022-8625-7956-7356");
+            using (var lease = store.Acquire(row.CouponCaseId))
+            {
+                store.Create(lease, row);
+                Equal(row.CouponCode, store.FindBlockingByInvoice(row.InvoiceId).CouponCode);
+                Equal(row.InvoiceId, store.FindBlockingByCoupon(row.CouponCode).InvoiceId);
+                var saved = store.Load(lease); saved.LocalStage = MyDieselCaseStage.Reserved; saved.RemoteStatus = "RESERVED";
+                saved.Redeemable = true; saved.CurrentBranchNum = 1; saved.IssuedLitres = 150m;
+                saved.CouponCreatedUtc = DateTime.UtcNow.AddDays(-1); saved.ValidUntilUtc = DateTime.UtcNow.AddDays(30);
+                saved.LastCheckedUtc = DateTime.UtcNow; saved.UpdatedUtc = DateTime.UtcNow; saved.Revision++;
+                store.Save(lease, 0, saved); Equal(1L, store.Load(lease).Revision);
+                Throws<InvalidOperationException>(() => store.Save(lease, 0, saved));
+                saved.LocalStage = MyDieselCaseStage.Captured; saved.Revision++; saved.UpdatedUtc = DateTime.UtcNow;
+                Throws<InvalidOperationException>(() => store.Save(lease, 1, saved));
+            }
+            var duplicate = CapturedCase(Guid.NewGuid(), Guid.NewGuid(), row.CouponCode);
+            using (var lease = store.Acquire(duplicate.CouponCaseId)) Throws<SqlException>(() => store.Create(lease, duplicate));
+        });
+        Test("myDiesel attempts retain exact request and unknown blocks a new mutation", () => {
+            var store = new SqlMyDieselStore(db); var row = CapturedCase(Guid.NewGuid(), Guid.NewGuid(), "ABEZ-1022-8625-7956-7356");
+            using (var lease = store.Acquire(row.CouponCaseId))
+            {
+                store.Create(lease, row);
+                var attempt = Attempt(MyDieselOperation.Query, "{\"couponCode\":\"ABEZ-1022-8625-7956-7356\"}");
+                store.BeginAttempt(lease, attempt);
+                attempt.State = MyDieselOperationState.Sending; attempt.Revision = 1; attempt.UpdatedUtc = DateTime.UtcNow; store.SaveAttempt(lease, 0, attempt);
+                attempt.State = MyDieselOperationState.Unknown; attempt.Revision = 2; attempt.Diagnostic = "timeout"; attempt.UpdatedUtc = DateTime.UtcNow; store.SaveAttempt(lease, 1, attempt);
+                Equal(attempt.RequestJson, store.LoadAttempts(lease).Single().RequestJson);
+                Equal(3, store.LoadAttempts(lease, attempt.AttemptId, true).Count);
+                Throws<SqlException>(() => store.BeginAttempt(lease, Attempt(MyDieselOperation.Query, attempt.RequestJson)));
+                attempt.State = MyDieselOperationState.Rejected; attempt.Revision = 3; attempt.ErrorCode = "RECONCILED"; attempt.UpdatedUtc = DateTime.UtcNow; store.SaveAttempt(lease, 2, attempt);
+                store.BeginAttempt(lease, Attempt(MyDieselOperation.Query, attempt.RequestJson));
+            }
+        });
+        Test("myDiesel reference cache verifies persisted fingerprints", () => {
+            var store = new SqlMyDieselStore(db); var now = DateTime.UtcNow;
+            store.SaveCompanyCache(FiscalEnvironment.Test, "998877665", "{\"company\":true}", now, "erp-v1.0");
+            store.SaveFuelTypesCache(FiscalEnvironment.Test, "998877665", "[{\"code\":20}]", now, "erp-v1.0");
+            var cache = store.LoadCache(FiscalEnvironment.Test, "998877665");
+            Equal("erp-v1.0", cache.ContractVersion); Check(cache.CompanySha256.Length == 64 && cache.FuelTypesSha256.Length == 64, "Cache hashes are missing.");
+            Execute(connectionString, "UPDATE dbo.MyDieselReferenceCache SET CompanyJson=N'changed' WHERE Environment=1 AND CompanyVat='998877665';");
+            Throws<InvalidDataException>(() => store.LoadCache(FiscalEnvironment.Test, "998877665"));
+        });
+        Test("myDiesel HTTP evidence retains coupon and linked invoice correlation", () => {
+            var logger = new SqlEvidenceLogger(db); var exchange = Guid.NewGuid(); var caseId = Guid.NewGuid(); var invoiceId = Guid.NewGuid();
+            logger.RequestStarted(new InvoiceRequestLog { ExchangeId = exchange, InvoiceId = invoiceId, DocumentKind = FiscalDocumentKind.MyDieselCoupon,
+                DocumentId = caseId, Integration = "myDiesel", Environment = "Test", Method = "POST", Endpoint = "https://fixture.invalid/coupon/query",
+                Body = "{}", StartedUtc = DateTimeOffset.UtcNow });
+            Equal(caseId, (Guid)Scalar("SELECT DocumentId FROM dbo.FiscalHttpExchange WHERE ExchangeId='" + exchange + "';"));
+            Equal(invoiceId, (Guid)Scalar("SELECT InvoiceId FROM dbo.FiscalHttpExchange WHERE ExchangeId='" + exchange + "';"));
+            var evidence = new SqlMyDieselStore(db).LoadHttpEvidence(caseId).Single();
+            Equal(exchange,evidence.Request.ExchangeId); Equal(null,evidence.Response);
+        });
+        Test("myDiesel polling selects only stale safe verification cases", () => {
+            var store = new SqlMyDieselStore(db); var row = CapturedCase(Guid.NewGuid(),Guid.NewGuid(),"AHIK-2026-8625-7956-7356");
+            using (var lease = store.Acquire(row.CouponCaseId))
+            {
+                store.Create(lease,row); var saved = store.Load(lease);
+                saved.LocalStage = MyDieselCaseStage.Reserved; saved.RemoteStatus = "RESERVED"; saved.Redeemable = true;
+                saved.CurrentBranchNum = 1; saved.Revision++; saved.UpdatedUtc = DateTime.UtcNow; store.Save(lease,0,saved);
+                saved.LocalStage = MyDieselCaseStage.Redeemed; saved.RemoteStatus = "REDEEMED"; saved.Redeemable = false;
+                saved.InvoiceMark = "400001234567890"; saved.MarkSourceInvoiceId = saved.InvoiceId;
+                saved.LastCheckedUtc = DateTime.UtcNow.AddHours(-2); saved.Revision++; saved.UpdatedUtc = DateTime.UtcNow; store.Save(lease,1,saved);
+            }
+            Check(store.LoadPollCandidates(DateTime.UtcNow.AddMinutes(-30),25).Contains(row.CouponCaseId),"Stale redeemed coupon was not selected for safe polling.");
+            Check(!store.LoadPollCandidates(DateTime.UtcNow.AddHours(-3),25).Contains(row.CouponCaseId),"Fresh coupon was selected before its polling interval.");
+        });
+    }
     private static int Child(string mode, Guid id)
     {
         var doc = new FiscalDocumentReference(FiscalDocumentKind.Invoice, id);
@@ -393,6 +472,21 @@ internal static class Program
     { return new FiscalSigningAttempt(a.Request, state, a.Revision + 1, a.CreatedUtc, DateTime.UtcNow, result); }
     private static MyDataSubmission MyData()
     { return new MyDataSubmission { AttemptId = Guid.NewGuid(), InvoiceId = Guid.NewGuid(), Scope = "https://fixture.invalid|user", RequestXml = "<invoice />", State = "Sending", StartedUtc = DateTimeOffset.UtcNow }; }
+    private static MyDieselCouponCaseRecord CapturedCase(Guid caseId, Guid invoiceId, string code)
+    {
+        var now = DateTime.UtcNow;
+        return new MyDieselCouponCaseRecord { CouponCaseId = caseId, InvoiceId = invoiceId, CouponCode = code,
+            BeneficiaryVat = "123456789", CompanyVat = "998877665", Environment = FiscalEnvironment.Test, ReservedBranchNum = 1,
+            CredentialProfileId = "fixture",
+            LocalStage = MyDieselCaseStage.Captured, BlocksInvoice = true, BlocksCouponReuse = true, CreatedUtc = now, UpdatedUtc = now };
+    }
+    private static MyDieselAttemptRecord Attempt(MyDieselOperation operation, string request)
+    {
+        var now = DateTime.UtcNow;
+        return new MyDieselAttemptRecord { AttemptId = Guid.NewGuid(), Operation = operation,
+            Scope = new MyDieselScope(FiscalEnvironment.Test, "998877665", 1, "fixture"), RequestJson = request,
+            State = MyDieselOperationState.Prepared, CreatedUtc = now, UpdatedUtc = now };
+    }
     private static ProviderPaymentAttemptRequest PaymentRequest(Guid id)
     { return new ProviderPaymentAttemptRequest { InvoiceId = id, Gateway = "GBridge", InvoiceProvider = "iTimologia", ProviderId = 34, PaymentType = 0, TerminalId = "terminal-1", Amount = 12.34m, AmountMinorUnits = 1234 }; }
     private static ProviderPaymentSignature Signature() { return new ProviderPaymentSignature { ProviderInput = "input", ProviderSignature = "signature", ProviderUid = "uid" }; }

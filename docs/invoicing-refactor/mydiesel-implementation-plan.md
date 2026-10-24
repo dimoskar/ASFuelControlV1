@@ -1,8 +1,19 @@
 # myDiesel integration implementation plan
 
-Status: proposed implementation plan  
+Status: implementation in progress; production activation remains gated
 API baseline: AADE myDiesel ERP Guide v1.0, 19 October 2026  
-Application baseline: shared invoicing schema through database version 60
+Application baseline: shared invoicing schema through database version 61
+
+Implemented through 24 October 2026:
+
+- versioned Core contracts, strict QR parsing, all six ERP adapter calls, sanitized HTTP evidence, and contract tests;
+- database migration 62, coupon projection, immutable operation history, reference cache, historical credential profiles, lease/CAS recovery, and SQL-100 tests;
+- reservation, release, redemption, unknown-outcome reconciliation, administrator MARK/station corrections, and safe verification polling;
+- invoice workflow snapshot v2 with coupon scope, beneficiary/environment/litre checks, accepted-MARK redemption before printing, and restart-safe recovery;
+- native settings, invoice coupon panel, catalogue columns/filtering, and a separate resizable evidence form with a minimum size of 1100 x 650; and
+- UAT/production activation checks that keep production disabled without the reviewed OpenAPI fingerprint.
+
+Still gated or pending acceptance evidence: the official OpenAPI/examples bundle, live UAT credentials/coupons, the final fuel-code-to-host-product mapping, and the business-approved EFK/VAT/accounting representation. These are rollout inputs rather than safe values to infer in code.
 
 ## 1. Objective
 
@@ -94,11 +105,11 @@ Reservation and read-only coupon UI operations may acquire only the coupon-sessi
 | `ASFuelControl.Windows` | settings, credential profiles, reservation UI, invoice/status actions, catalog columns, background verification poller, and activation checks. |
 | `tests` | contract, client, SQL, orchestration, recovery, UI binding, UAT checklist, and release-suite integration. |
 
-## 6. Database migration 61
+## 6. Database migration 62
 
-Create `ASFuelControl.Windows/DBScripts/UpdateDatabase61.sql`. Do not amend the in-progress version-60 catalog migration. Register version 61 in `Program.CurrentDBVersion`, Windows resources/project content, and the persistence project's embedded schema installer.
+Create `ASFuelControl.Windows/DBScripts/UpdateDatabase62.sql`. Do not amend version 61, which owns the heating-correction journal. Register version 62 in `Program.CurrentDBVersion`, Windows resources/project content, and the persistence project's embedded schema installer.
 
-Migration 61 must be transactional, safe to rerun, and valid under SQL Server compatibility level 100.
+Migration 62 must be transactional, safe to rerun, and valid under SQL Server compatibility level 100.
 
 ### 6.1 Extend the journal contract
 
@@ -120,6 +131,7 @@ Create this host-owned projection table without modifying generated OpenAccess e
 | `BeneficiaryVat` | `char(9)` | AFM parsed from QR or explicitly entered. |
 | `CompanyVat` | `char(9)` | Historical calling company. |
 | `Environment` | `tinyint` | Test or production. |
+| `CredentialProfileId` | `varchar(128)` | Immutable reference to the historical non-secret credential profile. |
 | `ReservedBranchNum` | `int` | Branch used by the successful reservation. |
 | `CurrentBranchNum` | `int` NULL | Latest known redemption/correction branch. |
 | `LocalStage` | `varchar(32)` | Captured, ReserveUnknown, Reserved, Released, InvoiceAccepted, RedeemUnknown, Redeemed, VerificationPending, Final, or InterventionRequired. |
@@ -284,6 +296,8 @@ Extend `FiscalDocumentPanel` with a myDiesel summary/tab showing:
 - stored MARK and its source invoice; and
 - an actionable explanation for unknown or invalid states.
 
+The existing embedded invoice panel remains compact. Full myDiesel attempt history and HTTP evidence open in a new resizable `MyDieselEvidenceForm` (minimum 1100 x 650) from the panel or catalogue. The detailed form uses a full-width attempt grid plus a separate HTTP-evidence tab; it is not squeezed into the invoice form's bottom tab area.
+
 Extend `SqlFiscalCatalogStore` and `MyDataCatalog` with columns/filtering for coupon code, myDiesel status, and `Χρειάζεται παρέμβαση`. The invoice catalog remains a business-document list; detailed request/response evidence stays in the fiscal status screen.
 
 ### 10.3 Corrections
@@ -395,7 +409,7 @@ The support view/export should include:
 
 ### 14.3 Persistence tests
 
-- migration 61 new install, rerun, partial-install rejection, and SQL-100 parsing;
+- migration 62 new install, rerun, partial-install rejection, and SQL-100 parsing;
 - discovery/replacement of the old system-named document-kind check;
 - coupon and invoice filtered uniqueness;
 - revision/fencing protection and concurrent terminals;
@@ -442,16 +456,17 @@ UAT is a separate opt-in suite using credentials supplied at execution time. It 
 - `ASFuelControl.Windows/Threads/SharedMyDieselRuntime.cs`: Windows host composition, credentials, configuration, and background polling.
 - `ASFuelControl.Windows/Threads/SharedMyDieselRuntime.Status.cs`: invoice-linked status/read/recovery operations.
 - `ASFuelControl.Windows/UI/Controls/MyDieselCouponPanel.cs` plus designer/resources: invoice coupon capture and actions.
-- `ASFuelControl.Windows/DBScripts/UpdateDatabase61.sql`: schema migration described above.
+- `ASFuelControl.Windows/UI/Forms/MyDieselEvidenceForm.cs` plus designer/resources: resizable detailed attempt and HTTP-evidence view.
+- `ASFuelControl.Windows/DBScripts/UpdateDatabase62.sql`: schema migration described above.
 
 ### Existing production files to modify
 
 - `Exedron.Invoicing.Core/FiscalSigningContracts.cs`: add document kind 6.
 - `Exedron.Invoicing.Core/RequestResponseLogging.cs`: add generic document correlation while retaining invoice correlation.
 - `Exedron.Invoicing.Adapters/LoggedHttpClient.cs`: pass coupon correlation and keep header/query redaction.
-- all four affected classic `.csproj` files: explicitly include new source files; embed migration 61 in persistence.
+- all four affected classic `.csproj` files: explicitly include new source files; embed migration 62 in persistence.
 - `ASFuelControl.Invoicing.Persistence/SqlStatements.cs`: migration/runtime statements for cases, attempts, cache, and catalog projection.
-- `ASFuelControl.Invoicing.Persistence/SqlFiscalDatabase.cs`: install the fourth schema resource.
+- `ASFuelControl.Invoicing.Persistence/SqlFiscalDatabase.cs`: install the fifth schema resource.
 - `ASFuelControl.Invoicing.Persistence/SqlFiscalHistoryStore.cs`: add the `MyDiesel` family.
 - `ASFuelControl.Invoicing.Persistence/SqlFiscalCatalogStore.cs`: add coupon/status/intervention projections.
 - `ASFuelControl.Invoicing/InvoiceWorkflowService.cs`: snapshot v2, redemption coordinator, result fields, and print gate.
@@ -463,7 +478,7 @@ UAT is a separate opt-in suite using credentials supplied at execution time. It 
 - `ASFuelControl.Windows/UI/Forms/InvoiceFormEx.Invoicing.cs`: host the coupon panel and apply edit/close/delete guards.
 - `ASFuelControl.Windows/UI/Controls/FiscalDocumentPanel.cs`: show redemption and verification evidence/actions.
 - `ASFuelControl.Windows/UI/Catalogs/MyDataCatalog.cs` plus designer/resources: coupon/status/intervention columns and filters.
-- `ASFuelControl.Windows/Program.cs`, `Properties/Resources.resx`, `Properties/Resources.Designer.cs`, and `ASFuelControl.Windows.csproj`: register migration 61 and new UI/runtime sources.
+- `ASFuelControl.Windows/Program.cs`, `Properties/Resources.resx`, `Properties/Resources.Designer.cs`, and `ASFuelControl.Windows.csproj`: register migration 62 and new UI/runtime sources.
 
 ### New and modified test files
 
@@ -485,7 +500,7 @@ Implement Core models, QR parser, HTTP client, stable error classification, and 
 
 ### Phase 2 - migration and durable coupon service
 
-Implement migration 61, journal extensions, coupon/reference stores, reservation/release/recovery service, SQL-100 tests, and concurrency tests.
+Implement migration 62, journal extensions, coupon/reference stores, reservation/release/recovery service, SQL-100 tests, and concurrency tests.
 
 ### Phase 3 - settings and reservation UI
 

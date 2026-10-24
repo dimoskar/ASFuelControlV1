@@ -29,6 +29,29 @@ namespace ASFuelControl.Windows.Threads
         public string ApiKeyOption { get; set; }
         public string PasswordOption { get; set; }
     }
+    internal sealed class SharedMyDieselCredentialProfile
+    {
+        public string Id { get; set; }
+        public FiscalEnvironment Environment { get; set; }
+        public string CompanyVat { get; set; }
+        public string AadeUserId { get; set; }
+        public string ProductionSubscriptionKeyOption { get; set; }
+        public string UatApiKeyOption { get; set; }
+    }
+    internal sealed class SharedMyDieselProfile
+    {
+        public bool Enabled { get; set; }
+        public FiscalEnvironment Environment { get; set; }
+        public string CompanyVat { get; set; }
+        public int BranchNum { get; set; }
+        public string StationName { get; set; }
+        public string StationAmdika { get; set; }
+        public string CredentialProfileId { get; set; }
+        public string ContractVersion { get; set; }
+        public string OpenApiSha256 { get; set; }
+        public DateTime? LastReferenceCheckUtc { get; set; }
+        public int PollMinutes { get; set; } = 30;
+    }
     internal sealed class SharedInvoiceConfiguration : IProviderCredentialsResolver
     {
         public int Version { get; set; }
@@ -38,6 +61,8 @@ namespace ASFuelControl.Windows.Threads
         public Dictionary<FiscalDocumentKind, SharedInvoiceRoute> Documents { get; set; }
         public SharedCredentialProfile[] Credentials { get; set; }
         public SamtecDeviceProfile[] Devices { get; set; }
+        public SharedMyDieselProfile MyDiesel { get; set; }
+        public SharedMyDieselCredentialProfile[] MyDieselCredentials { get; set; }
         public bool Enabled { get; set; }
         public bool TestMode { get; set; } = true;
         public ProviderRoute InvoiceProvider { get; set; }
@@ -165,7 +190,7 @@ namespace ASFuelControl.Windows.Threads
         {
             // Version 1 has per-type routes, without a common connection to refresh.
             if (Version == 1) return saved;
-            if (Version != 2) throw new InvalidOperationException("Unsupported invoicing configuration.");
+            if (Version != 2 && Version != 3) throw new InvalidOperationException("Unsupported invoicing configuration.");
             var current = saved.ProviderKey == InvoiceProviderCatalog.MyDataKey ? DirectMyData : InvoiceProvider;
             if (current == null) throw new InvalidOperationException("Δεν έχει οριστεί σύνδεση για τη διαβίβαση του παραστατικού.");
             if (current.ProviderKey != saved.ProviderKey || current.TestMode != saved.TestMode || current.IssuerVat != saved.IssuerVat ||

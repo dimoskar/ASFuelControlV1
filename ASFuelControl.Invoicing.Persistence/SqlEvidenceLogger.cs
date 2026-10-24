@@ -13,7 +13,8 @@ namespace ASFuelControl.Invoicing.Persistence
             using (var connection = database.Open())
             using (var command = SqlFiscalDatabase.Command(connection, null,
                 SqlStatements.InsertExchange,
-                "@id", request.ExchangeId, "@invoice", request.InvoiceId, "@started", request.StartedUtc.UtcDateTime, "@request", SqlFiscalDatabase.Json(request)))
+                "@id", request.ExchangeId, "@invoice", request.InvoiceId, "@kind", request.DocumentKind.HasValue ? (int?)request.DocumentKind.Value : null,
+                "@document", request.DocumentId, "@started", request.StartedUtc.UtcDateTime, "@request", SqlFiscalDatabase.Json(request)))
                 command.ExecuteNonQuery();
         }
         public void ResponseReceived(InvoiceResponseLog response)

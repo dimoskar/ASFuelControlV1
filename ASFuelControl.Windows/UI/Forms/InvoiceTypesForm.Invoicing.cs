@@ -82,7 +82,7 @@ namespace ASFuelControl.Windows.UI.Forms
             foreach (var id in changedPolicies) policies[id].Validate();
             long revision;
             var config = Threads.SharedInvoicingSettings.Load(out revision);
-            if (config.Enabled && config.Version == 2)
+            if (config.Enabled && (config.Version == 2 || config.Version == 3))
             {
                 config.Policies = policies;
                 foreach (var id in changedPolicies) config.Route(id,null);

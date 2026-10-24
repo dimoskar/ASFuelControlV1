@@ -14,6 +14,8 @@ namespace Exedron.Invoicing.Core
     {
         public Guid ExchangeId { get; set; }
         public Guid? InvoiceId { get; set; }
+        public FiscalDocumentKind? DocumentKind { get; set; }
+        public Guid? DocumentId { get; set; }
         public string Integration { get; set; }
         public string Environment { get; set; }
         public string Method { get; set; }

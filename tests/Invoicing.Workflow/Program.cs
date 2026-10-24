@@ -32,7 +32,7 @@ internal static partial class Program
             Execute(master, "CREATE DATABASE [" + name + "];"); created = true;
             Execute(master, "ALTER DATABASE [" + name + "] SET COMPATIBILITY_LEVEL = 100;");
             database = new SqlFiscalDatabase(connection); database.InstallSchema();
-            OwnershipBeforeActivationTests(); WorkflowTests(); ConnectionTests(); ConfigurationTests(); RolloutTests(); HeatingBatchTests(); Console.WriteLine("RESULT: " + passed + " passed, " + failed + " failed."); return failed == 0 ? 0 : 1;
+            OwnershipBeforeActivationTests(); WorkflowTests(); ConnectionTests(); ConfigurationTests(); RolloutTests(); HeatingBatchTests(); MyDieselServiceTests(); Console.WriteLine("RESULT: " + passed + " passed, " + failed + " failed."); return failed == 0 ? 0 : 1;
         }
         finally
         {

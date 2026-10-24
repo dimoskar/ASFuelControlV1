@@ -75,7 +75,8 @@ namespace ASFuelControl.Windows.Threads
                 return new SamtecFiscalSigner(device);
             });
             return new InvoiceWorkflowService(database, providers, payments, signing,
-                new FiscalPrintService(database, new SharedInvoicePrinting(() => settings.Value.DefaultPrinter)), SharedInvoicePrinting.Render, Project, CurrentConnection);
+                new FiscalPrintService(database, new SharedInvoicePrinting(() => settings.Value.DefaultPrinter)), SharedInvoicePrinting.Render, Project, CurrentConnection,
+                new SharedMyDieselRedemptionCoordinator(database));
         });
         internal static bool Handles(Guid invoiceId)
         {
@@ -133,18 +134,29 @@ namespace ASFuelControl.Windows.Threads
                 // Check route/history before touching the counter. Open a new context after
                 // SQL numbering; an old OpenAccess identity map must never render number 0.
                 bool needsNumber;
-                using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection)) needsNumber = Check(db, id, config).Number == 0;
+                using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                {
+                    var pending = Check(db,id,config);
+                    ValidateMyDiesel(pending,config.Route(pending.InvoiceTypeId,pending.InvoiceType.Printer),config);
+                    needsNumber = pending.Number == 0;
+                }
                 if (needsNumber) new SqlInvoiceWorkflowStore(sql.Value).AllocateNumbers(lease,config.FirstInvoiceDate);
                 using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
                     var invoice = Check(db, id, config);
                     var route = config.Route(invoice.InvoiceTypeId, invoice.InvoiceType.Printer);
+                    var coupon = ValidateMyDiesel(invoice,route,config);
                     var printer = printRequested ? SharedInvoicePrinting.ResolveProfile(route.Printer,config.DefaultPrinter) :
                         route.Printer ?? config.DefaultPrinter ?? new SharedPrinterProfile();
                     var content = PrintAgent.RenderSharedInvoiceContent(db, invoice);
                     var value = new InvoiceWorkflowSnapshot { InvoiceId = id, Provider = route.Provider, LocalOnly = route.LocalOnly,
                         Payment = invoice.PaymentType == 2 || invoice.PaymentType == 4 ? route.Payment : null,
                         PrintContent = Encoding.UTF8.GetBytes(content), PrintDestination = JsonConvert.SerializeObject(printer), PrintFormat = SharedInvoicePrinting.Format };
+                    if (coupon != null)
+                    {
+                        value.Version = 2; value.MyDieselCouponCaseId = coupon.CouponCaseId;
+                        value.MyDieselScope = new MyDieselScope(coupon.Environment,coupon.CompanyVat,coupon.ReservedBranchNum,coupon.CredentialProfileId);
+                    }
                     if (route.Provider != null)
                     {
                         var mapping = JsonConvert.DeserializeObject<MappingContext>(JsonConvert.SerializeObject(config.Mapping));
@@ -161,6 +173,27 @@ namespace ASFuelControl.Windows.Threads
                     if (route.Signing != null) value.Signing = HostFiscalSigningMapper.Invoice(invoice, route.Signing, content, false);
                     return value;
                 }
+            }
+            private MyDieselCouponCaseRecord ValidateMyDiesel(Data.Invoice invoice, SharedInvoiceRoute route, SharedInvoiceConfiguration config)
+            {
+                var coupon = new SqlMyDieselStore(sql.Value).FindBlockingByInvoice(invoice.InvoiceId);
+                if (coupon == null) return null;
+                if (coupon.LocalStage != MyDieselCaseStage.Reserved || MyDieselCouponStates.Parse(coupon.RemoteStatus) != MyDieselCouponStatus.Reserved)
+                    throw new InvalidOperationException("Το κουπόνι myDiesel δεν έχει επιβεβαιωμένη κατάσταση RESERVED. Ολοκληρώστε πρώτα την ανάκτηση ή αποδέσμευση.");
+                if (invoice.Trader == null || MyDieselCouponIdentity.NormalizeVat(invoice.Trader.TaxRegistrationNumber,"Invoice trader VAT") != coupon.BeneficiaryVat)
+                    throw new InvalidOperationException("Το ΑΦΜ του πελάτη δεν συμφωνεί με το ΑΦΜ δικαιούχου του κουπονιού myDiesel.");
+                if (route.LocalOnly || route.Provider == null)
+                    throw new InvalidOperationException("Το myDiesel απαιτεί ηλεκτρονική διαβίβαση που επιστρέφει οριστικό MARK.");
+                if ((route.Provider.TestMode ? FiscalEnvironment.Test : FiscalEnvironment.Production) != coupon.Environment || route.Provider.IssuerVat != coupon.CompanyVat)
+                    throw new InvalidOperationException("Το περιβάλλον ή το ΑΦΜ εκδότη του παραστατικού διαφέρει από τη δεσμευμένη κλήση myDiesel.");
+                decimal litres = invoice.InvoiceLines.Sum(line => Math.Abs(line.Volume));
+                if (litres <= 0) throw new InvalidOperationException("Το παραστατικό myDiesel πρέπει να περιέχει θετική ποσότητα καυσίμου σε λίτρα.");
+                if (coupon.IssuedLitres.HasValue && litres > coupon.IssuedLitres.Value)
+                    throw new InvalidOperationException("Τα λίτρα του παραστατικού υπερβαίνουν τα διαθέσιμα λίτρα του κουπονιού myDiesel. Διαχωρίστε την επιπλέον ποσότητα.");
+                var profile = config.MyDiesel;
+                if (profile == null || profile.CompanyVat != coupon.CompanyVat || profile.Environment != coupon.Environment)
+                    throw new InvalidOperationException("Οι τρέχουσες ρυθμίσεις myDiesel δεν συμφωνούν με τη δεσμευμένη υπόθεση.");
+                return coupon;
             }
             private Data.Invoice Check(Data.DatabaseModel db, Guid id, SharedInvoiceConfiguration config)
             {

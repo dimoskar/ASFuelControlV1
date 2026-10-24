@@ -27,14 +27,19 @@ namespace ASFuelControl.Windows.UI.Catalogs
             this.radLabel1.Text = "Φίλτρο";
             this.invoiceRadGridView.AutoGenerateColumns = false;
             this.invoiceRadGridView.Columns.Clear();
-            string[] fields = { "Description","TransactionDate","TraderName","Route","Signing","Payment","Submission","Printing","Mark" };
-            string[] titles = { "Παραστατικό","Ημερομηνία (έως 1000)","Συναλλασσόμενος","Διαδρομή","Σήμανση","Πληρωμή","Διαβίβαση","Εκτύπωση","MARK" };
+            string[] fields = { "Description","TransactionDate","TraderName","Route","Signing","Payment","Submission","Printing","Mark","MyDieselCoupon","MyDieselStatus","MyDieselIntervention" };
+            string[] titles = { "Παραστατικό","Ημερομηνία (έως 1000)","Συναλλασσόμενος","Διαδρομή","Σήμανση","Πληρωμή","Διαβίβαση","Εκτύπωση","MARK","Κουπόνι myDiesel","Κατάσταση myDiesel","Χρειάζεται παρέμβαση" };
             for (int i = 0; i < fields.Length; i++) this.invoiceRadGridView.Columns.Add(new Telerik.WinControls.UI.GridViewTextBoxColumn(fields[i]) { HeaderText = titles[i], Width = i == 0 || i == 2 ? 180 : 130, ReadOnly = true });
             dateFrom = DateTime.Today;
             dateTo = DateTime.Today;
             this.radDateTimePicker1.Value = dateFrom;
             this.radDateTimePicker2.Value = dateTo;
             this.invoiceRadGridView.CurrentRowChanged += InvoiceRadGridView_CurrentRowChanged;
+            this.invoiceRadGridView.CellDoubleClick += (s,e) => {
+                var row = this.invoiceRadGridView.CurrentRow?.DataBoundItem as MyDataInvoice;
+                if (row == null || string.IsNullOrWhiteSpace(row.MyDieselCoupon)) return;
+                using (var form = new ASFuelControl.Windows.UI.Forms.MyDieselEvidenceForm(row.InvoiceId)) form.ShowDialog(this);
+            };
             fiscalPanel.ActionCompleted += (s,e) => {
                 try { this.Load(); } catch (Exception ex) { Telerik.WinControls.RadMessageBox.Show(ex.Message,"Κατάλογος τιμολόγησης"); }
             };
@@ -68,7 +73,9 @@ namespace ASFuelControl.Windows.UI.Catalogs
                 Route = row.Route == "Ilyda.Direct" ? "Ilyda" : row.Route,
                 Signing = FiscalPanel.StateLabel(row.Signing) ?? "—", Payment = FiscalPanel.StateLabel(row.Payment) ?? "—",
                 Submission = FiscalPanel.StateLabel(row.Submission) ?? (row.LegacyStatus == 3 ? "Παλαιό: αποδεκτό" : "—"),
-                Printing = FiscalPanel.StateLabel(row.Printing) ?? "—"
+                Printing = FiscalPanel.StateLabel(row.Printing) ?? "—", MyDieselCoupon = row.MyDieselCouponCode,
+                MyDieselStatus = string.IsNullOrWhiteSpace(row.MyDieselStatus) ? "—" : ASFuelControl.Windows.UI.Forms.MyDieselEvidenceForm.StageLabel(row.MyDieselStatus),
+                MyDieselIntervention = row.MyDieselIntervention ? "Ναι" : ""
             }).ToArray();
             if (selected.HasValue)
                 invoiceRadGridView.CurrentRow = invoiceRadGridView.Rows.FirstOrDefault(r => (r.DataBoundItem as MyDataInvoice)?.InvoiceId == selected.Value);
@@ -212,6 +219,9 @@ namespace ASFuelControl.Windows.UI.Catalogs
         public string Payment { set; get; }
         public string Submission { set; get; }
         public string Printing { set; get; }
+        public string MyDieselCoupon { set; get; }
+        public string MyDieselStatus { set; get; }
+        public string MyDieselIntervention { set; get; }
     }
 
     //  0     Invoice.TransactionDate, 

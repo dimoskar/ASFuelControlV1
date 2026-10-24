@@ -54,6 +54,7 @@ namespace ASFuelControl.Windows.Threads
         private bool restartDatabase = false;
         private int restartDatabaseIndex = 0;
         private int tankFillingRetryScheduled = 0;
+        private MyDieselPollingWorker myDieselPolling;
         private bool databaseUpdateVerified;
         
 
@@ -233,6 +234,8 @@ namespace ASFuelControl.Windows.Threads
                     this.sendingThread.StartThread();
                     this.tankThread.StartThread();
                     this.fleetThread.Start();
+                    this.myDieselPolling = new MyDieselPollingWorker();
+                    this.myDieselPolling.Start();
                     if (this.QueryDeviceRefresh != null)
                         this.QueryDeviceRefresh(this, new EventArgs());
 
@@ -372,6 +375,7 @@ namespace ASFuelControl.Windows.Threads
             this.sendingThread.StopThread();
             this.tankThread.StopThread();
             this.printAgent.StopThread();
+            if (this.myDieselPolling != null) { this.myDieselPolling.Dispose(); this.myDieselPolling = null; }
             foreach (OTPConsoleController opt in this.controllerThread.GetOTPControlers())
                 opt.CloseServer();
         }

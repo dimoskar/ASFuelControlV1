@@ -23,6 +23,9 @@ namespace ASFuelControl.Invoicing.Persistence
         public Guid? LegacyId { get; set; }
         public int LegacyStatus { get; set; }
         public string LegacyErrors { get; set; }
+        public string MyDieselCouponCode { get; set; }
+        public string MyDieselStatus { get; set; }
+        public bool MyDieselIntervention { get; set; }
     }
     public sealed class SqlFiscalCatalogStore
     {
@@ -36,13 +39,15 @@ namespace ASFuelControl.Invoicing.Persistence
             (SELECT TOP (1) r.State FROM dbo.FiscalAttempt a JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision WHERE a.DocumentKind=1 AND a.DocumentId=i.InvoiceId AND a.Family='Payment' ORDER BY a.AttemptSequence DESC),
             (SELECT TOP (1) r.State FROM dbo.FiscalAttempt a JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision WHERE a.DocumentKind=1 AND a.DocumentId=i.InvoiceId AND a.Family='Submission' ORDER BY a.AttemptSequence DESC),
             (SELECT TOP (1) r.State FROM dbo.FiscalAttempt a JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision WHERE a.DocumentKind=1 AND a.DocumentId=i.InvoiceId AND a.Family='Print' ORDER BY a.AttemptSequence DESC),
-            CASE WHEN EXISTS(SELECT 1 FROM dbo.FiscalAttempt a WHERE a.DocumentKind=1 AND a.DocumentId=i.InvoiceId) THEN 1 ELSE 0 END
+            CASE WHEN EXISTS(SELECT 1 FROM dbo.FiscalAttempt a WHERE a.DocumentKind=1 AND a.DocumentId=i.InvoiceId) THEN 1 ELSE 0 END,
+            d.CouponCode,d.RemoteStatus,d.LocalStage
             FROM dbo.Invoice i JOIN dbo.InvoiceType t ON t.InvoiceTypeId=i.InvoiceTypeId
             LEFT JOIN dbo.Trader b ON b.TraderId=i.TraderId
             LEFT JOIN dbo.FiscalInvoiceWorkflow w ON w.InvoiceId=i.InvoiceId
             OUTER APPLY (SELECT TOP (1) Mark,MyDataInvoiceId,Status,Errors FROM dbo.MyDataInvoice md WHERE md.InvoiceId=i.InvoiceId ORDER BY md.DateTimeSent DESC,md.MyDataInvoiceId) m
+            OUTER APPLY (SELECT TOP (1) CouponCode,RemoteStatus,LocalStage FROM dbo.MyDieselCouponCase dc WHERE dc.InvoiceId=i.InvoiceId ORDER BY dc.CreatedUtc DESC,dc.CouponCaseId DESC) d
             WHERE i.TransactionDate>=@from AND i.TransactionDate<@until AND
-            (t.Description LIKE @filter ESCAPE '~' OR b.Name LIKE @filter ESCAPE '~' OR i.VehiclePlateNumber LIKE @filter ESCAPE '~')
+            (t.Description LIKE @filter ESCAPE '~' OR b.Name LIKE @filter ESCAPE '~' OR i.VehiclePlateNumber LIKE @filter ESCAPE '~' OR d.CouponCode LIKE @filter ESCAPE '~')
             ORDER BY i.TransactionDate DESC,i.InvoiceId";
         public IList<FiscalCatalogRow> Load(DateTime from,DateTime until,string filter)
         {
@@ -70,7 +75,9 @@ namespace ASFuelControl.Invoicing.Persistence
                         Mark = reader.IsDBNull(8) ? (long?)null : reader.GetInt64(8), LegacyId = reader.IsDBNull(9) ? (Guid?)null : reader.GetGuid(9), LegacyStatus = reader.GetInt32(10), LegacyErrors = text(11),
                         Signing = text(12) ?? (snapshot == null ? null : snapshot["Signing"] is JObject ? "Δεν ξεκίνησε" : provider != null && (string)provider["ProviderKey"] != "myDATA" ? "Πάροχος" : "Δεν απαιτείται"),
                         Payment = text(13) ?? (snapshot == null ? null : snapshot["Payment"] is JObject ? "Δεν ξεκίνησε" : "Δεν απαιτείται"),
-                        Submission = text(14) ?? (snapshot != null && provider == null ? "Χωρίς διαβίβαση" : null), Printing = text(15) });
+                        Submission = text(14) ?? (snapshot != null && provider == null ? "Χωρίς διαβίβαση" : null), Printing = text(15),
+                        MyDieselCouponCode = text(17),MyDieselStatus = text(18) ?? text(19),
+                        MyDieselIntervention = text(19) == "InterventionRequired" || text(19) == "ReserveUnknown" || text(19) == "RedeemUnknown" });
                 }
             }
             return result;

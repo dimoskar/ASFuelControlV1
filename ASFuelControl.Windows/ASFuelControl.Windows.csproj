@@ -1656,6 +1656,7 @@
     <Content Include="DBScripts\UpdateDatabase59.sql" />
     <Content Include="DBScripts\UpdateDatabase60.sql" />
     <Content Include="DBScripts\UpdateDatabase61.sql" />
+    <Content Include="DBScripts\UpdateDatabase62.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />
@@ -1788,6 +1789,8 @@
   <ItemGroup>
     <Compile Include="Threads\PrintAgent.Shared.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.cs" />
+    <Compile Include="Threads\SharedMyDieselRuntime.cs" />
+    <Compile Include="Threads\MyDieselPollingWorker.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.HeatingBatch.cs" />
     <Compile Include="UI\Forms\HeatingCorrectionBatchForm.cs"><SubType>Form</SubType></Compile>
     <Compile Include="Threads\SharedInvoiceConfiguration.cs" />
@@ -1796,7 +1799,13 @@
     <Compile Include="UI\Controls\FiscalDocumentPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\Controls\MyDieselCouponPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="UI\Forms\InvoiceFormEx.Invoicing.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\MyDieselEvidenceForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\Forms\InvoiceTypesForm.Invoicing.cs">
