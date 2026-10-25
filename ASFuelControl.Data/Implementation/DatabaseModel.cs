@@ -2722,6 +2722,18 @@ namespace ASFuelControl.Data
         }
     }
 
+    public partial class InvoiceRelation
+    {
+        public bool IsExternalFiscalCorrelation
+        {
+            get
+            {
+                return this.RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.Cancel ||
+                    this.RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.Replace;
+            }
+        }
+    }
+
     public partial class Invoice
     {
         public decimal PreDiscountTotal
@@ -2879,9 +2891,11 @@ namespace ASFuelControl.Data
                 //    if (q.Contains(true))
                 //        return false;
                 //}
-                if (this.ParentInvoiceRelations.Count > 0)
+                var fiscalParents = this.ParentInvoiceRelations.Where(relation =>
+                    relation.IsExternalFiscalCorrelation).ToArray();
+                if (fiscalParents.Length > 0)
                 {
-                    var q = this.ParentInvoiceRelations.Select(p => p.ParentInvoice).ToArray().Select(i => i.IncludeToBalance).Distinct();
+                    var q = fiscalParents.Select(p => p.ParentInvoice).ToArray().Select(i => i.IncludeToBalance).Distinct();
                     if (q.Contains(true))
                         return false;
                 }

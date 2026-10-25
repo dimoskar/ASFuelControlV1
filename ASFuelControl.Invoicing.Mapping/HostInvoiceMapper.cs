@@ -91,7 +91,9 @@ namespace ASFuelControl.Invoicing.Mapping
                     "Saved invoice net total disagrees with its lines.");
                 input.PaymentType = Payment(source.PaymentType, context.FleetCardPayment);
             }
-            var linked = source.ParentInvoiceRelations.ToArray();
+            // LocalCopy preserves host-side transformation provenance only. It
+            // must not become a myDATA or invoicing-provider correlation.
+            var linked = source.ParentInvoiceRelations.Where(r => r.IsExternalFiscalCorrelation).ToArray();
             bool credit = input.InvoiceSeries.InvoiceType.InvoiceTypeMode == InvoiceMode.Credit;
             Require(credit || linked.Length == 0 || context.IncludeSaleCorrelations,
                 "Linked sales require an explicit correlation policy.");

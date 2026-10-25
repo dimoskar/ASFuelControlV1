@@ -349,12 +349,18 @@ namespace ASFuelControl.Windows.UI.Catalogs
 
                 if (transformation.CreationInvoiceTypeId.HasValue)
                 {
-                    invoiceForm.ConfigureIntermediateTransformation(selectedInvoices,
+                    invoiceForm.CreateIntermediateTransformation(selectedInvoices,
                         transformation.CreationInvoiceTypeId.Value, traderId, vehicleId,
                         (int)Common.Enumerators.InvoiceTransformationTypeEnum.OneToOne,
                         transformation.CreationNotesAddition);
                 }
-                invoiceForm.TransformInvoices(selectedInvoices, invoiceTypeId, traderId, vehicleId, transformation.TransformationMode);
+                var newInvoiceId = invoiceForm.TransformInvoices(selectedInvoices, invoiceTypeId, traderId,
+                    vehicleId, transformation.TransformationMode, !transformation.CreationInvoiceTypeId.HasValue);
+                if (newInvoiceId == Guid.Empty)
+                {
+                    invoiceForm.Dispose();
+                    return;
+                }
                 invoiceForm.Show(this);
                 invoiceForm.FormClosed += InvForm_FormClosed;
                 //if (vehicleSelections.Length == 1 && vehicleId.HasValue)

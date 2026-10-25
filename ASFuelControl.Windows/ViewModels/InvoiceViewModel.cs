@@ -40,8 +40,6 @@ namespace ASFuelControl.Windows.ViewModels
             get { return InvoiceCounterpartySelection.Any; }
         }
 
-        public Guid[] RelatedInvoiceIds { set; get; }
-
         public bool VatExemption
         {
             set
@@ -1001,6 +999,12 @@ namespace ASFuelControl.Windows.ViewModels
 
         public Guid TransformInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId, int mode)
         {
+            return TransformInvoices(invoiceIds, invoiceType, traderId, vehicleId, mode, true);
+        }
+
+        public Guid TransformInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId,
+            int mode, bool createFiscalRelations)
+        {
             if (mode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation &&
                 (Threads.SharedInvoiceRuntime.ProtectsInvoices || invoiceIds.Any(Threads.SharedInvoiceRuntime.Owns)))
                 throw new InvalidOperationException("Η ακύρωση κοινής έκδοσης απαιτεί ειδική ροή ακύρωσης / συμφωνίας ιστορικού.");
@@ -1219,8 +1223,12 @@ namespace ASFuelControl.Windows.ViewModels
                     relation.InvoiceRelationId = Guid.NewGuid();
                     relation.ParentInvoiceId = id;
                     relation.ChildInvoiceId = this.InvoiceId;
-                    relation.RelationType = (int)Common.Enumerators.InvoiceRelationTypeEnum.Replace;
-                    if (transformationType.TransformationMode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation)
+                    relation.RelationType = createFiscalRelations
+                        ? (int)Common.Enumerators.InvoiceRelationTypeEnum.Replace
+                        : (int)Common.Enumerators.InvoiceRelationTypeEnum.LocalCopy;
+                    if (createFiscalRelations &&
+                        (transformationType.TransformationMode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation ||
+                         (this.SelectedInvoiceType != null && this.SelectedInvoiceType.IsCancelation == true)))
                         relation.RelationType = (int)Common.Enumerators.InvoiceRelationTypeEnum.Cancel;
                     var invPar = db.Invoices.SingleOrDefault(i => i.InvoiceId == id);
                     this.invRelations.Add(relation);
@@ -1661,15 +1669,6 @@ namespace ASFuelControl.Windows.ViewModels
                 foreach (var rel in childRelations)
                 {
                     rel.Save(db, rel.InvoiceLineRelationId);
-                }
-                if(this.RelatedInvoiceIds != null)
-                {
-                    lock (Threads.PrintAgent.ExcludeInvoices)
-                    {
-                        foreach (var invId in this.RelatedInvoiceIds)
-                            Threads.PrintAgent.ExcludeInvoices.Remove(invId);
-                    }
-                    this.RelatedInvoiceIds = new Guid[] { };
                 }
                 //var dbInv = db.Invoices.SingleOrDefault(i => i.InvoiceId == id);
                 //dbInv.CreateFinTransactions(db);

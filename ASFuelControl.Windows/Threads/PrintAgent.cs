@@ -4548,7 +4548,8 @@ namespace ASFuelControl.Windows.Threads
             //string corInvoice = null;
             //if (isCanceling)
             //{
-            var invTrans = invoice.ParentInvoiceRelations.ToArray();
+            var invTrans = invoice.ParentInvoiceRelations.Where(relation =>
+                relation.IsExternalFiscalCorrelation).ToArray();
             if (invTrans != null)
             {
                 foreach (var it in invTrans)

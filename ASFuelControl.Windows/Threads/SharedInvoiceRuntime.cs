@@ -168,7 +168,9 @@ namespace ASFuelControl.Windows.Threads
                         mapping.Company = ReadHostCompany();
                         mapping.Environment = route.Provider.TestMode ? FiscalEnvironment.Test : FiscalEnvironment.Production;
                         var provider = new ProviderSubmissionService(sql.Value, config);
-                        foreach (var parent in invoice.ParentInvoiceRelations) mapping.Parents[parent.ParentInvoiceId] = provider.LoadParentEvidence(parent.ParentInvoiceId);
+                        foreach (var parent in invoice.ParentInvoiceRelations.Where(relation =>
+                            relation.IsExternalFiscalCorrelation))
+                            mapping.Parents[parent.ParentInvoiceId] = provider.LoadParentEvidence(parent.ParentInvoiceId);
                         value.Invoice = new HostInvoiceMapper().Map(invoice, mapping);
                     }
                     if (route.Signing != null) value.Signing = HostFiscalSigningMapper.Invoice(invoice, route.Signing, content, false);

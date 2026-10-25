@@ -17,17 +17,7 @@ namespace ASFuelControl.Windows.UI.Forms
         protected readonly ViewModels.InvoiceDetailsViewModel ivm;
         private readonly ViewModels.InvoiceEditorLayout editorLayout = ViewModels.InvoiceEditorLayout.Legacy;
 
-        private readonly List<PendingTransformation> pendingTransformations = new List<PendingTransformation>();
-
-        private sealed class PendingTransformation
-        {
-            public Guid[] SourceInvoiceIds { get; set; }
-            public Guid InvoiceTypeId { get; set; }
-            public Guid? TraderId { get; set; }
-            public Guid? VehicleId { get; set; }
-            public int Mode { get; set; }
-            public string NotesAddition { get; set; }
-        }
+        private Guid[] relatedIds;
 
         public InvoiceFormEx() : this(new ViewModels.InvoiceDetailsViewModel())
         {
@@ -106,90 +96,105 @@ namespace ASFuelControl.Windows.UI.Forms
             myDieselPanel.LoadInvoice(invoiceId);
         }
 
-        public void TransformInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId, int mode)
+        public Guid TransformInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId,
+            int mode, bool createFiscalRelations = true)
         {
-            ivm.TransformInvoices(invoiceIds, invoiceType, traderId, vehicleId, mode);
+            var invoiceId = ivm.TransformInvoices(invoiceIds, invoiceType, traderId, vehicleId, mode, createFiscalRelations);
+            if (invoiceId == Guid.Empty)
+                DeleteRelatedInvoices();
             this.invoiceViewModelBindingSource.ResetBindings(false);
             this.invoiceLinesBindingSource.ResetBindings(false);
             SetView();
+            return invoiceId;
         }
 
-        public void ConfigureIntermediateTransformation(Guid[] invoiceIds, Guid invoiceType,
+        public Guid[] CreateIntermediateTransformation(Guid[] invoiceIds, Guid invoiceType,
             Guid? traderId, Guid? vehicleId, int mode, string notesAddition)
         {
-            this.pendingTransformations.Add(new PendingTransformation
+            var newIds = new List<Guid>();
+            try
             {
-                SourceInvoiceIds = invoiceIds.ToArray(),
-                InvoiceTypeId = invoiceType,
-                TraderId = traderId,
-                VehicleId = vehicleId,
-                Mode = mode,
-                NotesAddition = notesAddition
-            });
+                foreach (var sourceId in invoiceIds)
+                {
+                    var related = new ViewModels.InvoiceDetailsViewModel();
+                    var relatedId = related.TransformInvoices(new[] { sourceId }, invoiceType,
+                        traderId, vehicleId, mode);
+                    if (relatedId == Guid.Empty)
+                        throw new InvalidOperationException("Δεν ήταν δυνατή η δημιουργία του πιστωτικού παραστατικού.");
+                    if (!string.IsNullOrWhiteSpace(notesAddition))
+                        related.Notes = string.IsNullOrWhiteSpace(related.Notes)
+                            ? notesAddition
+                            : notesAddition + "\r\n" + related.Notes;
+                    lock (Threads.PrintAgent.ExcludeInvoices)
+                        Threads.PrintAgent.ExcludeInvoices.Add(relatedId);
+                    newIds.Add(relatedId);
+                    if (!related.Save(relatedId))
+                        throw new InvalidOperationException(string.Join("\r\n",
+                            (related.Errors ?? new ViewModels.ValidationError[0]).Select(error => error.ErrorMessage)));
+                }
+                this.relatedIds = newIds.ToArray();
+                return this.relatedIds;
+            }
+            catch
+            {
+                this.relatedIds = newIds.ToArray();
+                DeleteRelatedInvoices();
+                throw;
+            }
         }
 
         private bool SaveInvoice()
         {
-            if (this.pendingTransformations.Count == 0)
-                return this.ivm.Save(this.ivm.InvoiceId);
-
-            var excludedIds = new List<Guid>();
-            try
-            {
-                using (Threads.SharedInvoiceRuntime.EditUnissued(this.ivm.InvoiceId))
-                using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
-                {
-                    foreach (var pending in this.pendingTransformations)
-                    {
-                        foreach (var sourceId in pending.SourceInvoiceIds)
-                        {
-                            var related = new ViewModels.InvoiceDetailsViewModel();
-                            var relatedId = related.TransformInvoices(new[] { sourceId }, pending.InvoiceTypeId,
-                                pending.TraderId, pending.VehicleId, pending.Mode);
-                            if (relatedId == Guid.Empty)
-                                throw new InvalidOperationException("Δεν ήταν δυνατή η δημιουργία του ενδιάμεσου παραστατικού.");
-                            if (!string.IsNullOrWhiteSpace(pending.NotesAddition))
-                                related.Notes = string.IsNullOrWhiteSpace(related.Notes)
-                                    ? pending.NotesAddition
-                                    : pending.NotesAddition + "\r\n" + related.Notes;
-                            if (!related.Save(db, relatedId))
-                                throw new InvalidOperationException(string.Join("\r\n",
-                                    related.Errors.Select(error => error.ErrorMessage)));
-                            excludedIds.Add(relatedId);
-                            lock (Threads.PrintAgent.ExcludeInvoices)
-                                Threads.PrintAgent.ExcludeInvoices.Add(relatedId);
-                        }
-                    }
-
-                    this.ivm.RelatedInvoiceIds = excludedIds.ToArray();
-                    if (!this.ivm.Save(db, this.ivm.InvoiceId))
-                        return false;
-                    db.SaveChanges();
-                    this.ivm.HasChanges = false;
-                    this.pendingTransformations.Clear();
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                this.ivm.Errors = new[]
-                {
-                    new ViewModels.ValidationError
-                    {
-                        Caption = "Σφάλμα αποθήκευσης μετασχηματισμού",
-                        ErrorMessage = ex.Message
-                    }
-                };
-                return false;
-            }
-            finally
+            var success = this.ivm.Save(this.ivm.InvoiceId);
+            if (success)
             {
                 lock (Threads.PrintAgent.ExcludeInvoices)
                 {
-                    foreach (var id in excludedIds)
+                    foreach (var id in this.relatedIds ?? new Guid[0])
                         Threads.PrintAgent.ExcludeInvoices.Remove(id);
                 }
+                this.relatedIds = null;
             }
+            return success;
+        }
+
+        private void DeleteRelatedInvoices()
+        {
+            if (this.relatedIds == null || this.relatedIds.Length == 0)
+                return;
+            using (Threads.SharedInvoiceRuntime.EditUnissued(this.relatedIds))
+            using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                foreach (var invoiceId in this.relatedIds)
+                {
+                    var invoice = db.Invoices.SingleOrDefault(item => item.InvoiceId == invoiceId);
+                    if (invoice == null)
+                        continue;
+                    foreach (var line in invoice.InvoiceLines.ToArray())
+                    {
+                        if (line.InvoiceLineRelations_ChildRelationId.Count > 0)
+                            db.Delete(line.InvoiceLineRelations_ChildRelationId);
+                        if (line.InvoiceLineRelations_ParentLineId.Count > 0)
+                            db.Delete(line.InvoiceLineRelations_ParentLineId);
+                    }
+                    if (invoice.ParentInvoiceRelations.Count > 0)
+                        db.Delete(invoice.ParentInvoiceRelations);
+                    if (invoice.ChildInvoiceRelations.Count > 0)
+                        db.Delete(invoice.ChildInvoiceRelations);
+                    if (invoice.FinTransactions.Count > 0)
+                        db.Delete(invoice.FinTransactions);
+                    if (invoice.InvoiceLines.Count > 0)
+                        db.Delete(invoice.InvoiceLines);
+                    db.Delete(invoice);
+                }
+                db.SaveChanges();
+            }
+            lock (Threads.PrintAgent.ExcludeInvoices)
+            {
+                foreach (var id in this.relatedIds)
+                    Threads.PrintAgent.ExcludeInvoices.Remove(id);
+            }
+            this.relatedIds = null;
         }
 
         private void InvoiceFormEx_FormClosing(object sender, FormClosingEventArgs e)
@@ -217,7 +222,10 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             if (Threads.SharedInvoiceRuntime.Owns(this.ivm.InvoiceId)) return;
             if (!this.ivm.HasChanges)
+            {
+                DeleteRelatedInvoices();
                 return;
+            }
             var res = RadMessageBox.Show(this,"Θέλετε να αποθηκεύσετε τις αλλαγές?", "Εχούν γίνει αλλαγές...", MessageBoxButtons.YesNoCancel, RadMessageIcon.Question);
             if (res == DialogResult.Cancel)
             {
@@ -235,7 +243,7 @@ namespace ASFuelControl.Windows.UI.Forms
             }
             else if(res == DialogResult.No)
             {
-                this.pendingTransformations.Clear();
+                DeleteRelatedInvoices();
             }
         }
 

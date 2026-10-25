@@ -186,6 +186,15 @@ internal static class Program
                 }
                 Throws(() => Mapper.Map(i,c));
             });
+        Run("local transformation provenance is not an external correlation", () => {
+            var c = Context(); c.IncludeSaleCorrelations = false;
+            var i = Invoice(); var p = Invoice();
+            i.ParentInvoiceRelations.Add(new InvoiceRelation { ParentInvoice = p, RelationType = 2 });
+            var request = Mapper.Map(i,c);
+            Equal(0,request.Parents.Count());
+            Equal(null,request.SaleCorrelations);
+            Equal(null,Mapper.Build(i,c).InvoiceHeader.CorrelatedInvoices);
+        });
         foreach (bool flag in new[] { false,true })
             Run("special cancellation 215 cannot be issued as a credit, flag " + flag, () => {
                 var i = Invoice(new Fixture { OfficialCode = 215, Credit = flag });
