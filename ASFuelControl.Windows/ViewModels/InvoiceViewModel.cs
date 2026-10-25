@@ -141,6 +141,29 @@ namespace ASFuelControl.Windows.ViewModels
             return decimal.Round(amount * ((100 + vatPercentage) / 100), 5);
         }
 
+        private void ApplyVatExemptionToTransformedLine(InvoiceLineViewModel targetLine,
+            decimal retailUnitPrice, decimal sourceVatPercentage)
+        {
+            if (!this.VatExemption || targetLine == null)
+                return;
+            if (this.SelectedInvoiceType != null &&
+                this.SelectedInvoiceType.IsCancelation == true)
+                return;
+
+            // Pump sales carry the VAT-inclusive price of the original sale.
+            // When the customer is selected before the transformed lines are
+            // created, the VatExemption setter cannot adjust those new lines.
+            // Apply the same conversion here as for a nozzle-selected line.
+            decimal effectiveUnitPrice = sourceVatPercentage > 0
+                ? this.GetUnitPriceFromRetailPrice(targetLine, retailUnitPrice)
+                : retailUnitPrice;
+
+            targetLine.VatPercentage = 0;
+            targetLine.UnitPriceRetail = effectiveUnitPrice;
+            targetLine.UnitPriceWhole = effectiveUnitPrice;
+            targetLine.UnitPrice = effectiveUnitPrice;
+        }
+
         public string VatExemptionReason
         {
             set
@@ -1058,6 +1081,9 @@ namespace ASFuelControl.Windows.ViewModels
                             invLine.VolumeNormalized = vd.Volume;
                             invLine.SaleTransactionId = line.SaleTransactionId;
                             invLine.TankFillingId = line.TankFillingId;
+                            this.ApplyVatExemptionToTransformedLine(invLine,
+                                line.UnitPriceRetail != 0 ? line.UnitPriceRetail : vd.UnitPrice,
+                                line.VatPercentage);
                             invLine.PropertyChanged += Ilvm_PropertyChanged;
                             this.lines.Add(invLine);
                             invLine.SetComputedColumns(false, false);
@@ -1094,6 +1120,9 @@ namespace ASFuelControl.Windows.ViewModels
                         invLine.VolumeNormalized = line.VolumeNormalized;
                         invLine.SaleTransactionId = line.SaleTransactionId;
                         invLine.TankFillingId = line.TankFillingId;
+                        this.ApplyVatExemptionToTransformedLine(invLine,
+                            line.UnitPriceRetail != 0 ? line.UnitPriceRetail : line.UnitPrice,
+                            line.VatPercentage);
                         invLine.PropertyChanged += Ilvm_PropertyChanged;
 
                         if (transformationType.TransformationMode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation && invoiceIds.Length == 1)
@@ -1140,6 +1169,9 @@ namespace ASFuelControl.Windows.ViewModels
                 }
                 //this.RecalculateSums();
                 this.SetInvoiceSums(db, invoiceIds, mode);
+                if (this.VatExemption &&
+                    transMode == Common.Enumerators.InvoiceTransformationTypeEnum.OneToMany)
+                    this.RecalculateSums();
                 
 
                 this.ApplicationUserId = Data.DatabaseModel.CurrentUserId;
@@ -1257,6 +1289,9 @@ namespace ASFuelControl.Windows.ViewModels
                             invLine.VolumeNormalized = vd.Volume;
                             invLine.SaleTransactionId = line.SaleTransactionId;
                             invLine.TankFillingId = line.TankFillingId;
+                            this.ApplyVatExemptionToTransformedLine(invLine,
+                                line.UnitPriceRetail != 0 ? line.UnitPriceRetail : vd.UnitPrice,
+                                line.VatPercentage);
                             invLine.PropertyChanged += Ilvm_PropertyChanged;
                             this.lines.Add(invLine);
                             lineRelations.Add(line.InvoiceLineId, invLine.InvoiceLineId);
@@ -1296,6 +1331,9 @@ namespace ASFuelControl.Windows.ViewModels
                         invLine.VolumeNormalized = line.VolumeNormalized;
                         invLine.SaleTransactionId = line.SaleTransactionId;
                         invLine.TankFillingId = line.TankFillingId;
+                        this.ApplyVatExemptionToTransformedLine(invLine,
+                            line.UnitPriceRetail != 0 ? line.UnitPriceRetail : line.UnitPrice,
+                            line.VatPercentage);
                         invLine.PropertyChanged += Ilvm_PropertyChanged;
 
                         if (transformationType.TransformationMode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation && invoiceIds.Length == 1)
