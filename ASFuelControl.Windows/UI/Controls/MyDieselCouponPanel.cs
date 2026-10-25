@@ -101,24 +101,33 @@ namespace ASFuelControl.Windows.UI.Controls
                     ? "Η έκβαση είναι άγνωστη. Μην επαναλάβετε τυφλά την ενέργεια." : "";
             }
             bool active = !Busy && invoiceId != Guid.Empty;
-            capture.Visible = (value == null || dismissed) && status?.CanAttachNewCoupon == true;
-            capture.Enabled = active && capture.Visible && NewReservationsEnabled();
-            reserve.Visible = value != null && (value.LocalStage == MyDieselCaseStage.Captured || value.LocalStage == MyDieselCaseStage.ReserveUnknown);
-            reserve.Enabled = active && reserve.Visible;
-            release.Visible = value != null && value.LocalStage == MyDieselCaseStage.Reserved;
-            release.Enabled = active && release.Visible;
-            dismiss.Visible = MyDieselCouponService.CanDismissRejected(value);
-            dismiss.Enabled = active && dismiss.Visible;
-            refresh.Visible = value != null && (value.LocalStage == MyDieselCaseStage.RedeemUnknown || value.LocalStage == MyDieselCaseStage.Redeemed ||
+            bool showCapture = (value == null || dismissed) && status?.CanAttachNewCoupon == true;
+            capture.Visible = showCapture;
+            capture.Enabled = active && showCapture && NewReservationsEnabled();
+            bool showReserve = value != null && (value.LocalStage == MyDieselCaseStage.Captured || value.LocalStage == MyDieselCaseStage.ReserveUnknown);
+            reserve.Visible = showReserve;
+            reserve.Enabled = active && showReserve;
+            bool showRelease = value != null && value.LocalStage == MyDieselCaseStage.Reserved;
+            release.Visible = showRelease;
+            release.Enabled = active && showRelease;
+            bool showDismiss = MyDieselCouponService.CanDismissRejected(value);
+            dismiss.Visible = showDismiss;
+            dismiss.Enabled = active && showDismiss;
+            bool showRefresh = value != null && (value.LocalStage == MyDieselCaseStage.RedeemUnknown || value.LocalStage == MyDieselCaseStage.Redeemed ||
                 value.LocalStage == MyDieselCaseStage.VerificationPending || value.LocalStage == MyDieselCaseStage.InterventionRequired);
-            refresh.Enabled = active && refresh.Visible;
+            refresh.Visible = showRefresh;
+            refresh.Enabled = active && showRefresh;
             var remote = value == null ? MyDieselCouponStatus.UnknownValue : MyDieselCouponStates.Parse(value.RemoteStatus);
             bool admin = Program.AdminConnected;
-            correctMark.Visible = value != null && MyDieselCouponStates.CanRedeem(remote) && remote != MyDieselCouponStatus.Reserved;
-            correctMark.Enabled = active && admin && correctMark.Visible;
-            changeBranch.Visible = value != null && MyDieselCouponStates.CanChangeBranch(remote);
-            changeBranch.Enabled = active && admin && changeBranch.Visible;
-            evidence.Visible = value != null; evidence.Enabled = active && evidence.Visible;
+            bool showCorrectMark = value != null && MyDieselCouponStates.CanRedeem(remote) && remote != MyDieselCouponStatus.Reserved;
+            correctMark.Visible = showCorrectMark;
+            correctMark.Enabled = active && admin && showCorrectMark;
+            bool showChangeBranch = value != null && MyDieselCouponStates.CanChangeBranch(remote);
+            changeBranch.Visible = showChangeBranch;
+            changeBranch.Enabled = active && admin && showChangeBranch;
+            bool showEvidence = value != null;
+            evidence.Visible = showEvidence;
+            evidence.Enabled = active && showEvidence;
         }
 
         private bool NewReservationsEnabled()
