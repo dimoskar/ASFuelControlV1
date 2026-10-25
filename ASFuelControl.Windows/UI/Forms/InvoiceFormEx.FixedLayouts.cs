@@ -19,7 +19,7 @@ namespace ASFuelControl.Windows.UI.Forms
             AutoScaleMode = AutoScaleMode.Font;
             Font = EditorFont;
             MinimumSize = new Size(1050, 760);
-            ClientSize = new Size(1180, 500);
+            ClientSize = new Size(1180, 590);
             StartPosition = FormStartPosition.CenterParent;
 
             var root = new TableLayoutPanel
@@ -230,7 +230,7 @@ namespace ASFuelControl.Windows.UI.Forms
             tableLayoutPanel2.DataBindings.Add("Enabled", invoiceViewModelBindingSource, "DetailsEditEnabled", true);
 
             body.Controls.Add(tableLayoutPanel2, 0, 0);
-            body.Controls.Add(BuildNotesAndSummaryPanel("Παρατηρήσεις Τεχνικού", "Γεν. Σύνολο", 68F), 0, 1);
+            body.Controls.Add(BuildNotesAndSummaryPanel("Παρατηρήσεις Τεχνικού", "Γεν. Σύνολο"), 0, 1);
             return body;
         }
 
@@ -246,7 +246,7 @@ namespace ASFuelControl.Windows.UI.Forms
             };
             body.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
             body.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            body.RowStyles.Add(new RowStyle(SizeType.Absolute, 122F));
+            body.RowStyles.Add(new RowStyle(SizeType.Absolute, 210F));
 
             panel2 = new Panel { Dock = DockStyle.Fill };
             btnAddVehicle = NewButton("+  Προσθήκη γραμμής", btnAddVehicle_Click);
@@ -277,7 +277,7 @@ namespace ASFuelControl.Windows.UI.Forms
             body.Controls.Add(radGridView1, 0, 1);
             body.Controls.Add(BuildNotesAndSummaryPanel(
                 supplier ? "Παρατηρήσεις Αγοράς" : "Παρατηρήσεις",
-                supplier ? "Συνολική Αξία" : "Γεν. Σύνολο", 56F), 0, 2);
+                supplier ? "Συνολική Αξία" : "Γεν. Σύνολο"), 0, 2);
             return body;
         }
 
@@ -340,26 +340,24 @@ namespace ASFuelControl.Windows.UI.Forms
             };
         }
 
-        private Control BuildNotesAndSummaryPanel(string notesCaption, string totalCaption, float notesWidth)
+        private Control BuildNotesAndSummaryPanel(string notesCaption, string totalCaption)
         {
             var footer = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 2,
+                ColumnCount = 1,
+                RowCount = 3,
                 Margin = new Padding(0)
             };
-            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, notesWidth));
-            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F - notesWidth));
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             footer.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 116F));
             footer.Controls.Add(NewLabel(notesCaption), 0, 0);
             radTextBox2 = NewTextBox("Notes");
             radTextBox2.Multiline = true;
             footer.Controls.Add(radTextBox2, 0, 1);
-            var summary = BuildPaymentAndTotalsPanel(totalCaption);
-            footer.Controls.Add(summary, 1, 0);
-            footer.SetRowSpan(summary, 2);
+            footer.Controls.Add(BuildPaymentAndTotalsPanel(totalCaption), 0, 2);
             return footer;
         }
 

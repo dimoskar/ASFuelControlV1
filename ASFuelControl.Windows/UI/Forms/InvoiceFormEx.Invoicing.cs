@@ -16,10 +16,17 @@ namespace ASFuelControl.Windows.UI.Forms
         private void InitializeFiscalStatus()
         {
             fiscalPanel = new FiscalDocumentPanel { Dock = DockStyle.Fill };
-            myDieselPanel = new MyDieselCouponPanel(EnsureInvoiceSavedForMyDiesel,InvoiceTraderVat) { Dock = DockStyle.Top };
-            invoicingStatusHost = new Panel { Dock = DockStyle.Bottom,Height = 342 };
+            myDieselPanel = new MyDieselCouponPanel(EnsureInvoiceSavedForMyDiesel,InvoiceTraderVat);
+            bool fixedEditor = editorLayout != ViewModels.InvoiceEditorLayout.Legacy;
+            invoicingStatusHost = new Panel { Dock = DockStyle.Bottom,Height = fixedEditor ? 260 : 342 };
             invoicingStatusHost.Controls.Add(fiscalPanel);
-            invoicingStatusHost.Controls.Add(myDieselPanel);
+            if (fixedEditor)
+                fiscalPanel.AddPage("myDiesel",myDieselPanel);
+            else
+            {
+                myDieselPanel.Dock = DockStyle.Top;
+                invoicingStatusHost.Controls.Add(myDieselPanel);
+            }
             ClientSize = new System.Drawing.Size(ClientSize.Width,ClientSize.Height + invoicingStatusHost.Height);
             Controls.Add(invoicingStatusHost);
             fiscalPanel.StateChanged += (s,e) => LockIssuedInvoice();

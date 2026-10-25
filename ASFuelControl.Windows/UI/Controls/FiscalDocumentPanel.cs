@@ -85,6 +85,14 @@ namespace ASFuelControl.Windows.UI.Controls
             var text = new RadTextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical };
             page.Controls.Add(text); pages.Pages.Add(page); return text;
         }
+        internal void AddPage(string title, Control content)
+        {
+            if (content == null) throw new ArgumentNullException(nameof(content));
+            var page = new RadPageViewPage { Text = title };
+            content.Dock = DockStyle.Fill;
+            page.Controls.Add(content);
+            pages.Pages.Add(page);
+        }
         private RadButton Button(string title,Func<Task> action)
         {
             var button = new RadButton { Text = title,Width = 175,Height = 30 };
