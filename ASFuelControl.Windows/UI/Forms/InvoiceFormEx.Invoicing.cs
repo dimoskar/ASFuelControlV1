@@ -31,7 +31,11 @@ namespace ASFuelControl.Windows.UI.Forms
             Controls.Add(invoicingStatusHost);
             fiscalPanel.StateChanged += (s,e) => LockIssuedInvoice();
             myDieselPanel.StateChanged += (s,e) => LockIssuedInvoice();
-            Shown += (s,e) => { fiscalPanel.LoadInvoice(ivm.InvoiceId); myDieselPanel.LoadInvoice(ivm.InvoiceId); };
+            Shown += (s,e) =>
+            {
+                fiscalPanel.LoadInvoice(ivm.InvoiceId);
+                myDieselPanel.LoadInvoice(ivm.InvoiceId, ivm.EntityState == ViewModels.EntityStateEnum.Added);
+            };
             paymentTypeDropDownList.SelectedIndexChanging += (s,e) => {
                 if (!Visible || lockedForIssuance || e.Position < 0 || e.Position >= paymentTypeDropDownList.Items.Count) return;
                 var value = paymentTypeDropDownList.Items[e.Position].Value;

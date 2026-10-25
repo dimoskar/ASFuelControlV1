@@ -53,10 +53,15 @@ namespace ASFuelControl.Windows.UI.Controls
             Render();
         }
 
-        internal void LoadInvoice(Guid id)
+        internal void LoadInvoice(Guid id, bool isNewUnsavedInvoice = false)
         {
             invoiceId = id;
-            try { status = SharedMyDieselRuntime.ReadInvoice(id); }
+            try
+            {
+                status = SharedMyDieselRuntime.ReadInvoice(id);
+                if (isNewUnsavedInvoice && status.CouponCase == null)
+                    status.CanAttachNewCoupon = true;
+            }
             catch (Exception ex)
             {
                 status = null; state.Text = "Δεν ήταν δυνατός ο έλεγχος myDiesel"; details.Text = ex.Message; warning.Text = "";
