@@ -48,14 +48,12 @@ namespace ASFuelControl.Windows.ViewModels
                             // fuel and price; the form must not allow an
                             // independent fuel selection.
                             this.FuelTypeId = nozzle.FuelTypeId;
-                            if (this.ParentInvoice.PricesIncludeVat)
-                            {
-                                this.UnitPriceView = nozzle.UnitPrice;
-                            }
-                            else
-                            {
-                                this.UnitPriceView = nozzle.UnitPrice / ((100 + this.VatPercentageView) / 100);
-                            }
+                            // A nozzle price is always the configured retail
+                            // price.  The invoice decides whether that price is
+                            // shown gross, shown net, or reduced because the
+                            // selected customer is VAT exempt.
+                            this.UnitPriceRetail = this.ParentInvoice.GetUnitPriceFromRetailPrice(
+                                this, nozzle.UnitPrice);
                         }
                     }
                 }

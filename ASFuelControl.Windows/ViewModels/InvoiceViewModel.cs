@@ -19,7 +19,15 @@ namespace ASFuelControl.Windows.ViewModels
         private bool vatExemption { set; get; }
         private string vatExemptionReason = "";
         private const decimal DefaultVatPercentage = 24m;
-        private readonly Dictionary<Guid, decimal> vatExemptionDiscounts = new Dictionary<Guid, decimal>();
+        private sealed class VatExemptionLineState
+        {
+            public decimal RetailUnitPrice { get; set; }
+            public decimal DiscountAmount { get; set; }
+            public decimal VatPercentage { get; set; }
+        }
+
+        private readonly Dictionary<Guid, VatExemptionLineState> vatExemptionLineStates =
+            new Dictionary<Guid, VatExemptionLineState>();
 
         public virtual InvoiceEditorScenario EditorScenario
         {
@@ -39,48 +47,98 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 if (this.vatExemption == value)
                     return;
+                decimal configuredVatPercentage = GetConfiguredVatPercentage();
                 if (value)
                 {
-                    vatExemptionDiscounts.Clear();
+                    vatExemptionLineStates.Clear();
                     foreach (var invoiceLine in lines)
-                        vatExemptionDiscounts[invoiceLine.InvoiceLineId] = invoiceLine.DiscountAmount;
+                    {
+                        vatExemptionLineStates[invoiceLine.InvoiceLineId] = new VatExemptionLineState
+                        {
+                            RetailUnitPrice = invoiceLine.UnitPriceRetail,
+                            DiscountAmount = invoiceLine.DiscountAmount,
+                            VatPercentage = invoiceLine.VatPercentage > 0
+                                ? invoiceLine.VatPercentage
+                                : configuredVatPercentage
+                        };
+                    }
                 }
                 this.vatExemption = value;
                 foreach(var line in this.lines)
                 {
-                    decimal up = line.UnitPriceView;
-                    decimal originalDiscount;
-                    if (!vatExemptionDiscounts.TryGetValue(line.InvoiceLineId, out originalDiscount))
-                        originalDiscount = line.DiscountAmount;
-                    decimal vatPercentage = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", DefaultVatPercentage);
-                    if (value && this.PricesIncludeVat)
-                        up = line.UnitPriceRetail;
-                    else if (!this.PricesIncludeVat)
-                        up = decimal.Round(line.UnitPriceRetail / ((100 + vatPercentage) / 100), 3);
-                    else
-                        up = line.UnitPriceView;
+                    VatExemptionLineState state;
+                    if (!vatExemptionLineStates.TryGetValue(line.InvoiceLineId, out state))
+                    {
+                        state = new VatExemptionLineState
+                        {
+                            RetailUnitPrice = value
+                                ? line.UnitPriceRetail
+                                : AddVat(line.UnitPriceRetail, configuredVatPercentage),
+                            DiscountAmount = line.DiscountAmount,
+                            VatPercentage = configuredVatPercentage
+                        };
+                    }
                     if (value)
                     {
-                        var newDisc = decimal.Round(originalDiscount / ((100 + vatPercentage) / 100), 2);
+                        var newDisc = RemoveVat(state.DiscountAmount, state.VatPercentage, 2);
                         if (line.VatPercentage > 0 && newDisc != line.DiscountAmount)
                             line.DiscountAmount = newDisc;
                         if(line.VatPercentage != 0)
                             line.VatPercentage = 0;
-                        
+                        line.UnitPriceRetail = RemoveVat(state.RetailUnitPrice, state.VatPercentage, 5);
                     }
                     else
                     {
-                        line.VatPercentage = vatPercentage;
-                        line.DiscountAmount = originalDiscount;
+                        line.VatPercentage = state.VatPercentage;
+                        line.DiscountAmount = state.DiscountAmount;
+                        line.UnitPriceRetail = state.RetailUnitPrice;
                     }
-                    if(line.UnitPriceView != up)
-                        line.UnitPriceView = up;
                 }
                 if (!value)
-                    vatExemptionDiscounts.Clear();
+                    vatExemptionLineStates.Clear();
                 this.OnPropertyChanged("VatExemption");
             }
             get { return this.vatExemption; }
+        }
+
+        internal decimal GetUnitPriceFromRetailPrice(InvoiceLineViewModel line, decimal retailUnitPrice)
+        {
+            if (!this.VatExemption)
+                return retailUnitPrice;
+
+            decimal vatPercentage = GetConfiguredVatPercentage();
+            VatExemptionLineState state;
+            if (line != null && vatExemptionLineStates.TryGetValue(line.InvoiceLineId, out state))
+            {
+                state.RetailUnitPrice = retailUnitPrice;
+                vatPercentage = state.VatPercentage;
+            }
+            else if (line != null)
+            {
+                vatExemptionLineStates[line.InvoiceLineId] = new VatExemptionLineState
+                {
+                    RetailUnitPrice = retailUnitPrice,
+                    DiscountAmount = line.DiscountAmount,
+                    VatPercentage = vatPercentage
+                };
+            }
+
+            return RemoveVat(retailUnitPrice, vatPercentage, 5);
+        }
+
+        private static decimal GetConfiguredVatPercentage()
+        {
+            return Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", DefaultVatPercentage);
+        }
+
+        private static decimal RemoveVat(decimal amount, decimal vatPercentage, int decimalPlaces)
+        {
+            return decimal.Round(amount / ((100 + vatPercentage) / 100), decimalPlaces);
+        }
+
+        private static decimal AddVat(decimal amount, decimal vatPercentage)
+        {
+            return decimal.Round(amount * ((100 + vatPercentage) / 100), 5);
         }
 
         public string VatExemptionReason
@@ -506,7 +564,7 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 try
                 {
-                    decimal vatValue = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", DefaultVatPercentage);
+                    decimal vatValue = GetConfiguredVatPercentage();
                     Nozzle lastNozzle = db.Nozzles.Where(n => n.NozzleId == this.CurrentLine.CurrentNozzleId).FirstOrDefault();
                     if (lastNozzle == null)
                         throw new InvalidOperationException("Δεν βρέθηκε το επιλεγμένο ακροσωλήνιο.");
@@ -787,18 +845,17 @@ namespace ASFuelControl.Windows.ViewModels
             if (SuspendRecalculation)
                 return;
 
-            var vatInitial = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", DefaultVatPercentage);
-
             if (this.VatExemption)
             {
                 foreach (var invLine in this.InvoiceLines)
                 {
                     if (invLine.SalesTransactionView != null)
                     {
-                        var retailPrice = Math.Round((invLine.SalesTransactionView.UnitPrice * 100) / (100 + vatInitial), 3);
-                        invLine.UnitPriceRetail = retailPrice;
-                        invLine.UnitPrice = retailPrice;
-                        invLine.UnitPriceWhole = retailPrice;
+                        var unitPrice = this.GetUnitPriceFromRetailPrice(invLine,
+                            invLine.SalesTransactionView.UnitPrice);
+                        invLine.UnitPriceRetail = unitPrice;
+                        invLine.UnitPrice = unitPrice;
+                        invLine.UnitPriceWhole = unitPrice;
                     }
                     if (invLine.VatPercentage != 0)
                         invLine.VatPercentage = 0;
