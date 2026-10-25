@@ -186,12 +186,11 @@ namespace ASFuelControl.Windows.UI.Forms
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 3,
+                RowCount = 2,
                 Margin = new Padding(0)
             };
             body.RowStyles.Add(new RowStyle(SizeType.Absolute, 154F));
             body.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            body.RowStyles.Add(new RowStyle(SizeType.Absolute, 76F));
 
             tableLayoutPanel2 = new Controls.DoubleBufferTableLayout
             {
@@ -230,23 +229,8 @@ namespace ASFuelControl.Windows.UI.Forms
             }
             tableLayoutPanel2.DataBindings.Add("Enabled", invoiceViewModelBindingSource, "DetailsEditEnabled", true);
 
-            var notesAndPayment = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2 };
-            notesAndPayment.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68F));
-            notesAndPayment.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32F));
-            notesAndPayment.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            notesAndPayment.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            notesAndPayment.Controls.Add(NewLabel("Παρατηρήσεις Τεχνικού"), 0, 0);
-            notesAndPayment.Controls.Add(NewLabel("Τρόπος Πληρωμής"), 1, 0);
-            radTextBox2 = NewTextBox("Notes");
-            radTextBox2.Multiline = true;
-            paymentTypeDropDownList = NewPaymentDropDown();
-            notesAndPayment.Controls.Add(radTextBox2, 0, 1);
-            notesAndPayment.Controls.Add(paymentTypeDropDownList, 1, 1);
-
-            var totals = BuildTotalsPanel("Γεν. Σύνολο");
             body.Controls.Add(tableLayoutPanel2, 0, 0);
-            body.Controls.Add(notesAndPayment, 0, 1);
-            body.Controls.Add(totals, 0, 2);
+            body.Controls.Add(BuildNotesAndSummaryPanel("Παρατηρήσεις Τεχνικού", "Γεν. Σύνολο", 68F), 0, 1);
             return body;
         }
 
@@ -289,25 +273,11 @@ namespace ASFuelControl.Windows.UI.Forms
 
             radGridView1 = BuildDetailedGrid(supplier);
 
-            var footer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 2 };
-            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48F));
-            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 27F));
-            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
-            footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            footer.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            footer.Controls.Add(NewLabel(supplier ? "Παρατηρήσεις Αγοράς" : "Παρατηρήσεις"), 0, 0);
-            footer.Controls.Add(NewLabel("Τρόπος Πληρωμής"), 1, 0);
-            footer.Controls.Add(NewLabel(supplier ? "Σύνολα Αγοράς" : "Σύνολα"), 2, 0);
-            radTextBox2 = NewTextBox("Notes");
-            radTextBox2.Multiline = true;
-            paymentTypeDropDownList = NewPaymentDropDown();
-            footer.Controls.Add(radTextBox2, 0, 1);
-            footer.Controls.Add(paymentTypeDropDownList, 1, 1);
-            footer.Controls.Add(BuildTotalsPanel(supplier ? "Συνολική Αξία" : "Γεν. Σύνολο"), 2, 1);
-
             body.Controls.Add(panel2, 0, 0);
             body.Controls.Add(radGridView1, 0, 1);
-            body.Controls.Add(footer, 0, 2);
+            body.Controls.Add(BuildNotesAndSummaryPanel(
+                supplier ? "Παρατηρήσεις Αγοράς" : "Παρατηρήσεις",
+                supplier ? "Συνολική Αξία" : "Γεν. Σύνολο", 56F), 0, 2);
             return body;
         }
 
@@ -370,19 +340,47 @@ namespace ASFuelControl.Windows.UI.Forms
             };
         }
 
-        private Control BuildTotalsPanel(string totalCaption)
+        private Control BuildNotesAndSummaryPanel(string notesCaption, string totalCaption, float notesWidth)
+        {
+            var footer = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 2,
+                Margin = new Padding(0)
+            };
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, notesWidth));
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F - notesWidth));
+            footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            footer.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            footer.Controls.Add(NewLabel(notesCaption), 0, 0);
+            radTextBox2 = NewTextBox("Notes");
+            radTextBox2.Multiline = true;
+            footer.Controls.Add(radTextBox2, 0, 1);
+            var summary = BuildPaymentAndTotalsPanel(totalCaption);
+            footer.Controls.Add(summary, 1, 0);
+            footer.SetRowSpan(summary, 2);
+            return footer;
+        }
+
+        private Control BuildPaymentAndTotalsPanel(string totalCaption)
         {
             tableLayoutPanel3 = new Controls.DoubleBufferTableLayout
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 2,
+                ColumnCount = 4,
                 RowCount = 4,
                 Margin = new Padding(0)
             };
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48F));
-            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52F));
+            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24F));
+            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 31F));
+            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
+            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
             for (int i = 0; i < 4; i++)
                 tableLayoutPanel3.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
+            paymentTypeDropDownList = NewPaymentDropDown();
+            tableLayoutPanel3.Controls.Add(NewLabel("Τρόπος Πληρωμής"), 0, 0);
+            tableLayoutPanel3.Controls.Add(paymentTypeDropDownList, 1, 0);
             radSpinEditor2 = NewSpin("NettoAmount", 2, 999999999);
             radSpinEditor3 = NewSpin(ivm.PricesIncludeVat ? "DiscountAmount" : "DiscountAmountWhole", 2, 999999999);
             radSpinEditor4 = NewSpin("VatAmount", 2, 999999999);
@@ -394,8 +392,8 @@ namespace ASFuelControl.Windows.UI.Forms
             {
                 var label = NewLabel(labels[i]);
                 if (i == 3) label.Font = new Font(EditorFont, FontStyle.Bold);
-                tableLayoutPanel3.Controls.Add(label, 0, i);
-                tableLayoutPanel3.Controls.Add(values[i], 1, i);
+                tableLayoutPanel3.Controls.Add(label, 2, i);
+                tableLayoutPanel3.Controls.Add(values[i], 3, i);
             }
             return tableLayoutPanel3;
         }
