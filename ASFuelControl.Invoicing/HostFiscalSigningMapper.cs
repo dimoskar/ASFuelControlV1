@@ -48,7 +48,8 @@ namespace ASFuelControl.Invoicing
                         MeasurementUnit = 3, SaleQty = decimal.Round(l.Volume, 3), NetAmount = decimal.Round(l.TotalPrice - l.VatAmount, 2),
                         VatAmount = decimal.Round(l.VatAmount, 2), GrossAmount = sign * decimal.Round(l.TotalPrice, 2),
                         VatRate = l.VatPercentage.ToString("0.00", CultureInfo.InvariantCulture),
-                        VatExCategory = l.VatPercentage == 0 && trader?.VatExemption == true ? 11 : 0,
+                        VatExCategory = l.VatPercentage == 0 && trader?.VatExemption == true
+                            ? VatExemptionReasonCatalog.GetCodeOrDefault(trader.VatExemptionReason, 11) : 0,
                         DMType = l.DiscountAmount > 0 ? 1 : 0, DMValue = l.DiscountAmount > 0 ? sign * decimal.Round(l.DiscountAmount, 2) : 0 };
                 }).ToArray();
                 wire.Doc.Payments = new[] { new Payment { Type = invoice.PaymentType == 0 ? 5 : 0,

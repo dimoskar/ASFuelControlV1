@@ -55,7 +55,8 @@ namespace ASFuelControl.Invoicing.Mapping
                 if (!delivery && line.VatPercentage == 0 && !exemption.HasValue)
                 {
                     if (country.CountryCode != "GR") exemption = (int)(country.IsEu ? VATExemptionCategoryEnum.Article28 : VATExemptionCategoryEnum.Article24);
-                    else if (source.Trader != null && source.Trader.VatExemption == true) exemption = (int)VATExemptionCategoryEnum.Article27;
+                    else if (source.Trader != null && source.Trader.VatExemption == true)
+                        exemption = VatExemptionReasonCatalog.GetCodeOrDefault(source.Trader.VatExemptionReason, (int)VATExemptionCategoryEnum.Article27);
                 }
                 input.VATPaymentSuspension |= !delivery && country.CountryCode == "GR" &&
                     source.Trader != null && source.Trader.VatExemption == true && line.VatPercentage == 0;

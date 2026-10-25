@@ -86,6 +86,14 @@ namespace ASFuelControl.Windows.UI.Forms
             this.countryComboBox.DataSource = Data.Implementation.Country.GetCountries();
             this.countryComboBox.DisplayMember = "DisplayValue";
             this.countryComboBox.ValueMember = "CodeValue";
+            this.BindVatExemptionReasons();
+        }
+
+        private void BindVatExemptionReasons()
+        {
+            this.vatExemptionReasonDropDownList.DataSource = Exedron.Invoicing.Core.VatExemptionReasonCatalog.ForSelection();
+            this.vatExemptionReasonDropDownList.DisplayMember = "DisplayText";
+            this.vatExemptionReasonDropDownList.ValueMember = "StoredValue";
         }
 
         public void CreateCustomer()

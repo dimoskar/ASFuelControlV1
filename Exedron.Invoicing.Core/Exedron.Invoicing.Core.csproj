@@ -44,6 +44,7 @@
     <Compile Include="ProviderPrintMetadata.cs" />
     <Compile Include="ReceivingNotePurposes.cs" />
     <Compile Include="RequestResponseLogging.cs" />
+    <Compile Include="VatExemptionReasonCatalog.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

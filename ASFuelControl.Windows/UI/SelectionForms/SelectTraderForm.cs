@@ -36,12 +36,21 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             this.paymentTypeDropDownList.DisplayMember = "Description";
             this.paymentTypeDropDownList.ValueMember = "Value";
 
+            this.BindVatExemptionReasons();
+
             //this.traders = new BindingList<Data.Trader>(this.database.Traders.ToList());
             //this.traderBindingSource.DataSource = this.traders;
 
             this.IsCustomer.IsChecked = true;
 
             this.Load += new EventHandler(SelectTraderForm_Load);
+        }
+
+        private void BindVatExemptionReasons()
+        {
+            this.vatExemptionReasonDropDownList.DataSource = Exedron.Invoicing.Core.VatExemptionReasonCatalog.ForSelection();
+            this.vatExemptionReasonDropDownList.DisplayMember = "DisplayText";
+            this.vatExemptionReasonDropDownList.ValueMember = "StoredValue";
         }
 
         void SelectTraderForm_Load(object sender, EventArgs e)

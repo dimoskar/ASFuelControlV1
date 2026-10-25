@@ -75,7 +75,7 @@
             this.paymentTypesBindingSource = new System.Windows.Forms.BindingSource(this.components);
             this.radLabel14 = new Telerik.WinControls.UI.RadLabel();
             this.radLabel13 = new Telerik.WinControls.UI.RadLabel();
-            this.radTextBoxVATExReason = new Telerik.WinControls.UI.RadTextBox();
+            this.vatExemptionReasonDropDownList = new Telerik.WinControls.UI.RadDropDownList();
             this.radLabel12 = new Telerik.WinControls.UI.RadLabel();
             this.radLabel11 = new Telerik.WinControls.UI.RadLabel();
             this.radTextBoxVATOffice = new Telerik.WinControls.UI.RadTextBox();
@@ -159,7 +159,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.paymentTypesBindingSource)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel14)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel13)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.radTextBoxVATExReason)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.vatExemptionReasonDropDownList)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel12)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel11)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radTextBoxVATOffice)).BeginInit();
@@ -285,7 +285,7 @@
             this.tableLayoutPanel1.Controls.Add(this.radDropDownListPaymentType, 3, 9);
             this.tableLayoutPanel1.Controls.Add(this.radLabel14, 2, 9);
             this.tableLayoutPanel1.Controls.Add(this.radLabel13, 0, 9);
-            this.tableLayoutPanel1.Controls.Add(this.radTextBoxVATExReason, 3, 8);
+            this.tableLayoutPanel1.Controls.Add(this.vatExemptionReasonDropDownList, 3, 8);
             this.tableLayoutPanel1.Controls.Add(this.radLabel12, 2, 8);
             this.tableLayoutPanel1.Controls.Add(this.radLabel11, 0, 8);
             this.tableLayoutPanel1.Controls.Add(this.radTextBoxVATOffice, 3, 7);
@@ -544,17 +544,19 @@
             this.radLabel13.Text = "Προεπιλ. Τυπ. Παραστατ.";
             this.radLabel13.TextAlignment = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // radTextBoxVATExReason
+            // vatExemptionReasonDropDownList
             // 
-            this.radTextBoxVATExReason.AutoSize = false;
-            this.radTextBoxVATExReason.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.traderViewModelBindingSource, "VatExemptionReason", true));
-            this.radTextBoxVATExReason.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.radTextBoxVATExReason.Font = new System.Drawing.Font("Segoe UI", 9.25F);
-            this.radTextBoxVATExReason.Location = new System.Drawing.Point(677, 230);
-            this.radTextBoxVATExReason.Margin = new System.Windows.Forms.Padding(1);
-            this.radTextBoxVATExReason.Name = "radTextBoxVATExReason";
-            this.radTextBoxVATExReason.Size = new System.Drawing.Size(314, 25);
-            this.radTextBoxVATExReason.TabIndex = 23;
+            this.vatExemptionReasonDropDownList.AutoSize = false;
+            this.vatExemptionReasonDropDownList.DataBindings.Add(new System.Windows.Forms.Binding("SelectedValue", this.traderViewModelBindingSource, "VatExemptionReason", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
+            this.vatExemptionReasonDropDownList.DataBindings.Add(new System.Windows.Forms.Binding("Enabled", this.traderViewModelBindingSource, "VatExemption", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
+            this.vatExemptionReasonDropDownList.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.vatExemptionReasonDropDownList.DropDownStyle = Telerik.WinControls.RadDropDownStyle.DropDownList;
+            this.vatExemptionReasonDropDownList.Font = new System.Drawing.Font("Segoe UI", 9.25F);
+            this.vatExemptionReasonDropDownList.Location = new System.Drawing.Point(677, 230);
+            this.vatExemptionReasonDropDownList.Margin = new System.Windows.Forms.Padding(1);
+            this.vatExemptionReasonDropDownList.Name = "vatExemptionReasonDropDownList";
+            this.vatExemptionReasonDropDownList.Size = new System.Drawing.Size(314, 25);
+            this.vatExemptionReasonDropDownList.TabIndex = 23;
             // 
             // radLabel12
             // 
@@ -1591,7 +1593,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.paymentTypesBindingSource)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel14)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel13)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.radTextBoxVATExReason)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.vatExemptionReasonDropDownList)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel12)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel11)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radTextBoxVATOffice)).EndInit();
@@ -1687,7 +1689,7 @@
         private Telerik.WinControls.UI.RadDropDownList radDropDownListPaymentType;
         private Telerik.WinControls.UI.RadLabel radLabel14;
         private Telerik.WinControls.UI.RadLabel radLabel13;
-        private Telerik.WinControls.UI.RadTextBox radTextBoxVATExReason;
+        private Telerik.WinControls.UI.RadDropDownList vatExemptionReasonDropDownList;
         private Telerik.WinControls.UI.RadLabel radLabel12;
         private Telerik.WinControls.UI.RadLabel radLabel11;
         private Telerik.WinControls.UI.RadTextBox radTextBoxVATOffice;
