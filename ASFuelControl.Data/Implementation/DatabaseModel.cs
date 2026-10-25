@@ -3258,6 +3258,13 @@ ELSE SELECT COUNT(*) FROM dbo.FiscalHeatingCorrection WHERE CreditInvoiceId=@id"
 
         public void RecalculateInvoice()
         {
+            // A transformed document is a fiscal copy of its source values. Its
+            // draft has already applied the only permitted adjustments (partial
+            // volume, delivery-note pricing or VAT exemption), so printing must
+            // not rebuild it from the original pump transaction.
+            if (this.ParentInvoiceRelations != null && this.ParentInvoiceRelations.Count > 0)
+                return;
+
             var vatInitial = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", 23);
             if (this.Trader != null && this.Trader.VatExemption.HasValue && this.Trader.VatExemption.Value)
             {

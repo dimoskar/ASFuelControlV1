@@ -333,23 +333,28 @@ namespace ASFuelControl.Windows.UI.Catalogs
                 var invoiceIds = invoices.Select(s => s.InvoiceId);
                 var selectedInvoices = invoices.Select(i => i.InvoiceId).ToArray();
                 var dbInvoices = db.Invoices.Where(i => invoiceIds.Contains(i.InvoiceId)).ToArray();
-                var vehicleSelections = dbInvoices.Select(i=>i.Vehicle).Distinct().ToArray();
-                var vehicle = vehicleSelections.First();
-                Guid? vehicleId = vehicle == null ? null : new Guid?(vehicleSelections.First().VehicleId);
-                Guid? traderId = vehicle == null ? null : new Guid?(vehicleSelections.First().TraderId);
-                Guid newInvoice = Guid.Empty;
+                var vehicleSelections = dbInvoices.Where(i => i.VehicleId.HasValue)
+                    .Select(i => i.VehicleId.Value).Distinct().ToArray();
+                Guid? vehicleId = vehicleSelections.Length == 1 ? new Guid?(vehicleSelections[0]) : null;
+                var traderSelections = dbInvoices.Where(i => i.TraderId.HasValue)
+                    .Select(i => i.TraderId.Value).Distinct().ToArray();
+                Guid? traderId = traderSelections.Length == 1 ? new Guid?(traderSelections[0]) : null;
+                if (!traderId.HasValue && vehicleId.HasValue)
+                {
+                    var selectedVehicle = db.Vehicles.SingleOrDefault(v => v.VehicleId == vehicleId.Value);
+                    if (selectedVehicle != null)
+                        traderId = selectedVehicle.TraderId;
+                }
                 Forms.InvoiceFormEx invoiceForm = Forms.InvoiceEditorFormFactory.CreateForInvoiceType(invoiceTypeId);
 
                 if (transformation.CreationInvoiceTypeId.HasValue)
                 {
-                    var newIds = invoiceForm.TransformInvoicesNoView(selectedInvoices, transformation.CreationInvoiceTypeId.Value, traderId, vehicleId, 1);
-
-                    invoiceForm.CreateInvoices(selectedInvoices, invoiceTypeId, traderId, vehicleId, transformation.TransformationMode, newIds);
+                    invoiceForm.ConfigureIntermediateTransformation(selectedInvoices,
+                        transformation.CreationInvoiceTypeId.Value, traderId, vehicleId,
+                        (int)Common.Enumerators.InvoiceTransformationTypeEnum.OneToOne,
+                        transformation.CreationNotesAddition);
                 }
-                else
-                {
-                    invoiceForm.TransformInvoices(selectedInvoices, invoiceTypeId, traderId, vehicleId, transformation.TransformationMode);
-                }
+                invoiceForm.TransformInvoices(selectedInvoices, invoiceTypeId, traderId, vehicleId, transformation.TransformationMode);
                 invoiceForm.Show(this);
                 invoiceForm.FormClosed += InvForm_FormClosed;
                 //if (vehicleSelections.Length == 1 && vehicleId.HasValue)

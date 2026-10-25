@@ -447,6 +447,12 @@ namespace ASFuelControl.Windows.ViewModels
         private string traderName;
         private string plateNumber;
 
+        public bool AllowVolumeEdit { set; get; }
+
+        public bool AllowUnitPriceEdit { set; get; }
+
+        public bool RequireUnitPrice { set; get; }
+
         public VolumeData[] Volumes
         {
             set
@@ -599,7 +605,7 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 if (this.volume == value)
                     return;
-                if(value > this.maxAllowedVolume)
+                if(value < 0 || value > this.maxAllowedVolume)
                 {
                     this.OnPropertyChanged("Volume");
                     return;

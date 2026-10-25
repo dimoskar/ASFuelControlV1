@@ -17,7 +17,17 @@ namespace ASFuelControl.Windows.UI.Forms
         protected readonly ViewModels.InvoiceDetailsViewModel ivm;
         private readonly ViewModels.InvoiceEditorLayout editorLayout = ViewModels.InvoiceEditorLayout.Legacy;
 
-        private Guid[] relatedIds = null;
+        private readonly List<PendingTransformation> pendingTransformations = new List<PendingTransformation>();
+
+        private sealed class PendingTransformation
+        {
+            public Guid[] SourceInvoiceIds { get; set; }
+            public Guid InvoiceTypeId { get; set; }
+            public Guid? TraderId { get; set; }
+            public Guid? VehicleId { get; set; }
+            public int Mode { get; set; }
+            public string NotesAddition { get; set; }
+        }
 
         public InvoiceFormEx() : this(new ViewModels.InvoiceDetailsViewModel())
         {
@@ -104,69 +114,81 @@ namespace ASFuelControl.Windows.UI.Forms
             SetView();
         }
 
-        public Guid[] TransformInvoicesNoView(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId, int mode)
+        public void ConfigureIntermediateTransformation(Guid[] invoiceIds, Guid invoiceType,
+            Guid? traderId, Guid? vehicleId, int mode, string notesAddition)
         {
-            List<Guid> newIds = new List<Guid>();
-            if (mode == 1)
+            this.pendingTransformations.Add(new PendingTransformation
             {
-                foreach (Guid invId in invoiceIds)
+                SourceInvoiceIds = invoiceIds.ToArray(),
+                InvoiceTypeId = invoiceType,
+                TraderId = traderId,
+                VehicleId = vehicleId,
+                Mode = mode,
+                NotesAddition = notesAddition
+            });
+        }
+
+        private bool SaveInvoice()
+        {
+            if (this.pendingTransformations.Count == 0)
+                return this.ivm.Save(this.ivm.InvoiceId);
+
+            var excludedIds = new List<Guid>();
+            try
+            {
+                using (Threads.SharedInvoiceRuntime.EditUnissued(this.ivm.InvoiceId))
+                using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
-                    ViewModels.InvoiceDetailsViewModel ivmc = new ViewModels.InvoiceDetailsViewModel();
-                    var invoiceId = ivmc.TransformInvoices(new Guid[] { invId }, invoiceType, traderId, vehicleId, mode);
-                    if (invoiceId == Guid.Empty)
-                        continue;
-                    Threads.PrintAgent.ExcludeInvoices.Add(invoiceId);
-                    ivmc.Save(ivmc.InvoiceId);
-                    newIds.Add(ivmc.InvoiceId);
+                    foreach (var pending in this.pendingTransformations)
+                    {
+                        foreach (var sourceId in pending.SourceInvoiceIds)
+                        {
+                            var related = new ViewModels.InvoiceDetailsViewModel();
+                            var relatedId = related.TransformInvoices(new[] { sourceId }, pending.InvoiceTypeId,
+                                pending.TraderId, pending.VehicleId, pending.Mode);
+                            if (relatedId == Guid.Empty)
+                                throw new InvalidOperationException("Δεν ήταν δυνατή η δημιουργία του ενδιάμεσου παραστατικού.");
+                            if (!string.IsNullOrWhiteSpace(pending.NotesAddition))
+                                related.Notes = string.IsNullOrWhiteSpace(related.Notes)
+                                    ? pending.NotesAddition
+                                    : pending.NotesAddition + "\r\n" + related.Notes;
+                            if (!related.Save(db, relatedId))
+                                throw new InvalidOperationException(string.Join("\r\n",
+                                    related.Errors.Select(error => error.ErrorMessage)));
+                            excludedIds.Add(relatedId);
+                            lock (Threads.PrintAgent.ExcludeInvoices)
+                                Threads.PrintAgent.ExcludeInvoices.Add(relatedId);
+                        }
+                    }
+
+                    this.ivm.RelatedInvoiceIds = excludedIds.ToArray();
+                    if (!this.ivm.Save(db, this.ivm.InvoiceId))
+                        return false;
+                    db.SaveChanges();
+                    this.ivm.HasChanges = false;
+                    this.pendingTransformations.Clear();
+                    return true;
                 }
             }
-            this.ivm.RelatedInvoiceIds = newIds.ToArray();
-            return newIds.ToArray();
-        }
-
-        public void CreateInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId, int mode, Guid[] newIds)
-        {
-            relatedIds = newIds;
-            this.ivm.CreateInvoices(invoiceIds, invoiceType, traderId, vehicleId, mode);
-        }
-
-        private void DeleteRelatedInvoice()
-        {
-            if (this.relatedIds == null)
-                return;
-            using (Threads.SharedInvoiceRuntime.EditUnissued(this.relatedIds))
-            using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            catch (Exception ex)
             {
-                List<Data.InvoiceLine> invLinesToDelete = new List<Data.InvoiceLine>();
-                List<Data.Invoice> invToDelete = new List<Data.Invoice>();
-                List<Data.FinTransaction> finToDelete = new List<Data.FinTransaction>();
-                foreach (var invId in this.relatedIds)
+                this.ivm.Errors = new[]
                 {
-                    var invoice = db.Invoices.FirstOrDefault(i => i.InvoiceId == invId);
-                    if (invoice == null) continue;
-                    // Never rewind a counter: another document may already use a
-                    // later number even when this unissued transformation is discarded.
-                    if (invoice.FinTransactions.Count > 0)
-                        db.Delete(invoice.FinTransactions);
-                    if (invoice.InvoiceLines.Count > 0)
+                    new ViewModels.ValidationError
                     {
-                        foreach(var invLine in invoice.InvoiceLines)
-                        {
-                            if (invLine.InvoiceLineRelations_ChildRelationId.Count > 0)
-                                db.Delete(invLine.InvoiceLineRelations_ChildRelationId);
-                            if (invLine.InvoiceLineRelations_ParentLineId.Count > 0)
-                                db.Delete(invLine.InvoiceLineRelations_ParentLineId);
-                        }
-                        db.Delete(invoice.InvoiceLines);
+                        Caption = "Σφάλμα αποθήκευσης μετασχηματισμού",
+                        ErrorMessage = ex.Message
                     }
-                    if (invoice.ParentInvoiceRelations.Count > 0)
-                        db.Delete(invoice.ParentInvoiceRelations);
-                    if (invoice.ChildInvoiceRelations.Count > 0)
-                        db.Delete(invoice.ChildInvoiceRelations);
-                    db.Delete(invoice);
-
+                };
+                return false;
+            }
+            finally
+            {
+                lock (Threads.PrintAgent.ExcludeInvoices)
+                {
+                    foreach (var id in excludedIds)
+                        Threads.PrintAgent.ExcludeInvoices.Remove(id);
                 }
-                db.SaveChanges();
             }
         }
 
@@ -203,7 +225,7 @@ namespace ASFuelControl.Windows.UI.Forms
             }
             else if (res == DialogResult.Yes)
             {
-                var success = this.ivm.Save(this.ivm.InvoiceId);
+                var success = this.SaveInvoice();
                 if (!success)
                 {
                     string message = string.Join("\r\n", this.ivm.Errors.Select(s => s.ErrorMessage));
@@ -213,37 +235,7 @@ namespace ASFuelControl.Windows.UI.Forms
             }
             else if(res == DialogResult.No)
             {
-                DeleteRelatedInvoice();
-                if (this.ivm.RelatedInvoiceIds == null)
-                    return;
-                using (Threads.SharedInvoiceRuntime.EditUnissued(this.ivm.RelatedInvoiceIds))
-                using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
-                {
-                    foreach (var inv in this.ivm.RelatedInvoiceIds)
-                    {
-                        if (inv == Guid.Empty)
-                            continue;
-                        var invoice = db.Invoices.SingleOrDefault(i => i.InvoiceId == inv);
-                        if (invoice == null)
-                            continue;
-                        var rels1 = invoice.InvoiceLines.SelectMany(il => il.InvoiceLineRelations_ChildRelationId);
-                        var rels2 = invoice.InvoiceLines.SelectMany(il => il.InvoiceLineRelations_ParentLineId);
-                        if(rels1 != null && rels1.Count() > 0)
-                            db.Delete(rels1);
-                        if (rels2 != null && rels2.Count() > 0)
-                            db.Delete(rels2);
-                        if (invoice.ChildInvoiceRelations.Count > 0)
-                            db.Delete(invoice.ChildInvoiceRelations);
-                        if (invoice.ParentInvoiceRelations.Count > 0)
-                            db.Delete(invoice.ParentInvoiceRelations);
-                        if (invoice.FinTransactions.Count > 0)
-                            db.Delete(invoice.FinTransactions);
-                        if (invoice.InvoiceLines.Count > 0)
-                            db.Delete(invoice.InvoiceLines);
-                        db.Delete(invoice);
-                    }
-                    db.SaveChanges();
-                }
+                this.pendingTransformations.Clear();
             }
         }
 
@@ -270,7 +262,7 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             if (Threads.SharedInvoiceRuntime.Owns(this.ivm.InvoiceId)) return;
             
-            var success = this.ivm.Save(ivm.InvoiceId);
+            var success = this.SaveInvoice();
             if (!success)
             {
                 string message = string.Join("\r\n", this.ivm.Errors.Select(s => s.ErrorMessage));
@@ -308,22 +300,7 @@ namespace ASFuelControl.Windows.UI.Forms
             var line = e.Row.DataBoundItem as ViewModels.InvoiceLineViewModel;
             if (line == null)
                 return;
-            if (e.Column.Name != "TankId")
-            {
-                if (!line.ParentInvoice.IsPrinted.HasValue || !line.ParentInvoice.IsPrinted.Value)
-                {
-                    if (e.Column.Name == "UnitPrice" || e.Column.Name == "DiscountAmount")
-                    {
-                        e.Cancel = false;
-                        return;
-                    }
-                }
-                e.Cancel = !line.CanEdit;
-            }
-            else
-            {
-                e.Cancel = false;
-            }
+            e.Cancel = !line.CanEdit;
         }
 
         private async void btnPrint_Click(object sender, EventArgs e)
@@ -337,7 +314,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 {
                     if (!Threads.SharedInvoiceRuntime.Owns(this.ivm.InvoiceId))
                     {
-                        if (this.ivm.HasChanges && !this.ivm.Save(ivm.InvoiceId))
+                        if (this.ivm.HasChanges && !this.SaveInvoice())
                             throw new InvalidOperationException(string.Join("\r\n", this.ivm.Errors.Select(s => s.ErrorMessage)));
                         if (RadMessageBox.Show("Θέλετε να εκτυπώσετε το αποθηκευμένο παραστατικό;", "Εκτύπωση Παραστατικού",
                             MessageBoxButtons.YesNo, RadMessageIcon.Question) != DialogResult.Yes) return;
@@ -354,7 +331,7 @@ namespace ASFuelControl.Windows.UI.Forms
             }
             if (this.ivm.HasChanges)
             {
-                bool success = this.ivm.Save(ivm.InvoiceId);
+                bool success = this.SaveInvoice();
                 if (!success)
                 {
                     string message = string.Join("\r\n", this.ivm.Errors.Select(s => s.ErrorMessage));

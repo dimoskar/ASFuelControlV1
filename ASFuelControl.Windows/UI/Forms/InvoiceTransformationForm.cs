@@ -26,10 +26,29 @@ namespace ASFuelControl.Windows.UI.Forms
             this.queryInvoiceDataArgsBindingSource.ResetBindings(false);
             this.volumesBindingSource.ResetBindings(false);
             this.Data = args;
+            this.radGridView1.Columns["Volume"].ReadOnly = !args.AllowVolumeEdit;
+            this.radGridView1.Columns["UnitPrice"].ReadOnly = !args.AllowUnitPriceEdit;
+            this.radGridView1.Columns["DiscountAmount"].ReadOnly = true;
         }
 
         private void btnSave_Click(object sender, EventArgs e)
         {
+            if (this.Data.Volumes.Any(v => v.Volume <= 0 || v.Volume > v.MaxAllowedVolume))
+            {
+                Telerik.WinControls.RadMessageBox.Show(this,
+                    "Ο όγκος πρέπει να είναι μεγαλύτερος από μηδέν και να μην υπερβαίνει τον επιτρεπόμενο όγκο.",
+                    "Έλεγχος μετασχηματισμού", MessageBoxButtons.OK,
+                    Telerik.WinControls.RadMessageIcon.Exclamation);
+                return;
+            }
+            if (this.Data.RequireUnitPrice && this.Data.Volumes.Any(v => v.UnitPrice <= 0))
+            {
+                Telerik.WinControls.RadMessageBox.Show(this,
+                    "Συμπληρώστε τιμή μονάδος για όλες τις γραμμές.",
+                    "Έλεγχος μετασχηματισμού", MessageBoxButtons.OK,
+                    Telerik.WinControls.RadMessageIcon.Exclamation);
+                return;
+            }
             this.DialogResult = DialogResult.OK;
         }
 
