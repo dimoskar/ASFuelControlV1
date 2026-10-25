@@ -37,18 +37,24 @@ namespace ASFuelControl.Windows.ViewModels
                 this.currentNozzleId = value;
                 if (this.EditEnabled)
                 {
-                    if (this.ParentInvoice.SelectedInvoiceType.DispenserType.HasValue && this.ParentInvoice.SelectedInvoiceType.DispenserType.Value)
+                    if (this.ParentInvoice.SelectedInvoiceType != null &&
+                        this.ParentInvoice.SelectedInvoiceType.DispenserType == true)
                     {
                         var nozzle = this.ParentInvoice.Dispensers.SelectMany(d => d.Nozzles).SingleOrDefault(n => n.NozzleId == this.currentNozzleId);
                         if (nozzle != null)
                         {
+                            // A dispenser sale is identified by its nozzle.  The
+                            // nozzle is therefore the source of truth for both
+                            // fuel and price; the form must not allow an
+                            // independent fuel selection.
+                            this.FuelTypeId = nozzle.FuelTypeId;
                             if (this.ParentInvoice.PricesIncludeVat)
                             {
                                 this.UnitPriceView = nozzle.UnitPrice;
                             }
                             else
                             {
-                                this.UnitPriceView = nozzle.UnitPrice * ((100 + this.VatPercentageView) / 100);
+                                this.UnitPriceView = nozzle.UnitPrice / ((100 + this.VatPercentageView) / 100);
                             }
                         }
                     }
@@ -67,13 +73,15 @@ namespace ASFuelControl.Windows.ViewModels
                 this.currentDispenserId = value;
                 if (this.EditEnabled)
                 {
-                    if (this.ParentInvoice.SelectedInvoiceType.DispenserType.HasValue && this.ParentInvoice.SelectedInvoiceType.DispenserType.Value)
+                    if (this.ParentInvoice.SelectedInvoiceType != null &&
+                        this.ParentInvoice.SelectedInvoiceType.DispenserType == true)
                     {
                         var dispenser = this.ParentInvoice.Dispensers.SingleOrDefault(d => d.DispenserId == this.currentDispenserId);
                         if (dispenser != null && dispenser.Nozzles != null && dispenser.Nozzles.Length > 0)
                             this.CurrentNozzleId = dispenser.Nozzles.First().NozzleId;
                     }
                 }
+                this.OnPropertyChanged("CurrentDispenserId");
             }
             get { return this.currentDispenserId; }
         }

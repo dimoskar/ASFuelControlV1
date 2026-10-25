@@ -172,9 +172,15 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void InvoiceFormEx_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (fiscalPanel.Busy || myDieselPanel.Busy) { e.Cancel = true; return; }
+            if (fiscalPanel.Busy || myDieselPanel.Busy)
+            {
+                e.Cancel = true;
+                RadMessageBox.Show(this,"Υπάρχει ενέργεια έκδοσης σε εξέλιξη. Περιμένετε να ολοκληρωθεί πριν κλείσετε το παραστατικό.",
+                    "Κλείσιμο παραστατικού",MessageBoxButtons.OK,RadMessageIcon.Info);
+                return;
+            }
             if (myDieselPanel.HasBlockingCase && !fiscalPanel.Owned &&
-                RadMessageBox.Show("Η υπόθεση myDiesel παραμένει ενεργή ή χρειάζεται ανάκτηση. Επιλέξτε «Όχι» για να επιστρέψετε στις διαθέσιμες ενέργειες ή «Ναι» για να την αφήσετε καταγεγραμμένη και να κλείσετε.",
+                RadMessageBox.Show(this,"Η υπόθεση myDiesel παραμένει ενεργή ή χρειάζεται ανάκτηση. Επιλέξτε «Όχι» για να επιστρέψετε στις διαθέσιμες ενέργειες ή «Ναι» για να την αφήσετε καταγεγραμμένη και να κλείσετε.",
                     "Ενεργή υπόθεση myDiesel",MessageBoxButtons.YesNo,RadMessageIcon.Exclamation) != DialogResult.Yes)
             { e.Cancel = true; return; }
             try { CloseInvoice(e); }
@@ -190,7 +196,7 @@ namespace ASFuelControl.Windows.UI.Forms
             if (Threads.SharedInvoiceRuntime.Owns(this.ivm.InvoiceId)) return;
             if (!this.ivm.HasChanges)
                 return;
-            var res = RadMessageBox.Show("Θέλετε να αποθηκεύσετε τις αλλαγές?", "Εχούν γίνει αλλαγές...", MessageBoxButtons.YesNoCancel, RadMessageIcon.Question);
+            var res = RadMessageBox.Show(this,"Θέλετε να αποθηκεύσετε τις αλλαγές?", "Εχούν γίνει αλλαγές...", MessageBoxButtons.YesNoCancel, RadMessageIcon.Question);
             if (res == DialogResult.Cancel)
             {
                 e.Cancel = true;

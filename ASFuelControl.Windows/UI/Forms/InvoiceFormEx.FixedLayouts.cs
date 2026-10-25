@@ -30,15 +30,15 @@ namespace ASFuelControl.Windows.UI.Forms
                 Padding = new Padding(6),
                 BackColor = Color.White
             };
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, layout == ViewModels.InvoiceEditorLayout.SupplierPurchase ? 132F : 126F));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
 
-            root.Controls.Add(BuildFixedHeader(layout), 0, 0);
+            root.Controls.Add(BuildFixedActionBar(layout), 0, 0);
+            root.Controls.Add(BuildFixedHeader(layout), 0, 1);
             root.Controls.Add(layout == ViewModels.InvoiceEditorLayout.RetailReceipt
                 ? BuildRetailReceiptBody()
-                : BuildDetailedBody(layout), 0, 1);
-            root.Controls.Add(BuildFixedActionBar(layout), 0, 2);
+                : BuildDetailedBody(layout), 0, 2);
             Controls.Add(root);
             ResumeLayout(false);
         }
@@ -54,6 +54,11 @@ namespace ASFuelControl.Windows.UI.Forms
             nozzlesBindingSource = new BindingSource(components);
             paymentTypesBindingSource = new BindingSource(components);
 
+            // Match the designer-generated initialization order.  Telerik's
+            // dependent BindingSources need a typed parent before DataMember is
+            // assigned; otherwise the drop-downs can display the item type name
+            // and the nested dispenser/nozzle sources remain empty.
+            invoiceViewModelBindingSource.DataSource = typeof(ViewModels.InvoiceDetailsViewModel);
             invoiceLinesBindingSource.DataMember = "InvoiceLines";
             invoiceLinesBindingSource.DataSource = invoiceViewModelBindingSource;
             invoiceTypesBindingSource.DataMember = "InvoiceTypes";
@@ -68,6 +73,7 @@ namespace ASFuelControl.Windows.UI.Forms
             nozzlesBindingSource.DataSource = dispensersBindingSource;
             paymentTypesBindingSource.DataMember = "PaymentTypes";
             paymentTypesBindingSource.DataSource = invoiceViewModelBindingSource;
+            invoiceViewModelBindingSource.DataSource = ivm;
             invoiceLinesBindingSource.CurrentItemChanged += invoiceLinesBindingSource_CurrentItemChanged;
         }
 
@@ -142,20 +148,15 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private Control BuildFixedActionBar(ViewModels.InvoiceEditorLayout layout)
         {
-            bool supplier = layout == ViewModels.InvoiceEditorLayout.SupplierPurchase;
             panel3 = new Panel { Dock = DockStyle.Fill };
-            btnSelectTrader = NewButton(supplier ? "Προμηθευτής" : "Συναλλασσόμενος", btnSelectTrader_Click);
-            btnSelectVehicle = NewButton("Όχημα", btnSelectVehicle_Click);
-            btnSave = NewButton("Αποθήκευση", btnSave_Click);
-            btnPrint = NewButton("Εκτύπωση", btnPrint_Click);
+            btnSelectTrader = NewToolbarButton(Properties.Resources.CustomerSelect36, btnSelectTrader_Click);
+            btnSelectVehicle = NewToolbarButton(Properties.Resources.Vehicle, btnSelectVehicle_Click);
+            btnSave = NewToolbarButton(Properties.Resources.Save, btnSave_Click);
+            btnPrint = NewToolbarButton(Properties.Resources.Printer, btnPrint_Click);
             btnSelectTrader.Dock = DockStyle.Left;
             btnSelectVehicle.Dock = DockStyle.Left;
             btnSave.Dock = DockStyle.Right;
             btnPrint.Dock = DockStyle.Right;
-            btnSelectTrader.Width = 155;
-            btnSelectVehicle.Width = 110;
-            btnSave.Width = 145;
-            btnPrint.Width = 145;
             btnSave.DataBindings.Add("Enabled", invoiceViewModelBindingSource, "HasChanges", true);
             btnSelectTrader.DataBindings.Add("Enabled", invoiceViewModelBindingSource, "SelectCustomerEnabled", true);
             btnSelectVehicle.DataBindings.Add("Enabled", invoiceViewModelBindingSource, "SelectCustomerEnabled", true);
@@ -169,12 +170,13 @@ namespace ASFuelControl.Windows.UI.Forms
             panel6.Controls.Add(radDropDownList5);
             panel6.Controls.Add(radLabel35);
 
+            // Preserve the original InvoiceFormEx toolbar order and controls on
+            // every fixed editor, including purchases.
             panel3.Controls.Add(panel6);
-            panel3.Controls.Add(btnSelectTrader);
-            if (!supplier)
-                panel3.Controls.Add(btnSelectVehicle);
             panel3.Controls.Add(btnPrint);
+            panel3.Controls.Add(btnSelectVehicle);
             panel3.Controls.Add(btnSave);
+            panel3.Controls.Add(btnSelectTrader);
             return panel3;
         }
 
@@ -212,7 +214,8 @@ namespace ASFuelControl.Windows.UI.Forms
                 "CurrentNozzleId", true, DataSourceUpdateMode.OnPropertyChanged);
             var fuel = NewDropDown(fuelTypesBindingSource, "Name", "FuelTypeId");
             fuel.DataBindings.Add("SelectedValue", invoiceLinesBindingSource,
-                "FuelTypeId", true, DataSourceUpdateMode.OnPropertyChanged);
+                "FuelTypeId", true, DataSourceUpdateMode.Never);
+            fuel.Enabled = false;
             volume1 = NewSpin("Volume", 3, 999999999);
             unitPrice1 = NewSpin("UnitPriceView", 5, 999999999);
             discount = NewSpin("DiscountPercentage", 2, 100);
@@ -444,15 +447,18 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private RadDropDownList NewDropDown(object source, string displayMember, string valueMember)
         {
-            return new RadDropDownList
+            var control = new RadDropDownList
             {
                 Dock = DockStyle.Fill,
                 Font = EditorFont,
-                DropDownStyle = Telerik.WinControls.RadDropDownStyle.DropDownList,
-                DataSource = source,
-                DisplayMember = displayMember,
-                ValueMember = valueMember
+                DropDownStyle = Telerik.WinControls.RadDropDownStyle.DropDownList
             };
+            control.AutoCompleteDisplayMember = displayMember;
+            control.AutoCompleteValueMember = valueMember;
+            control.DisplayMember = displayMember;
+            control.ValueMember = valueMember;
+            control.DataSource = source;
+            return control;
         }
 
         private RadDropDownList NewPaymentDropDown()
@@ -466,6 +472,21 @@ namespace ASFuelControl.Windows.UI.Forms
         private RadButton NewButton(string text, EventHandler handler)
         {
             var button = new RadButton { Text = text, Font = EditorFont, Margin = new Padding(3) };
+            button.Click += handler;
+            return button;
+        }
+
+        private RadButton NewToolbarButton(Image image, EventHandler handler)
+        {
+            var button = new RadButton
+            {
+                DisplayStyle = Telerik.WinControls.DisplayStyle.Image,
+                Image = image,
+                ImageAlignment = ContentAlignment.MiddleCenter,
+                Margin = new Padding(0),
+                Size = new Size(40, 40)
+            };
+            button.RootElement.UseDefaultDisabledPaint = true;
             button.Click += handler;
             return button;
         }

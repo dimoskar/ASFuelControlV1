@@ -16,7 +16,7 @@ namespace ASFuelControl.Windows.UI.Controls
     {
         private readonly RadPageView pages = new RadPageView { Dock = DockStyle.Fill };
         private readonly RadTextBox summary, history, payment, printing, evidence;
-        private readonly FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Bottom,Height = 38,AutoSize = true,WrapContents = true };
+        private readonly FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill,WrapContents = true };
         private readonly RadButton recover, retryPayment, resume, print, reconcile;
         private Guid invoiceId;
         private SharedInvoiceStatus status;
@@ -30,7 +30,12 @@ namespace ASFuelControl.Windows.UI.Controls
         internal event EventHandler ActionCompleted;
         internal FiscalDocumentPanel()
         {
-            Controls.Add(pages); Controls.Add(actions);
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill,ColumnCount = 1,RowCount = 2,Margin = new Padding(0) };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent,100));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute,42));
+            layout.Controls.Add(pages,0,0); layout.Controls.Add(actions,0,1);
+            Controls.Add(layout);
             summary = Page("Σύνοψη"); history = Page("Ιστορικό"); payment = Page("Πληρωμή"); printing = Page("Εκτύπωση"); evidence = Page("Τεκμήρια");
             recover = Button("Ανάκτηση κατάστασης",async () => { var id = invoiceId; await Run(() => RadResult(SharedInvoiceRuntime.RecoverStatus(id))); });
             retryPayment = Button("Επανάληψη πληρωμής",async () => {
