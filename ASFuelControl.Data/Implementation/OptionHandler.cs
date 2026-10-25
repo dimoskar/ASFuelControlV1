@@ -231,12 +231,5 @@ namespace ASFuelControl.Data.Implementation
             }
         }
 
-        public bool HasOTPEnabled
-        {
-            get
-            {
-                return this.database.OutdoorPaymentTerminals.Count() > 0;
-            }
-        }
     }
 }

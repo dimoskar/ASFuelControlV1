@@ -42,7 +42,7 @@ namespace ASFuelControl.Windows.ViewModels
                         var nozzle = this.ParentInvoice.Dispensers.SelectMany(d => d.Nozzles).SingleOrDefault(n => n.NozzleId == this.currentNozzleId);
                         if (nozzle != null)
                         {
-                            if (this.ParentInvoice.RetailPrices || this.ParentInvoice.DispenserType)
+                            if (this.ParentInvoice.PricesIncludeVat)
                             {
                                 this.UnitPriceView = nozzle.UnitPrice;
                             }
@@ -167,7 +167,7 @@ namespace ASFuelControl.Windows.ViewModels
                     this.OnPropertyChanged("UnitPriceView");
                     return;
                 }
-                if (this.ParentInvoice.RetailPrices || this.ParentInvoice.DispenserType)
+                if (this.ParentInvoice.PricesIncludeVat)
                 {
                     if (this.UnitPriceRetail == value)
                         return;
@@ -179,9 +179,8 @@ namespace ASFuelControl.Windows.ViewModels
                 {
                     if (this.UnitPriceWhole == value)
                         return;
-                    this.UnitPriceWhole = value / ((100 + this.VatPercentageView) / 100);
-                    this.unitprice = value;
-                    this.unitPriceRetail = value;// this.UnitPriceWhole * ((100 + this.VatPercentageView) / 100);
+                    this.UnitPriceWhole = value;
+                    this.unitprice = this.UnitPriceRetail;
                 }
                 this.OnPropertyChanged("UnitPriceView");
             }
@@ -189,7 +188,7 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 if (this.parentInvoice == null)
                     return this.UnitPriceRetail;
-                if (this.ParentInvoice.RetailPrices || this.ParentInvoice.DispenserType)
+                if (this.ParentInvoice.PricesIncludeVat)
                     return this.UnitPriceRetail;
                 else
                     return this.UnitPriceWhole;
@@ -252,7 +251,7 @@ namespace ASFuelControl.Windows.ViewModels
                     this.OnPropertyChanged("DiscountAmountView");
                     return;
                 }
-                if (this.ParentInvoice.RetailPrices || this.ParentInvoice.DispenserType)
+                if (this.ParentInvoice.PricesIncludeVat)
                 {
                     if (this.DiscountAmountRetail == value)
                         return;
@@ -274,7 +273,7 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 if (this.parentInvoice == null)
                     return this.DiscountAmountRetail;
-                if (this.ParentInvoice.RetailPrices || this.ParentInvoice.DispenserType)
+                if (this.ParentInvoice.PricesIncludeVat)
                     return this.DiscountAmountRetail;
                 else
                     return this.DiscountAmountWhole;
@@ -533,7 +532,7 @@ namespace ASFuelControl.Windows.ViewModels
                 var totalPrice = this.UnitPriceRetail * this.VolumeCalc;
                 decimal discAmount = totalPrice * this.DiscountPercentage / 100;
                 decimal discAmountWhole = discAmount / ((100 + this.GetVatPercentage()) / 100);
-                if (this.ParentInvoice.RetailPrices || this.ParentInvoice.DispenserType)
+                if (this.ParentInvoice.PricesIncludeVat)
                 {
                     if (!this.ParentInvoice.VatExemption)
                         this.DiscountAmountView = discAmount;
@@ -558,7 +557,7 @@ namespace ASFuelControl.Windows.ViewModels
 
         public void InitDiscount(InvoiceDetailsViewModel inv)
         {
-            if (inv.RetailPrices || inv.DispenserType)
+            if (inv.PricesIncludeVat)
             {
                 this.discountAmountView = this.discountamount;
                 this.unitPriceView = this.unitprice;

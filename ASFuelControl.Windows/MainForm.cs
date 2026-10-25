@@ -27,8 +27,6 @@ namespace ASFuelControl.Windows
         Timer t1 = new Timer();
         ConcurrentBag<object> submissionSuccessList = new ConcurrentBag<object>();
         ConcurrentBag<object> submissionFailedList = new ConcurrentBag<object>();
-        private bool otpEnabled = false;
-
         List<PopupData> popups = new List<PopupData>();
 
         private delegate void AddAlarmControlDelegate(VirtualDevices.VirtualBaseAlarm alarm);
@@ -57,8 +55,6 @@ namespace ASFuelControl.Windows
             this.mainPanel.ControlRemoved += new ControlEventHandler(mainPanel_ControlRemoved);
             this.controller.SubmissionFailed += new EventHandler(controller_SubmissionFailed);
             this.controller.SubmissionSuccess += new EventHandler(controller_SubmissionSuccess);
-            this.controller.OTPStatusChanged += Controller_OTPStatusChanged;
-
             this.alertGrid = new UI.Catalogs.AlertGrid();
             this.mainPanel.Controls.Add(this.alertGrid);
             this.alertGrid.Dock = DockStyle.Fill;
@@ -68,8 +64,8 @@ namespace ASFuelControl.Windows
             this.alertGrid.QueryShowFillingNeededInfo += AlertGrid_QueryShowFillingNeededInfo;
             this.alertGrid.QueryShowDecreasingNeededInfo += AlertGrid_QueryShowDecreasingNeededInfo;
             lockPanel.Parent.Controls.Remove(lockPanel);
-            this.Controls.Add(lockPanel);
             lockPanel.Location = new Point(this.panel1.Width + 10, 10);
+            lockPanel.Visible = false;
 
             this.SizeChanged += MainForm_SizeChanged;
             this.panel1.SizeChanged += MainForm_SizeChanged;
@@ -79,92 +75,26 @@ namespace ASFuelControl.Windows
         {
             lockPanel.Location = new Point(this.panel1.Width + 10, 10);
             lockPanel.Size = new Size(this.Width - this.panel1.Width - 40, this.Height - 80);
+            if (lockPanel.Parent == this)
+                lockPanel.BringToFront();
+        }
+
+        private void SetLockPanelVisible(bool visible)
+        {
+            if (!visible)
+            {
+                lockPanel.Visible = false;
+                if (lockPanel.Parent == this)
+                    this.Controls.Remove(lockPanel);
+                return;
+            }
+
+            if (lockPanel.Parent != this)
+                this.Controls.Add(lockPanel);
+            lockPanel.Location = new Point(this.panel1.Width + 10, 10);
+            lockPanel.Size = new Size(this.Width - this.panel1.Width - 40, this.Height - 80);
+            lockPanel.Visible = true;
             lockPanel.BringToFront();
-        }
-
-        private void ApplyOTPStatus()
-        {
-            this.controller.RedefineOTPComntrollers();
-            Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-            if (otpEnabled)
-            {
-
-                Guid id = Program.CurrentShiftId;
-                Data.ApplicationUser saleUser = database.ApplicationUsers.Where(a => a.UserLevel == -1).FirstOrDefault();
-                Program.CurrentUserName = saleUser.UserName;
-                if (saleUser != null)
-                {
-                    if (id != Guid.Empty)
-                    {
-
-                        Data.Shift shift = database.Shifts.Where(s => s.ShiftId == id).First();
-                        shift.ShiftEnd = DateTime.Now;
-                    }
-                    Data.Shift newShift = new Data.Shift();
-                    newShift.ShiftId = Guid.NewGuid();
-                    newShift.ApplicationUserId = saleUser.ApplicationUserId;
-                    newShift.ShiftBegin = DateTime.Now;
-                    database.Add(newShift);
-                    database.SaveChanges();
-                    Program.CurrentShiftId = newShift.ShiftId;
-                    Program.CurrentUserLevel = (Common.Enumerators.ApplicationUserLevelEnum)saleUser.UserLevel;
-                }
-
-                this.radButton2.Image = Properties.Resources.VendingMachine32;
-                this.radButton2.Text = "Απενεργοποίηση Πωλητών";
-
-            }
-            else
-            {
-                Guid id = Program.CurrentShiftId;
-                if (id != Guid.Empty)
-                {
-                    Data.Shift shift = database.Shifts.Where(s => s.ShiftId == id).FirstOrDefault();
-                    if (shift != null)
-                    {
-                        shift.ShiftEnd = DateTime.Now;
-                        database.SaveChanges();
-                    }
-                    Program.CurrentShiftId = Guid.Empty;
-                    Program.CurrentUserName = "";
-                }
-                this.radButton2.Image = Properties.Resources.VendingMachine32_Red;
-                this.radButton2.Text = "Ενεργοποίηση Πωλητών";
-
-            }
-            Data.Implementation.OptionHandler.Instance.SetOption("[OTPEnabled]", otpEnabled);
-            btnChangeShift.Visible = !otpEnabled;
-
-            if (Program.CurrentShiftId == Guid.Empty)
-            {
-                this.btnChangeShift.Text = "Εναρξη Βάρδιας";
-                this.btnChangeShift.Image = Properties.Resources.UserShift;
-                //banner.ShowDialog();
-
-            }
-            else
-            {
-                this.btnChangeShift.Text = "Λήξη Βάρδιας";
-                this.btnChangeShift.Image = Properties.Resources.UserShiftEnd;
-
-                //banner.TopMost = true;
-                //if (banner.Visible)
-                //    banner.Close();
-
-            }
-
-            this.label2.Text = Program.CurrentUserName;
-            this.ApplyUser();
-        }
-
-        private void Controller_OTPStatusChanged(object sender, EventArgs e)
-        {
-            
-            this.otpEnabled = this.controller.OTPStatus;
-            this.Invoke(new Action(() =>
-                {
-                    this.ApplyOTPStatus();
-                }));
         }
 
         //private void AlertGrid_QueryRemovrControl(object sender, UI.Catalogs.QueryRemoveAlert e)
@@ -260,24 +190,11 @@ namespace ASFuelControl.Windows
             try
             {
                 controller.CheckForDatabaseUpdate();
-                lockPanel.Visible = Data.Implementation.OptionHandler.Instance.GetIntOption("ApplicationLocked", 777) != 777;
+                bool applicationLocked = Data.Implementation.OptionHandler.Instance.GetIntOption("ApplicationLocked", 777) != 777;
+                SetLockPanelVisible(applicationLocked);
                 Exedron.MyData.Settings.IsActive = Data.Implementation.OptionHandler.Instance.GetBoolOption("MyDataIsActive", false);
                 Exedron.MyData.Settings.Username = Data.Implementation.OptionHandler.Instance.GetOption("MyDataUserName", "");
                 Exedron.MyData.Settings.SubscriptionKey = Data.Implementation.OptionHandler.Instance.GetOption("MyDataSubscriptionKey", "");
-
-                this.radButton2.Visible = Data.Implementation.OptionHandler.Instance.HasOTPEnabled;
-                this.otpEnabled = Data.Implementation.OptionHandler.Instance.GetBoolOption("[OTPEnabled]", false);
-                if (!otpEnabled)
-                {
-                    this.radButton2.Image = Properties.Resources.VendingMachine32_Red;
-                    this.radButton2.Text = "Ενεργοποίηση Πωλητών";
-                }
-                else
-                {
-                    this.radButton2.Image = Properties.Resources.VendingMachine32;
-                    this.radButton2.Text = "Απενεργοποίηση Πωλητών";
-                }
-                btnChangeShift.Visible = !otpEnabled;
 
                 //Threads.AlertHandler.Instance.AlarmAdded += new EventHandler(Instance_AlarmAdded);
                 //Threads.AlertHandler.Instance.AlarmResolved += new EventHandler(Instance_AlarmResolved);
@@ -326,11 +243,14 @@ namespace ASFuelControl.Windows
                 UI.Forms.LoadWaitingForm.CloseDialog();
 
                 this.radButton2_Click(this.btnPumps, new EventArgs());
-                this.radButton2.Visible = this.controller.GetOtpControllers().Length > 0;
+                if (!applicationLocked)
+                    SetLockPanelVisible(false);
             }
             catch (Exception ex)
             {
                 Logging.Logger.Instance.LogToFile("MainForm_Load", ex);
+                this.label3.Text = "Σφάλμα εκκίνησης εφαρμογής. Παρακαλώ ελέγξτε το ASFuelControl.log.";
+                SetLockPanelVisible(true);
             }
         }
 
@@ -728,40 +648,30 @@ namespace ASFuelControl.Windows
         {
             if (this.InvokeRequired)
             {
-                this.BeginInvoke(new MethodInvoker
-                    (
-                        delegate
-                        {
-                            if (Data.Implementation.OptionHandler.Instance.GetIntOption("ApplicationLocked", 777) != 777)
-                                return;
-                            if (!this.lockPanel.Visible)
-                            {
-                                this.label3.Text = "Εκδοση Ισοζυγίου. Το πρατήριο είναι κλειδωμενο.";
-                                this.lockPanel.Visible = true;
-                            }
-                        }
-                    ));
+                this.BeginInvoke(new MethodInvoker(ShowLockPanel));
+                return;
             }
+
+            if (Data.Implementation.OptionHandler.Instance.GetIntOption("ApplicationLocked", 777) != 777)
+                return;
+
+            this.label3.Text = "Εκδοση Ισοζυγίου. Το πρατήριο είναι κλειδωμενο.";
+            SetLockPanelVisible(true);
         }
 
         private void HideLockPanel()
         {
             if (this.InvokeRequired)
             {
-                this.BeginInvoke(new MethodInvoker
-                    (
-                        delegate
-                        {
-                            if (Data.Implementation.OptionHandler.Instance.GetIntOption("ApplicationLocked", 777) != 777)
-                                return;
-                            if (this.lockPanel.Visible)
-                            {
-                                this.lockPanel.Visible = false;
-                                this.label3.Text = "Παρακαλώ επικοινωνήστε με τον Εγκαταστάτη";
-                            }
-                        }
-                    ));
+                this.BeginInvoke(new MethodInvoker(HideLockPanel));
+                return;
             }
+
+            if (Data.Implementation.OptionHandler.Instance.GetIntOption("ApplicationLocked", 777) != 777)
+                return;
+
+            SetLockPanelVisible(false);
+            this.label3.Text = "Παρακαλώ επικοινωνήστε με τον Εγκαταστάτη";
         }
 
         private void ShowHidePanel(Panel p, bool visible)
@@ -1698,7 +1608,7 @@ namespace ASFuelControl.Windows
             if (ul == Common.Enumerators.ApplicationUserLevelEnum.Administrator)
             {
                 Program.AdminConnected = true;
-                this.lockPanel.Visible = false;
+                SetLockPanelVisible(false);
             }
             this.alertGrid.Hide();
             if (this.settingsGrid == null)
@@ -1781,11 +1691,6 @@ namespace ASFuelControl.Windows
 
         private void btnChangeShift_Click(object sender, EventArgs e)
         {
-            if(this.otpEnabled)
-            {
-                RadMessageBox.Show("Ειναι ενεργός ο Αυτόματος Πωλητής.\r\nΠαρακαλώ απενεργοποιήστε τον Πωλήτή", "Σφάλμα επιλογής...", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
-                return;
-            }
             using (UI.Forms.ShiftForm shForm = new UI.Forms.ShiftForm())
             {
                 shForm.ShowDialog();
@@ -1848,7 +1753,7 @@ namespace ASFuelControl.Windows
             Program.AdminConnected = false;
             Data.DatabaseModel.UserLoggedIn = Guid.Empty;
             Data.DatabaseModel.UserLoggedInLevel = -1;
-            this.lockPanel.Visible = Data.Implementation.OptionHandler.Instance.GetIntOption("ApplicationLocked", 777) != 777;
+            SetLockPanelVisible(Data.Implementation.OptionHandler.Instance.GetIntOption("ApplicationLocked", 777) != 777);
             if (this.settingsGrid != null && this.settingsGrid.Visible)
             {
                 
@@ -1906,21 +1811,6 @@ namespace ASFuelControl.Windows
                 this.dispenserGrid.Hide(); 
             this.alertGrid.Show();
             this.alertGrid.ResumeAlertLayout();
-        }
-
-        private void radButton2_Click_1(object sender, EventArgs e)
-        {
-            //bool otpEnabled = Data.Implementation.OptionHandler.Instance.GetBoolOption("[OTPEnabled]", false);
-            OTPConsoleController[] otpControllers = this.controller.GetOtpControllers();
-            
-            foreach(OTPConsoleController otpController in otpControllers)
-            {
-                //bool completed = false;
-                if (!otpEnabled)
-                    otpController.EnableOTP();
-                else
-                    otpController.DisableOTP();
-            }
         }
 
         private void radButton3_Click_1(object sender, EventArgs e)

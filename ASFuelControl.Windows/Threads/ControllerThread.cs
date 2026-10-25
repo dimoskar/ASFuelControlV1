@@ -27,8 +27,6 @@ namespace ASFuelControl.Windows.Threads
 
         public event EventHandler<DispenserValuesEventArgs> DispenserValuesAvaliable;
 
-        public event EventHandler OTPStatusChanged;
-
         public event EventHandler PrintAlarms;
 
         public event EventHandler<PrintInvoiceArgs> PrintInvoice;
@@ -61,7 +59,6 @@ namespace ASFuelControl.Windows.Threads
         private List<ASFuelControl.WorkFlow.IFuelPumpWorkFlow> fpWorkFlows = new List<ASFuelControl.WorkFlow.IFuelPumpWorkFlow>();
         private bool haltThread = false;
         private DateTime lastTankCheck = DateTime.Now.AddMinutes(-1000);
-        List<OTPConsoleController> OTPConsoles = new List<OTPConsoleController>();
         private string outFolder = "";
         ConcurrentDictionary<Guid, Common.Sales.SaleData> salesToProcess = new ConcurrentDictionary<Guid, Common.Sales.SaleData>();
         private string signFolder = "";
@@ -79,19 +76,6 @@ namespace ASFuelControl.Windows.Threads
         {
             get { return this.haltThread; }
             set { this.haltThread = value; }
-        }
-
-        public bool OTPStatus
-        {
-            get
-            {
-                foreach(OTPConsoleController otp in this.OTPConsoles)
-                {
-                    if (otp.OPTStatus)
-                        return true;
-                }
-                return false;
-            }
         }
 
         //public Common.IController Controller { set; get; }
@@ -189,23 +173,6 @@ namespace ASFuelControl.Windows.Threads
             return nozzle;
         }
 
-        public void AddOTPConsole(int vendingMachineId, string servip, int servport, string clip, int clport)
-        {
-            OTPConsoleController otpCon = new OTPConsoleController(servip, servport, clip, clport) { VendingMachineId = vendingMachineId };
-            this.OTPConsoles.Add(otpCon);
-            otpCon.OTPStatusChanged += OtpCon_OTPStatusChanged;
-
-
-        }
-
-        public void AddOTPDispenser(int vendingMachineId, VirtualDispenser dispenser, Guid[] nozzles)
-        {
-            OTPConsoleController otp = this.OTPConsoles.Where(c => c.VendingMachineId == vendingMachineId).FirstOrDefault();
-            if (otp == null)
-                return;
-            otp.AddDispenser(dispenser, nozzles);
-        }
-
         /// <summary>
         /// Add a sale to the salesToProcess Queue
         /// </summary>
@@ -267,15 +234,6 @@ namespace ASFuelControl.Windows.Threads
             //workFlow.QueryAlarmResolved += new EventHandler<WorkFlow.QueryAlarmResolvedArgs>(workFlow_QueryAlarmResolved);
             this.tankWorkFlows.Add(workFlow);
             return tank;
-        }
-
-        public void ClearOTPConsoles()
-        {
-            foreach (OTPConsoleController otp in this.OTPConsoles)
-            {
-                otp.CloseServer();
-            }
-            this.OTPConsoles.Clear();
         }
 
         /// <summary>
@@ -392,11 +350,6 @@ namespace ASFuelControl.Windows.Threads
             return this.fpWorkFlows.SelectMany(t => t.Dispenser.Nozzles).Where(n => n.NozzleId == nozzleId).FirstOrDefault();
         }
 
-        public OTPConsoleController[] GetOTPControlers()
-        {
-            return this.OTPConsoles.ToArray();
-        }
-
         /// <summary>
         /// Gets the virtual Tank identified by tankId
         /// </summary>
@@ -470,11 +423,6 @@ namespace ASFuelControl.Windows.Threads
             haltThread = true;
         }
 
-        private void OtpCon_OTPStatusChanged(object sender, EventArgs e)
-        {
-            if (this.OTPStatusChanged != null)
-                this.OTPStatusChanged(this, new EventArgs());
-        }
         #endregion
 
         //private void CheckForInvoices()
@@ -915,28 +863,9 @@ namespace ASFuelControl.Windows.Threads
                                     controller.SetDispenserStatus(dispenser.ChannelId, dispenser.AddressId, Common.Enumerators.FuelPointStatusEnum.Offline);
                                     dispenser.Reset = false;
                                 }
-                                bool otpEnabled = this.OTPStatus;// Data.Implementation.OptionHandler.Instance.GetBoolOption("[OTPEnabled]", false);
-                                if (otpEnabled)
-                                {
-                                    controller.SetOtpEnabled(dispenser.ChannelId, dispenser.AddressId, true);
-                                    foreach (OTPConsoleController otp in this.OTPConsoles)
-                                    {
-                                        if (dispenser.CurrentVendingMachineSale == null)
-                                        {
-                                            otp.GetNextSale(dispenser);
-                                            if (dispenser.CurrentVendingMachineSale != null)
-                                            {
-                                                controller.SetPresetAmount(dispenser.ChannelId, dispenser.AddressId, dispenser.CurrentVendingMachineSale.PresetAmount);
-                                            }
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    controller.SetOtpEnabled(dispenser.ChannelId, dispenser.AddressId, false);
-                                    dispenser.CurrentVendingMachineSale = null;
-                                    controller.SetPresetAmount(dispenser.ChannelId, dispenser.AddressId, -1);
-                                }
+                                controller.SetOtpEnabled(dispenser.ChannelId, dispenser.AddressId, false);
+                                dispenser.CurrentVendingMachineSale = null;
+                                controller.SetPresetAmount(dispenser.ChannelId, dispenser.AddressId, -1);
                                 
                                 //if (dispenser.DeviceLocked && dispenser.Status == Common.Enumerators.FuelPointStatusEnum.Work)
                                 //    controller.HaltDispenser(dispenser.ChannelId, dispenser.AddressId);
@@ -994,13 +923,6 @@ namespace ASFuelControl.Windows.Threads
                                         workFlow.CloseSale(values.Sale);
                                         
                                         //Logger.Instance.LogToFile()
-                                        if (dispenser.CurrentVendingMachineSale != null)
-                                        {
-                                            foreach (OTPConsoleController otp in this.OTPConsoles)
-                                            {
-                                                otp.TranactionCompleted(saleNozzle, values.Sale.TotalPrice, values.Sale.TotalVolume);
-                                            }
-                                        }
                                     }
                                 }
                                 if (values == null || values.Sale == null || values.Sale.TotalVolume == 0)

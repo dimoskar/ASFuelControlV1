@@ -207,12 +207,6 @@ namespace ASFuelControl.Windows.UI.Catalogs
             }
         }
 
-        private void radButton2_Click_1(object sender, EventArgs e)
-        {
-            UI.SettingForms.OPTSettings optSettings = new SettingForms.OPTSettings();
-            optSettings.Show(this);
-        }
-
         private void radButton3_Click_1(object sender, EventArgs e)
         {
             UI.SettingForms.TankLevelHistory optSettings = new SettingForms.TankLevelHistory();
@@ -253,13 +247,6 @@ namespace ASFuelControl.Windows.UI.Catalogs
         {
             UI.SettingForms.FleetManagmentForm cf = new SettingForms.FleetManagmentForm();
             cf.Show(this);
-        }
-
-        private void radButton9_Click(object sender, EventArgs e)
-        {
-            UI.SettingForms.OPTSettings optSettings = new SettingForms.OPTSettings();
-            optSettings.UserView = true;
-            optSettings.Show(this);
         }
 
         private void radButton10_Click(object sender, EventArgs e)

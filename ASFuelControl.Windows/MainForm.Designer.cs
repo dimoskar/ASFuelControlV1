@@ -41,7 +41,6 @@
             this.panel1 = new System.Windows.Forms.Panel();
             this.radButton4 = new Telerik.WinControls.UI.RadButton();
             this.radButton3 = new Telerik.WinControls.UI.RadButton();
-            this.radButton2 = new Telerik.WinControls.UI.RadButton();
             this.btnChangeUser = new Telerik.WinControls.UI.RadButton();
             this.btnChangeShift = new Telerik.WinControls.UI.RadButton();
             this.btnAlerts = new Telerik.WinControls.UI.RadToggleButton();
@@ -75,7 +74,6 @@
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.radButton4)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton3)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.radButton2)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnChangeUser)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnChangeShift)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnAlerts)).BeginInit();
@@ -215,7 +213,6 @@
             // 
             this.panel1.Controls.Add(this.radButton4);
             this.panel1.Controls.Add(this.radButton3);
-            this.panel1.Controls.Add(this.radButton2);
             this.panel1.Controls.Add(this.btnChangeUser);
             this.panel1.Controls.Add(this.btnChangeShift);
             this.panel1.Controls.Add(this.btnAlerts);
@@ -259,21 +256,6 @@
             this.radButton3.TextAlignment = System.Drawing.ContentAlignment.MiddleLeft;
             this.radButton3.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
             this.radButton3.Click += new System.EventHandler(this.radButton3_Click_1);
-            // 
-            // radButton2
-            // 
-            this.radButton2.Dock = System.Windows.Forms.DockStyle.Top;
-            this.radButton2.Font = new System.Drawing.Font("Segoe UI", 12F);
-            this.radButton2.Image = global::ASFuelControl.Windows.Properties.Resources.VendingMachine32_Red;
-            this.radButton2.Location = new System.Drawing.Point(0, 403);
-            this.radButton2.Name = "radButton2";
-            this.radButton2.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.radButton2.Size = new System.Drawing.Size(250, 50);
-            this.radButton2.TabIndex = 15;
-            this.radButton2.Text = "Ενεργοποίηση Πωλητών";
-            this.radButton2.TextAlignment = System.Drawing.ContentAlignment.MiddleLeft;
-            this.radButton2.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
-            this.radButton2.Click += new System.EventHandler(this.radButton2_Click_1);
             // 
             // btnChangeUser
             // 
@@ -469,6 +451,7 @@
             this.lockPanel.Name = "lockPanel";
             this.lockPanel.Size = new System.Drawing.Size(833, 371);
             this.lockPanel.TabIndex = 0;
+            this.lockPanel.Visible = false;
             // 
             // footerPanel
             // 
@@ -571,7 +554,6 @@
             this.panel1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.radButton4)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton3)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.radButton2)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnChangeUser)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnChangeShift)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnAlerts)).EndInit();
@@ -623,7 +605,6 @@
         private System.Windows.Forms.Panel panelSendMessagesInner;
         private System.Windows.Forms.FlowLayoutPanel panel5;
         private Telerik.WinControls.UI.RadToggleButton btnAlerts;
-        private Telerik.WinControls.UI.RadButton radButton2;
         private Telerik.WinControls.UI.RadButton radButton3;
         private Telerik.WinControls.UI.RadButton radButton4;
         private System.Windows.Forms.Panel lockPanel;

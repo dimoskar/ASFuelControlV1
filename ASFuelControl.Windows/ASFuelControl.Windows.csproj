@@ -184,7 +184,6 @@
     <Compile Include="Threads\ExcelTextStripper.cs" />
     <Compile Include="Threads\FleetManagmentThread.cs" />
     <Compile Include="Threads\MailSender.cs" />
-    <Compile Include="Threads\OTPConsoleController.cs" />
     <Compile Include="Threads\PrintAgent.cs" />
     <Compile Include="Threads\SendAlertsThread.cs" />
     <Compile Include="Threads\TankCheckThread.cs" />
@@ -400,6 +399,22 @@
       <DependentUpon>InvalidSaleForm.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\Forms\InvoiceFormEx.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\InvoiceFormEx.FixedLayouts.cs">
+      <DependentUpon>InvoiceFormEx.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Forms\InvoiceEditorFormFactory.cs" />
+    <Compile Include="UI\Forms\RetailReceiptForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\RetailInvoiceForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\SupplierInvoiceForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\WholesaleInvoiceForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\Forms\InvoiceFormEx.Designer.cs">
@@ -676,12 +691,6 @@
     <Compile Include="UI\SettingForms\MainSettingsForm.Designer.cs">
       <DependentUpon>MainSettingsForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="UI\SettingForms\OPTSettings.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="UI\SettingForms\OPTSettings.Designer.cs">
-      <DependentUpon>OPTSettings.cs</DependentUpon>
-    </Compile>
     <Compile Include="UI\SettingForms\PriceSettingsForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -735,6 +744,11 @@
     <Compile Include="ViewModels\InvoiceCatalogViewModel.cs" />
     <Compile Include="ViewModels\InvoiceCatalogData.cs" />
     <Compile Include="ViewModels\InvoiceLineViewModel.cs" />
+    <Compile Include="ViewModels\InvoiceEditorScenario.cs" />
+    <Compile Include="ViewModels\RetailReceiptViewModel.cs" />
+    <Compile Include="ViewModels\RetailInvoiceViewModel.cs" />
+    <Compile Include="ViewModels\SupplierInvoiceViewModel.cs" />
+    <Compile Include="ViewModels\WholesaleInvoiceViewModel.cs" />
     <Compile Include="ViewModels\InvoiceRelationViewModel.cs" />
     <Compile Include="ViewModels\InvoiceSimpleViewModel.cs" />
     <Compile Include="ViewModels\InvoiceTypeDetailViewModel.cs" />
@@ -993,9 +1007,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="UI\SettingForms\MainSettingsForm.resx">
       <DependentUpon>MainSettingsForm.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\SettingForms\OPTSettings.resx">
-      <DependentUpon>OPTSettings.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\SettingForms\PriceSettingsForm.resx">
       <DependentUpon>PriceSettingsForm.cs</DependentUpon>
@@ -1665,6 +1676,7 @@
     <Content Include="DBScripts\UpdateDatabase61.sql" />
     <Content Include="DBScripts\UpdateDatabase62.sql" />
     <Content Include="DBScripts\UpdateDatabase63.sql" />
+    <Content Include="DBScripts\UpdateDatabase64.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />

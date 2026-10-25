@@ -164,10 +164,12 @@ namespace ASFuelControl.Windows.UI.SelectionForms
 
         private void radButton3_Click(object sender, EventArgs e)
         {
-            using (UI.Forms.InvoiceFormEx invForm = new UI.Forms.InvoiceFormEx())
+            var invForm = UI.Forms.InvoiceEditorFormFactory.SelectForNewInvoice(this);
+            if (invForm == null)
+                return;
+            using (invForm)
             {
-                invForm.CreateNew();
-                invForm.ShowDialog();
+                invForm.ShowDialog(this);
                 //if (invForm.CurrentInvoice == null)
                 //    return;
                 this.ForceLoad();

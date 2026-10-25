@@ -18,7 +18,18 @@ namespace ASFuelControl.Windows.ViewModels
         private List<InvoiceRelationViewModel> invRelations = new List<InvoiceRelationViewModel>();
         private bool vatExemption { set; get; }
         private string vatExemptionReason = "";
-        private decimal initialDiscount = 0;
+        private const decimal DefaultVatPercentage = 24m;
+        private readonly Dictionary<Guid, decimal> vatExemptionDiscounts = new Dictionary<Guid, decimal>();
+
+        public virtual InvoiceEditorScenario EditorScenario
+        {
+            get { return InvoiceEditorScenario.General; }
+        }
+
+        public virtual InvoiceCounterpartySelection CounterpartySelection
+        {
+            get { return InvoiceCounterpartySelection.Any; }
+        }
 
         public Guid[] RelatedInvoiceIds { set; get; }
 
@@ -26,23 +37,31 @@ namespace ASFuelControl.Windows.ViewModels
         {
             set
             {
+                if (this.vatExemption == value)
+                    return;
+                if (value)
+                {
+                    vatExemptionDiscounts.Clear();
+                    foreach (var invoiceLine in lines)
+                        vatExemptionDiscounts[invoiceLine.InvoiceLineId] = invoiceLine.DiscountAmount;
+                }
                 this.vatExemption = value;
                 foreach(var line in this.lines)
                 {
                     decimal up = line.UnitPriceView;
-                    decimal disc = line.DiscountAmountView;
-                    if (initialDiscount == 0)
-                        initialDiscount = line.DiscountAmount;
-                    decimal vatPercentage = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", (decimal)24);
-                    if (value && (this.RetailPrices || this.DispenserType))
+                    decimal originalDiscount;
+                    if (!vatExemptionDiscounts.TryGetValue(line.InvoiceLineId, out originalDiscount))
+                        originalDiscount = line.DiscountAmount;
+                    decimal vatPercentage = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", DefaultVatPercentage);
+                    if (value && this.PricesIncludeVat)
                         up = line.UnitPriceRetail;
-                    else if (!this.RetailPrices && !this.DispenserType)
+                    else if (!this.PricesIncludeVat)
                         up = decimal.Round(line.UnitPriceRetail / ((100 + vatPercentage) / 100), 3);
                     else
                         up = line.UnitPriceView;
                     if (value)
                     {
-                        var newDisc = decimal.Round(initialDiscount / ((100 + vatPercentage) / 100), 2);
+                        var newDisc = decimal.Round(originalDiscount / ((100 + vatPercentage) / 100), 2);
                         if (line.VatPercentage > 0 && newDisc != line.DiscountAmount)
                             line.DiscountAmount = newDisc;
                         if(line.VatPercentage != 0)
@@ -52,11 +71,14 @@ namespace ASFuelControl.Windows.ViewModels
                     else
                     {
                         line.VatPercentage = vatPercentage;
-                        line.DiscountAmount = initialDiscount;
+                        line.DiscountAmount = originalDiscount;
                     }
                     if(line.UnitPriceView != up)
                         line.UnitPriceView = up;
                 }
+                if (!value)
+                    vatExemptionDiscounts.Clear();
+                this.OnPropertyChanged("VatExemption");
             }
             get { return this.vatExemption; }
         }
@@ -239,6 +261,11 @@ namespace ASFuelControl.Windows.ViewModels
         {
             get
             {
+                if (this.EditorScenario == InvoiceEditorScenario.Retail)
+                    return true;
+                if (this.EditorScenario == InvoiceEditorScenario.Wholesale ||
+                    this.EditorScenario == InvoiceEditorScenario.Supplier)
+                    return false;
                 var invType = this.InvoiceTypes.SingleOrDefault(i => i.InvoiceTypeId == this.InvoiceTypeId);
                 if (invType == null)
                     return false;
@@ -248,7 +275,17 @@ namespace ASFuelControl.Windows.ViewModels
 
         public bool WholeSalePrices
         {
-            get { return !this.RetailPrices; }
+            get { return !this.PricesIncludeVat; }
+        }
+
+        public bool PricesIncludeVat
+        {
+            get
+            {
+                if (this.EditorScenario == InvoiceEditorScenario.General)
+                    return this.RetailPrices || this.DispenserType;
+                return this.RetailPrices;
+            }
         }
 
         public bool ReportPrint
@@ -312,7 +349,7 @@ namespace ASFuelControl.Windows.ViewModels
                     this.CurrentLine.VatAmount = value - 100 * (value / (100 + this.CurrentLine.VatPercentage));
                 if (this.CurrentLine.UnitPriceView > 0)
                 {
-                    if(this.RetailPrices || this.DispenserType)
+                    if(this.PricesIncludeVat)
                         this.CurrentLine.Volume = decimal.Round((value + this.CurrentLine.DiscountAmountView) / this.CurrentLine.UnitPriceView, 3);
                     else
                         this.CurrentLine.Volume = decimal.Round((value - this.CurrentLine.VatAmount + this.CurrentLine.DiscountAmountView) / this.CurrentLine.UnitPriceView, 3);
@@ -338,7 +375,7 @@ namespace ASFuelControl.Windows.ViewModels
         {
             get
             {
-                if (this.RetailPrices || this.DispenserType)
+                if (this.PricesIncludeVat)
                     return this.TotalRetailAmount;
                 else
                     return this.TotalAmount.HasValue ? this.TotalAmount.Value : 0;
@@ -367,7 +404,7 @@ namespace ASFuelControl.Windows.ViewModels
         {
             set
             {
-                if (this.RetailPrices || this.DispenserType)
+                if (this.PricesIncludeVat)
                 {
                     if (this.DiscountAmountRetail == value)
                         return;
@@ -386,7 +423,7 @@ namespace ASFuelControl.Windows.ViewModels
             }
             get
             {
-                if (this.RetailPrices || this.DispenserType)
+                if (this.PricesIncludeVat)
                     return this.DiscountAmountRetail;
                 else
                     return this.DiscountAmountWhole;
@@ -406,7 +443,7 @@ namespace ASFuelControl.Windows.ViewModels
             if (VatExemption)
                 newLine.VatPercentage = 0;
             else
-                newLine.VatPercentage = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", (decimal)23);
+                newLine.VatPercentage = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", DefaultVatPercentage);
             newLine.ParentInvoice = this;
             newLine.PropertyChanged += Ilvm_PropertyChanged;
             this.lines.Add(newLine);
@@ -422,10 +459,13 @@ namespace ASFuelControl.Windows.ViewModels
             this.OnPropertyChanged("InvoiceLines");
         }
 
-        public void CreateNewSale(bool isLiterCheck)
+        public bool CreateNewSale(bool isLiterCheck)
         {
             if (this.CurrentLine == null)
-                return;
+            {
+                this.AddError("Σφάλμα παραστατικού", "Δεν υπάρχει επιλεγμένη γραμμή παραστατικού.");
+                return false;
+            }
             if (this.CurrentLine.SaleTransactionId.HasValue)
             {
                 try
@@ -433,6 +473,8 @@ namespace ASFuelControl.Windows.ViewModels
                     using (DatabaseModel db = new DatabaseModel(Properties.Settings.Default.DBConnection))
                     {
                         var invoice = db.Invoices.FirstOrDefault(i => i.InvoiceId == this.InvoiceId);
+                        if (invoice == null || !this.PaymentType.HasValue)
+                            throw new InvalidOperationException("Δεν βρέθηκε αποθηκευμένο παραστατικό ή τρόπος πληρωμής.");
                         bool hasDifferentPaymentType = invoice.PaymentType != this.PaymentType.Value;
                         invoice.PaymentType = this.PaymentType.Value;
                         invoice.RecalculateInvoice();
@@ -442,12 +484,14 @@ namespace ASFuelControl.Windows.ViewModels
                         }
                         db.SaveChanges();
                     }
+                    return true;
                 }
                 catch(Exception ex)
                 {
                     Logging.Logger.Instance.LogToFile("CreateNewSale::", ex);
+                    this.AddError("Σφάλμα παραστατικού", ex.Message);
+                    return false;
                 }
-                return;
             }
             if(this.lines.Count > 1)
             {
@@ -462,10 +506,10 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 try
                 {
-                    decimal vatValue = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", (decimal)23);
+                    decimal vatValue = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", DefaultVatPercentage);
                     Nozzle lastNozzle = db.Nozzles.Where(n => n.NozzleId == this.CurrentLine.CurrentNozzleId).FirstOrDefault();
                     if (lastNozzle == null)
-                        return;
+                        throw new InvalidOperationException("Δεν βρέθηκε το επιλεγμένο ακροσωλήνιο.");
                     SalesTransaction sale = new SalesTransaction();
                     sale.SalesTransactionId = Guid.NewGuid();
 
@@ -593,7 +637,7 @@ namespace ASFuelControl.Windows.ViewModels
 
                     InvoicePrint ip = sale.Nozzle.Dispenser.InvoicePrints.FirstOrDefault();
                     if (ip == null)
-                        return;
+                        throw new InvalidOperationException("Δεν υπάρχει ρύθμιση εκτύπωσης για τον επιλεγμένο διανομέα.");
 
                     Invoice invoice = new Invoice();
                     invoice.ApplicationUserId = DatabaseModel.CurrentUserId;
@@ -640,7 +684,9 @@ namespace ASFuelControl.Windows.ViewModels
                     if (this.TraderId.HasValue)
                     {
                         var trader = db.Traders.SingleOrDefault(t => t.TraderId == this.TraderId.Value);
-                        if (trader != null && trader.VatExemption.HasValue && invoice.Trader.VatExemption.Value)
+                        if (trader == null)
+                            throw new InvalidOperationException("Δεν βρέθηκε ο επιλεγμένος συναλλασσόμενος.");
+                        if (trader.VatExemption.HasValue && trader.VatExemption.Value)
                         {
                             decimal vatAmount = this.CurrentLine.TotalPrice - decimal.Round(this.CurrentLine.TotalPrice / vatMult, 2);
                             invoice.TotalAmount = this.CurrentLine.TotalPrice;// this.CurrentLine.TotalPrice - vatAmount;
@@ -663,7 +709,7 @@ namespace ASFuelControl.Windows.ViewModels
                         {
                             invoice.SupplyNumber = trader.SupplyNumber == null ? "" : trader.SupplyNumber;
                         }
-                        invoice.DeliveryAddress = invoice.Trader.DeliveryAddress == null ? "" : invoice.Trader.DeliveryAddress;
+                        invoice.DeliveryAddress = trader.DeliveryAddress == null ? "" : trader.DeliveryAddress;
                     }
                     else
                     {
@@ -725,10 +771,13 @@ namespace ASFuelControl.Windows.ViewModels
                     invoice.IsPrinted = false;
                     invoice.Notes = this.Notes;
                     db.SaveChanges();
+                    return true;
                 }
                 catch (Exception ex)
                 {
-
+                    Logging.Logger.Instance.LogToFile("CreateNewSale::", ex);
+                    this.AddError("Σφάλμα παραστατικού", ex.Message);
+                    return false;
                 }
             }
         }
@@ -738,7 +787,7 @@ namespace ASFuelControl.Windows.ViewModels
             if (SuspendRecalculation)
                 return;
 
-            var vatInitial = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", 23);
+            var vatInitial = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", DefaultVatPercentage);
 
             if (this.VatExemption)
             {
@@ -789,7 +838,7 @@ namespace ASFuelControl.Windows.ViewModels
                 }
                 else
                 {
-                    if (this.RetailPrices || this.DispenserType)
+                    if (this.PricesIncludeVat)
                     {
                         discPercentage = line.DiscountPercentage;
                         discountRetail = decimal.Round((discPercentage * decimal.Round(line.Volume * line.UnitPrice, 2)) / 100, 2);
@@ -1362,7 +1411,9 @@ namespace ASFuelControl.Windows.ViewModels
             }
             if (this.SelectedInvoiceType != null && this.SelectedInvoiceType.DispenserType.HasValue && this.SelectedInvoiceType.DispenserType.Value && this.EditEnabled && !this.IsEditLocked)
             {
-                this.CreateNewSale(false);
+                this.Errors = new ValidationError[] { };
+                if (!this.CreateNewSale(false))
+                    return false;
                 this.Load(this.InvoiceId);
                 if (this.RefreshView != null)
                     this.RefreshView(this, new EventArgs());
@@ -1370,19 +1421,28 @@ namespace ASFuelControl.Windows.ViewModels
             }
             else
             {
-                this.RecalculateSums();
                 this.Errors = new ValidationError[] { };
                 if (this.InvoiceLines.Length == 0)
                     this.AddError("Σφάλμα παραστατικού", "Δεν έχετε εισάγει γραμμές στο παραστατικό");
 
-                if (this.InvoiceTypeId == Guid.Empty)
+                if (this.InvoiceTypeId == Guid.Empty || this.SelectedInvoiceType == null)
                     this.AddError("Σφάλμα παραστατικού", "Δεν έχετε επιλέξει τύπο παραστατικού");
+
+                if (this.Errors.Length > 0)
+                    return false;
+
+                this.RecalculateSums();
 
                 if (this.SelectedInvoiceType.DeliveryType.HasValue && this.SelectedInvoiceType.DeliveryType == (int)Common.Enumerators.DeliveryTypeEnum.Delivery)
                 {
                     foreach (var line in this.InvoiceLines)
                     {
                         var ft = this.FuelTypes.SingleOrDefault(f => f.FuelTypeId == line.FuelTypeId);
+                        if (ft == null)
+                        {
+                            this.AddError("Σφάλμα παραστατικού", "Δεν έχετε επιλέξει τύπο καυσίμου σε κάποια γραμμή");
+                            break;
+                        }
                         if (line.FuelDensity >= ft.BaseDensity + 150 || line.FuelDensity <= ft.BaseDensity - 150)
                         {
                             this.AddError("Σφάλμα παραστατικού", "Ελέξτε τις πυκνότητες καυσίμων!");
@@ -1595,6 +1655,7 @@ namespace ASFuelControl.Windows.ViewModels
                 }
                 this.OnPropertyChanged("RetailPrices");
                 this.OnPropertyChanged("WholeSalePrices");
+                this.OnPropertyChanged("PricesIncludeVat");
                 this.OnPropertyChanged("ReportPrint");
                 this.OnPropertyChanged("SimplePrint");
                 this.OnPropertyChanged("CanAdd");

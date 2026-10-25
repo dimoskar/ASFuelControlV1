@@ -420,7 +420,7 @@ namespace ASFuelControl.Windows.UI.Forms
             Data.Invoice invoice = e.Row.DataBoundItem as Data.Invoice;
             if(invoice.InvoiceType.IsLaserPrint.HasValue && invoice.InvoiceType.IsLaserPrint.Value)
             {
-                InvoiceFormEx invForm = new InvoiceFormEx();
+                InvoiceFormEx invForm = InvoiceEditorFormFactory.CreateForInvoice(invoice.InvoiceId);
                 invForm.LoadInvoice(invoice.InvoiceId);
                 invForm.Show(this);
             }

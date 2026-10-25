@@ -36,7 +36,6 @@
             this.btnUsersLimited = new Telerik.WinControls.UI.RadButton();
             this.radButton1 = new Telerik.WinControls.UI.RadButton();
             this.radButton5 = new Telerik.WinControls.UI.RadButton();
-            this.radButton9 = new Telerik.WinControls.UI.RadButton();
             this.radButton10 = new Telerik.WinControls.UI.RadButton();
             this.radPageView1 = new Telerik.WinControls.UI.RadPageView();
             this.radPageViewPage1 = new Telerik.WinControls.UI.RadPageViewPage();
@@ -51,7 +50,6 @@
             this.radButton3 = new Telerik.WinControls.UI.RadButton();
             this.btnAlerts = new Telerik.WinControls.UI.RadButton();
             this.btnPrinter = new Telerik.WinControls.UI.RadButton();
-            this.radButton2 = new Telerik.WinControls.UI.RadButton();
             this.radButton4 = new Telerik.WinControls.UI.RadButton();
             this.radButton6 = new Telerik.WinControls.UI.RadButton();
             this.radButton7 = new Telerik.WinControls.UI.RadButton();
@@ -64,7 +62,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.btnUsersLimited)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton5)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.radButton9)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton10)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radPageView1)).BeginInit();
             this.radPageView1.SuspendLayout();
@@ -80,7 +77,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.radButton3)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnAlerts)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnPrinter)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.radButton2)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton4)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton6)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton7)).BeginInit();
@@ -96,7 +92,6 @@
             this.flowLayoutPanel1.Controls.Add(this.btnUsersLimited);
             this.flowLayoutPanel1.Controls.Add(this.radButton1);
             this.flowLayoutPanel1.Controls.Add(this.radButton5);
-            this.flowLayoutPanel1.Controls.Add(this.radButton9);
             this.flowLayoutPanel1.Controls.Add(this.radButton10);
             this.flowLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.flowLayoutPanel1.Location = new System.Drawing.Point(0, 0);
@@ -212,22 +207,6 @@
             this.radButton5.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
             this.radButton5.Click += new System.EventHandler(this.radButton5_Click_1);
             // 
-            // radButton9
-            // 
-            this.radButton9.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radButton9.Image = global::ASFuelControl.Windows.Properties.Resources.VendingMachine;
-            this.radButton9.ImageAlignment = System.Drawing.ContentAlignment.MiddleCenter;
-            this.radButton9.Location = new System.Drawing.Point(185, 185);
-            this.radButton9.Margin = new System.Windows.Forms.Padding(10);
-            this.radButton9.Name = "radButton9";
-            this.radButton9.Size = new System.Drawing.Size(155, 155);
-            this.radButton9.TabIndex = 17;
-            this.radButton9.Text = "Πωλητές";
-            this.radButton9.TextAlignment = System.Drawing.ContentAlignment.TopCenter;
-            this.radButton9.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
-            this.radButton9.TextWrap = true;
-            this.radButton9.Click += new System.EventHandler(this.radButton9_Click);
-            // 
             // radButton10
             // 
             this.radButton10.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
@@ -285,7 +264,6 @@
             this.flowLayoutPanel2.Controls.Add(this.radButton3);
             this.flowLayoutPanel2.Controls.Add(this.btnAlerts);
             this.flowLayoutPanel2.Controls.Add(this.btnPrinter);
-            this.flowLayoutPanel2.Controls.Add(this.radButton2);
             this.flowLayoutPanel2.Controls.Add(this.radButton4);
             this.flowLayoutPanel2.Controls.Add(this.radButton6);
             this.flowLayoutPanel2.Controls.Add(this.radButton7);
@@ -432,22 +410,6 @@
             this.btnPrinter.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
             this.btnPrinter.Click += new System.EventHandler(this.btnPrinter_Click);
             // 
-            // radButton2
-            // 
-            this.radButton2.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.radButton2.Image = global::ASFuelControl.Windows.Properties.Resources.VendingMachine;
-            this.radButton2.ImageAlignment = System.Drawing.ContentAlignment.MiddleCenter;
-            this.radButton2.Location = new System.Drawing.Point(535, 185);
-            this.radButton2.Margin = new System.Windows.Forms.Padding(10);
-            this.radButton2.Name = "radButton2";
-            this.radButton2.Size = new System.Drawing.Size(155, 155);
-            this.radButton2.TabIndex = 16;
-            this.radButton2.Text = "Πωλητές";
-            this.radButton2.TextAlignment = System.Drawing.ContentAlignment.TopCenter;
-            this.radButton2.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
-            this.radButton2.TextWrap = true;
-            this.radButton2.Click += new System.EventHandler(this.radButton2_Click_1);
-            // 
             // radButton4
             // 
             this.radButton4.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
@@ -528,7 +490,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.btnUsersLimited)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton1)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton5)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.radButton9)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton10)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radPageView1)).EndInit();
             this.radPageView1.ResumeLayout(false);
@@ -544,7 +505,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.radButton3)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnAlerts)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnPrinter)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.radButton2)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton4)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton6)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton7)).EndInit();
@@ -572,7 +532,6 @@
         private Telerik.WinControls.UI.RadButton btnUsersLimited;
         private Telerik.WinControls.UI.RadButton btnPrinter;
         private Telerik.WinControls.UI.RadButton radButton1;
-        private Telerik.WinControls.UI.RadButton radButton2;
         private Telerik.WinControls.UI.RadButton radButton3;
         private Telerik.WinControls.UI.RadButton radButton4;
         private Telerik.WinControls.UI.RadButton radButton5;
@@ -580,7 +539,6 @@
         private Telerik.WinControls.UI.RadButton radButton7;
         private Telerik.WinControls.UI.RadButton radButton8;
         private Telerik.WinControls.UI.RadButton btnFleetManagment;
-        private Telerik.WinControls.UI.RadButton radButton9;
         private Telerik.WinControls.UI.RadButton radButton11;
         private Telerik.WinControls.UI.RadButton radButton10;
     }

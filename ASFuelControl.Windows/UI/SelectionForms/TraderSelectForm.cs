@@ -12,6 +12,8 @@ namespace ASFuelControl.Windows.UI.SelectionForms
 {
     public partial class TraderSelectForm : SelectionBaseForm
     {
+        public ViewModels.InvoiceCounterpartySelection SelectionMode { get; set; }
+
         public TraderSelectForm()
         {
             InitializeComponent();
@@ -48,6 +50,10 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
 
             var q = db.Traders;
+            if (SelectionMode == ViewModels.InvoiceCounterpartySelection.Customer)
+                q = q.Where(t => t.IsCustomer);
+            else if (SelectionMode == ViewModels.InvoiceCounterpartySelection.Supplier)
+                q = q.Where(t => t.IsSupplier);
             if (filter != null && filter != "")
             {
                 q = q.Where(t =>
@@ -68,6 +74,13 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             db.Dispose();
 
             return list.ToArray();
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            radButton2.Visible = SelectionMode != ViewModels.InvoiceCounterpartySelection.Supplier;
+            radButton3.Visible = SelectionMode != ViewModels.InvoiceCounterpartySelection.Customer;
+            base.OnShown(e);
         }
 
         protected override object SearchData(Guid traderId)

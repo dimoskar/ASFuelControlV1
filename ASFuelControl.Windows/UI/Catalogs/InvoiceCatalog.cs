@@ -338,7 +338,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
                 Guid? vehicleId = vehicle == null ? null : new Guid?(vehicleSelections.First().VehicleId);
                 Guid? traderId = vehicle == null ? null : new Guid?(vehicleSelections.First().TraderId);
                 Guid newInvoice = Guid.Empty;
-                Forms.InvoiceFormEx invoiceForm = new Forms.InvoiceFormEx();
+                Forms.InvoiceFormEx invoiceForm = Forms.InvoiceEditorFormFactory.CreateForInvoiceType(invoiceTypeId);
 
                 if (transformation.CreationInvoiceTypeId.HasValue)
                 {
@@ -446,7 +446,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
                     var invoice = db.Invoices.SingleOrDefault(i => i.InvoiceId == newInvoice);
                     if (invoice == null)
                         return;
-                    Forms.InvoiceFormEx invoiceForm = new Forms.InvoiceFormEx();
+                    Forms.InvoiceFormEx invoiceForm = Forms.InvoiceEditorFormFactory.CreateForInvoice(newInvoice);
                     invoiceForm.LoadInvoice(newInvoice);
                     invoiceForm.Show(this);
                     invoiceForm.FormClosed += InvForm_FormClosed;
@@ -524,7 +524,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
                 return;
             }
 
-            Forms.InvoiceFormEx isfm = new Forms.InvoiceFormEx();
+            Forms.InvoiceFormEx isfm = Forms.InvoiceEditorFormFactory.CreateForInvoice(dataRow.InvoiceId);
             isfm.LoadInvoice(dataRow.InvoiceId);
             isfm.Show(this);
             isfm.FormClosed += InvForm_FormClosed;
@@ -575,21 +575,11 @@ namespace ASFuelControl.Windows.UI.Catalogs
 
         private void btnAdd_Click(object sender, EventArgs e)
         {
-            using (SelectionForms.InvoiceTypeSelection itf = new SelectionForms.InvoiceTypeSelection())
-            {
-                itf.FilterAdminView = true;
-                itf.HideCancelationTypes = true;
-                var res = itf.ShowDialog(this);
-                if (res != DialogResult.OK)
-                    return;
-                ViewModels.InvoiceTypeViewModel ifvm = itf.SelectedEntity as ViewModels.InvoiceTypeViewModel;
-                if (ifvm == null)
-                    return;
-                Forms.InvoiceFormEx invForm = new Forms.InvoiceFormEx();
-                invForm.CreateNew(ifvm.InvoiceTypeId);
-                invForm.Show(this);
-                invForm.FormClosed += InvForm_FormClosed;
-            }
+            Forms.InvoiceFormEx invForm = Forms.InvoiceEditorFormFactory.SelectForNewInvoice(this);
+            if (invForm == null)
+                return;
+            invForm.Show(this);
+            invForm.FormClosed += InvForm_FormClosed;
         }
 
         private void InvForm_FormClosed(object sender, FormClosedEventArgs e)

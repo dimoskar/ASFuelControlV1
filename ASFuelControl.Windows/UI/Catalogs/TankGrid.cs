@@ -176,10 +176,12 @@ namespace ASFuelControl.Windows.UI.Catalogs
 
         private void radButton1_Click(object sender, EventArgs e)
         {
-            using (Forms.InvoiceFormEx invForm = new Forms.InvoiceFormEx())
+            var invForm = Forms.InvoiceEditorFormFactory.SelectForNewInvoice(this);
+            if (invForm == null)
+                return;
+            using (invForm)
             {
-                invForm.CreateNew();
-                invForm.ShowDialog();
+                invForm.ShowDialog(this);
             }
         }
 

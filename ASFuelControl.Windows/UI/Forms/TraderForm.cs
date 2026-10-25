@@ -250,15 +250,16 @@ namespace ASFuelControl.Windows.UI.Forms
             var dataRow = this.radGridView2.CurrentRow.DataBoundItem as ViewModels.TraderInvoiceViewModel;
             if (dataRow == null)
                 return;
-            InvoiceFormEx invForm = new InvoiceFormEx();
+            InvoiceFormEx invForm = InvoiceEditorFormFactory.CreateForInvoice(dataRow.InvoiceId);
             invForm.LoadInvoice(dataRow.InvoiceId);
             invForm.Show(this);
         }
 
         private void btnAddInvoice_Click(object sender, EventArgs e)
         {
-            InvoiceFormEx invoiceForm = new InvoiceFormEx();
-            invoiceForm.CreateNew();
+            InvoiceFormEx invoiceForm = InvoiceEditorFormFactory.SelectForNewInvoice(this);
+            if (invoiceForm == null)
+                return;
             invoiceForm.Show(this);
         }
 

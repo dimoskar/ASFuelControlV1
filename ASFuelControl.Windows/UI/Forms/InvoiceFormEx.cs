@@ -14,13 +14,31 @@ namespace ASFuelControl.Windows.UI.Forms
 {
     public partial class InvoiceFormEx : RadForm
     {
-        ViewModels.InvoiceDetailsViewModel ivm = new ViewModels.InvoiceDetailsViewModel();
+        protected readonly ViewModels.InvoiceDetailsViewModel ivm;
+        private readonly ViewModels.InvoiceEditorLayout editorLayout = ViewModels.InvoiceEditorLayout.Legacy;
 
         private Guid[] relatedIds = null;
 
-        public InvoiceFormEx()
+        public InvoiceFormEx() : this(new ViewModels.InvoiceDetailsViewModel())
         {
-            InitializeComponent();
+        }
+
+        protected InvoiceFormEx(ViewModels.InvoiceDetailsViewModel viewModel)
+            : this(viewModel, ViewModels.InvoiceEditorLayout.Legacy)
+        {
+        }
+
+        protected InvoiceFormEx(ViewModels.InvoiceDetailsViewModel viewModel,
+            ViewModels.InvoiceEditorLayout layout)
+        {
+            if (viewModel == null)
+                throw new ArgumentNullException("viewModel");
+            ivm = viewModel;
+            editorLayout = layout;
+            if (layout == ViewModels.InvoiceEditorLayout.Legacy)
+                InitializeComponent();
+            else
+                InitializeFixedLayout(layout);
             InitializeFiscalStatus();
             fiscalPanel.ActionCompleted += (s, e) => {
                 if (!IsDisposed && fiscalPanel.Owned) LoadInvoice(ivm.InvoiceId);
@@ -72,19 +90,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 //if (string.IsNullOrEmpty(ivm.InvoiceSignature))
                 this.panel6.Visible = true;
             }
-            var invType = ivm.InvoiceTypes.FirstOrDefault(i => i.InvoiceTypeId == ivm.InvoiceTypeId);
-            if (invType.TransactionType == 1 && invType.IsLaserPrint.HasValue && invType.IsLaserPrint.Value && (!invType.Invalidated.HasValue || !invType.Invalidated.Value))
-            {
-                this.radGridView1.Columns["UnitPrice"].FieldName = "UnitPriceWhole";
-                this.radSpinEditor3.DataBindings.Clear();
-                this.radSpinEditor3.DataBindings.Add(new System.Windows.Forms.Binding("Value", this.invoiceViewModelBindingSource, "DiscountAmountWhole", true));
-            }
-            else
-            {
-                this.radGridView1.Columns["UnitPrice"].FieldName = "UnitPriceRetail";
-                this.radSpinEditor3.DataBindings.Clear();
-                this.radSpinEditor3.DataBindings.Add(new System.Windows.Forms.Binding("Value", this.invoiceViewModelBindingSource, "DiscountAmount", true));
-            }
+            ApplyPriceBindings();
             this.SetView();
             fiscalPanel.LoadInvoice(invoiceId);
             myDieselPanel.LoadInvoice(invoiceId);
@@ -195,7 +201,8 @@ namespace ASFuelControl.Windows.UI.Forms
                 if (!success)
                 {
                     string message = string.Join("\r\n", this.ivm.Errors.Select(s => s.ErrorMessage));
-                    RadMessageBox.Show("Σφάλμα Αποθήκευσης", message, MessageBoxButtons.OK, RadMessageIcon.Exclamation);
+                    RadMessageBox.Show(message, "Σφάλμα Αποθήκευσης", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
+                    e.Cancel = true;
                 }
             }
             else if(res == DialogResult.No)
@@ -237,6 +244,7 @@ namespace ASFuelControl.Windows.UI.Forms
         private void btnSelectTrader_Click(object sender, EventArgs e)
         {
             SelectionForms.TraderSelectForm tf = new SelectionForms.TraderSelectForm();
+            tf.SelectionMode = this.ivm.CounterpartySelection;
             tf.ShowDialog(this);
             ViewModels.TraderViewModel tvm = tf.SelectedEntity as ViewModels.TraderViewModel;
             if (tvm != null)
@@ -362,18 +370,17 @@ namespace ASFuelControl.Windows.UI.Forms
                         return;
                     }
                     DialogResult res = Telerik.WinControls.RadMessageBox.Show("Θέλετε να εκτύπώσετε το επιλεγμένο Παραστατικό;", "Επανεκτύπωση Παραστατικού", MessageBoxButtons.YesNo, Telerik.WinControls.RadMessageIcon.Question);
+                    if (res != System.Windows.Forms.DialogResult.Yes)
+                        return;
                     invoice.RecalculateInvoice();
                     db.SaveChanges();
-                    if (res == System.Windows.Forms.DialogResult.Yes)
+                    if (invoice.InvoiceSignature == null || invoice.InvoiceSignature == "")
                     {
-                        if (invoice.InvoiceSignature == null || invoice.InvoiceSignature == "")
-                        {
-                            Threads.PrintAgent pa = new Threads.PrintAgent();
-                            pa.SignInvoice(db, invoice);
-                        }
-                        else
-                            Threads.PrintAgent.PrintInvoiceDirect(invoice);
+                        Threads.PrintAgent pa = new Threads.PrintAgent();
+                        pa.SignInvoice(db, invoice);
                     }
+                    else
+                        Threads.PrintAgent.PrintInvoiceDirect(invoice);
                 }
                 catch(Exception ex)
                 {
@@ -399,20 +406,23 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             if(e.PropertyName == "InvoiceTypeId" || e.PropertyName == "IsPrinted" || e.PropertyName == "InvoiceSignature")
             {
-                var invType = ivm.InvoiceTypes.FirstOrDefault(i => i.InvoiceTypeId == ivm.InvoiceTypeId);
-                if (invType.TransactionType == 1 && invType.IsLaserPrint.HasValue && invType.IsLaserPrint.Value && (!invType.Invalidated.HasValue || !invType.Invalidated.Value))
-                {
-                    this.radGridView1.Columns["UnitPrice"].FieldName = "UnitPriceWhole";
-                    this.radSpinEditor3.DataBindings.Clear();
-                    this.radSpinEditor3.DataBindings.Add(new System.Windows.Forms.Binding("Value", this.invoiceViewModelBindingSource, "DiscountAmountWhole", true));
-                }
-                else
-                {
-                    this.radGridView1.Columns["UnitPrice"].FieldName = "UnitPriceRetail";
-                    this.radSpinEditor3.DataBindings.Clear();
-                    this.radSpinEditor3.DataBindings.Add(new System.Windows.Forms.Binding("Value", this.invoiceViewModelBindingSource, "DiscountAmount", true));
-                }
+                ApplyPriceBindings();
                 SetView();
+            }
+        }
+
+        private void ApplyPriceBindings()
+        {
+            bool wholesalePrices = !this.ivm.PricesIncludeVat;
+            if (this.radGridView1 != null && this.radGridView1.Columns["UnitPrice"] != null)
+                this.radGridView1.Columns["UnitPrice"].FieldName = wholesalePrices
+                    ? "UnitPriceWhole"
+                    : "UnitPriceRetail";
+            if (this.radSpinEditor3 != null)
+            {
+                this.radSpinEditor3.DataBindings.Clear();
+                this.radSpinEditor3.DataBindings.Add(new Binding("Value", this.invoiceViewModelBindingSource,
+                    wholesalePrices ? "DiscountAmountWhole" : "DiscountAmount", true));
             }
         }
 
@@ -434,6 +444,12 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void SetView()
         {
+            if (editorLayout != ViewModels.InvoiceEditorLayout.Legacy)
+            {
+                this.btnSave.Visible = true;
+                this.panel6.Visible = ivm.IsPrinted == true;
+                return;
+            }
             this.btnSave.Visible = !this.ivm.SimplePrint;
             this.panel6.Visible = false;
             if (ivm.IsPrinted.HasValue && ivm.IsPrinted.Value)

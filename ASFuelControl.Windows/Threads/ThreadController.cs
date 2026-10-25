@@ -29,7 +29,6 @@ namespace ASFuelControl.Windows.Threads
         public event EventHandler ControllerConnectionSuccess;
         public event EventHandler<TankFillingAvaliableArgs> TankFillingAvaliableEvent;
         public event EventHandler RefreshAlerts;
-        public event EventHandler OTPStatusChanged;
         #endregion
 
         #region private variables
@@ -59,14 +58,6 @@ namespace ASFuelControl.Windows.Threads
         
 
         #endregion
-
-        public bool OTPStatus
-        {
-            get
-            {
-                return this.controllerThread.OTPStatus;
-            }
-        }
 
         public bool IsRunning
         {
@@ -126,11 +117,6 @@ namespace ASFuelControl.Windows.Threads
         public Data.Tank GetTank(VirtualTank tank)
         {
             return this.database.Tanks.Where(d => d.TankId == tank.TankId).FirstOrDefault();
-        }
-
-        public OTPConsoleController[] GetOtpControllers()
-        {
-            return this.controllerThread.GetOTPControlers();
         }
 
         public void CheckForDatabaseUpdate()
@@ -376,8 +362,6 @@ namespace ASFuelControl.Windows.Threads
             this.tankThread.StopThread();
             this.printAgent.StopThread();
             if (this.myDieselPolling != null) { this.myDieselPolling.Dispose(); this.myDieselPolling = null; }
-            foreach (OTPConsoleController opt in this.controllerThread.GetOTPControlers())
-                opt.CloseServer();
         }
 
         public bool StationLocked { set; get; }
@@ -499,28 +483,6 @@ namespace ASFuelControl.Windows.Threads
             catch (Exception ex)
             {
                 Logging.Logger.Instance.LogToFile("ThreadController::CreateSale", ex);
-            }
-        }
-
-        public void RedefineOTPComntrollers()
-        {
-            this.controllerThread.ClearOTPConsoles();
-
-            VirtualDispenser[] dispensers = this.controllerThread.GetDispensers();
-
-            List<Data.OutdoorPaymentTerminal> otpTerminals = this.database.OutdoorPaymentTerminals.ToList().ToList();
-            foreach (Data.OutdoorPaymentTerminal terminal in otpTerminals)
-            {
-                this.controllerThread.AddOTPConsole(terminal.TerminalId, terminal.ServerIp, terminal.ServerPort, terminal.ClientIp, terminal.ClientPort);
-                Data.OutdoorPaymentTerminalNozzle[] nozzles = terminal.OutdoorPaymentTerminalNozzles.ToArray();
-                VirtualDispenser[] disps = dispensers.Where(d => terminal.OutdoorPaymentTerminalNozzles.Select(n => n.Nozzle.DispenserId).Contains(d.DispenserId)).Distinct().ToArray();
-
-                foreach (VirtualDispenser disp in disps)
-                {
-                    Guid[] nozzleIds = disp.Nozzles.Where(n => terminal.OutdoorPaymentTerminalNozzles.Select(nz => nz.NozzleId).Contains(n.NozzleId)).
-                        Select(n => n.NozzleId).ToArray();
-                    this.controllerThread.AddOTPDispenser(terminal.TerminalId, disp, nozzleIds);
-                }
             }
         }
 
@@ -755,22 +717,6 @@ namespace ASFuelControl.Windows.Threads
                 this.fleetThread.AddVontroller(fc);
             }
 
-            this.RedefineOTPComntrollers();
-            //List<Data.OutdoorPaymentTerminal> otpTerminals = this.database.OutdoorPaymentTerminals.ToList().ToList();
-            //foreach (Data.OutdoorPaymentTerminal terminal in otpTerminals)
-            //{
-            //    this.controllerThread.AddOTPConsole(terminal.TerminalId, terminal.ServerIp, terminal.ServerPort, terminal.ClientIp, terminal.ClientPort);
-            //    Data.OutdoorPaymentTerminalNozzle[] nozzles = terminal.OutdoorPaymentTerminalNozzles.ToArray();
-            //    VirtualDispenser[] disps = dispensers.Where(d => terminal.OutdoorPaymentTerminalNozzles.Select(n => n.Nozzle.DispenserId).Contains(d.DispenserId)).Distinct().ToArray();
-
-            //    foreach(VirtualDispenser disp in disps)
-            //    {
-            //        Guid[] nozzleIds = disp.Nozzles.Where(n=>terminal.OutdoorPaymentTerminalNozzles.Select(nz => nz.NozzleId).Contains(n.NozzleId)).
-            //            Select(n => n.NozzleId).ToArray();
-            //        this.controllerThread.AddOTPDispenser(terminal.TerminalId, disp, nozzleIds);
-            //    }
-            //}
-
             this.fleetThread.DataRecieved += new EventHandler<FleetManagementDataRecievedArgs>(fleetThread_DataRecieved);
             foreach (Data.Tank tank in this.database.Tanks)
             {
@@ -799,13 +745,6 @@ namespace ASFuelControl.Windows.Threads
             this.controllerThread.ControllerConnectionSuccess+=new EventHandler(controllerThread_ControllerConnectionSuccess);
             //this.controllerThread.RefreshAlerts += new EventHandler(controllerThread_RefreshAlerts);
             this.controllerThread.ReadFleetData += new EventHandler(controllerThread_ReadFleetData);
-            this.controllerThread.OTPStatusChanged += ControllerThread_OTPStatusChanged;
-        }
-
-        private void ControllerThread_OTPStatusChanged(object sender, EventArgs e)
-        {
-            if (this.OTPStatusChanged != null)
-                this.OTPStatusChanged(this, new EventArgs());
         }
 
         void controllerThread_ReadFleetData(object sender, EventArgs e)
