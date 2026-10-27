@@ -10,6 +10,7 @@ namespace ASFuelControl.Windows.UI.Forms
     {
         private FiscalDocumentPanel fiscalPanel;
         private MyDieselCouponPanel myDieselPanel;
+        private bool myDieselVisible;
         private Panel invoicingStatusHost;
         private readonly Dictionary<Control,bool> editableControls = new Dictionary<Control,bool>();
         private bool lockedForIssuance;
@@ -17,12 +18,13 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             fiscalPanel = new FiscalDocumentPanel { Dock = DockStyle.Fill };
             myDieselPanel = new MyDieselCouponPanel(EnsureInvoiceSavedForMyDiesel,InvoiceTraderVat);
+            myDieselVisible = Data.Implementation.OptionHandler.Instance.MyDieselEnabled;
             bool fixedEditor = editorLayout != ViewModels.InvoiceEditorLayout.Legacy;
-            invoicingStatusHost = new Panel { Dock = DockStyle.Bottom,Height = fixedEditor ? 260 : 342 };
+            invoicingStatusHost = new Panel { Dock = DockStyle.Bottom,Height = fixedEditor ? 260 : (myDieselVisible ? 342 : 210) };
             invoicingStatusHost.Controls.Add(fiscalPanel);
-            if (fixedEditor)
+            if (myDieselVisible && fixedEditor)
                 fiscalPanel.AddPage("myDiesel",myDieselPanel);
-            else
+            else if (myDieselVisible)
             {
                 myDieselPanel.Dock = DockStyle.Top;
                 invoicingStatusHost.Controls.Add(myDieselPanel);
@@ -30,11 +32,11 @@ namespace ASFuelControl.Windows.UI.Forms
             ClientSize = new System.Drawing.Size(ClientSize.Width,ClientSize.Height + invoicingStatusHost.Height);
             Controls.Add(invoicingStatusHost);
             fiscalPanel.StateChanged += (s,e) => LockIssuedInvoice();
-            myDieselPanel.StateChanged += (s,e) => LockIssuedInvoice();
+            if (myDieselVisible) myDieselPanel.StateChanged += (s,e) => LockIssuedInvoice();
             Shown += (s,e) =>
             {
                 fiscalPanel.LoadInvoice(ivm.InvoiceId);
-                myDieselPanel.LoadInvoice(ivm.InvoiceId, ivm.EntityState == ViewModels.EntityStateEnum.Added);
+                if (myDieselVisible) myDieselPanel.LoadInvoice(ivm.InvoiceId, ivm.EntityState == ViewModels.EntityStateEnum.Added);
             };
             paymentTypeDropDownList.SelectedIndexChanging += (s,e) => {
                 if (!Visible || lockedForIssuance || e.Position < 0 || e.Position >= paymentTypeDropDownList.Items.Count) return;
@@ -51,8 +53,9 @@ namespace ASFuelControl.Windows.UI.Forms
         }
         private void LockIssuedInvoice()
         {
-            btnPrint.Enabled = !fiscalPanel.Busy && !myDieselPanel.Busy && !fiscalPanel.ReadFailed;
-            bool locked = fiscalPanel.Owned || fiscalPanel.ReadFailed || fiscalPanel.Busy || myDieselPanel.Busy;
+            btnPrint.Enabled = !fiscalPanel.Busy && (!myDieselVisible || !myDieselPanel.Busy) && !fiscalPanel.ReadFailed;
+            bool locked = fiscalPanel.Owned || fiscalPanel.ReadFailed || fiscalPanel.Busy ||
+                (myDieselVisible && myDieselPanel.Busy);
             if (locked == lockedForIssuance) return;
             lockedForIssuance = locked;
             if (locked)

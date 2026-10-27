@@ -9,6 +9,9 @@ namespace ASFuelControl.Data.Implementation
 {
     public class OptionHandler
     {
+        private const string MyDieselOptionKey = "MyDiesel";
+        private const string MyDieselDefaultValue = "FALSE";
+
         private ConcurrentDictionary<string, string> optionValues = new ConcurrentDictionary<string, string>();
 
         public static string ConnectionString { set; get; }
@@ -37,6 +40,16 @@ namespace ASFuelControl.Data.Implementation
             get
             {
                 return this.GetBoolOption("IsFinalized", false);
+            }
+        }
+
+        public bool MyDieselEnabled
+        {
+            get
+            {
+                string value = this.GetOption(MyDieselOptionKey, MyDieselDefaultValue);
+                bool enabled;
+                return bool.TryParse((value ?? string.Empty).Trim(), out enabled) && enabled;
             }
         }
 
@@ -214,6 +227,11 @@ namespace ASFuelControl.Data.Implementation
             option.OptionValue = encVal;
             data.SaveChanges();
             this.LoadOptions();
+        }
+
+        public void SetMyDieselEnabled(bool enabled)
+        {
+            this.SetOption(MyDieselOptionKey, enabled ? "TRUE" : "FALSE");
         }
 
         public string DecryptValue(string value)

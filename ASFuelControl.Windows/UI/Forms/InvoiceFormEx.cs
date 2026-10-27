@@ -93,7 +93,7 @@ namespace ASFuelControl.Windows.UI.Forms
             ApplyPriceBindings();
             this.SetView();
             fiscalPanel.LoadInvoice(invoiceId);
-            myDieselPanel.LoadInvoice(invoiceId);
+            if (myDieselVisible) myDieselPanel.LoadInvoice(invoiceId);
         }
 
         public Guid TransformInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId,
@@ -199,14 +199,14 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void InvoiceFormEx_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (fiscalPanel.Busy || myDieselPanel.Busy)
+            if (fiscalPanel.Busy || (myDieselVisible && myDieselPanel.Busy))
             {
                 e.Cancel = true;
                 RadMessageBox.Show(this,"Υπάρχει ενέργεια έκδοσης σε εξέλιξη. Περιμένετε να ολοκληρωθεί πριν κλείσετε το παραστατικό.",
                     "Κλείσιμο παραστατικού",MessageBoxButtons.OK,RadMessageIcon.Info);
                 return;
             }
-            if (myDieselPanel.HasBlockingCase && !fiscalPanel.Owned &&
+            if (myDieselVisible && myDieselPanel.HasBlockingCase && !fiscalPanel.Owned &&
                 RadMessageBox.Show(this,"Η υπόθεση myDiesel παραμένει ενεργή ή χρειάζεται ανάκτηση. Επιλέξτε «Όχι» για να επιστρέψετε στις διαθέσιμες ενέργειες ή «Ναι» για να την αφήσετε καταγεγραμμένη και να κλείσετε.",
                     "Ενεργή υπόθεση myDiesel",MessageBoxButtons.YesNo,RadMessageIcon.Exclamation) != DialogResult.Yes)
             { e.Cancel = true; return; }
@@ -313,7 +313,7 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private async void btnPrint_Click(object sender, EventArgs e)
         {
-            if (fiscalPanel.Busy || myDieselPanel.Busy) return;
+            if (fiscalPanel.Busy || (myDieselVisible && myDieselPanel.Busy)) return;
             // Owned documents use their saved workflow; never save/recalculate edited
             // screen data before a reprint. The status panel locks issued fields.
             if (Threads.SharedInvoiceRuntime.Handles(this.ivm.InvoiceId))

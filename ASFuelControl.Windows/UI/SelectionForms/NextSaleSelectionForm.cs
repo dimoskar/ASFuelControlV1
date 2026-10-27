@@ -21,6 +21,7 @@ namespace ASFuelControl.Windows.UI.SelectionForms
         private readonly Guid initialVehicleId;
         private readonly Guid initialInvoiceTypeId;
         private readonly int initialOdometer;
+        private readonly bool myDieselVisible;
 
         private readonly RadTextBox filter = new RadTextBox { Dock = DockStyle.Fill };
         private readonly RadGridView vehicles = new RadGridView { Dock = DockStyle.Fill };
@@ -53,6 +54,7 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             initialVehicleId = vehicleId;
             initialInvoiceTypeId = invoiceTypeId;
             initialOdometer = currentOdometer;
+            myDieselVisible = Data.Implementation.OptionHandler.Instance.MyDieselEnabled;
             InitializeForm();
             LoadInvoiceTypes();
             LoadMyDieselState();
@@ -64,15 +66,15 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             Text = "Στοιχεία επόμενης πώλησης";
             StartPosition = FormStartPosition.CenterParent;
             ShowIcon = false;
-            MinimumSize = new Size(900, 650);
-            ClientSize = new Size(900, 650);
+            MinimumSize = new Size(900, myDieselVisible ? 650 : 460);
+            ClientSize = new Size(900, myDieselVisible ? 650 : 460);
             Font = new Font("Segoe UI", 9F);
 
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 1, RowCount = 6 };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 40));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 132));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 190));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, myDieselVisible ? 190 : 0));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 8));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
 
@@ -91,7 +93,7 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             ConfigureVehicleGrid();
             root.Controls.Add(vehicles, 0, 1);
             root.Controls.Add(CreateSaleGroup(), 0, 2);
-            root.Controls.Add(CreateCouponGroup(), 0, 3);
+            if (myDieselVisible) root.Controls.Add(CreateCouponGroup(), 0, 3);
 
             var actions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 5, RowCount = 1 };
             actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145));
@@ -236,6 +238,14 @@ namespace ASFuelControl.Windows.UI.SelectionForms
 
         private void LoadMyDieselState()
         {
+            if (!myDieselVisible)
+            {
+                myDieselEnabled = false;
+                stagedCoupon = null;
+                PendingMyDieselSelectionStore.Clear(dispenserId);
+                return;
+            }
+
             try
             {
                 var configuration = SharedInvoicingSettings.LoadRuntime();

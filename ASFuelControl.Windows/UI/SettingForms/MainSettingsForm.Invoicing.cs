@@ -41,7 +41,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
             invoicing = SharedInvoicingSettings.Load(out invoicingRevision);
             var legacy = new RadPageViewPage { Text = "Παλαιές συνδέσεις" };
             var legacyTabs = new RadPageView { Dock = DockStyle.Fill };
-            legacy.Controls.Add(legacyTabs); radPageView1.Pages.Add(legacy);
+            legacy.Controls.Add(legacyTabs);
             var legacyMyData = new RadPageViewPage { Text = "myDATA (παλαιό)" };
             var legacyProvider = new RadPageViewPage { Text = "Πάροχος (παλαιό)" };
             var legacyPos = new RadPageViewPage { Text = "POS (παλαιό)" };
@@ -110,11 +110,13 @@ namespace ASFuelControl.Windows.UI.SettingForms
             };
             RefreshProviderFields();
 
-            var dieselPage = new RadPageViewPage { Text = "myDiesel" };
+            var dieselPage = new RadPageViewPage { Text = "My Diesel" };
             radPageView1.Pages.Add(dieselPage);
+            radPageView1.Pages.Add(legacy);
             var diesel = myDieselFields = new InvoicingFields("ΑΑΔΕ myDiesel"); dieselPage.Controls.Add(diesel.Group);
             var dieselProfile = invoicing.MyDiesel;
-            myDieselEnabled = diesel.Row("myDiesel",new RadCheckBox { Text = "Νέες δεσμεύσεις ενεργές μετά την επανεκκίνηση", IsChecked = dieselProfile?.Enabled == true });
+            myDieselEnabled = diesel.Row("My Diesel",new RadCheckBox { Text = "Νέες δεσμεύσεις ενεργές μετά την επανεκκίνηση",
+                IsChecked = Data.Implementation.OptionHandler.Instance.MyDieselEnabled });
             myDieselEnvironment = diesel.Row("Περιβάλλον",new RadLabel { Text = sharedEnvironment.Text });
             myDieselExciseRate = diesel.Row("Έκπτωση ΕΦΚ",new RadSpinEditor { Minimum = 0.0001m, Maximum = MyDieselTaxRules.MaximumExciseDiscountPerLitre,
                 DecimalPlaces = 4, Value = dieselProfile?.ExciseDiscountPerLitre > 0 ? dieselProfile.ExciseDiscountPerLitre : MyDieselTaxRules.DefaultExciseDiscountPerLitre });
@@ -410,6 +412,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 // unused secret, but cannot change any current or historical profile.
                 foreach (var entry in pendingSecrets) Data.Implementation.OptionHandler.Instance.SetOption(entry.Key,entry.Value);
                 invoicingRevision = SharedInvoicingSettings.Save(value,invoicingRevision);
+                Data.Implementation.OptionHandler.Instance.SetMyDieselEnabled(myDieselEnabled.IsChecked);
                 invoicing = value;
                 RadMessageBox.Show("Οι ρυθμίσεις τιμολόγησης αποθηκεύτηκαν. Ο λογαριασμός και τα κλειδιά ισχύουν πριν από την πρώτη προσπάθεια έκδοσης. Οι υπόλοιπες αλλαγές απαιτούν επανεκκίνηση της εφαρμογής.","Τιμολόγηση");
                 return true;

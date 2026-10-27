@@ -132,7 +132,8 @@ namespace ASFuelControl.Windows.UI.Controls
 
         private bool NewReservationsEnabled()
         {
-            try { return SharedInvoicingSettings.LoadRuntime().MyDiesel?.Enabled == true; }
+            try { return Data.Implementation.OptionHandler.Instance.MyDieselEnabled &&
+                    SharedInvoicingSettings.LoadRuntime().MyDiesel?.Enabled == true; }
             catch { return false; }
         }
 

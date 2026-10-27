@@ -403,6 +403,7 @@
     </Compile>
     <Compile Include="UI\Forms\InvoiceFormEx.FixedLayouts.cs">
       <DependentUpon>InvoiceFormEx.cs</DependentUpon>
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\Forms\InvoiceEditorFormFactory.cs" />
     <Compile Include="UI\Forms\RetailReceiptForm.cs">

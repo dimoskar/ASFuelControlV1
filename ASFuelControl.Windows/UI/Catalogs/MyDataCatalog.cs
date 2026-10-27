@@ -16,26 +16,34 @@ namespace ASFuelControl.Windows.UI.Catalogs
         private DateTime dateFrom;
         private DateTime dateTo;
         private string filter = "";
+        private readonly bool myDieselVisible;
         private readonly FiscalPanel fiscalPanel = new FiscalPanel { Dock = DockStyle.Bottom, Height = 220 };
 
         public MyDataCatalog()
         {
             InitializeComponent();
+            myDieselVisible = Data.Implementation.OptionHandler.Instance.MyDieselEnabled;
             this.Controls.Remove(errorsTextBox);
             this.Controls.Add(fiscalPanel);
             this.Controls.SetChildIndex(fiscalPanel,1);
             this.radLabel1.Text = "Φίλτρο";
             this.invoiceRadGridView.AutoGenerateColumns = false;
             this.invoiceRadGridView.Columns.Clear();
-            string[] fields = { "Description","TransactionDate","TraderName","Route","Signing","Payment","Submission","Printing","Mark","MyDieselCoupon","MyDieselStatus","MyDieselIntervention" };
-            string[] titles = { "Παραστατικό","Ημερομηνία (έως 1000)","Συναλλασσόμενος","Διαδρομή","Σήμανση","Πληρωμή","Διαβίβαση","Εκτύπωση","MARK","Κουπόνι myDiesel","Κατάσταση myDiesel","Χρειάζεται παρέμβαση" };
-            for (int i = 0; i < fields.Length; i++) this.invoiceRadGridView.Columns.Add(new Telerik.WinControls.UI.GridViewTextBoxColumn(fields[i]) { HeaderText = titles[i], Width = i == 0 || i == 2 ? 180 : 130, ReadOnly = true });
+            var fields = new List<string> { "Description","TransactionDate","TraderName","Route","Signing","Payment","Submission","Printing","Mark" };
+            var titles = new List<string> { "Παραστατικό","Ημερομηνία (έως 1000)","Συναλλασσόμενος","Διαδρομή","Σήμανση","Πληρωμή","Διαβίβαση","Εκτύπωση","MARK" };
+            if (myDieselVisible)
+            {
+                fields.AddRange(new[] { "MyDieselCoupon","MyDieselStatus","MyDieselIntervention" });
+                titles.AddRange(new[] { "Κουπόνι myDiesel","Κατάσταση myDiesel","Χρειάζεται παρέμβαση" });
+            }
+            for (int i = 0; i < fields.Count; i++) this.invoiceRadGridView.Columns.Add(new Telerik.WinControls.UI.GridViewTextBoxColumn(fields[i]) { HeaderText = titles[i], Width = i == 0 || i == 2 ? 180 : 130, ReadOnly = true });
             dateFrom = DateTime.Today;
             dateTo = DateTime.Today;
             this.radDateTimePicker1.Value = dateFrom;
             this.radDateTimePicker2.Value = dateTo;
             this.invoiceRadGridView.CurrentRowChanged += InvoiceRadGridView_CurrentRowChanged;
             this.invoiceRadGridView.CellDoubleClick += (s,e) => {
+                if (!myDieselVisible) return;
                 var row = this.invoiceRadGridView.CurrentRow?.DataBoundItem as MyDataInvoice;
                 if (row == null || string.IsNullOrWhiteSpace(row.MyDieselCoupon)) return;
                 using (var form = new ASFuelControl.Windows.UI.Forms.MyDieselEvidenceForm(row.InvoiceId)) form.ShowDialog(this);
