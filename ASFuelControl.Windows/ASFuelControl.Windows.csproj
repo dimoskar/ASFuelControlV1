@@ -178,6 +178,7 @@
       <DependentUpon>Reference.svcmap</DependentUpon>
     </Compile>
     <Compile Include="Threads\AlertChecker.cs" />
+    <Compile Include="Threads\AlertSubmissionPolicy.cs" />
     <Compile Include="Threads\ControllerThread.cs" />
     <Compile Include="Threads\DirectPrinter.cs" />
     <Compile Include="Threads\EuromatTransmitter.cs" />

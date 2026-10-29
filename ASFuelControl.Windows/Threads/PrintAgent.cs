@@ -1271,11 +1271,11 @@ namespace ASFuelControl.Windows.Threads
                             i.InvoiceLines.Count > 0
                         );
                         var dtAlert = DateTime.Now.AddMinutes(-2);
-                        var qAlert = db.SystemEvents.Where(s => 
-                            !s.PrintedDate.HasValue && 
-                            s.EventDate > new DateTime(2019, 6, 29) && 
-                            s.EventDate <= dtAlert &&
-                            !s.ResolvedDate.HasValue);
+                        var qAlert = db.SystemEvents.Where(s =>
+                            !s.PrintedDate.HasValue &&
+                            s.EventDate > new DateTime(2019, 6, 29) &&
+                            s.EventDate <= dtAlert)
+                            .Where(AlertSubmissionPolicy.IsEligibleForMinistry);
                         var qTitration = db.Titrimetries.Where(t => !t.PrintDate.HasValue);
                         var qFillings = db.TankFillings.Where(t => (t.SignSignature == null || t.SignSignature == "") && t.InvoiceLines.Count > 0);
 

@@ -850,10 +850,11 @@ namespace ASFuelControl.Windows.Threads
                         se.DocumentSign != null &&
                         se.DocumentSign != "" &&
                         !se.DocumentSign.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ") &&
-                        (se.DocumentSign == "-" || se.DocumentSign.Length >= 15) &&
-                        !se.ResolvedDate.HasValue 
+                        (se.DocumentSign == "-" || se.DocumentSign.Length >= 15)
                     //    se.EventDate < dtAlertCheck
-                    )).OrderByDescending(t => t.EventDate).Take(10).Take(10).ToList();
+                    ))
+                    .Where(AlertSubmissionPolicy.IsEligibleForMinistry)
+                    .OrderByDescending(t => t.EventDate).Take(10).Take(10).ToList();
 
                 try
                 {
