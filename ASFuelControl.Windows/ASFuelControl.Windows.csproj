@@ -186,6 +186,7 @@
     <Compile Include="Threads\FleetManagmentThread.cs" />
     <Compile Include="Threads\MailSender.cs" />
     <Compile Include="Threads\PrintAgent.cs" />
+    <Compile Include="Threads\OutboundSubmissionAudit.cs" />
     <Compile Include="Threads\SendAlertsThread.cs" />
     <Compile Include="Threads\TankCheckThread.cs" />
     <Compile Include="Threads\ThreadController.cs" />
