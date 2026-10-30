@@ -448,7 +448,7 @@
             // btnOutboundAudit
             //
             this.btnOutboundAudit.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
-            this.btnOutboundAudit.Image = global::ASFuelControl.Windows.Properties.Resources.MailSend;
+            this.btnOutboundAudit.Image = global::ASFuelControl.Windows.Properties.Resources.Message;
             this.btnOutboundAudit.ImageAlignment = System.Drawing.ContentAlignment.MiddleCenter;
             this.btnOutboundAudit.Location = new System.Drawing.Point(10, 360);
             this.btnOutboundAudit.Margin = new System.Windows.Forms.Padding(10);

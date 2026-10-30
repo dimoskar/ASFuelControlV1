@@ -161,7 +161,7 @@ namespace ASFuelControl.Windows.UI.Forms
             ConfigureActionButton(pinButton, "Διατήρηση υπόθεσης", 165);
             ConfigureActionButton(exportButton, "Εξαγωγή υπόθεσης", 165);
             ConfigureActionButton(cleanupButton, "Εκτέλεση εκκαθάρισης", 175);
-            var settings = new RadButton { Text = "Πολιτική διατήρησης", Size = new Size(170, 30), Margin = new Padding(6, 0, 0, 0) };
+            var settings = new RadButton { Text = "Ρυθμίσεις αρχειοθέτησης", Size = new Size(195, 30), Margin = new Padding(6, 0, 0, 0) };
             var openArchive = new RadButton { Text = "Φάκελος αρχείου", Size = new Size(145, 30), Margin = new Padding(6, 0, 0, 0) };
             pinButton.Click += delegate { TogglePinned(); };
             exportButton.Click += delegate { ExportSelectedSubmission(); };
