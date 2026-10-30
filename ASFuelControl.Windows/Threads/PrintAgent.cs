@@ -2270,9 +2270,10 @@ namespace ASFuelControl.Windows.Threads
                                 balance.EndDate.Date);
                         }
 
-                        string regularPath = Path.Combine(archiveDirectory, archiveName);
+                        string rootPath = Path.Combine(archiveDirectory, archiveName);
+                        string withinRangePath = Path.Combine(archiveDirectory, "Εντός Ορίων", archiveName);
                         string outOfRangePath = Path.Combine(archiveDirectory, "Εκτός Ορίων", archiveName);
-                        if (File.Exists(regularPath) || File.Exists(outOfRangePath))
+                        if (File.Exists(rootPath) || File.Exists(withinRangePath) || File.Exists(outOfRangePath))
                             continue;
 
                         this.StoreBalanceReport(balance, false);
