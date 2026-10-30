@@ -31,7 +31,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
         private RadTextBox myDieselAadeUser, myDieselSecret;
         private RadDropDownList myDieselCompany, myDieselStation;
         private RadSpinEditor myDieselExciseRate, myDieselPoll;
-        private RadLabel myDieselEnvironment, myDieselReferenceStatus;
+        private RadLabel myDieselReferenceStatus;
+        private RadDropDownList myDieselEnvironment;
         private InvoicingFields providerFields, myDieselFields;
         private DateTime? myDieselReferenceCheckedUtc;
         private readonly Dictionary<string,string> pendingSecrets = new Dictionary<string,string>();
@@ -117,7 +118,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
             var dieselProfile = invoicing.MyDiesel;
             myDieselEnabled = diesel.Row("My Diesel",new RadCheckBox { Text = "Νέες δεσμεύσεις ενεργές μετά την επανεκκίνηση",
                 IsChecked = Data.Implementation.OptionHandler.Instance.MyDieselEnabled });
-            myDieselEnvironment = diesel.Row("Περιβάλλον",new RadLabel { Text = sharedEnvironment.Text });
+            myDieselEnvironment = diesel.Row("Περιβάλλον",InvoicingFields.Choice("Δοκιμαστικό","Παραγωγή"));
+            myDieselEnvironment.SelectedIndex = sharedEnvironment.SelectedIndex;
             myDieselExciseRate = diesel.Row("Έκπτωση ΕΦΚ",new RadSpinEditor { Minimum = 0.0001m, Maximum = MyDieselTaxRules.MaximumExciseDiscountPerLitre,
                 DecimalPlaces = 4, Value = dieselProfile?.ExciseDiscountPerLitre > 0 ? dieselProfile.ExciseDiscountPerLitre : MyDieselTaxRules.DefaultExciseDiscountPerLitre });
             diesel.Row("",new RadLabel { Text = "€ ανά λίτρο — η τιμή αποθηκεύεται με κάθε νέο κουπόνι" });
@@ -142,6 +144,10 @@ namespace ASFuelControl.Windows.UI.SettingForms
             diesel.Note("Το query κουπονιού μεταβάλλει κατάσταση και δεν εκτελείται από αυτή τη φόρμα.\r\n" +
                 "Παραγωγή: ελεγμένο OpenAPI " + SharedMyDieselProductionContract.ContractVersion + " της ΑΑΔΕ (29/10/2026).");
             myDieselEnabled.ToggleStateChanged += (s,e) => RefreshMyDieselFields();
+            myDieselEnvironment.SelectedIndexChanged += (s,e) => {
+                if (myDieselEnvironment.SelectedIndex >= 0 && sharedEnvironment.SelectedIndex != myDieselEnvironment.SelectedIndex)
+                    sharedEnvironment.SelectedIndex = myDieselEnvironment.SelectedIndex;
+            };
             sharedEnvironment.SelectedIndexChanged += (s,e) => {
                 myDieselReferenceCheckedUtc = null;
                 LoadMyDieselCompanyChoices(invoicing.MyDiesel?.Environment == (sharedEnvironment.SelectedIndex == 0 ? FiscalEnvironment.Test : FiscalEnvironment.Production)
@@ -172,7 +178,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
         {
             if (myDieselFields == null) return;
             bool production = sharedEnvironment.SelectedIndex == 1;
-            myDieselEnvironment.Text = sharedEnvironment.Text;
+            if (myDieselEnvironment.SelectedIndex != sharedEnvironment.SelectedIndex)
+                myDieselEnvironment.SelectedIndex = sharedEnvironment.SelectedIndex;
             myDieselFields.SetRowVisible(myDieselAadeUser,production);
             myDieselFields.SetRowVisible(myDieselSecret,production);
             myDieselCompany.Enabled = myDieselEnabled.IsChecked && !production;
