@@ -30,6 +30,7 @@ namespace ASFuelControl.Windows.Threads
                 using(var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
                     Data.Balance completedBalance = null;
+                    Data.TankFilling completedTankFilling = null;
                     bool printed = result.Print?.State == "HandedOff" || result.Print?.State == "Confirmed";
                     if (document.Kind == FiscalDocumentKind.Balance)
                     {
@@ -38,13 +39,15 @@ namespace ASFuelControl.Windows.Threads
                         if (printed && !balance.PrintDate.HasValue) balance.PrintDate = DateTime.Now;
                         if (printed) completedBalance = balance;
                     }
-                    else if (printed)
+                    else if (document.Kind == FiscalDocumentKind.TankFilling && printed)
                     {
                         // SignSignature is the legacy polling flag for fillings. Set it
                         // only after handoff, so print failures remain in the worker queue.
+                        var filling = db.TankFillings.Single(f => f.TankFillingId == id);
                         using(var lease = sql.Value.EnterDocument(document))
-                            db.TankFillings.Single(f => f.TankFillingId == id).SignSignature =
+                            filling.SignSignature =
                                 new SqlFiscalSigningStore(sql.Value).Load(lease).Last(a => a.State == FiscalSigningState.Signed).Result.Signature;
+                        completedTankFilling = filling;
                     }
                     db.SaveChanges();
 
@@ -52,6 +55,8 @@ namespace ASFuelControl.Windows.Threads
                     // application still owns its local PDF balance archive.
                     if (completedBalance != null)
                         new PrintAgent().StoreBalanceReport(completedBalance, true);
+                    if (completedTankFilling != null)
+                        new PrintAgent().StoreTankFillingReport(completedTankFilling);
                 }
             });
         }

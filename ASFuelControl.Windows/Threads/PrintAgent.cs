@@ -2448,7 +2448,19 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintToPrinter(Data.TankFilling tankFilling)
         {
-            if (SharedInvoiceRuntime.HandlesDocument("TankFilling", tankFilling.TankFillingId)) { SharedInvoiceRuntime.ProcessDocument("TankFilling", tankFilling.TankFillingId); return; }
+            this.PrintToPrinter(tankFilling, false, true);
+        }
+
+        internal void StoreTankFillingReport(Data.TankFilling tankFilling)
+        {
+            // The shared workflow already handed the document to the physical
+            // printer. Generate only the application's established PDF archive.
+            this.PrintToPrinter(tankFilling, true, false);
+        }
+
+        private void PrintToPrinter(Data.TankFilling tankFilling, bool sharedWorkflowCompleted, bool printPhysical)
+        {
+            if (!sharedWorkflowCompleted && SharedInvoiceRuntime.HandlesDocument("TankFilling", tankFilling.TankFillingId)) { SharedInvoiceRuntime.ProcessDocument("TankFilling", tankFilling.TankFillingId); return; }
             if(tankFilling.InvoiceLines.Count == 0)
                 return;
             try
@@ -2480,7 +2492,7 @@ namespace ASFuelControl.Windows.Threads
                     else
                         alertDirectory = System.Environment.CurrentDirectory + "\\Παραλαβές";
 
-                    if (this.printBalancesPhysical)
+                    if (printPhysical && this.printBalancesPhysical)
                     {
                         System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                         PrintReport(report, printerSettings);
