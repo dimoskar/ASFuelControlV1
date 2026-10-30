@@ -1342,23 +1342,6 @@ namespace ASFuelControl.Windows.Threads
         bool logCleared = false;
         private void ThreadRun()
         {
-            try
-            {
-                using (Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
-                {
-                    Data.Balance bal = this.CheckForBalance(database, false);
-
-                    if (bal == null)
-                    {
-                    }
-                }
-            }
-            catch(Exception ex1)
-            {
-                Logging.Logger.Instance.LogToFile("SendAlertsThread::CheckForBalance", ex1);
-            }
-
-            int i = 0;
             while (!haltThread)
             {
                 try
@@ -1366,18 +1349,19 @@ namespace ASFuelControl.Windows.Threads
                     using (Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                     {
                         database.AlertChecker = AlertChecker.Instance;
-                        i++;
-                        if (i % 1 == 0)
-                        {
-                            Data.Balance bal = this.CheckForBalance(database, false);
-                            i = 0;
-                        }
+                        if (this.sendData)
+                            this.CheckForSend(database);
+
+                        // Balance generation can be expensive when old periods
+                        // need backfilling. Keep it after the outbound turn so it
+                        // cannot delay newly eligible sales at worker startup.
+                        this.CheckForBalance(database, false);
+
                         if (!this.sendData)
                         {
                             System.Threading.Thread.Sleep(10000);
                             continue;
                         }
-                        this.CheckForSend(database);
                         if (DateTime.Now.Subtract(dtAlertPrint).TotalSeconds >= 20)
                         {
                             this.CheckForPrint(database);
