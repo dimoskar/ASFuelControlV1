@@ -419,6 +419,9 @@ namespace ASFuelControl.Windows.Threads
             var dispensers = GetDispensers();
             foreach (var disp in dispensers)
             {
+                if (disp.DeviceLocked)
+                    continue;
+
                 if (disp.Status != Common.Enumerators.FuelPointStatusEnum.Idle && 
                     disp.Status != Common.Enumerators.FuelPointStatusEnum.Offline && 
                     disp.Status != Common.Enumerators.FuelPointStatusEnum.Close)
