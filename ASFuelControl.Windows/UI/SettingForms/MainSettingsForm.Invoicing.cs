@@ -461,6 +461,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
             try
             {
                 var value = BuildSharedInvoicing();
+                bool transitionPaused;
+                if (!PrepareFiscalEnvironmentTransition(value,out transitionPaused)) return false;
                 SharedInvoicingSettings.ValidateActivation(value);
                 // Unique keys are never overwritten. An interrupted save can leave an
                 // unused secret, but cannot change any current or historical profile.
@@ -469,10 +471,35 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 Data.Implementation.OptionHandler.Instance.SetMyDieselEnabled(myDieselEnabled.IsChecked);
                 invoicing = value;
                 if (!string.IsNullOrWhiteSpace(sharedMyDataKey.Text)) originalMyDataKey = sharedMyDataKey.Text.Trim();
-                RadMessageBox.Show("Οι ρυθμίσεις τιμολόγησης αποθηκεύτηκαν. Ο λογαριασμός και τα κλειδιά ισχύουν πριν από την πρώτη προσπάθεια έκδοσης. Οι υπόλοιπες αλλαγές απαιτούν επανεκκίνηση της εφαρμογής.","Τιμολόγηση");
+                string message = transitionPaused
+                    ? "Το περιβάλλον αποθηκεύτηκε με την κοινή τιμολόγηση και το myDiesel προσωρινά σε παύση. Ρυθμίστε τον Samtec για το νέο περιβάλλον από τις Επιλογές Φορολογικού Μηχανισμού και μετά ενεργοποιήστε ξανά την κοινή τιμολόγηση."
+                    : "Οι ρυθμίσεις τιμολόγησης αποθηκεύτηκαν. Ο λογαριασμός και τα κλειδιά ισχύουν πριν από την πρώτη προσπάθεια έκδοσης. Οι υπόλοιπες αλλαγές απαιτούν επανεκκίνηση της εφαρμογής.";
+                RadMessageBox.Show(message,"Τιμολόγηση");
                 return true;
             }
             catch (Exception ex) { RadMessageBox.Show(ex.Message,"Ρυθμίσεις τιμολόγησης",MessageBoxButtons.OK,RadMessageIcon.Error); return false; }
+        }
+
+        private bool PrepareFiscalEnvironmentTransition(SharedInvoiceConfiguration value, out bool paused)
+        {
+            paused = false;
+            if (!value.Enabled || invoicing.TestMode == value.TestMode || value.FiscalDevice != null) return true;
+            int signingTypes = SharedInvoicingSettings.Store().LoadPolicies().Values.Count(policy => policy.SignWithFiscalDevice);
+            if (signingTypes == 0) return true;
+            string environment = value.TestMode ? "Δοκιμαστικό" : "Παραγωγή";
+            var answer = RadMessageBox.Show(
+                "Το περιβάλλον αλλάζει σε " + environment + ", αλλά " + signingTypes +
+                " τύποι παραστατικών απαιτούν Samtec και δεν υπάρχει προφίλ για το νέο περιβάλλον.\r\n\r\n" +
+                "Να αποθηκευτεί η αλλαγή με την κοινή τιμολόγηση και το myDiesel προσωρινά σε παύση; " +
+                "Στη συνέχεια ρυθμίστε τον Samtec και ενεργοποιήστε ξανά την κοινή τιμολόγηση.",
+                "Αλλαγή περιβάλλοντος",MessageBoxButtons.YesNo,RadMessageIcon.Question);
+            if (answer != DialogResult.Yes) return false;
+            value.Enabled = false;
+            sharedEnabled.IsChecked = false;
+            if (value.MyDiesel != null) value.MyDiesel.Enabled = false;
+            myDieselEnabled.IsChecked = false;
+            paused = true;
+            return true;
         }
     }
 }

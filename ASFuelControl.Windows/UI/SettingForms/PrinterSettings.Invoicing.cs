@@ -38,8 +38,13 @@ namespace ASFuelControl.Windows.UI.SettingForms
             var signing = new InvoicingFields("Κοινός φορολογικός μηχανισμός"); device.Controls.Add(signing.Group);
             sharedDeviceEnabled = signing.Row("Μηχανισμός",new RadCheckBox { Text = "Samtec", IsChecked = sharedPrinterConfiguration.FiscalDevice != null });
             signing.Row("Κοινό περιβάλλον",new RadLabel { Text = sharedPrinterConfiguration.TestMode ? "Δοκιμαστικό" : "Παραγωγή" });
-            var currentDevice = (sharedPrinterConfiguration.Devices ?? new SamtecDeviceProfile[0]).SingleOrDefault(d => FiscalSigningCoordinator.SameScope(d.Scope,sharedPrinterConfiguration.FiscalDevice));
-            sharedDeviceEndpoint = signing.Row("Endpoint Samtec",InvoicingFields.Text(currentDevice?.Endpoint.AbsoluteUri));
+            var devices = sharedPrinterConfiguration.Devices ?? new SamtecDeviceProfile[0];
+            var currentDevice = devices.SingleOrDefault(d => FiscalSigningCoordinator.SameScope(d.Scope,sharedPrinterConfiguration.FiscalDevice));
+            // The HTTP service is local and normally remains the same across an
+            // environment transition. Suggest the last retained endpoint (or the
+            // legacy SamtecSettings.json value) without reusing its signing scope.
+            string endpoint = currentDevice?.Endpoint.AbsoluteUri ?? devices.LastOrDefault()?.Endpoint.AbsoluteUri ?? LegacySamtecEndpoint();
+            sharedDeviceEndpoint = signing.Row("Endpoint Samtec",InvoicingFields.Text(endpoint));
             sharedBalances = signing.Row("Ισοζύγια",new RadCheckBox { Text = "Κοινή ροή σήμανσης / εκτύπωσης", IsChecked = sharedPrinterConfiguration.Documents?.ContainsKey(FiscalDocumentKind.Balance) == true });
             sharedFillings = signing.Row("Παραλαβές δεξαμενής",new RadCheckBox { Text = "Κοινή ροή σήμανσης / εκτύπωσης", IsChecked = sharedPrinterConfiguration.Documents?.ContainsKey(FiscalDocumentKind.TankFilling) == true });
             signing.Note("Η σήμανση τιμολογίων επιλέγεται στον τύπο παραστατικού.\r\nΗ υπογραφή παρόχου παραμένει μέρος της έκδοσης παρόχου.");
@@ -60,6 +65,19 @@ namespace ASFuelControl.Windows.UI.SettingForms
         }
         private static RadSpinEditor Number(decimal value,decimal min,decimal max)
             => new RadSpinEditor { Minimum = min, Maximum = max, Value = Math.Max(min,Math.Min(max,value)) };
+
+        private static string LegacySamtecEndpoint()
+        {
+            try
+            {
+                var settings = Samtec.WebService.SamtecSettings.ReadSettings();
+                string candidate = (settings?.SamtecUrl ?? "").TrimEnd('/') + ":" + (settings?.SamtecURLPort ?? "").Trim();
+                Uri endpoint;
+                return Uri.TryCreate(candidate,UriKind.Absolute,out endpoint) &&
+                    (endpoint.Scheme == Uri.UriSchemeHttp || endpoint.Scheme == Uri.UriSchemeHttps) ? endpoint.AbsoluteUri : "";
+            }
+            catch { return ""; }
+        }
 
         private void SaveSharedPrinter()
         {
