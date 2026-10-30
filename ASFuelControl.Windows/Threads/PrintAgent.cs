@@ -3190,31 +3190,41 @@ namespace ASFuelControl.Windows.Threads
         }
         private void SignAlert(Data.DatabaseModel db, Data.SystemEvent alert, string alertText)
         {
-            //var req = CreateAlertRequest(alert);
-            //req.AtxtContent = alertText;
-            //var resp = Samtec.WebService.HttpClient.CallWS(req, samtecWSUrl);
-            //var text = resp.ResultCode;
-            //if (text.Contains("Error"))
-            //{
-            //    return;
-            //}
-            //string sign = "";
-            //string qrData = "";
-            //if (text.Contains("ΔΦΣΣ"))
-            //{
-            //    //text = text.Replace("ΔΦΣΣ", "").Replace("[[", "").Replace("]]", "");
-            //    string[] vals = text.Split(',');
-            //    sign = vals[1];
-            //    if (vals.Last().Contains("https://"))
-            //    {
-            //        qrData = vals[2];
-            //    }
-            //}
-            string sign = "-";
-            if (sign != "")
+            var req = CreateAlertRequest(alert);
+            req.AtxtContent = alertText;
+            OutboundSubmissionAttempt audit = StartInvoiceAudit(
+                "AlertSigning",
+                alert.EventId,
+                "Samtec.Sign",
+                req.ToString());
+            Samtec.WebService.Models.Response resp;
+            try
             {
-                ApplySign(db, sign, "", alert.EventId, "Alert");
+                resp = Samtec.WebService.HttpClient.CallWS(req, samtecWSUrl);
             }
+            catch (Exception ex)
+            {
+                FinishInvoiceAudit(audit, false, null, ex.Message, ex);
+                throw;
+            }
+            var text = resp == null ? null : resp.ResultCode;
+
+            string sign = "";
+            string qrData = "";
+            if (!string.IsNullOrWhiteSpace(text) && text.Contains("ΔΦΣΣ"))
+            {
+                string[] vals = text.Split(',');
+                if (vals.Length > 1)
+                    sign = vals[1];
+                if (vals.Length > 2 && vals[2].Contains("https://"))
+                    qrData = vals[2];
+            }
+            bool accepted = !string.IsNullOrWhiteSpace(sign);
+            string errorSummary = accepted ? null :
+                (string.IsNullOrWhiteSpace(text) ? "The signing device returned an empty response." : text);
+            FinishInvoiceAudit(audit, accepted, SerializeAuditResponse(resp), errorSummary, null);
+            if (accepted)
+                ApplySign(db, sign, qrData, alert.EventId, "Alert");
         }
         private void SignBalance(Data.DatabaseModel db, Data.Balance balance, string balanceText)
         {

@@ -372,7 +372,7 @@ namespace Invoicing.Characterization
                 Equal("SYNTHETIC-SIGNATURE", filling.SignSignature, "filling sign");
                 Equal(2, Samtec.WebService.HttpClient.Calls, "two device calls"); Equal(2, prints, "two print handoffs");
             });
-            Run("signing/alerts-and-titrimetry-use-placeholder", () =>
+            Run("signing/alerts-use-device-and-titrimetry-uses-placeholder", () =>
             {
                 Reset();
                 var alert = new ASFuelControl.Data.SystemEvent { EventId = Guid.NewGuid() }; DatabaseModel.AlertRows.Add(alert);
@@ -381,8 +381,8 @@ namespace Invoicing.Characterization
                 {
                     var agent = new PrintAgent(); agent.RunAlert(db, alert); agent.RunTitrimetry(db, titrimetry);
                 }
-                Equal("-", alert.DocumentSign, "alert placeholder"); Equal("-", titrimetry.DocumentSign, "titrimetry placeholder");
-                Equal(0, Samtec.WebService.HttpClient.Calls, "no real signing");
+                Equal("SYNTHETIC-SIGNATURE", alert.DocumentSign, "alert device signature"); Equal("-", titrimetry.DocumentSign, "titrimetry placeholder");
+                Equal(1, Samtec.WebService.HttpClient.Calls, "one alert device call");
             });
         }
     }

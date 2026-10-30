@@ -75,7 +75,13 @@ namespace ASFuelControl.Data
         public bool? IsInternal { get; set; }
         public bool? IsLaserPrint { get; set; }
     }
-    public sealed class InvoiceRelation { public Invoice ParentInvoice { get; set; } }
+    public sealed class InvoiceRelation
+    {
+        public Invoice ParentInvoice { get; set; }
+        // Characterization fixtures only create parent relations that represent
+        // the external cancel/replace correlation used by production.
+        public bool IsExternalFiscalCorrelation { get { return true; } }
+    }
     public sealed class Vehicle { public string PlateNumber { get; set; } }
     public sealed class InvoiceLine
     {
@@ -175,6 +181,25 @@ namespace ASFuelControl.Windows.Properties
 }
 namespace ASFuelControl.Windows.Threads
 {
+    internal sealed class Logger
+    {
+        internal static readonly Logger Instance = new Logger();
+        internal void LogToFile(string ignored, Exception error) { }
+    }
+
+    internal sealed class OutboundSubmissionAttempt { }
+    internal sealed class OutboundSubmissionAuditStore
+    {
+        internal OutboundSubmissionAuditStore(string ignored) { }
+        internal OutboundSubmissionAttempt StartAttempt(string entityType, Guid entityId, string destination,
+            string requestContentType, string requestPayload, string initiatedBy) => new OutboundSubmissionAttempt();
+        internal void Complete(OutboundSubmissionAttempt attempt, int? responseStatusCode,
+            string responseContentType, string responsePayload) { }
+        internal void Fail(OutboundSubmissionAttempt attempt, string outcome, int? responseStatusCode,
+            string responseContentType, string responsePayload, string errorCategory, Exception error,
+            DateTime? nextAttemptUtc) { }
+    }
+
     public partial class PrintAgent
     {
         private static bool invoicingProviderEnabled;
@@ -197,6 +222,7 @@ namespace ASFuelControl.Windows.Threads
         private List<string> CreateInvoiceText(DatabaseModel db, Invoice invoice) => new List<string> { "synthetic invoice text" };
         private Samtec.WebService.Models.Request CreateInvoiceRequest(Invoice invoice) => new Samtec.WebService.Models.Request();
         private Samtec.WebService.Models.Request CreateBalanceRequest(ASFuelControl.Data.Balance value) => new Samtec.WebService.Models.Request();
+        private Samtec.WebService.Models.Request CreateAlertRequest(ASFuelControl.Data.SystemEvent value) => new Samtec.WebService.Models.Request();
         private Samtec.WebService.Models.Request CreateTankFillingRequest(DatabaseModel db, ASFuelControl.Data.TankFilling value, int code) => new Samtec.WebService.Models.Request();
         private void PrintToPrinter(DatabaseModel db, Invoice invoice) { PrintInvoiceBoundary(invoice); }
         private void PrintToPrinterInternalInvoice(Invoice invoice, bool ignored) { PrintInvoiceBoundary(invoice); }
