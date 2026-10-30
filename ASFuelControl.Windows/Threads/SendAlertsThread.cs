@@ -700,9 +700,12 @@ namespace ASFuelControl.Windows.Threads
             Data.UsagePeriod period = database.GetCreateUsagePeriod(dtStart);
 
             Common.Logger.Instance.Debug(string.Format("Balance Period: {0:dd-MM-yyyy HH:mm} - {1:dd-MM-yyyy HH:mm}", dtStart, dtEnd));
-            if (dtStart.Date == DateTime.Today)
+            bool isRecentDailyBalance =
+                dtStart.Date >= DateTime.Today.AddDays(-1) &&
+                dtEnd.Subtract(dtStart).TotalDays <= 1;
+            if (isRecentDailyBalance)
             {
-                if (currentBalanceOK)
+                if (dtStart.Date == DateTime.Today && currentBalanceOK)
                     return null;
                 while (!Program.ApplicationMainForm.ThreadControllerInstance.CanCreateBalance())
                 {
