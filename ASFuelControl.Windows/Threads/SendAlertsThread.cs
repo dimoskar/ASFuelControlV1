@@ -37,9 +37,15 @@ namespace ASFuelControl.Windows.Threads
         private bool sendData = false;
         private Communication.SendMethods sendMethods = new Communication.SendMethods();
         private readonly object submissionBackoffSync = new object();
-        private int consecutiveSubmissionFailures;
-        private DateTime nextSubmissionAttemptUtc = DateTime.MinValue;
+        private readonly Dictionary<string, SubmissionBackoffState> submissionBackoffs =
+            new Dictionary<string, SubmissionBackoffState>(StringComparer.OrdinalIgnoreCase);
         private readonly OutboundSubmissionAuditStore submissionAudit;
+
+        private sealed class SubmissionBackoffState
+        {
+            public int ConsecutiveFailures { get; set; }
+            public DateTime NextAttemptUtc { get; set; }
+        }
 
         private sealed class SubmissionAuditContext
         {
@@ -51,49 +57,59 @@ namespace ASFuelControl.Windows.Threads
         public DateTime LastAction { set; get; }
         public bool IsAlive { get { return this.th != null && this.th.IsAlive; } }
 
-        private bool CanAttemptSubmission
-        {
-            get
-            {
-                lock (submissionBackoffSync)
-                    return DateTime.UtcNow >= nextSubmissionAttemptUtc;
-            }
-        }
-
-        private void RecordSubmissionResult(bool succeeded)
+        private bool CanAttemptSubmission(string entityType)
         {
             lock (submissionBackoffSync)
             {
-                if (succeeded)
-                {
-                    consecutiveSubmissionFailures = 0;
-                    nextSubmissionAttemptUtc = DateTime.MinValue;
-                    return;
-                }
-
-                consecutiveSubmissionFailures++;
-                int exponent = Math.Min(consecutiveSubmissionFailures - 1, 5);
-                int delaySeconds = Math.Min(
-                    InitialRetryDelaySeconds * (1 << exponent),
-                    MaximumRetryDelaySeconds);
-                nextSubmissionAttemptUtc = DateTime.UtcNow.AddSeconds(delaySeconds);
-                Logger.Instance.LogToFile(
-                    "SendAlertsThread::Backoff",
-                    string.Format(
-                        "Submission failed {0} consecutive time(s). Next attempt after {1:O}.",
-                        consecutiveSubmissionFailures,
-                        nextSubmissionAttemptUtc));
+                SubmissionBackoffState state;
+                return !submissionBackoffs.TryGetValue(entityType, out state) ||
+                    DateTime.UtcNow >= state.NextAttemptUtc;
             }
         }
 
-        private DateTime? ScheduledRetryUtc
+        private void RecordSubmissionResult(string entityType, bool succeeded)
         {
-            get
+            lock (submissionBackoffSync)
             {
-                lock (submissionBackoffSync)
-                    return nextSubmissionAttemptUtc == DateTime.MinValue
-                        ? (DateTime?)null
-                        : nextSubmissionAttemptUtc;
+                SubmissionBackoffState state;
+                if (!submissionBackoffs.TryGetValue(entityType, out state))
+                {
+                    state = new SubmissionBackoffState();
+                    submissionBackoffs.Add(entityType, state);
+                }
+
+                if (succeeded)
+                {
+                    state.ConsecutiveFailures = 0;
+                    state.NextAttemptUtc = DateTime.MinValue;
+                    return;
+                }
+
+                state.ConsecutiveFailures++;
+                int exponent = Math.Min(state.ConsecutiveFailures - 1, 5);
+                int delaySeconds = Math.Min(
+                    InitialRetryDelaySeconds * (1 << exponent),
+                    MaximumRetryDelaySeconds);
+                state.NextAttemptUtc = DateTime.UtcNow.AddSeconds(delaySeconds);
+                Logger.Instance.LogToFile(
+                    "SendAlertsThread::Backoff",
+                    string.Format(
+                        "{0} failed {1} consecutive time(s). Next attempt after {2:O}.",
+                        entityType,
+                        state.ConsecutiveFailures,
+                        state.NextAttemptUtc));
+            }
+        }
+
+        private DateTime? ScheduledRetryUtc(string entityType)
+        {
+            lock (submissionBackoffSync)
+            {
+                SubmissionBackoffState state;
+                if (!submissionBackoffs.TryGetValue(entityType, out state) ||
+                    state.NextAttemptUtc == DateTime.MinValue)
+                    return null;
+                return state.NextAttemptUtc;
             }
         }
 
@@ -890,6 +906,83 @@ namespace ASFuelControl.Windows.Threads
         }
 
         /// <summary>
+        /// Sends the oldest eligible sales first. A failed sale pauses only the
+        /// sales stream; the remaining outbound streams still receive a turn.
+        /// </summary>
+        private void CheckForSales(Data.DatabaseModel database)
+        {
+            if (!CanAttemptSubmission("SalesTransaction"))
+                return;
+
+            try
+            {
+                var sales = database.SalesTransactions
+                    .Where(se => !se.SentDateTime.HasValue &&
+                        se.TransactionTimeStamp >= this.officialStartDate &&
+                        se.InvoiceLines.Count > 0 &&
+                        se.InvoiceLines.Where(il => il.Invoice.InvoiceSignature != null &&
+                            il.Invoice.InvoiceSignature != "" &&
+                            il.Invoice.InvoiceSignature.Length > 20).Count() > 0)
+                    .OrderBy(t => t.TransactionTimeStamp)
+                    .Take(SalesBatchSize)
+                    .ToList();
+
+                foreach (Data.SalesTransaction sale in sales)
+                {
+                    if (!CanAttemptSubmission("SalesTransaction"))
+                        break;
+                    try
+                    {
+                        var invoices = database.InvoiceLines
+                            .Where(line => line.SaleTransactionId == sale.SalesTransactionId)
+                            .Select(line => line.Invoice)
+                            .ToList();
+                        if (invoices.Count(invoice => invoice.InvoiceSignature != null &&
+                            invoice.InvoiceSignature != "" &&
+                            invoice.InvoiceSignature.Length > 20) == 0)
+                            continue;
+
+                        Communication.IncomeRecieptClass income = this.CreateSale(sale);
+                        if (income == null)
+                            continue;
+                        if (sale.Volume == 0 || sale.TotalPrice == 0)
+                        {
+                            sale.SentDateTime = DateTime.Now;
+                            continue;
+                        }
+
+                        if (this.SendObject(income, "SalesTransaction", sale.SalesTransactionId))
+                        {
+                            if (!sendMethods.Simulation)
+                                sale.SentDateTime = DateTime.Now;
+                            if (this.SubmissionSuccess != null)
+                                this.SubmissionSuccess(sale, new EventArgs());
+                            this.LogSend(database, sale, 1);
+                        }
+                        else
+                        {
+                            if (this.SubmissionFailed != null)
+                                this.SubmissionFailed(income, new EventArgs());
+                            this.LogSend(database, sale, 0);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Instance.LogToFile("CheckForSend:SalesTransaction", ex);
+                        Logger.Instance.LogToFile(
+                            "CheckForSend:SalesTransaction::Object",
+                            database.SerializeEntity(sale));
+                    }
+                    System.Threading.Thread.Sleep(1000);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogToFile("CheckForSend:SalesTransaction", ex);
+            }
+        }
+
+        /// <summary>
         /// Checks if there are data for sending avaliable
         /// </summary>
         private void CheckForSend(Data.DatabaseModel database)
@@ -899,6 +992,13 @@ namespace ASFuelControl.Windows.Threads
                 this.LastAction = DateTime.Now;
                 int interval = this.tankCheckInterval;
                 DateTime dt = DateTime.Now;
+
+                // Sales are the most time-sensitive stream. Process a bounded
+                // batch first, then give every other stream its own bounded turn.
+                // The next loop repeats the same fair cycle.
+                this.CheckForSales(database);
+                database.SaveChanges();
+
                 try
                 {
                     var qtc = database.TankChecks
@@ -910,7 +1010,7 @@ namespace ASFuelControl.Windows.Threads
 
                     foreach (Data.TankCheck tc in qtc)
                     {
-                        if (!CanAttemptSubmission)
+                        if (!CanAttemptSubmission("TankCheck"))
                             break;
                         if (tc.Tank.FuelType.ExcludeFromBalance.HasValue && tc.Tank.FuelType.ExcludeFromBalance.Value)
                             continue;
@@ -930,8 +1030,6 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:TankCheck", e);
                 }
                 database.SaveChanges();
-                if (!CanAttemptSubmission)
-                    return;
                 //DateTime dtAlertCheck = DateTime.Now.AddMinutes(-1);
                 var q = database.SystemEvents.Where(se => !se.SentDate.HasValue && se.EventDate >= this.officialStartDate
                     &&
@@ -951,7 +1049,7 @@ namespace ASFuelControl.Windows.Threads
                 {
                     foreach (Data.SystemEvent se in q)
                     {
-                        if (!CanAttemptSubmission)
+                        if (!CanAttemptSubmission("Alert"))
                             break;
                         try
                         {
@@ -988,8 +1086,6 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:Alarm", e);
                 }
                 database.SaveChanges();
-                if (!CanAttemptSubmission)
-                    return;
                 var q1 = database.TankFillings
                     .Where(se => !se.SentDateTime.HasValue &&
                         se.TransactionTime >= this.officialStartDate &&
@@ -1002,7 +1098,7 @@ namespace ASFuelControl.Windows.Threads
                 {
                     foreach (Data.TankFilling se in q1)
                     {
-                        if (!CanAttemptSubmission)
+                        if (!CanAttemptSubmission("TankFilling"))
                             break;
                         try
                         {
@@ -1039,68 +1135,6 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:Delivery", e);
                 }
                 database.SaveChanges();
-                if (!CanAttemptSubmission)
-                    return;
-                var q2 = database.SalesTransactions
-                    .Where(se => !se.SentDateTime.HasValue &&
-                        se.TransactionTimeStamp >= this.officialStartDate &&
-                        se.InvoiceLines.Count > 0 &&
-                        se.InvoiceLines.Where(il => il.Invoice.InvoiceSignature != null &&
-                            il.Invoice.InvoiceSignature != "" &&
-                            il.Invoice.InvoiceSignature.Length > 20).Count() > 0)
-                    .OrderBy(t => t.TransactionTimeStamp)
-                    .Take(SalesBatchSize)
-                    .ToList();
-
-                try
-                {
-                    foreach (Data.SalesTransaction se in q2)
-                    {
-                        if (!CanAttemptSubmission)
-                            break;
-                        try
-                        {
-                            var invLines = database.InvoiceLines.Where(s => s.SaleTransactionId == se.SalesTransactionId).Select(i=>i.Invoice).ToList();
-                            if (invLines.Where(i => i.InvoiceSignature != null && i.InvoiceSignature != "" && i.InvoiceSignature.Length > 20).Count() == 0)
-                                continue;
-                            Communication.IncomeRecieptClass income = this.CreateSale(se);
-                            if (income == null)
-                                continue;
-                            if (se.Volume == 0 || se.TotalPrice == 0)
-                                se.SentDateTime = DateTime.Now;
-                            else
-                            {
-                                if (this.SendObject(income, "SalesTransaction", se.SalesTransactionId))
-                                {
-                                    if (!sendMethods.Simulation)
-                                        se.SentDateTime = DateTime.Now;
-                                    if (this.SubmissionSuccess != null)
-                                        this.SubmissionSuccess(se, new EventArgs());
-                                    this.LogSend(database, se, 1);
-                                }
-                                else
-                                {
-                                    if (this.SubmissionFailed != null)
-                                        this.SubmissionFailed(income, new EventArgs());
-                                    this.LogSend(database, se, 0);
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Instance.LogToFile("CheckForSend:SalesTransaction", ex);
-                            Logger.Instance.LogToFile("CheckForSend:SalesTransaction::Object", database.SerializeEntity(se));
-                        }
-                        System.Threading.Thread.Sleep(1000);
-                    }
-                }
-                catch (Exception e)
-                {
-                    Logger.Instance.LogToFile("CheckForSend:SalesTransaction", e);
-                }
-                database.SaveChanges();
-                if (!CanAttemptSubmission)
-                    return;
                 var q4 = database.FuelTypePrices
                     .Where(se => !se.SentDateTime.HasValue &&
                         se.ChangeDate >= this.officialStartDate &&
@@ -1112,7 +1146,7 @@ namespace ASFuelControl.Windows.Threads
                 {
                     foreach (Data.FuelTypePrice ftp in q4)
                     {
-                        if (!CanAttemptSubmission)
+                        if (!CanAttemptSubmission("FuelTypePrice"))
                             break;
                         try
                         {
@@ -1206,7 +1240,7 @@ namespace ASFuelControl.Windows.Threads
                 {
                     foreach (Data.Balance bal in q3)
                     {
-                        if (!CanAttemptSubmission)
+                        if (!CanAttemptSubmission("Balance"))
                             break;
                         try
                         {
@@ -1243,10 +1277,6 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:BalanceSend", e);
                 }
                 database.SaveChanges();
-                if (!CanAttemptSubmission)
-                    return;
-
-
                 if ((int)dt.TimeOfDay.TotalMinutes % 5 == 0 && !this.logCleared)
                 {
                     try
@@ -1347,8 +1377,7 @@ namespace ASFuelControl.Windows.Threads
                             System.Threading.Thread.Sleep(10000);
                             continue;
                         }
-                        if (CanAttemptSubmission)
-                            this.CheckForSend(database);
+                        this.CheckForSend(database);
                         if (DateTime.Now.Subtract(dtAlertPrint).TotalSeconds >= 20)
                         {
                             this.CheckForPrint(database);
@@ -1377,7 +1406,7 @@ namespace ASFuelControl.Windows.Threads
         /// <returns></returns>
         private bool SendObject(object obj, string entityType, Guid entityId)
         {
-            if (!CanAttemptSubmission)
+            if (!CanAttemptSubmission(entityType))
                 return false;
 
             var auditContext = new SubmissionAuditContext();
@@ -1388,8 +1417,8 @@ namespace ASFuelControl.Windows.Threads
                 auditContext,
                 request => BeginSubmissionAudit(auditContext, entityType, entityId, request));
             if (attempted)
-                RecordSubmissionResult(succeeded);
-            FinishSubmissionAudit(auditContext, succeeded);
+                RecordSubmissionResult(entityType, succeeded);
+            FinishSubmissionAudit(auditContext, entityType, succeeded);
             return succeeded;
         }
 
@@ -1417,7 +1446,10 @@ namespace ASFuelControl.Windows.Threads
             }
         }
 
-        private void FinishSubmissionAudit(SubmissionAuditContext context, bool succeeded)
+        private void FinishSubmissionAudit(
+            SubmissionAuditContext context,
+            string entityType,
+            bool succeeded)
         {
             if (context.Attempt == null)
                 return;
@@ -1441,7 +1473,7 @@ namespace ASFuelControl.Windows.Threads
                         context.ResponsePayload,
                         context.Error == null ? "RemoteRejected" : "TransportFailure",
                         context.Error,
-                        ScheduledRetryUtc);
+                        ScheduledRetryUtc(entityType));
                 }
             }
             catch (Exception ex)
