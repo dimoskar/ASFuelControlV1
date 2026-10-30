@@ -4,10 +4,15 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace ASFuelControl.Windows.Threads
 {
@@ -506,7 +511,7 @@ WHERE OutboundSubmissionId = @SubmissionId;"))
             }
         }
 
-        private void EnsureSchema()
+        internal void EnsureSchema()
         {
             if (schemaReady)
                 return;
@@ -739,5 +744,645 @@ WHERE submission.Status = N'Sending'
       WHERE attempt.OutboundSubmissionId = submission.OutboundSubmissionId
         AND attempt.Outcome = N'Unknown'
   );";
+    }
+
+    internal sealed class OutboundAuditCleanupResult
+    {
+        public int ArchivedAttempts { get; set; }
+        public int DeletedMetadataRows { get; set; }
+        public int DeletedArchiveFiles { get; set; }
+        public long CompressedBytes { get; set; }
+        public string ArchiveFile { get; set; }
+        public bool Skipped { get; set; }
+        public string Message { get; set; }
+    }
+
+    internal sealed class OutboundAuditArchiveService
+    {
+        private const int CommandTimeoutSeconds = 120;
+        private const string LockName = "ASFuelControl.OutboundAuditArchive";
+        private readonly string connectionString;
+
+        public OutboundAuditArchiveService(string connectionString)
+        {
+            this.connectionString = connectionString;
+        }
+
+        public OutboundAuditCleanupResult Run(OutboundAuditRetentionPolicy policy, Func<bool> cancelRequested)
+        {
+            if (policy == null)
+                throw new ArgumentNullException("policy");
+            if (!policy.Enabled)
+                return new OutboundAuditCleanupResult { Skipped = true, Message = "Η αυτόματη αρχειοθέτηση είναι απενεργοποιημένη." };
+
+            new OutboundSubmissionAuditStore(connectionString).EnsureSchema();
+            string root = Path.GetFullPath(string.IsNullOrWhiteSpace(policy.ArchiveDirectory)
+                ? OutboundAuditRetentionPolicy.DefaultArchiveDirectory()
+                : policy.ArchiveDirectory);
+            Directory.CreateDirectory(root);
+            EnsureFreeSpace(root, policy.MinimumFreeSpaceMb);
+            DeleteStaleTemporaryFiles(root);
+
+            using (var lockConnection = new SqlConnection(connectionString))
+            {
+                lockConnection.Open();
+                if (!AcquireApplicationLock(lockConnection))
+                    return new OutboundAuditCleanupResult { Skipped = true, Message = "Εκτελείται ήδη άλλη εργασία αρχειοθέτησης." };
+                try
+                {
+                    var result = ArchiveBatch(root, policy, cancelRequested ?? delegate { return false; });
+                    if (cancelRequested != null && cancelRequested())
+                        return result;
+                    result.DeletedMetadataRows = DeleteExpiredMetadata(policy);
+                    result.DeletedArchiveFiles = DeleteExpiredArchiveFiles(root, policy);
+                    if (string.IsNullOrWhiteSpace(result.Message))
+                        result.Message = result.ArchivedAttempts == 0
+                            ? "Δεν βρέθηκαν ληγμένα payload για αρχειοθέτηση."
+                            : "Η αρχειοθέτηση και η επαλήθευση ολοκληρώθηκαν.";
+                    return result;
+                }
+                finally
+                {
+                    ReleaseApplicationLock(lockConnection);
+                }
+            }
+        }
+
+        private OutboundAuditCleanupResult ArchiveBatch(string root, OutboundAuditRetentionPolicy policy, Func<bool> cancelRequested)
+        {
+            var result = new OutboundAuditCleanupResult();
+            Guid archiveId = Guid.NewGuid();
+            DateTime now = DateTime.UtcNow;
+            string directory = Path.Combine(root, SafePathPart(Environment.MachineName), now.ToString("yyyy"), now.ToString("MM"));
+            Directory.CreateDirectory(directory);
+            string baseName = "outbound-audit-" + now.ToString("yyyyMMdd-HHmmss") + "-" + archiveId.ToString("N") + ".jsonl.gz";
+            string finalPath = Path.Combine(directory, baseName);
+            string temporaryPath = finalPath + ".tmp";
+            ArchiveWriteResult written = null;
+            try
+            {
+                written = WriteEligibleAttempts(temporaryPath, archiveId, policy, cancelRequested);
+                if (written.AttemptIds.Count == 0)
+                {
+                    TryDelete(temporaryPath);
+                    return result;
+                }
+                string hash = ComputeFileHash(temporaryPath);
+                VerifyArchive(temporaryPath, written.AttemptIds, hash);
+                long compressedBytes = new FileInfo(temporaryPath).Length;
+                InsertPreparedArchive(archiveId, finalPath, written, compressedBytes, hash);
+                File.Move(temporaryPath, finalPath);
+                CommitVerifiedArchive(archiveId, finalPath, written.AttemptIds, compressedBytes, hash);
+                result.ArchivedAttempts = written.AttemptIds.Count;
+                result.CompressedBytes = compressedBytes;
+                result.ArchiveFile = finalPath;
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                TryDelete(temporaryPath);
+                result.Skipped = true;
+                result.Message = "Η αρχειοθέτηση διακόπηκε με ασφάλεια πριν διαγραφούν payload από τη βάση.";
+                return result;
+            }
+            catch (Exception ex)
+            {
+                TryDelete(temporaryPath);
+                MarkArchiveFailed(archiveId, finalPath, ex.Message);
+                throw;
+            }
+        }
+
+        private ArchiveWriteResult WriteEligibleAttempts(
+            string path,
+            Guid archiveId,
+            OutboundAuditRetentionPolicy policy,
+            Func<bool> cancelRequested)
+        {
+            var result = new ArchiveWriteResult();
+            using (var connection = new SqlConnection(connectionString))
+            using (var command = new SqlCommand(@"
+SELECT TOP (@BatchSize)
+    attempt.AttemptId, attempt.OutboundSubmissionId, attempt.AttemptNumber,
+    attempt.StartedUtc, attempt.FinishedUtc, attempt.Outcome,
+    attempt.RequestContentType, attempt.RequestPayload, attempt.RequestHash,
+    attempt.ResponseStatusCode, attempt.ResponseContentType, attempt.ResponsePayload,
+    attempt.ErrorType, attempt.ErrorMessage, attempt.StackTrace,
+    attempt.DurationMilliseconds, attempt.ApplicationVersion, attempt.MachineName,
+    attempt.CorrelationId, attempt.InitiatedBy,
+    submission.EntityType, submission.EntityId, submission.Destination, submission.Status
+FROM dbo.OutboundSubmissionAttempt attempt
+JOIN dbo.OutboundSubmission submission
+  ON submission.OutboundSubmissionId = attempt.OutboundSubmissionId
+WHERE submission.IsPinned = 0
+  AND attempt.ArchiveId IS NULL
+  AND attempt.PayloadPurgedUtc IS NULL
+  AND attempt.Outcome <> N'Sending'
+  AND (attempt.RequestPayload IS NOT NULL OR attempt.ResponsePayload IS NOT NULL OR attempt.StackTrace IS NOT NULL)
+  AND
+  (
+      (submission.Status = N'Completed' AND attempt.StartedUtc < @CompletedCutoff)
+      OR (submission.Status = N'Failed' AND attempt.StartedUtc < @FailedCutoff)
+      OR (submission.Status = N'Unknown' AND attempt.StartedUtc < @UnknownCutoff)
+  )
+ORDER BY attempt.StartedUtc, attempt.AttemptId;", connection))
+            {
+                command.CommandTimeout = CommandTimeoutSeconds;
+                command.Parameters.Add("@BatchSize", SqlDbType.Int).Value = policy.BatchSize;
+                command.Parameters.Add("@CompletedCutoff", SqlDbType.DateTime2).Value = DateTime.UtcNow.AddDays(-policy.CompletedPayloadDays);
+                command.Parameters.Add("@FailedCutoff", SqlDbType.DateTime2).Value = DateTime.UtcNow.AddDays(-policy.FailedPayloadDays);
+                command.Parameters.Add("@UnknownCutoff", SqlDbType.DateTime2).Value = DateTime.UtcNow.AddDays(-policy.UnknownPayloadDays);
+                connection.Open();
+                using (var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, FileOptions.SequentialScan))
+                using (var gzip = new GZipStream(file, CompressionLevel.Optimal, false))
+                using (var text = new StreamWriter(gzip, new UTF8Encoding(false), 65536))
+                using (var json = new JsonTextWriter(text) { Formatting = Formatting.None, CloseOutput = false })
+                using (var reader = command.ExecuteReader(CommandBehavior.SequentialAccess))
+                {
+                    while (reader.Read())
+                    {
+                        if (cancelRequested())
+                            throw new OperationCanceledException();
+                        Guid attemptId = reader.GetGuid(0);
+                        DateTime startedUtc = reader.GetDateTime(3);
+                        WriteArchiveRecord(json, archiveId, reader);
+                        json.Flush();
+                        text.WriteLine();
+                        result.AttemptIds.Add(attemptId);
+                        if (!result.FromUtc.HasValue || startedUtc < result.FromUtc.Value)
+                            result.FromUtc = startedUtc;
+                        if (!result.ToUtc.HasValue || startedUtc > result.ToUtc.Value)
+                            result.ToUtc = startedUtc;
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static void WriteArchiveRecord(JsonTextWriter writer, Guid archiveId, IDataRecord reader)
+        {
+            writer.WriteStartObject();
+            Write(writer, "SchemaVersion", 1);
+            Write(writer, "ArchiveId", archiveId.ToString("D"));
+            Write(writer, "AttemptId", reader.GetGuid(0).ToString("D"));
+            Write(writer, "SubmissionId", reader.GetGuid(1).ToString("D"));
+            Write(writer, "AttemptNumber", reader.GetInt32(2));
+            Write(writer, "StartedUtc", reader.GetDateTime(3));
+            WriteNullable(writer, "FinishedUtc", reader, 4);
+            Write(writer, "Outcome", reader.GetString(5));
+            WriteNullable(writer, "RequestContentType", reader, 6);
+            WriteNullable(writer, "RequestPayload", reader, 7);
+            WriteNullable(writer, "RequestHash", reader, 8);
+            WriteNullable(writer, "ResponseStatusCode", reader, 9);
+            WriteNullable(writer, "ResponseContentType", reader, 10);
+            WriteNullable(writer, "ResponsePayload", reader, 11);
+            WriteNullable(writer, "ErrorType", reader, 12);
+            WriteNullable(writer, "ErrorMessage", reader, 13);
+            WriteNullable(writer, "StackTrace", reader, 14);
+            WriteNullable(writer, "DurationMilliseconds", reader, 15);
+            WriteNullable(writer, "ApplicationVersion", reader, 16);
+            WriteNullable(writer, "MachineName", reader, 17);
+            WriteNullable(writer, "CorrelationId", reader, 18);
+            WriteNullable(writer, "InitiatedBy", reader, 19);
+            Write(writer, "EntityType", reader.GetString(20));
+            Write(writer, "EntityId", reader.GetGuid(21).ToString("D"));
+            Write(writer, "Destination", reader.GetString(22));
+            Write(writer, "SubmissionStatus", reader.GetString(23));
+            writer.WriteEndObject();
+        }
+
+        private static void Write(JsonTextWriter writer, string name, object value)
+        {
+            writer.WritePropertyName(name);
+            writer.WriteValue(value);
+        }
+
+        private static void WriteNullable(JsonTextWriter writer, string name, IDataRecord reader, int ordinal)
+        {
+            writer.WritePropertyName(name);
+            if (reader.IsDBNull(ordinal))
+                writer.WriteNull();
+            else
+                writer.WriteValue(reader.GetValue(ordinal));
+        }
+
+        private void InsertPreparedArchive(
+            Guid archiveId,
+            string path,
+            ArchiveWriteResult written,
+            long compressedBytes,
+            string hash)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            using (var command = new SqlCommand(@"
+INSERT dbo.OutboundAuditArchive
+    (ArchiveId, CreatedUtc, Status, FilePath, FromUtc, ToUtc, RecordCount,
+     CompressedBytes, Sha256, MachineName)
+VALUES
+    (@ArchiveId, SYSUTCDATETIME(), N'Prepared', @FilePath, @FromUtc, @ToUtc,
+     @RecordCount, @CompressedBytes, @Sha256, @MachineName);", connection))
+            {
+                command.CommandTimeout = CommandTimeoutSeconds;
+                command.Parameters.Add("@ArchiveId", SqlDbType.UniqueIdentifier).Value = archiveId;
+                command.Parameters.Add("@FilePath", SqlDbType.NVarChar, 1024).Value = path;
+                command.Parameters.Add("@FromUtc", SqlDbType.DateTime2).Value = (object)written.FromUtc ?? DBNull.Value;
+                command.Parameters.Add("@ToUtc", SqlDbType.DateTime2).Value = (object)written.ToUtc ?? DBNull.Value;
+                command.Parameters.Add("@RecordCount", SqlDbType.Int).Value = written.AttemptIds.Count;
+                command.Parameters.Add("@CompressedBytes", SqlDbType.BigInt).Value = compressedBytes;
+                command.Parameters.Add("@Sha256", SqlDbType.Char, 64).Value = hash;
+                command.Parameters.Add("@MachineName", SqlDbType.NVarChar, 128).Value = Environment.MachineName;
+                connection.Open();
+                command.ExecuteNonQuery();
+            }
+        }
+
+        private void CommitVerifiedArchive(
+            Guid archiveId,
+            string path,
+            IList<Guid> attemptIds,
+            long compressedBytes,
+            string hash)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    foreach (Guid attemptId in attemptIds)
+                    {
+                        using (var command = new SqlCommand(@"
+UPDATE dbo.OutboundSubmissionAttempt
+SET ArchiveId = @ArchiveId, ArchivedUtc = SYSUTCDATETIME(),
+    RequestPayload = NULL, ResponsePayload = NULL, StackTrace = NULL,
+    PayloadPurgedUtc = SYSUTCDATETIME()
+WHERE AttemptId = @AttemptId AND ArchiveId IS NULL AND PayloadPurgedUtc IS NULL;", connection, transaction))
+                        {
+                            command.CommandTimeout = CommandTimeoutSeconds;
+                            command.Parameters.Add("@ArchiveId", SqlDbType.UniqueIdentifier).Value = archiveId;
+                            command.Parameters.Add("@AttemptId", SqlDbType.UniqueIdentifier).Value = attemptId;
+                            if (command.ExecuteNonQuery() != 1)
+                                throw new InvalidOperationException("An audit attempt changed while it was being archived: " + attemptId);
+                        }
+                    }
+                    using (var command = new SqlCommand(@"
+UPDATE dbo.OutboundAuditArchive
+SET Status = N'Verified', CompletedUtc = SYSUTCDATETIME(), FilePath = @FilePath,
+    RecordCount = @RecordCount, CompressedBytes = @CompressedBytes, Sha256 = @Sha256,
+    ErrorMessage = NULL
+WHERE ArchiveId = @ArchiveId;", connection, transaction))
+                    {
+                        command.CommandTimeout = CommandTimeoutSeconds;
+                        command.Parameters.Add("@ArchiveId", SqlDbType.UniqueIdentifier).Value = archiveId;
+                        command.Parameters.Add("@FilePath", SqlDbType.NVarChar, 1024).Value = path;
+                        command.Parameters.Add("@RecordCount", SqlDbType.Int).Value = attemptIds.Count;
+                        command.Parameters.Add("@CompressedBytes", SqlDbType.BigInt).Value = compressedBytes;
+                        command.Parameters.Add("@Sha256", SqlDbType.Char, 64).Value = hash;
+                        if (command.ExecuteNonQuery() != 1)
+                            throw new InvalidOperationException("The prepared audit archive was not found: " + archiveId);
+                    }
+                    transaction.Commit();
+                }
+            }
+        }
+
+        private int DeleteExpiredMetadata(OutboundAuditRetentionPolicy policy)
+        {
+            if (policy.MetadataDays <= 0)
+                return 0;
+            int deleted = 0;
+            DateTime cutoff = DateTime.UtcNow.AddDays(-policy.MetadataDays);
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    using (var command = new SqlCommand(@"
+DELETE TOP (@BatchSize) attempt
+FROM dbo.OutboundSubmissionAttempt attempt
+JOIN dbo.OutboundSubmission submission
+  ON submission.OutboundSubmissionId = attempt.OutboundSubmissionId
+WHERE submission.IsPinned = 0
+  AND attempt.PayloadPurgedUtc IS NOT NULL
+  AND attempt.PayloadPurgedUtc < @Cutoff
+  AND attempt.Outcome <> N'Sending';", connection, transaction))
+                    {
+                        command.CommandTimeout = CommandTimeoutSeconds;
+                        command.Parameters.Add("@BatchSize", SqlDbType.Int).Value = policy.BatchSize;
+                        command.Parameters.Add("@Cutoff", SqlDbType.DateTime2).Value = cutoff;
+                        deleted += command.ExecuteNonQuery();
+                    }
+                    using (var command = new SqlCommand(@"
+DELETE TOP (@BatchSize) submission
+FROM dbo.OutboundSubmission submission
+WHERE submission.IsPinned = 0
+  AND COALESCE(submission.CompletedUtc, submission.LastAttemptUtc, submission.CreatedUtc) < @Cutoff
+  AND NOT EXISTS
+      (SELECT 1 FROM dbo.OutboundSubmissionAttempt attempt
+       WHERE attempt.OutboundSubmissionId = submission.OutboundSubmissionId);", connection, transaction))
+                    {
+                        command.CommandTimeout = CommandTimeoutSeconds;
+                        command.Parameters.Add("@BatchSize", SqlDbType.Int).Value = policy.BatchSize;
+                        command.Parameters.Add("@Cutoff", SqlDbType.DateTime2).Value = cutoff;
+                        deleted += command.ExecuteNonQuery();
+                    }
+                    transaction.Commit();
+                }
+            }
+            return deleted;
+        }
+
+        private int DeleteExpiredArchiveFiles(string root, OutboundAuditRetentionPolicy policy)
+        {
+            if (policy.ArchiveFileDays <= 0)
+                return 0;
+            var archives = new List<KeyValuePair<Guid, string>>();
+            using (var connection = new SqlConnection(connectionString))
+            using (var command = new SqlCommand(@"
+SELECT TOP (20) archive.ArchiveId, archive.FilePath
+FROM dbo.OutboundAuditArchive archive
+WHERE archive.Status = N'Verified'
+  AND archive.CompletedUtc < @Cutoff
+  AND NOT EXISTS
+      (SELECT 1 FROM dbo.OutboundSubmissionAttempt attempt
+       WHERE attempt.ArchiveId = archive.ArchiveId)
+ORDER BY archive.CompletedUtc;", connection))
+            {
+                command.Parameters.Add("@Cutoff", SqlDbType.DateTime2).Value = DateTime.UtcNow.AddDays(-policy.ArchiveFileDays);
+                connection.Open();
+                using (var reader = command.ExecuteReader())
+                    while (reader.Read())
+                        archives.Add(new KeyValuePair<Guid, string>(reader.GetGuid(0), reader.GetString(1)));
+            }
+
+            int deleted = 0;
+            foreach (var archive in archives)
+            {
+                string path = Path.GetFullPath(archive.Value);
+                if (!IsWithinRoot(root, path))
+                    continue;
+                if (File.Exists(path))
+                    File.Delete(path);
+                using (var connection = new SqlConnection(connectionString))
+                using (var command = new SqlCommand(@"
+UPDATE dbo.OutboundAuditArchive
+SET Status = N'Deleted', CompressedBytes = 0,
+    ErrorMessage = N'Archive expired according to the configured retention policy.'
+WHERE ArchiveId = @ArchiveId AND Status = N'Verified';", connection))
+                {
+                    command.Parameters.Add("@ArchiveId", SqlDbType.UniqueIdentifier).Value = archive.Key;
+                    connection.Open();
+                    deleted += command.ExecuteNonQuery();
+                }
+            }
+            return deleted;
+        }
+
+        private void MarkArchiveFailed(Guid archiveId, string path, string error)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                using (var command = new SqlCommand(@"
+UPDATE dbo.OutboundAuditArchive
+SET Status = N'Failed', CompletedUtc = SYSUTCDATETIME(), ErrorMessage = @Error
+WHERE ArchiveId = @ArchiveId;
+IF @@ROWCOUNT = 0
+    INSERT dbo.OutboundAuditArchive
+        (ArchiveId, CreatedUtc, CompletedUtc, Status, FilePath, ErrorMessage, MachineName)
+    VALUES
+        (@ArchiveId, SYSUTCDATETIME(), SYSUTCDATETIME(), N'Failed', @FilePath, @Error, @MachineName);", connection))
+                {
+                    command.Parameters.Add("@ArchiveId", SqlDbType.UniqueIdentifier).Value = archiveId;
+                    command.Parameters.Add("@FilePath", SqlDbType.NVarChar, 1024).Value = path;
+                    command.Parameters.Add("@Error", SqlDbType.NVarChar, 2000).Value = Truncate(error, 2000);
+                    command.Parameters.Add("@MachineName", SqlDbType.NVarChar, 128).Value = Environment.MachineName;
+                    connection.Open();
+                    command.ExecuteNonQuery();
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static void VerifyArchive(string path, IList<Guid> expectedIds, string expectedHash)
+        {
+            string actualHash = ComputeFileHash(path);
+            if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The audit archive checksum did not match after writing.");
+            var found = new HashSet<Guid>();
+            using (var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.SequentialScan))
+            using (var gzip = new GZipStream(file, CompressionMode.Decompress, false))
+            using (var reader = new StreamReader(gzip, Encoding.UTF8, true, 65536))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+                    JObject item = JObject.Parse(line);
+                    Guid id;
+                    if (!Guid.TryParse((string)item["AttemptId"], out id) || !found.Add(id))
+                        throw new InvalidDataException("The audit archive contains an invalid or duplicate attempt identifier.");
+                }
+            }
+            if (found.Count != expectedIds.Count || expectedIds.Any(id => !found.Contains(id)))
+                throw new InvalidDataException("The verified audit archive does not contain every selected attempt.");
+        }
+
+        private static string ComputeFileHash(string path)
+        {
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.SequentialScan))
+            using (var sha = SHA256.Create())
+            {
+                byte[] hash = sha.ComputeHash(stream);
+                var value = new StringBuilder(hash.Length * 2);
+                foreach (byte item in hash)
+                    value.Append(item.ToString("x2"));
+                return value.ToString();
+            }
+        }
+
+        private static void EnsureFreeSpace(string path, int minimumFreeSpaceMb)
+        {
+            string root = Path.GetPathRoot(path);
+            if (string.IsNullOrWhiteSpace(root) || root.Length < 2 || root[1] != ':')
+                return;
+            var drive = new DriveInfo(root);
+            long required = (long)minimumFreeSpaceMb * 1024L * 1024L;
+            if (drive.AvailableFreeSpace < required)
+                throw new IOException("Insufficient free space for the audit archive. Required free space: " + minimumFreeSpaceMb + " MB.");
+        }
+
+        private static bool AcquireApplicationLock(SqlConnection connection)
+        {
+            using (var command = new SqlCommand(@"
+DECLARE @result int;
+EXEC @result = sys.sp_getapplock
+    @Resource = @Resource, @LockMode = N'Exclusive', @LockOwner = N'Session', @LockTimeout = 0;
+SELECT @result;", connection))
+            {
+                command.Parameters.Add("@Resource", SqlDbType.NVarChar, 255).Value = LockName;
+                return Convert.ToInt32(command.ExecuteScalar()) >= 0;
+            }
+        }
+
+        private static void ReleaseApplicationLock(SqlConnection connection)
+        {
+            try
+            {
+                using (var command = new SqlCommand("EXEC sys.sp_releaseapplock @Resource=@Resource, @LockOwner=N'Session';", connection))
+                {
+                    command.Parameters.Add("@Resource", SqlDbType.NVarChar, 255).Value = LockName;
+                    command.ExecuteNonQuery();
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static void DeleteStaleTemporaryFiles(string root)
+        {
+            foreach (string path in Directory.GetFiles(root, "*.jsonl.gz.tmp", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(path) < DateTime.UtcNow.AddDays(-1))
+                        File.Delete(path);
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        private static bool IsWithinRoot(string root, string path)
+        {
+            string fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            string fullPath = Path.GetFullPath(path);
+            return fullPath.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string SafePathPart(string value)
+        {
+            string result = string.IsNullOrWhiteSpace(value) ? "unknown" : value;
+            foreach (char character in Path.GetInvalidFileNameChars())
+                result = result.Replace(character, '_');
+            return result;
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
+            }
+        }
+
+        private static string Truncate(string value, int maximum)
+        {
+            if (string.IsNullOrEmpty(value) || value.Length <= maximum)
+                return value;
+            return value.Substring(0, maximum);
+        }
+
+        private sealed class ArchiveWriteResult
+        {
+            public readonly List<Guid> AttemptIds = new List<Guid>();
+            public DateTime? FromUtc { get; set; }
+            public DateTime? ToUtc { get; set; }
+        }
+    }
+
+    internal sealed class OutboundAuditArchiveWorker : IDisposable
+    {
+        private readonly string connectionString;
+        private readonly ManualResetEvent stopSignal = new ManualResetEvent(false);
+        private Thread worker;
+        private DateTime? lastRunDate;
+
+        public OutboundAuditArchiveWorker(string connectionString)
+        {
+            this.connectionString = connectionString;
+        }
+
+        public bool IsAlive
+        {
+            get { return worker != null && worker.IsAlive; }
+        }
+
+        public void Start()
+        {
+            if (IsAlive)
+                return;
+            stopSignal.Reset();
+            worker = new Thread(RunLoop)
+            {
+                IsBackground = true,
+                Name = "OutboundAuditArchiveWorker",
+                Priority = ThreadPriority.BelowNormal
+            };
+            worker.Start();
+        }
+
+        public bool Stop()
+        {
+            stopSignal.Set();
+            Thread current = worker;
+            if (current == null || current == Thread.CurrentThread)
+                return true;
+            bool stopped = current.Join(TimeSpan.FromSeconds(30));
+            if (stopped)
+                worker = null;
+            return stopped;
+        }
+
+        public static OutboundAuditCleanupResult RunNow(string connectionString)
+        {
+            return new OutboundAuditArchiveService(connectionString).Run(
+                OutboundAuditRetentionPolicy.Load(),
+                delegate { return false; });
+        }
+
+        private void RunLoop()
+        {
+            while (!stopSignal.WaitOne(0))
+            {
+                try
+                {
+                    OutboundAuditRetentionPolicy policy = OutboundAuditRetentionPolicy.Load();
+                    DateTime now = DateTime.Now;
+                    if (policy.Enabled && now.Hour >= policy.RunHour &&
+                        (!lastRunDate.HasValue || lastRunDate.Value.Date != now.Date))
+                    {
+                        OutboundAuditCleanupResult result = new OutboundAuditArchiveService(connectionString).Run(
+                            policy,
+                            delegate { return stopSignal.WaitOne(0); });
+                        lastRunDate = now.Date;
+                        ASFuelControl.Logging.Logger.Instance.LogToFile(
+                            "OutboundAuditArchive",
+                            result.Message + " Archived=" + result.ArchivedAttempts +
+                            ", MetadataDeleted=" + result.DeletedMetadataRows +
+                            ", FilesDeleted=" + result.DeletedArchiveFiles);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ASFuelControl.Logging.Logger.Instance.LogToFile("OutboundAuditArchive", ex);
+                }
+                stopSignal.WaitOne(TimeSpan.FromMinutes(15));
+            }
+        }
+
+        public void Dispose()
+        {
+            if (Stop())
+                stopSignal.Dispose();
+        }
     }
 }

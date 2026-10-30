@@ -54,6 +54,7 @@ namespace ASFuelControl.Windows.Threads
         private int restartDatabaseIndex = 0;
         private int tankFillingRetryScheduled = 0;
         private MyDieselPollingWorker myDieselPolling;
+        private OutboundAuditArchiveWorker outboundAuditArchiveWorker;
         private bool databaseUpdateVerified;
         
 
@@ -230,6 +231,8 @@ namespace ASFuelControl.Windows.Threads
                     this.fleetThread.Start();
                     this.myDieselPolling = new MyDieselPollingWorker();
                     this.myDieselPolling.Start();
+                    this.outboundAuditArchiveWorker = new OutboundAuditArchiveWorker(Properties.Settings.Default.DBConnection);
+                    this.outboundAuditArchiveWorker.Start();
                     if (this.QueryDeviceRefresh != null)
                         this.QueryDeviceRefresh(this, new EventArgs());
 
@@ -384,6 +387,11 @@ namespace ASFuelControl.Windows.Threads
                 this.printAgent = null;
             }
             if (this.myDieselPolling != null) { this.myDieselPolling.Dispose(); this.myDieselPolling = null; }
+            if (this.outboundAuditArchiveWorker != null)
+            {
+                this.outboundAuditArchiveWorker.Dispose();
+                this.outboundAuditArchiveWorker = null;
+            }
         }
 
         public bool StationLocked { set; get; }
