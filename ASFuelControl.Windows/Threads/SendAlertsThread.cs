@@ -29,7 +29,7 @@ namespace ASFuelControl.Windows.Threads
 
         //Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
         System.Threading.Thread th = null;
-        bool haltThread = false;
+        volatile bool haltThread = false;
         bool isTankCheck = false;
         int tankCheckInterval = 0;
         DateTime lastTankCheck = DateTime.Now.Subtract(TimeSpan.FromMinutes(5));
@@ -49,6 +49,7 @@ namespace ASFuelControl.Windows.Threads
         }
 
         public DateTime LastAction { set; get; }
+        public bool IsAlive { get { return this.th != null && this.th.IsAlive; } }
 
         private bool CanAttemptSubmission
         {
@@ -116,11 +117,14 @@ namespace ASFuelControl.Windows.Threads
         /// </summary>
         public void StartThread()
         {
+            if (this.th != null && this.th.IsAlive)
+                return;
             this.sendData = Data.Implementation.OptionHandler.Instance.GetBoolOption("SendData", false);
             this.haltThread = false;
             //this.database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
             //this.database.AlertChecker = AlertChecker.Instance;
             th = new System.Threading.Thread(new System.Threading.ThreadStart(this.ThreadRun));
+            th.IsBackground = true;
             th.Start();
         }
 
@@ -128,10 +132,16 @@ namespace ASFuelControl.Windows.Threads
         /// <summary>
         /// Stops the main thread of the agent
         /// </summary>
-        public void StopThread()
+        public bool StopThread()
         {
             this.haltThread = true;
-            
+            System.Threading.Thread worker = this.th;
+            if (worker == null || worker == System.Threading.Thread.CurrentThread)
+                return true;
+            bool stopped = worker.Join(TimeSpan.FromSeconds(30));
+            if (!stopped)
+                Logger.Instance.LogToFile("SendAlertsThread::Stop", "Sender did not stop within 30 seconds.");
+            return stopped;
         }
 
         private object CreateDeliveryNote(Data.TankFilling tankFilling)
@@ -1339,9 +1349,11 @@ namespace ASFuelControl.Windows.Threads
                         }
                         if (CanAttemptSubmission)
                             this.CheckForSend(database);
-                        if (DateTime.Now.Subtract(dtAlertPrint).TotalSeconds < 20)
-                            continue;
-                        this.CheckForPrint(database);
+                        if (DateTime.Now.Subtract(dtAlertPrint).TotalSeconds >= 20)
+                        {
+                            this.CheckForPrint(database);
+                            dtAlertPrint = DateTime.Now;
+                        }
                     }
                     
                 }
@@ -1354,11 +1366,7 @@ namespace ASFuelControl.Windows.Threads
 
             }
             Common.Logger.Instance.Debug("SendAlertsThread::ThreadRun, Thread Stopped");
-            using (Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
-            {
-                this.CheckForSend(database);
-            }
-            System.Threading.Thread.CurrentThread.Abort();
+            this.th = null;
         }
 
 

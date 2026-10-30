@@ -7,13 +7,14 @@ using System.Threading.Tasks;
 
 namespace ASFuelControl.Windows.Threads
 {
-    public class TankCheckThread
+    public class TankCheckThread : IDisposable
     {
         private Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-        private bool stopThread = false;
+        private volatile bool stopThread = false;
         private DateTime lastTankCheck = DateTime.MinValue;
         private System.Threading.Thread th = null;
         private int tankCheckInterval = 300000;
+        public bool IsAlive { get { return this.th != null && this.th.IsAlive; } }
 
         public TankCheckThread()
         {
@@ -22,17 +23,33 @@ namespace ASFuelControl.Windows.Threads
 
         public void StartThread()
         {
+            if (this.th != null && this.th.IsAlive)
+                return;
             this.stopThread = false;
             th = new System.Threading.Thread(new System.Threading.ThreadStart(this.ThreadRun));
+            th.IsBackground = true;
             th.Start();
         }
 
         /// <summary>
         /// Stops the main thread of the agent
         /// </summary>
-        public void StopThread()
+        public bool StopThread()
         {
             this.stopThread = true;
+            System.Threading.Thread worker = this.th;
+            if (worker == null || worker == System.Threading.Thread.CurrentThread)
+                return true;
+            bool stopped = worker.Join(TimeSpan.FromSeconds(10));
+            if (!stopped)
+                Logger.Instance.LogToFile("TankCheckThread::Stop", "Tank check worker did not stop within 10 seconds.");
+            return stopped;
+        }
+
+        public void Dispose()
+        {
+            if (StopThread())
+                this.database.Dispose();
         }
 
         public void ThreadRun()
@@ -50,6 +67,7 @@ namespace ASFuelControl.Windows.Threads
                 this.CreateTankCheck();
                 
             }
+            this.th = null;
         }
 
         private void CreateTankCheck()

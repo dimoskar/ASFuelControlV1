@@ -181,6 +181,14 @@ namespace ASFuelControl.Windows.Threads
         {
             if (!this.databaseUpdateVerified)
                 throw new InvalidOperationException("Database updates must complete successfully before starting workers.");
+            if (this.IsRunning ||
+                (this.sendingThread != null && this.sendingThread.IsAlive) ||
+                (this.printAgent != null && this.printAgent.IsAlive) ||
+                (this.tankThread != null && this.tankThread.IsAlive))
+            {
+                Logger.Instance.LogToFile("StartThreads", "A previous worker set is still running; duplicate workers were not started.");
+                return;
+            }
             try
             {
                 this.IsRunning = true;
@@ -355,12 +363,26 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("StopThreads", ex);
                 }
             }
-            this.controllerThread.StopControllers();
-            this.controllerThread.HaltThread = true;
-            this.fleetThread.Stop();
-            this.sendingThread.StopThread();
-            this.tankThread.StopThread();
-            this.printAgent.StopThread();
+            if (this.controllerThread != null)
+            {
+                this.controllerThread.StopControllers();
+                this.controllerThread.HaltThread = true;
+            }
+            if (this.fleetThread != null)
+                this.fleetThread.Stop();
+
+            if (this.sendingThread != null && this.sendingThread.StopThread())
+                this.sendingThread = null;
+            if (this.tankThread != null && this.tankThread.StopThread())
+            {
+                this.tankThread.Dispose();
+                this.tankThread = null;
+            }
+            if (this.printAgent != null && this.printAgent.StopThread())
+            {
+                this.printAgent.Dispose();
+                this.printAgent = null;
+            }
             if (this.myDieselPolling != null) { this.myDieselPolling.Dispose(); this.myDieselPolling = null; }
         }
 

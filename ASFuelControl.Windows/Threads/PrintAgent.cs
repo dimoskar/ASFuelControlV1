@@ -21,6 +21,7 @@ namespace ASFuelControl.Windows.Threads
         private const int MaxRememberedSigns = 1000;
 
         public static List<Guid> ExcludeInvoices = new List<Guid>();
+        public bool IsAlive { get { return this.th != null && this.th.IsAlive; } }
         private static string[] installedPrintrers = new string[] { };
         private static DateTime closeSalesDate = Data.Implementation.OptionHandler.Instance.GetDateTimeOption("CloseSalesDate", DateTime.Now.AddDays(-1));
         FileSystemWatcher signWatcher = new FileSystemWatcher();
@@ -30,7 +31,7 @@ namespace ASFuelControl.Windows.Threads
         #region private variables
 
         //private Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-        private bool agentRunning = false;
+        private volatile bool agentRunning = false;
         private string outFolder = "";
         private string signFolder = "";
         private string processFolder = "";
@@ -248,8 +249,8 @@ namespace ASFuelControl.Windows.Threads
 
         public void Dispose()
         {
-            this.StopThread();
-            this.signWatcher.Dispose();
+            if (this.StopThread())
+                this.signWatcher.Dispose();
         }
 
         /// <summary>
@@ -263,6 +264,7 @@ namespace ASFuelControl.Windows.Threads
             //this.database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
             this.agentRunning = true;
             th = new System.Threading.Thread(new System.Threading.ThreadStart(this.ThreadRun));
+            th.IsBackground = true;
             th.Start();
             //if (Exedron.MyData.Settings.IsActive)
             //{
@@ -284,9 +286,16 @@ namespace ASFuelControl.Windows.Threads
         /// <summary>
         /// Stops the main thread of this Agent
         /// </summary>
-        public void StopThread()
+        public bool StopThread()
         {
             this.agentRunning = false;
+            System.Threading.Thread worker = this.th;
+            if (worker == null || worker == System.Threading.Thread.CurrentThread)
+                return true;
+            bool stopped = worker.Join(TimeSpan.FromSeconds(30));
+            if (!stopped)
+                Logger.Instance.LogToFile("PrintAgent::Stop", "Print agent did not stop within 30 seconds.");
+            return stopped;
         }
 
         #endregion
@@ -1556,6 +1565,7 @@ namespace ASFuelControl.Windows.Threads
                 //}
                 System.Threading.Thread.Sleep(1000);
             }
+            this.th = null;
         }
 
         #region Check Methods
