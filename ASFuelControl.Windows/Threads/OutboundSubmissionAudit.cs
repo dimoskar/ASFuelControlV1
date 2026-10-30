@@ -366,18 +366,19 @@ ORDER BY COALESCE(LastAttemptUtc, CreatedUtc) DESC;"))
             var result = new List<OutboundSubmissionAttemptEntry>();
             using (var connection = new SqlConnection(connectionString))
             using (var command = CreateCommand(connection, null, @"
-SELECT AttemptId, AttemptNumber, StartedUtc, FinishedUtc, Outcome,
-       RequestContentType, CAST(NULL AS nvarchar(max)) AS RequestPayload,
-       RequestHash, ResponseStatusCode,
-       ResponseContentType, CAST(NULL AS nvarchar(max)) AS ResponsePayload,
-       ErrorType, ErrorMessage, CAST(NULL AS nvarchar(max)) AS StackTrace,
-       DurationMilliseconds, ApplicationVersion, MachineName, CorrelationId, InitiatedBy,
+SELECT attempt.AttemptId, attempt.AttemptNumber, attempt.StartedUtc, attempt.FinishedUtc, attempt.Outcome,
+       attempt.RequestContentType, CAST(NULL AS nvarchar(max)) AS RequestPayload,
+       attempt.RequestHash, attempt.ResponseStatusCode,
+       attempt.ResponseContentType, CAST(NULL AS nvarchar(max)) AS ResponsePayload,
+       attempt.ErrorType, attempt.ErrorMessage, CAST(NULL AS nvarchar(max)) AS StackTrace,
+       attempt.DurationMilliseconds, attempt.ApplicationVersion, attempt.MachineName,
+       attempt.CorrelationId, attempt.InitiatedBy,
        attempt.ArchiveId, attempt.ArchivedUtc, attempt.PayloadPurgedUtc,
        archive.FilePath, archive.Sha256
 FROM dbo.OutboundSubmissionAttempt attempt
 LEFT JOIN dbo.OutboundAuditArchive archive ON archive.ArchiveId = attempt.ArchiveId
 WHERE attempt.OutboundSubmissionId = @SubmissionId
-ORDER BY AttemptNumber DESC;"))
+ORDER BY attempt.AttemptNumber DESC;"))
             {
                 Add(command, "@SubmissionId", SqlDbType.UniqueIdentifier, submissionId);
                 connection.Open();
@@ -395,10 +396,11 @@ ORDER BY AttemptNumber DESC;"))
             EnsureSchema();
             using (var connection = new SqlConnection(connectionString))
             using (var command = CreateCommand(connection, null, @"
-SELECT AttemptId, AttemptNumber, StartedUtc, FinishedUtc, Outcome,
-       RequestContentType, RequestPayload, RequestHash, ResponseStatusCode,
-       ResponseContentType, ResponsePayload, ErrorType, ErrorMessage, StackTrace,
-       DurationMilliseconds, ApplicationVersion, MachineName, CorrelationId, InitiatedBy,
+SELECT attempt.AttemptId, attempt.AttemptNumber, attempt.StartedUtc, attempt.FinishedUtc, attempt.Outcome,
+       attempt.RequestContentType, attempt.RequestPayload, attempt.RequestHash, attempt.ResponseStatusCode,
+       attempt.ResponseContentType, attempt.ResponsePayload, attempt.ErrorType, attempt.ErrorMessage,
+       attempt.StackTrace, attempt.DurationMilliseconds, attempt.ApplicationVersion, attempt.MachineName,
+       attempt.CorrelationId, attempt.InitiatedBy,
        attempt.ArchiveId, attempt.ArchivedUtc, attempt.PayloadPurgedUtc,
        archive.FilePath, archive.Sha256
 FROM dbo.OutboundSubmissionAttempt attempt
