@@ -241,7 +241,18 @@ namespace ASFuelControl.Windows.UI.SettingForms
         private string ChangedMyDataSubscriptionKey()
         {
             string current = sharedMyDataKey.Text.Trim();
-            return string.Equals(current,originalMyDataKey,StringComparison.Ordinal) ? null : current;
+            var environment = sharedEnvironment.SelectedIndex == 0 ? FiscalEnvironment.Test : FiscalEnvironment.Production;
+            return string.Equals(current,originalMyDataKey,StringComparison.Ordinal) && SameSavedMyDataContext(environment) ? null : current;
+        }
+
+        private bool SameSavedMyDataContext(FiscalEnvironment environment)
+        {
+            return invoicing.DirectMyData != null &&
+                invoicing.DirectMyData.ProviderKey == InvoiceProviderCatalog.MyDataKey &&
+                invoicing.DirectMyData.TestMode == (environment == FiscalEnvironment.Test) &&
+                string.Equals(invoicing.DirectMyData.Account,sharedMyDataUser.Text.Trim(),StringComparison.Ordinal) &&
+                string.Equals(invoicing.DirectMyData.IssuerVat,tinCompanyTextBox.Text.Trim(),StringComparison.Ordinal) &&
+                invoicing.DirectMyData.IssuerBranch == (int)branchSpinEditor.Value;
         }
 
         private string CurrentMyDataSubscriptionKey(FiscalEnvironment environment)
@@ -249,13 +260,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
             string entered = sharedMyDataKey.Text.Trim();
             if (!string.IsNullOrWhiteSpace(entered)) return entered;
 
-            bool sameSavedContext = invoicing.DirectMyData != null &&
-                invoicing.DirectMyData.ProviderKey == InvoiceProviderCatalog.MyDataKey &&
-                invoicing.DirectMyData.TestMode == (environment == FiscalEnvironment.Test) &&
-                string.Equals(invoicing.DirectMyData.Account,sharedMyDataUser.Text.Trim(),StringComparison.Ordinal) &&
-                string.Equals(invoicing.DirectMyData.IssuerVat,tinCompanyTextBox.Text.Trim(),StringComparison.Ordinal) &&
-                invoicing.DirectMyData.IssuerBranch == (int)branchSpinEditor.Value;
-            var profile = sameSavedContext ? CredentialFor(invoicing,invoicing.DirectMyData) : null;
+            var profile = SameSavedMyDataContext(environment) ? CredentialFor(invoicing,invoicing.DirectMyData) : null;
             string option = profile?.SubscriptionKeyOption;
             string saved = string.IsNullOrWhiteSpace(option) ? null : Data.Implementation.OptionHandler.Instance.GetOption(option,"");
             if (string.IsNullOrWhiteSpace(saved))
