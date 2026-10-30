@@ -36,14 +36,21 @@ namespace ASFuelControl.Windows.Threads
             if (credential == null) throw new InvalidOperationException("Δεν είναι διαθέσιμο το ιστορικό προφίλ διαπιστευτηρίων myDiesel.");
             if (credential.Environment != couponCase.Environment || credential.CompanyVat != couponCase.CompanyVat)
                 throw new InvalidOperationException("Το ιστορικό προφίλ myDiesel δεν συμφωνεί με την αποθηκευμένη εταιρεία/περιβάλλον.");
-            string productionKey = Read(credential.ProductionSubscriptionKeyOption);
+            // Profiles created before versioned myDATA credentials stored the
+            // legacy option name in AadeUserId. Keep those historical coupon
+            // cases recoverable while new profiles retain the actual user id.
+            string productionUser = credential.Environment == FiscalEnvironment.Production ?
+                (credential.AadeUserId == "MyDataUserName" ? Read(credential.AadeUserId) : credential.AadeUserId) : null;
+            string productionKey = credential.Environment == FiscalEnvironment.Production ? Read(credential.ProductionSubscriptionKeyOption) : null;
+            if (credential.Environment == FiscalEnvironment.Production && string.IsNullOrWhiteSpace(productionUser))
+                throw new InvalidOperationException("Λείπει ο αποθηκευμένος χρήστης myDATA για το myDiesel.");
             // The myDiesel UAT ERP key is a public, shared test fixture distributed
             // with the official examples. UAT deliberately does not reuse myDATA
             // test credentials or a secret saved by an older configuration.
             string uatKey = credential.Environment == FiscalEnvironment.Test ? MyDieselUatCatalog.PrimaryErpApiKey : null;
             return new MyDieselClient(new MyDieselClientOptions {
                 Scope = new MyDieselScope(couponCase.Environment,couponCase.CompanyVat,couponCase.ReservedBranchNum,couponCase.CredentialProfileId),
-                AadeUserId = credential.AadeUserId, ProductionSubscriptionKey = productionKey, UatApiKey = uatKey,
+                AadeUserId = productionUser, ProductionSubscriptionKey = productionKey, UatApiKey = uatKey,
                 CouponCaseId = couponCase.CouponCaseId, InvoiceId = couponCase.InvoiceId, Logger = new SqlEvidenceLogger(database)
             });
         }

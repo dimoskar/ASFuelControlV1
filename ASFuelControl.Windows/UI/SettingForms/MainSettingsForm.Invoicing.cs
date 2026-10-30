@@ -35,6 +35,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
         private RadDropDownList myDieselEnvironment;
         private InvoicingFields providerFields, myDieselFields;
         private DateTime? myDieselReferenceCheckedUtc;
+        private string originalMyDataKey;
         private readonly Dictionary<string,string> pendingSecrets = new Dictionary<string,string>();
 
         private void InitializeSharedInvoicing()
@@ -62,11 +63,12 @@ namespace ASFuelControl.Windows.UI.SettingForms
             sharedEnvironment.SelectedIndex = invoicing.TestMode ? 0 : 1;
             sharedCutover = common.Row("Έναρξη νέας ροής",new RadDateTimePicker { Value = invoicing.FirstInvoiceDate, Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy HH:mm" });
             sharedMyDataUser = common.Row("Χρήστης myDATA",InvoicingFields.Text(invoicing.DirectMyData?.Account));
-            sharedMyDataKey = common.Row("Subscription key",InvoicingFields.Text("",true));
+            originalMyDataKey = SavedMyDataSubscriptionKey();
+            sharedMyDataKey = common.Row(!string.IsNullOrWhiteSpace(originalMyDataKey) ? "Subscription key (αποθηκευμένο)" : "Subscription key",InvoicingFields.Text(originalMyDataKey,true));
             sharedMyDataUrl = common.Row("Endpoint myDATA",InvoicingFields.Text(invoicing.DirectMyData?.MyDataBaseUrl ?? MyDataOptions.TestUrl));
             common.Row("Υποκατάστημα",branchSpinEditor);
             sharedWholesale = common.Row("Κωδικοί χονδρικής",InvoicingFields.Text(string.Join(",",invoicing.Mapping?.WholesaleCodes ?? new HashSet<int>())));
-            common.Note("Μετά την πρώτη ενεργοποίηση, η απενεργοποίηση παύει τις νέες εκδόσεις.\r\nΔεν επαναφέρει την παλαιά σύνδεση. Κενό κλειδί διατηρεί το προφίλ.");
+            common.Note("Μετά την πρώτη ενεργοποίηση, η απενεργοποίηση παύει τις νέες εκδόσεις.\r\nΔεν επαναφέρει την παλαιά σύνδεση. Το αποθηκευμένο κλειδί φορτώνεται κρυμμένο και μπορεί να αντικατασταθεί.");
 
             var provider = providerFields = new InvoicingFields("Κοινός πάροχος τιμολόγησης");
             radPageViewPage5.Text = "Πάροχος Τιμολόγησης"; radPageViewPage5.Controls.Add(provider.Group);
@@ -141,6 +143,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
             dieselCheck.Click += (s,e) => CheckMyDieselConnection();
             diesel.Note("UAT: χρησιμοποιείται το κοινό κλειδί ERP της επίσημης έκδοσης 0.1 και ένας από τους δοκιμαστικούς ΑΦΜ.\r\n" +
                 "Δικαιούχοι δοκιμών: " + string.Join(" / ",MyDieselUatCatalog.BeneficiaryVats) + ". Εκδίδετε κουπόνια 5–10 λίτρων.");
+            diesel.Note("Παραγωγή: χρησιμοποιούνται ο χρήστης και το αποθηκευμένο subscription key του ενεργού προφίλ myDATA.");
             diesel.Note("Το query κουπονιού μεταβάλλει κατάσταση και δεν εκτελείται από αυτή τη φόρμα.\r\n" +
                 "Παραγωγή: ελεγμένο OpenAPI " + SharedMyDieselProductionContract.ContractVersion + " της ΑΑΔΕ (29/10/2026).");
             myDieselEnabled.ToggleStateChanged += (s,e) => RefreshMyDieselFields();
@@ -180,11 +183,10 @@ namespace ASFuelControl.Windows.UI.SettingForms
             bool production = sharedEnvironment.SelectedIndex == 1;
             if (myDieselEnvironment.SelectedIndex != sharedEnvironment.SelectedIndex)
                 myDieselEnvironment.SelectedIndex = sharedEnvironment.SelectedIndex;
-            myDieselFields.SetRowVisible(myDieselAadeUser,production);
-            myDieselFields.SetRowVisible(myDieselSecret,production);
+            myDieselFields.SetRowVisible(myDieselAadeUser,false);
+            myDieselFields.SetRowVisible(myDieselSecret,false);
             myDieselCompany.Enabled = myDieselEnabled.IsChecked && !production;
-            myDieselSecret.Enabled = myDieselStation.Enabled = myDieselExciseRate.Enabled = myDieselPoll.Enabled = myDieselEnabled.IsChecked;
-            myDieselAadeUser.Enabled = myDieselEnabled.IsChecked;
+            myDieselStation.Enabled = myDieselExciseRate.Enabled = myDieselPoll.Enabled = myDieselEnabled.IsChecked;
             myDieselReferenceStatus.Text = ReferenceCheckText();
         }
 
@@ -221,29 +223,68 @@ namespace ASFuelControl.Windows.UI.SettingForms
             return myDieselReferenceCheckedUtc.HasValue ? "Επιτυχής έλεγχος: " + myDieselReferenceCheckedUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "Δεν έχει ολοκληρωθεί";
         }
 
+        private SharedCredentialProfile CredentialFor(SharedInvoiceConfiguration configuration, ProviderRoute route)
+        {
+            if (configuration == null || route == null) return null;
+            string serializedRoute = JsonConvert.SerializeObject(route);
+            return (configuration.Credentials ?? new SharedCredentialProfile[0])
+                .LastOrDefault(profile => profile.Route != null && JsonConvert.SerializeObject(profile.Route) == serializedRoute);
+        }
+
+        private string SavedMyDataSubscriptionKey()
+        {
+            var profile = CredentialFor(invoicing,invoicing?.DirectMyData);
+            return string.IsNullOrWhiteSpace(profile?.SubscriptionKeyOption) ? "" :
+                Data.Implementation.OptionHandler.Instance.GetOption(profile.SubscriptionKeyOption,"");
+        }
+
+        private string ChangedMyDataSubscriptionKey()
+        {
+            string current = sharedMyDataKey.Text.Trim();
+            return string.Equals(current,originalMyDataKey,StringComparison.Ordinal) ? null : current;
+        }
+
+        private string CurrentMyDataSubscriptionKey(FiscalEnvironment environment)
+        {
+            string entered = sharedMyDataKey.Text.Trim();
+            if (!string.IsNullOrWhiteSpace(entered)) return entered;
+
+            bool sameSavedContext = invoicing.DirectMyData != null &&
+                invoicing.DirectMyData.ProviderKey == InvoiceProviderCatalog.MyDataKey &&
+                invoicing.DirectMyData.TestMode == (environment == FiscalEnvironment.Test) &&
+                string.Equals(invoicing.DirectMyData.Account,sharedMyDataUser.Text.Trim(),StringComparison.Ordinal) &&
+                string.Equals(invoicing.DirectMyData.IssuerVat,tinCompanyTextBox.Text.Trim(),StringComparison.Ordinal) &&
+                invoicing.DirectMyData.IssuerBranch == (int)branchSpinEditor.Value;
+            var profile = sameSavedContext ? CredentialFor(invoicing,invoicing.DirectMyData) : null;
+            string option = profile?.SubscriptionKeyOption;
+            string saved = string.IsNullOrWhiteSpace(option) ? null : Data.Implementation.OptionHandler.Instance.GetOption(option,"");
+            if (string.IsNullOrWhiteSpace(saved))
+                throw new InvalidOperationException("Συμπληρώστε το subscription key myDATA για το επιλεγμένο περιβάλλον και αποθηκεύστε τις ρυθμίσεις.");
+            return saved;
+        }
+
         private void CheckMyDieselConnection()
         {
             try
             {
                 var environment = sharedEnvironment.SelectedIndex == 0 ? FiscalEnvironment.Test : FiscalEnvironment.Production;
                 string company = MyDieselCouponIdentity.NormalizeVat(SelectedMyDieselCompanyVat(),"Company VAT");
-                var current = CurrentMyDieselCredential();
-                string secret = environment == FiscalEnvironment.Test ? MyDieselUatCatalog.PrimaryErpApiKey : myDieselSecret.Text;
-                if (environment == FiscalEnvironment.Production && string.IsNullOrWhiteSpace(secret) && current != null && current.Environment == environment && current.CompanyVat == company)
-                {
-                    string option = current.ProductionSubscriptionKeyOption;
-                    if (!string.IsNullOrWhiteSpace(option)) secret = Data.Implementation.OptionHandler.Instance.GetOption(option,"");
-                }
+                string secret = environment == FiscalEnvironment.Test ? MyDieselUatCatalog.PrimaryErpApiKey : CurrentMyDataSubscriptionKey(environment);
+                string user = environment == FiscalEnvironment.Production ? sharedMyDataUser.Text.Trim() : null;
+                if (environment == FiscalEnvironment.Production && string.IsNullOrWhiteSpace(user))
+                    throw new InvalidOperationException("Συμπληρώστε τον χρήστη myDATA για το περιβάλλον παραγωγής.");
                 var temporaryScope = new MyDieselScope(environment,company,0,"settings-check");
                 var database = new SqlFiscalDatabase(Properties.Settings.Default.DBConnection);
                 using (var client = new MyDieselClient(new MyDieselClientOptions { Scope = temporaryScope,
-                    AadeUserId = myDieselAadeUser.Text, ProductionSubscriptionKey = environment == FiscalEnvironment.Production ? secret : null,
+                    AadeUserId = user, ProductionSubscriptionKey = environment == FiscalEnvironment.Production ? secret : null,
                     UatApiKey = environment == FiscalEnvironment.Test ? secret : null, Logger = new SqlEvidenceLogger(database) }))
                 {
                     var companyResult = client.GetCompany(company); var fuels = client.GetFuelTypes();
-                    if (!companyResult.Succeeded) throw new InvalidOperationException("Ο έλεγχος εταιρείας απέτυχε: " + (companyResult.Error?.Code ?? companyResult.CommunicationError));
-                    if (!companyResult.Data.Active || companyResult.Data.GasStations.Length == 0) throw new InvalidOperationException("Η εταιρεία δεν έχει ενεργό καταχωρημένο πρατήριο myDiesel.");
-                    if (!fuels.Succeeded || fuels.Data == null || !fuels.Data.Any(f => f.Code == 20 || f.Code == 21))
+                    string context = (environment == FiscalEnvironment.Production ? "Παραγωγή" : "Δοκιμαστικό") + ", ΑΦΜ " + company;
+                    if (!companyResult.Succeeded) throw new InvalidOperationException("Ο έλεγχος εταιρείας απέτυχε (" + context + "): " + (companyResult.Error?.Code ?? companyResult.CommunicationError));
+                    if (companyResult.Data == null || !companyResult.Data.Active || companyResult.Data.GasStations == null || companyResult.Data.GasStations.Length == 0)
+                        throw new InvalidOperationException("Δεν βρέθηκε ενεργό καταχωρημένο πρατήριο myDiesel (" + context + "). Ελέγξτε ότι η επιχείρηση έχει εγγραφεί στο myDiesel της ΑΑΔΕ.");
+                    if (!fuels.Succeeded || fuels.Data == null || !fuels.Data.Any(f => MyDieselFuelRules.IsEligible(f.Code)))
                         throw new InvalidOperationException("Δεν επιστράφηκαν οι αναμενόμενοι κωδικοί καυσίμου myDiesel.");
                     int previous = (myDieselStation.SelectedItem?.Value as MyDieselGasStation)?.BranchNum ?? invoicing.MyDiesel?.BranchNum ?? -1;
                     myDieselStation.Items.Clear();
@@ -312,7 +353,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
             value.FirstInvoiceDate = sharedCutover.Value;
             if (value.Mapping == null) value.Mapping = new MappingContext { Countries = new[] { new CountryInput { CountryCode = "GR", DisplayMember = "Ελλάδα", IsEu = true } } };
             value.Mapping.WholesaleCodes = new HashSet<int>(sharedWholesale.Text.Split(new[] { ',', ';', ' ' },StringSplitOptions.RemoveEmptyEntries).Select(int.Parse));
-            value.DirectMyData = BuildCredential(value,InvoiceProviderCatalog.MyDataKey,sharedMyDataUser.Text,sharedMyDataKey.Text,null,sharedMyDataUrl.Text,invoicing.DirectMyData);
+            value.DirectMyData = BuildCredential(value,InvoiceProviderCatalog.MyDataKey,sharedMyDataUser.Text,ChangedMyDataSubscriptionKey(),null,sharedMyDataUrl.Text,invoicing.DirectMyData);
             var providerKey = sharedProvider.SelectedIndex == 0 ? InvoiceProviderCatalog.DirectIlydaKey : InvoiceProviderCatalog.ITimologiaKey;
             value.SelectedProviderKey = providerKey;
             value.InvoiceProvider = providerKey == InvoiceProviderCatalog.DirectIlydaKey
@@ -333,27 +374,27 @@ namespace ASFuelControl.Windows.UI.SettingForms
             var old = CurrentMyDieselCredential();
             var environment = value.TestMode ? FiscalEnvironment.Test : FiscalEnvironment.Production;
             string company = SelectedMyDieselCompanyVat();
-            string secret = environment == FiscalEnvironment.Test ? null : myDieselSecret.Text;
+            var myDataCredential = environment == FiscalEnvironment.Production ? CredentialFor(value,value.DirectMyData) : null;
             bool same = old != null && old.Environment == environment && old.CompanyVat == company &&
-                (environment == FiscalEnvironment.Test || old.AadeUserId == myDieselAadeUser.Text.Trim());
+                (environment == FiscalEnvironment.Test || myDataCredential != null &&
+                    old.AadeUserId == value.DirectMyData.Account &&
+                    old.ProductionSubscriptionKeyOption == myDataCredential.SubscriptionKeyOption);
             var station = myDieselStation.SelectedItem?.Value as MyDieselGasStation;
-            if (!myDieselEnabled.IsChecked && old == null && string.IsNullOrWhiteSpace(secret))
+            if (!myDieselEnabled.IsChecked && old == null)
                 return new SharedMyDieselProfile { Enabled = false, Environment = environment, CompanyVat = company,
                     BranchNum = station?.BranchNum ?? -1, StationName = station?.Name, StationAmdika = station?.Amdika,
                     ExciseDiscountPerLitre = MyDieselTaxRules.NormalizeExciseDiscountPerLitre(myDieselExciseRate.Value),
                     LastReferenceCheckUtc = myDieselReferenceCheckedUtc, PollMinutes = (int)myDieselPoll.Value };
-            if (environment == FiscalEnvironment.Production && string.IsNullOrWhiteSpace(secret) && !same && myDieselEnabled.IsChecked)
-                throw new InvalidOperationException("myDiesel: το νέο προφίλ εταιρείας/περιβάλλοντος απαιτεί κλειδί πρόσβασης.");
-            SharedMyDieselCredentialProfile credential = same && string.IsNullOrWhiteSpace(secret) ? old : null;
+            SharedMyDieselCredentialProfile credential = same ? old : null;
             if (credential == null)
             {
                 string id = Guid.NewGuid().ToString("N");
-                string option = string.IsNullOrWhiteSpace(secret) ? null : "Fiscal_MyDiesel_" + id + "_Key";
-                if (!string.IsNullOrWhiteSpace(secret)) pendingSecrets.Add(option,secret);
+                if (environment == FiscalEnvironment.Production && (value.DirectMyData == null || myDataCredential == null ||
+                    string.IsNullOrWhiteSpace(myDataCredential.SubscriptionKeyOption)))
+                    throw new InvalidOperationException("Το myDiesel παραγωγής απαιτεί αποθηκευμένο προφίλ χρήστη και subscription key myDATA.");
                 credential = new SharedMyDieselCredentialProfile { Id = id, Environment = environment, CompanyVat = company,
-                    AadeUserId = environment == FiscalEnvironment.Production ? myDieselAadeUser.Text.Trim() : null,
-                    ProductionSubscriptionKeyOption = environment == FiscalEnvironment.Production ? option : null,
-                    UatApiKeyOption = environment == FiscalEnvironment.Test ? option : null };
+                    AadeUserId = environment == FiscalEnvironment.Production ? value.DirectMyData.Account : null,
+                    ProductionSubscriptionKeyOption = environment == FiscalEnvironment.Production ? myDataCredential.SubscriptionKeyOption : null };
                 var credentials = (value.MyDieselCredentials ?? new SharedMyDieselCredentialProfile[0]).ToList(); credentials.Add(credential); value.MyDieselCredentials = credentials.ToArray();
             }
             return new SharedMyDieselProfile { Enabled = myDieselEnabled.IsChecked, Environment = environment, CompanyVat = company,
@@ -422,6 +463,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 invoicingRevision = SharedInvoicingSettings.Save(value,invoicingRevision);
                 Data.Implementation.OptionHandler.Instance.SetMyDieselEnabled(myDieselEnabled.IsChecked);
                 invoicing = value;
+                if (!string.IsNullOrWhiteSpace(sharedMyDataKey.Text)) originalMyDataKey = sharedMyDataKey.Text.Trim();
                 RadMessageBox.Show("Οι ρυθμίσεις τιμολόγησης αποθηκεύτηκαν. Ο λογαριασμός και τα κλειδιά ισχύουν πριν από την πρώτη προσπάθεια έκδοσης. Οι υπόλοιπες αλλαγές απαιτούν επανεκκίνηση της εφαρμογής.","Τιμολόγηση");
                 return true;
             }
