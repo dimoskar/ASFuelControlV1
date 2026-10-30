@@ -19,6 +19,8 @@ namespace ASFuelControl.Windows.Threads
         private const int SalesBatchSize = 10;
         private const int PriceBatchSize = 10;
         private const int BalanceBatchSize = 1;
+        private const int InitialRetryDelaySeconds = 30;
+        private const int MaximumRetryDelaySeconds = 15 * 60;
 
         public event EventHandler<PrintAlertEventArgs> PrintAlert;
         public event EventHandler BalanceCreated;
@@ -34,8 +36,46 @@ namespace ASFuelControl.Windows.Threads
         DateTime officialStartDate;
         private bool sendData = false;
         private Communication.SendMethods sendMethods = new Communication.SendMethods();
+        private readonly object submissionBackoffSync = new object();
+        private int consecutiveSubmissionFailures;
+        private DateTime nextSubmissionAttemptUtc = DateTime.MinValue;
 
         public DateTime LastAction { set; get; }
+
+        private bool CanAttemptSubmission
+        {
+            get
+            {
+                lock (submissionBackoffSync)
+                    return DateTime.UtcNow >= nextSubmissionAttemptUtc;
+            }
+        }
+
+        private void RecordSubmissionResult(bool succeeded)
+        {
+            lock (submissionBackoffSync)
+            {
+                if (succeeded)
+                {
+                    consecutiveSubmissionFailures = 0;
+                    nextSubmissionAttemptUtc = DateTime.MinValue;
+                    return;
+                }
+
+                consecutiveSubmissionFailures++;
+                int exponent = Math.Min(consecutiveSubmissionFailures - 1, 5);
+                int delaySeconds = Math.Min(
+                    InitialRetryDelaySeconds * (1 << exponent),
+                    MaximumRetryDelaySeconds);
+                nextSubmissionAttemptUtc = DateTime.UtcNow.AddSeconds(delaySeconds);
+                Logger.Instance.LogToFile(
+                    "SendAlertsThread::Backoff",
+                    string.Format(
+                        "Submission failed {0} consecutive time(s). Next attempt after {1:O}.",
+                        consecutiveSubmissionFailures,
+                        nextSubmissionAttemptUtc));
+            }
+        }
 
         public SendAlertsThread()
         {
@@ -840,6 +880,8 @@ namespace ASFuelControl.Windows.Threads
 
                     foreach (Data.TankCheck tc in qtc)
                     {
+                        if (!CanAttemptSubmission)
+                            break;
                         if (tc.Tank.FuelType.ExcludeFromBalance.HasValue && tc.Tank.FuelType.ExcludeFromBalance.Value)
                             continue;
                         try
@@ -858,6 +900,8 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:TankCheck", e);
                 }
                 database.SaveChanges();
+                if (!CanAttemptSubmission)
+                    return;
                 //DateTime dtAlertCheck = DateTime.Now.AddMinutes(-1);
                 var q = database.SystemEvents.Where(se => !se.SentDate.HasValue && se.EventDate >= this.officialStartDate
                     &&
@@ -877,6 +921,8 @@ namespace ASFuelControl.Windows.Threads
                 {
                     foreach (Data.SystemEvent se in q)
                     {
+                        if (!CanAttemptSubmission)
+                            break;
                         try
                         {
                             if(se.Tank != null)
@@ -912,6 +958,8 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:Alarm", e);
                 }
                 database.SaveChanges();
+                if (!CanAttemptSubmission)
+                    return;
                 var q1 = database.TankFillings
                     .Where(se => !se.SentDateTime.HasValue &&
                         se.TransactionTime >= this.officialStartDate &&
@@ -924,6 +972,8 @@ namespace ASFuelControl.Windows.Threads
                 {
                     foreach (Data.TankFilling se in q1)
                     {
+                        if (!CanAttemptSubmission)
+                            break;
                         try
                         {
                             if (se.Tank != null && se.Tank.FuelType.ExcludeFromBalance.HasValue && se.Tank.FuelType.ExcludeFromBalance.Value)
@@ -959,6 +1009,8 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:Delivery", e);
                 }
                 database.SaveChanges();
+                if (!CanAttemptSubmission)
+                    return;
                 var q2 = database.SalesTransactions
                     .Where(se => !se.SentDateTime.HasValue &&
                         se.TransactionTimeStamp >= this.officialStartDate &&
@@ -974,6 +1026,8 @@ namespace ASFuelControl.Windows.Threads
                 {
                     foreach (Data.SalesTransaction se in q2)
                     {
+                        if (!CanAttemptSubmission)
+                            break;
                         try
                         {
                             var invLines = database.InvoiceLines.Where(s => s.SaleTransactionId == se.SalesTransactionId).Select(i=>i.Invoice).ToList();
@@ -1015,6 +1069,8 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:SalesTransaction", e);
                 }
                 database.SaveChanges();
+                if (!CanAttemptSubmission)
+                    return;
                 var q4 = database.FuelTypePrices
                     .Where(se => !se.SentDateTime.HasValue &&
                         se.ChangeDate >= this.officialStartDate &&
@@ -1026,6 +1082,8 @@ namespace ASFuelControl.Windows.Threads
                 {
                     foreach (Data.FuelTypePrice ftp in q4)
                     {
+                        if (!CanAttemptSubmission)
+                            break;
                         try
                         {
                             if (ftp.FuelType.ExcludeFromBalance.HasValue && ftp.FuelType.ExcludeFromBalance.Value)
@@ -1118,6 +1176,8 @@ namespace ASFuelControl.Windows.Threads
                 {
                     foreach (Data.Balance bal in q3)
                     {
+                        if (!CanAttemptSubmission)
+                            break;
                         try
                         {
                             System.Xml.Serialization.XmlSerializer ser = new System.Xml.Serialization.XmlSerializer(typeof(Communication.BalanceClass));
@@ -1153,6 +1213,8 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:BalanceSend", e);
                 }
                 database.SaveChanges();
+                if (!CanAttemptSubmission)
+                    return;
 
 
                 if ((int)dt.TimeOfDay.TotalMinutes % 5 == 0 && !this.logCleared)
@@ -1255,7 +1317,8 @@ namespace ASFuelControl.Windows.Threads
                             System.Threading.Thread.Sleep(10000);
                             continue;
                         }
-                        this.CheckForSend(database);
+                        if (CanAttemptSubmission)
+                            this.CheckForSend(database);
                         if (DateTime.Now.Subtract(dtAlertPrint).TotalSeconds < 20)
                             continue;
                         this.CheckForPrint(database);
@@ -1286,7 +1349,20 @@ namespace ASFuelControl.Windows.Threads
         /// <returns></returns>
         private bool SendObject(object obj)
         {
+            if (!CanAttemptSubmission)
+                return false;
+
+            bool attempted;
+            bool succeeded = SendObjectCore(obj, out attempted);
+            if (attempted)
+                RecordSubmissionResult(succeeded);
+            return succeeded;
+        }
+
+        private bool SendObjectCore(object obj, out bool attempted)
+        {
             string typeName = "";
+            attempted = false;
             try
             {
                 string seriallizedData = "";
@@ -1299,6 +1375,7 @@ namespace ASFuelControl.Windows.Threads
                 {
                     case "TankCheckClass":
                         TankCheckClass tc = obj as TankCheckClass;
+                        attempted = true;
                         seriallizedData = sendMethods.SendTankCheck(header, tc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
@@ -1326,6 +1403,7 @@ namespace ASFuelControl.Windows.Threads
                         }
                         else
                         {
+                            attempted = true;
                             seriallizedData = sendMethods.SendTankCheck(header, tankCheck);
                             if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                             {
@@ -1338,7 +1416,7 @@ namespace ASFuelControl.Windows.Threads
                         return true;
                     case "AlertClass":
                         AlertClass ac = obj as AlertClass;
-                        
+                        attempted = true;
                         seriallizedData = sendMethods.SendAlert(header, ac);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
@@ -1384,6 +1462,7 @@ namespace ASFuelControl.Windows.Threads
                         }
                         else
                         {
+                            attempted = true;
                             seriallizedData = sendMethods.SendAlert(header, alert);
                             if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                             {
@@ -1395,6 +1474,7 @@ namespace ASFuelControl.Windows.Threads
                         return true;
                     case "ChangePriceClass":
                         ChangePriceClass cp = obj as ChangePriceClass;
+                        attempted = true;
                         seriallizedData = sendMethods.SendChangePrice(header, cp);
 
                         bool sendPriceChange = Data.Implementation.OptionHandler.Instance.GetBoolOption("SmsSendPriceChange", false);
@@ -1412,6 +1492,7 @@ namespace ASFuelControl.Windows.Threads
                         return true;
                     case "IncomeRecieptClass":
                         IncomeRecieptClass inc = obj as IncomeRecieptClass;
+                        attempted = true;
                         seriallizedData = sendMethods.SendIncome(header, inc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
@@ -1423,6 +1504,7 @@ namespace ASFuelControl.Windows.Threads
 
                     case "DeliveryNoteClass":
                         DeliveryNoteClass del = obj as DeliveryNoteClass;
+                        attempted = true;
                         seriallizedData = sendMethods.SendDelivery(header, del);
 
                         bool sendDelivery = Data.Implementation.OptionHandler.Instance.GetBoolOption("SmsSendDelivery", false);
@@ -1451,6 +1533,7 @@ namespace ASFuelControl.Windows.Threads
                         return true;
                     case "LiterCheckClass":
                         LiterCheckClass lc = obj as LiterCheckClass;
+                        attempted = true;
                         seriallizedData = sendMethods.SendLiterCheck(header, lc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
@@ -1461,7 +1544,7 @@ namespace ASFuelControl.Windows.Threads
                         return true;
                     case "BalanceClass":
                         BalanceClass bc = obj as BalanceClass;
-
+                        attempted = true;
                         seriallizedData = sendMethods.SendBalance(header, bc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
