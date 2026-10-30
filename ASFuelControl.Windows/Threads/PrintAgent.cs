@@ -2244,7 +2244,7 @@ namespace ASFuelControl.Windows.Threads
                     List<Data.Balance> recentBalances = db.Balances
                         .Where(balance => balance.PrintDate.HasValue)
                         .OrderByDescending(balance => balance.EndDate)
-                        .Take(31)
+                        .Take(7)
                         .ToList();
 
                     foreach (Data.Balance balance in recentBalances)
