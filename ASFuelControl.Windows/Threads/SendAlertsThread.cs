@@ -13,11 +13,11 @@ namespace ASFuelControl.Windows.Threads
     /// </summary>
     public class SendAlertsThread
     {
-        private const int TankCheckBatchSize = 20;
-        private const int AlertBatchSize = 10;
-        private const int TankFillingBatchSize = 5;
-        private const int SalesBatchSize = 10;
-        private const int PriceBatchSize = 10;
+        private const int TankCheckBatchSize = 1;
+        private const int AlertBatchSize = 1;
+        private const int TankFillingBatchSize = 1;
+        private const int SalesBatchSize = 5;
+        private const int PriceBatchSize = 1;
         private const int BalanceBatchSize = 1;
         private const int InitialRetryDelaySeconds = 30;
         private const int MaximumRetryDelaySeconds = 15 * 60;

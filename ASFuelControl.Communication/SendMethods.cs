@@ -10,6 +10,7 @@ namespace ASFuelControl.Communication
 {
     public class SendMethods
     {
+        private static readonly TimeSpan FuelFlowOperationTimeout = TimeSpan.FromMinutes(1);
         public static event EventHandler<string> SentObjectLog;
         public bool Simulation { set; get; }
         static DateTime dtInitOtp = DateTime.MinValue;
@@ -52,6 +53,7 @@ namespace ASFuelControl.Communication
             bool closed = false;
             try
             {
+                client.InnerChannel.OperationTimeout = FuelFlowOperationTimeout;
                 client.Open();
                 TResult result = action(client);
                 client.Close();
