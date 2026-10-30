@@ -53,6 +53,20 @@ namespace ASFuelControl.Windows.Threads
         public DateTime? LastReferenceCheckUtc { get; set; }
         public int PollMinutes { get; set; } = 30;
     }
+    internal static class SharedMyDieselProductionContract
+    {
+        // AADE download published with the ERP Guide v1.1 on 29/10/2026.
+        // The OpenAPI document itself identifies the interface as v0.1.
+        internal const string ContractVersion = "v0.1";
+        internal const string OpenApiSha256 = "F1B2E24738D53DD13D4C92282E060472BCCF46634115D435984655B3A08F7403";
+
+        internal static bool Matches(SharedMyDieselProfile profile)
+        {
+            return profile != null &&
+                string.Equals(profile.ContractVersion,ContractVersion,StringComparison.Ordinal) &&
+                string.Equals(profile.OpenApiSha256,OpenApiSha256,StringComparison.OrdinalIgnoreCase);
+        }
+    }
     internal sealed class SharedInvoiceConfiguration : IProviderCredentialsResolver
     {
         public int Version { get; set; }

@@ -139,7 +139,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
             dieselCheck.Click += (s,e) => CheckMyDieselConnection();
             diesel.Note("UAT: χρησιμοποιείται το κοινό κλειδί ERP της επίσημης έκδοσης 0.1 και ένας από τους δοκιμαστικούς ΑΦΜ.\r\n" +
                 "Δικαιούχοι δοκιμών: " + string.Join(" / ",MyDieselUatCatalog.BeneficiaryVats) + ". Εκδίδετε κουπόνια 5–10 λίτρων.");
-            diesel.Note("Το query κουπονιού μεταβάλλει κατάσταση και δεν εκτελείται από αυτή τη φόρμα.\r\nΗ παραγωγή παραμένει κλειδωμένη μέχρι τον έλεγχο του επίσημου OpenAPI contract.");
+            diesel.Note("Το query κουπονιού μεταβάλλει κατάσταση και δεν εκτελείται από αυτή τη φόρμα.\r\n" +
+                "Παραγωγή: ελεγμένο OpenAPI " + SharedMyDieselProductionContract.ContractVersion + " της ΑΑΔΕ (29/10/2026).");
             myDieselEnabled.ToggleStateChanged += (s,e) => RefreshMyDieselFields();
             sharedEnvironment.SelectedIndexChanged += (s,e) => {
                 myDieselReferenceCheckedUtc = null;
@@ -351,8 +352,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
             return new SharedMyDieselProfile { Enabled = myDieselEnabled.IsChecked, Environment = environment, CompanyVat = company,
                 BranchNum = station?.BranchNum ?? -1, StationName = station?.Name, StationAmdika = station?.Amdika,
                 ExciseDiscountPerLitre = MyDieselTaxRules.NormalizeExciseDiscountPerLitre(myDieselExciseRate.Value),
-                CredentialProfileId = credential.Id, ContractVersion = environment == FiscalEnvironment.Test ? MyDieselUatCatalog.ContractVersion : invoicing.MyDiesel?.ContractVersion,
-                OpenApiSha256 = environment == FiscalEnvironment.Test ? null : invoicing.MyDiesel?.OpenApiSha256, LastReferenceCheckUtc = myDieselReferenceCheckedUtc,
+                CredentialProfileId = credential.Id, ContractVersion = environment == FiscalEnvironment.Test ? MyDieselUatCatalog.ContractVersion : SharedMyDieselProductionContract.ContractVersion,
+                OpenApiSha256 = environment == FiscalEnvironment.Test ? null : SharedMyDieselProductionContract.OpenApiSha256, LastReferenceCheckUtc = myDieselReferenceCheckedUtc,
                 PollMinutes = (int)myDieselPoll.Value };
         }
         private string PreserveImportedSecret(string key)

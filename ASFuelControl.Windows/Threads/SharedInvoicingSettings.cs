@@ -134,8 +134,8 @@ namespace ASFuelControl.Windows.Threads
             if (!profile.LastReferenceCheckUtc.HasValue) problems.Add("myDiesel: απαιτείται επιτυχής έλεγχος εταιρείας, πρατηρίου και καυσίμων.");
             if (profile.Environment == FiscalEnvironment.Test && profile.ContractVersion != MyDieselUatCatalog.ContractVersion)
                 problems.Add("myDiesel UAT: οι ρυθμίσεις πρέπει να αποθηκευτούν με τα επίσημα δεδομένα δοκιμών έκδοσης 0.1.");
-            if (profile.Environment == FiscalEnvironment.Production && (string.IsNullOrWhiteSpace(profile.OpenApiSha256) || string.IsNullOrWhiteSpace(profile.ContractVersion)))
-                problems.Add("myDiesel: η παραγωγή παραμένει κλειδωμένη μέχρι να ελεγχθεί και να καταγραφεί το επίσημο OpenAPI contract.");
+            if (profile.Environment == FiscalEnvironment.Production && !SharedMyDieselProductionContract.Matches(profile))
+                problems.Add("myDiesel: απαιτείται το ελεγμένο συμβόλαιο παραγωγής " + SharedMyDieselProductionContract.ContractVersion + ".");
         }
         internal static void ValidateActivation(SharedInvoiceConfiguration value)
         {
