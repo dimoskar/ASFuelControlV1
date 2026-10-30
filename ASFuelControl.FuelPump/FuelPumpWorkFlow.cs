@@ -861,7 +861,7 @@ namespace ASFuelControl.FuelPump
             if (this.Dispenser.TargetStatus == status && this.Dispenser.Initialized)
                 return true;
             if(status == Common.Enumerators.FuelPointStatusEnum.Nozzle)
-                Logger.Instance.LogToFile("Authorization", string.Format("{2} CurrentStatus: {0}, TargetStatus: {1} Not Initialized", this.Dispenser.Status, this.Dispenser.TargetStatus, this.Dispenser.DispenserNumber));
+                Logger.Instance.LogToFile("Authorization", string.Format("{2} CurrentStatus: {0}, TargetStatus: {1} Not Initialized", this.Dispenser.Status, this.Dispenser.TargetStatus, this.Dispenser.DispenserNumber), 3);
             return false;
         }
         private bool TotalsUpdated(object foo)
