@@ -49,6 +49,26 @@ namespace ASFuelControl.Communication
         public static string InstallatorTin { set; get; }
         public static string Amdika { set; get; }
 
+        private static TResult UseFuelFlowClient<TResult>(Func<FuelFlowService.achilleas_fuelflow_receiptSoapClient, TResult> action)
+        {
+            FuelFlowService.achilleas_fuelflow_receiptSoapClient client =
+                new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+            bool closed = false;
+            try
+            {
+                client.Open();
+                TResult result = action(client);
+                client.Close();
+                closed = true;
+                return result;
+            }
+            finally
+            {
+                if (!closed)
+                    client.Abort();
+            }
+        }
+
         public decimal NormalizeVolume(Enums.FuelTypeEnum ft, decimal volume, decimal temperature)
         {
             if(ft == Enums.FuelTypeEnum.Diesel || ft == Enums.FuelTypeEnum.DieselHeat)
@@ -78,8 +98,6 @@ namespace ASFuelControl.Communication
 
         public bool SendChangePrice(ClientHeader header, Enums.FuelTypeEnum ftype, decimal newPrice)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-            
             FuelFlowService.Fuelflows_TypePriceChange change = new FuelFlowService.Fuelflows_TypePriceChange();
             FuelFlowService.Fuel_Type ft = new FuelFlowService.Fuel_Type();
             ft.Code = (int)ftype;
@@ -98,12 +116,10 @@ namespace ASFuelControl.Communication
                 
                 if (!Simulation)
                 {
-                    client.Open();
                     change.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     change.Header.SubmissionDate = header.SubmissionDate;
-                    string returnStr = client.PriceChange(change);
-                    client.Close();
+                    string returnStr = UseFuelFlowClient(client => client.PriceChange(change));
                     this.LogToken(returnStr);
                 }
                 this.LogObject(change, change.Header.SubmissionDate);
@@ -118,7 +134,6 @@ namespace ASFuelControl.Communication
 
         public bool SendAlert(ClientHeader header, Enums.AlertIdEnum alertId, string deviceLabel, DateTime dt, string reason)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
             FuelFlowService.Fuelflows_TypeAlertRegistration alert = new FuelFlowService.Fuelflows_TypeAlertRegistration();
             alert.Header = new FuelFlowService.Header_Type();
             alert.Header.CompanyTIN = header.CompanyTIN;
@@ -135,12 +150,10 @@ namespace ASFuelControl.Communication
             {
                 if (!Simulation)
                 {
-                    client.Open();
                     alert.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     alert.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendAlert(alert);
-                    client.Close();
+                    string ret = UseFuelFlowClient(client => client.SendAlert(alert));
                     this.LogToken(ret);
                 }
                 this.LogObject(alert, alert.Header.SubmissionDate);
@@ -154,15 +167,12 @@ namespace ASFuelControl.Communication
 
         public bool SendActionRegistration(ClientHeader header)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
             return true;
             //client.SendAlert
         }
 
         public bool SendBalance(ClientHeader header, Communication.BalanceClass balanceClass)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-
             FuelFlowService.Fuelflows_TypeBalance balance =  balanceClass.GetElement();
             balance.F_AM_DIKA = etoken.AMDIKA_ID;
             balance.Header = new FuelFlowService.Header_Type();
@@ -177,12 +187,10 @@ namespace ASFuelControl.Communication
                 
                 if (!Simulation)
                 {
-                    client.Open();
                     balance.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     balance.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendBalance(balance);
-                    client.Close();
+                    string ret = UseFuelFlowClient(client => client.SendBalance(balance));
                     this.LogToken(ret);
                 }
                 this.LogObject(balance, balance.Header.SubmissionDate);
@@ -199,9 +207,6 @@ namespace ASFuelControl.Communication
 
         public bool SendDelievery(ClientHeader header, Communication.DeliveryNoteClass delivery)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-            
-
             delivery.Document.Amdika = etoken.AMDIKA_ID;
             FuelFlowService.Fuelflows_TypeDeliveryNote deliveryNote = delivery.GetElement();
 
@@ -213,12 +218,10 @@ namespace ASFuelControl.Communication
             {
                 if (!Simulation)
                 {
-                    client.Open();
                     deliveryNote.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     deliveryNote.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendDelivery(deliveryNote);
-                    client.Close();
+                    string ret = UseFuelFlowClient(client => client.SendDelivery(deliveryNote));
                     this.LogToken(ret);
                 }
                 this.LogObject(deliveryNote, deliveryNote.Header.SubmissionDate);
@@ -232,7 +235,6 @@ namespace ASFuelControl.Communication
 
         public bool SendLiterCheck(ClientHeader header, Communication.LiterCheckClass lc)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
             FuelFlowService.Fuelflows_TypeLiterCheck literCheck = lc.GetElement();
             literCheck.Header = new FuelFlowService.Header_Type();
             literCheck.Header.CompanyTIN = CommunicationMethods.CompanyTin;
@@ -243,12 +245,10 @@ namespace ASFuelControl.Communication
                 literCheck.F_AM_DIKA = etoken.AMDIKA_ID;
                 if (!Simulation)
                 {
-                    client.Open();
                     literCheck.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     literCheck.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendLiterCheck(literCheck);
-                    client.Close();
+                    string ret = UseFuelFlowClient(client => client.SendLiterCheck(literCheck));
                     this.LogToken(ret);
                 }
                 this.LogObject(literCheck, literCheck.Header.SubmissionDate);
@@ -263,9 +263,6 @@ namespace ASFuelControl.Communication
 
         public bool SendReciept(ClientHeader header, List<Communication.IncomeRecieptClass> recs)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-            
-
             Communication.IncomeRecieptsClass reciepts = new IncomeRecieptsClass();
             foreach (Communication.IncomeRecieptClass rec in recs)
                 rec.Amdika = etoken.AMDIKA_ID;
@@ -280,12 +277,10 @@ namespace ASFuelControl.Communication
             {
                 if (!Simulation)
                 {
-                    client.Open();
                     reciept.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     reciept.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendReceipt(reciept);
-                    client.Close();
+                    string ret = UseFuelFlowClient(client => client.SendReceipt(reciept));
                     this.LogToken(ret);
                 }
 
@@ -301,8 +296,6 @@ namespace ASFuelControl.Communication
 
         public bool SendTankCheck(ClientHeader header, TankCheckClass tank)
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-
             FuelFlowService.Fuelflows_TypeTankCheck tankCheck = new FuelFlowService.Fuelflows_TypeTankCheck();
             tankCheck.F_3001 = tank.TransactionDate;
             tankCheck.F_3002 = tank.TankLevel == 0 ? 1 : tank.TankLevel;
@@ -320,12 +313,10 @@ namespace ASFuelControl.Communication
             {
                 if (!Simulation)
                 {
-                    client.Open();
                     tankCheck.Header.eToken = SendMethods.GetOTP();
                     header.SubmissionDate = DateTime.Now;
                     tankCheck.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendTankCheck(tankCheck);
-                    client.Close();
+                    string ret = UseFuelFlowClient(client => client.SendTankCheck(tankCheck));
                     this.LogToken(ret);
                 }
                 this.LogObject(tankCheck, tankCheck.Header.SubmissionDate);

@@ -9,6 +9,13 @@ namespace Exedron.MyData
 {
     public class RequestTransmitted
     {
+        private static readonly HttpClient Client = CreateClient();
+
+        private static HttpClient CreateClient()
+        {
+            return new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        }
+
         public static Models.Transmitted.RequestedDoc MakeRequest(string url, string mark, string nextPartitionKey, string nextRowKey)
         {
             try { 
@@ -17,21 +24,17 @@ namespace Exedron.MyData
                 {
                     invoicesDoc = new Models.Transmitted.RequestedDocInvoice[] { }
                 };
-            var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(30);
-
-            // Request headers
-            client.DefaultRequestHeaders.Add("aade-user-id", Settings.Username);
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Settings.SubscriptionKey);
-
             var uri = url.EndsWith("/") ? url + "RequestTransmittedDocs?mark=" + mark : url + "/RequestTransmittedDocs?mark=" + mark;
             if(!string.IsNullOrEmpty(nextPartitionKey))
                 uri = uri + "&nextPartitionKey" + nextPartitionKey;
             if (!string.IsNullOrEmpty(nextRowKey))
                 uri = uri + "&nextRowKey" + nextRowKey;
 
-            HttpResponseMessage response = client.GetAsync(uri).Result;
-                if (response != null)
+            using (var request = new HttpRequestMessage(HttpMethod.Get, uri))
+            {
+                request.Headers.Add("aade-user-id", Settings.Username);
+                request.Headers.Add("Ocp-Apim-Subscription-Key", Settings.SubscriptionKey);
+                using (HttpResponseMessage response = Client.SendAsync(request).Result)
                 {
                     var responseString = response.Content.ReadAsStringAsync().Result;
                     var pos = responseString.IndexOf('<');
@@ -67,6 +70,7 @@ namespace Exedron.MyData
 
                     }
                 }
+            }
             }
 
             catch (Exception ex)

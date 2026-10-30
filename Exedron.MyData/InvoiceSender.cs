@@ -11,6 +11,13 @@ namespace Exedron.MyData
 {
     public class InvoiceSender
     {
+        private static readonly HttpClient Client = CreateClient();
+
+        private static HttpClient CreateClient()
+        {
+            return new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        }
+
         public static Models.Responses.ResponseDoc MakeRequest(string url, string xmlData)
         {
             var pos1 = xmlData.IndexOf('<');
@@ -29,25 +36,16 @@ namespace Exedron.MyData
                         }
                     } 
                 };
-            var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(30);
-
-            // Request headers
-            client.DefaultRequestHeaders.Add("aade-user-id", Settings.Username);
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Settings.SubscriptionKey);
-
             var uri = url + "/SendInvoices";
-
-            HttpResponseMessage response;
-
-            // Request body
             byte[] byteData = Encoding.UTF8.GetBytes(xmlData);
 
-            using (var content = new ByteArrayContent(byteData))
+            using (var request = new HttpRequestMessage(HttpMethod.Post, uri))
             {
-                content.Headers.ContentType = new MediaTypeHeaderValue("application/xml");
-                response = client.PostAsync(uri, content).Result;
-                if (response != null)
+                request.Headers.Add("aade-user-id", Settings.Username);
+                request.Headers.Add("Ocp-Apim-Subscription-Key", Settings.SubscriptionKey);
+                request.Content = new ByteArrayContent(byteData);
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/xml");
+                using (HttpResponseMessage response = Client.SendAsync(request).Result)
                 {
                     var responseString = response.Content.ReadAsStringAsync().Result;
                     var pos = responseString.IndexOf('<');
@@ -101,25 +99,16 @@ namespace Exedron.MyData
                         }
                     }
                 };
-            var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(30);
-
-            // Request headers
-            client.DefaultRequestHeaders.Add("aade-user-id", userName);
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", password);
-
             var uri = url + "/SendInvoices";
-
-            HttpResponseMessage response;
-
-            // Request body
             byte[] byteData = Encoding.UTF8.GetBytes(xmlData);
 
-            using (var content = new ByteArrayContent(byteData))
+            using (var request = new HttpRequestMessage(HttpMethod.Post, uri))
             {
-                content.Headers.ContentType = new MediaTypeHeaderValue("application/xml");
-                response = client.PostAsync(uri, content).Result;
-                if (response != null)
+                request.Headers.Add("aade-user-id", userName);
+                request.Headers.Add("Ocp-Apim-Subscription-Key", password);
+                request.Content = new ByteArrayContent(byteData);
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/xml");
+                using (HttpResponseMessage response = Client.SendAsync(request).Result)
                 {
                     var responseString = response.Content.ReadAsStringAsync().Result;
                     try 

@@ -44,6 +44,27 @@ namespace ASFuelControl.Communication
         }
 
         private static object foo = new object();
+
+        private static TResult UseFuelFlowClient<TResult>(Func<FuelFlowService.achilleas_fuelflow_receiptSoapClient, TResult> action)
+        {
+            FuelFlowService.achilleas_fuelflow_receiptSoapClient client =
+                new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
+            bool closed = false;
+            try
+            {
+                client.Open();
+                TResult result = action(client);
+                client.Close();
+                closed = true;
+                return result;
+            }
+            finally
+            {
+                if (!closed)
+                    client.Abort();
+            }
+        }
+
         public static string GetOTP()
         {
             lock (foo)
@@ -91,15 +112,12 @@ namespace ASFuelControl.Communication
                         Common.Logger.Instance.Debug($"Date1: {dtNow} - Date2: {dtNow2}");
                         return "[ERROR:" + otp + "]";
                     }
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-                    client.Open();
                     tankCheck.Header.eToken = otp;
                     header.SubmissionDate = DateTime.Now;
                     tankCheck.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendTankCheck(tankCheck);
+                    string ret = UseFuelFlowClient(client => client.SendTankCheck(tankCheck));
                     if (ret.StartsWith("ERROR|"))
                         ret = "[ERROR]" + ret;
-                    client.Close();
                     returnStr = ret;
                 }
                 return returnStr + "\r\n" + this.SerializeObject(tankCheck);
@@ -137,15 +155,12 @@ namespace ASFuelControl.Communication
                     string otp = GetOTP();
                     if (otp.Contains("ERROR"))
                         return "[ERROR:" + otp + "]";
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-                    client.Open();
                     alert.Header.eToken = otp;
                     header.SubmissionDate = DateTime.Now;
                     alert.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendAlert(alert);
+                    string ret = UseFuelFlowClient(client => client.SendAlert(alert));
                     if (ret.StartsWith("ERROR|"))
                         ret = "[ERROR]" + ret;
-                    client.Close();
                     returnStr = ret;
                 }
                 return returnStr + "\r\n" + this.SerializeObject(alert);
@@ -179,15 +194,12 @@ namespace ASFuelControl.Communication
                     string otp = GetOTP();
                     if (otp.Contains("ERROR"))
                         return "[ERROR:" + otp + "]";
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-                    client.Open();
                     change.Header.eToken = otp;
                     header.SubmissionDate = DateTime.Now;
                     change.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.PriceChange(change);
+                    string ret = UseFuelFlowClient(client => client.PriceChange(change));
                     if (ret.StartsWith("ERROR|"))
                         ret = "[ERROR]" + ret;
-                    client.Close();
                     returnStr = ret;
                 }
                 return returnStr + "\r\n" + this.SerializeObject(change);
@@ -219,15 +231,12 @@ namespace ASFuelControl.Communication
                     string otp = GetOTP();
                     if (otp.Contains("ERROR"))
                         return "[ERROR:" + otp + "]";
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-                    client.Open();
                     reciept.Header.eToken = otp;
                     header.SubmissionDate = DateTime.Now;
                     reciept.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendReceipt(reciept);
+                    string ret = UseFuelFlowClient(client => client.SendReceipt(reciept));
                     if (ret.StartsWith("ERROR|"))
                         ret = "[ERROR]" + ret;
-                    client.Close();
                     returnStr = ret;
                 }
                 return returnStr + "\r\n" + this.SerializeObject(reciept);
@@ -254,15 +263,12 @@ namespace ASFuelControl.Communication
                     string otp = GetOTP();
                     if (otp.Contains("ERROR"))
                         return "[ERROR:" + otp + "]";
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-                    client.Open();
                     deliveryNote.Header.eToken = otp;
                     header.SubmissionDate = DateTime.Now;
                     deliveryNote.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendDelivery(deliveryNote);
+                    string ret = UseFuelFlowClient(client => client.SendDelivery(deliveryNote));
                     if (ret.StartsWith("ERROR|"))
                         ret = "[ERROR]" + ret;
-                    client.Close();
                     returnStr = ret;
                 }
                 return returnStr + "\r\n" + this.SerializeObject(deliveryNote);
@@ -287,8 +293,6 @@ namespace ASFuelControl.Communication
                     string otp = GetOTP();
                     if (otp.Contains("ERROR"))
                         return "[ERROR:" + otp + "]";
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-                    client.Open();
                     literCheck.Header = new FuelFlowService.Header_Type();
                     literCheck.Header.CompanyTIN = header.CompanyTIN;
                     literCheck.Header.SubmitterTIN = header.SubmitterTIN;
@@ -296,10 +300,9 @@ namespace ASFuelControl.Communication
                     literCheck.Header.eToken = otp;
                     header.SubmissionDate = DateTime.Now;
                     literCheck.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendLiterCheck(literCheck);
+                    string ret = UseFuelFlowClient(client => client.SendLiterCheck(literCheck));
                     if (ret.StartsWith("ERROR|"))
                         ret = "[ERROR]" + ret;
-                    client.Close();
                     returnStr = ret;
                 }
                 return returnStr + "\r\n" + this.SerializeObject(lc);
@@ -327,15 +330,12 @@ namespace ASFuelControl.Communication
                     string otp = GetOTP();
                     if (otp.Contains("ERROR"))
                         return "[ERROR:" + otp + "]";
-                    ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-                    client.Open();
                     balance.Header.eToken = otp;
                     header.SubmissionDate = DateTime.Now;
                     balance.Header.SubmissionDate = header.SubmissionDate;
-                    string ret = client.SendBalance(balance);
+                    string ret = UseFuelFlowClient(client => client.SendBalance(balance));
                     if (ret.StartsWith("ERROR|"))
                         ret = "[ERROR]" + ret;
-                    client.Close();
                     returnStr = ret;
                 }
                 return returnStr + "\r\n" + this.SerializeObject(bc);
@@ -358,9 +358,7 @@ namespace ASFuelControl.Communication
 
         public string GetSationRecord()
         {
-            ASFuelControl.Communication.FuelFlowService.achilleas_fuelflow_receiptSoapClient client = new FuelFlowService.achilleas_fuelflow_receiptSoapClient();
-            string xml = client.GetRegNums(etoken.AMDIKA_ID, GetOTP());
-            return xml;
+            return UseFuelFlowClient(client => client.GetRegNums(etoken.AMDIKA_ID, GetOTP()));
         }
 
         private string SerializeObject(object obj)

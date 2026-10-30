@@ -11,29 +11,28 @@ namespace Exedron.MyData
 {
     public class InvoiceCancelation
     {
+        private static readonly HttpClient Client = CreateClient();
+
+        private static HttpClient CreateClient()
+        {
+            return new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        }
+
         public static Models.Responses.ResponseDoc MakeRequest(string url, long mark)
         {
             if (!Exedron.MyData.Settings.IsActive)
                 return new Models.Responses.ResponseDoc();
-            var client = new HttpClient();
             var queryString = HttpUtility.ParseQueryString(string.Empty);
-
-            client.Timeout = TimeSpan.FromSeconds(30);
-
-            // Request headers
-            client.DefaultRequestHeaders.Add("aade-user-id", Settings.Username);
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", Settings.SubscriptionKey);
             queryString["mark"] = mark.ToString();
             var uri = url + "/CancelInvoice?" + queryString;
 
-            HttpResponseMessage response;
-
-
-            using (var content = new ByteArrayContent(new byte[] { }))
+            using (var request = new HttpRequestMessage(HttpMethod.Post, uri))
             {
-                content.Headers.ContentType = new MediaTypeHeaderValue("application/xml");
-                response = client.PostAsync(uri, content).Result;
-                if (response != null)
+                request.Headers.Add("aade-user-id", Settings.Username);
+                request.Headers.Add("Ocp-Apim-Subscription-Key", Settings.SubscriptionKey);
+                request.Content = new ByteArrayContent(new byte[] { });
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/xml");
+                using (HttpResponseMessage response = Client.SendAsync(request).Result)
                 {
                     var responseString = response.Content.ReadAsStringAsync().Result;
                     var pos = responseString.IndexOf('<');
@@ -77,25 +76,17 @@ namespace Exedron.MyData
                     }
                 };
 
-            var client = new HttpClient();
             var queryString = HttpUtility.ParseQueryString(string.Empty);
-
-            client.Timeout = TimeSpan.FromSeconds(30);
-
-            // Request headers
-            client.DefaultRequestHeaders.Add("aade-user-id", userName);
-            client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", password);
             queryString["mark"] = mark.ToString();
             var uri = url + "/CancelInvoice?" + queryString;
 
-            HttpResponseMessage response;
-
-
-            using (var content = new ByteArrayContent(new byte[] { }))
+            using (var request = new HttpRequestMessage(HttpMethod.Post, uri))
             {
-                content.Headers.ContentType = new MediaTypeHeaderValue("application/xml");
-                response = client.PostAsync(uri, content).Result;
-                if (response != null)
+                request.Headers.Add("aade-user-id", userName);
+                request.Headers.Add("Ocp-Apim-Subscription-Key", password);
+                request.Content = new ByteArrayContent(new byte[] { });
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/xml");
+                using (HttpResponseMessage response = Client.SendAsync(request).Result)
                 {
                     var responseString = response.Content.ReadAsStringAsync().Result;
                     var pos = responseString.IndexOf('<');

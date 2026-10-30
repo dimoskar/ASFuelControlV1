@@ -201,20 +201,27 @@ namespace ASFuelControl.Windows.Threads
         /// <param name="smsText"></param>
         public void SendSms(string smsText)
         {
+            SmsService.Service1Client client = null;
             try
             {
                 if (smsAcount == null || smsAcount == "")
                     return;
                 if (cellPhone == null || cellPhone == "")
                     return;
-                SmsService.Service1Client client = new SmsService.Service1Client();
+                client = new SmsService.Service1Client();
                 SmsService.BalanceReturn ret = client.GetBalance(userName, password);
                 if(ret.Balance > 0)
                     client.SendSms(userName, password, smsText, cellPhone);
                 client.Close();
+                client = null;
             }
             catch
             {
+            }
+            finally
+            {
+                if (client != null)
+                    client.Abort();
             }
         }
     }
