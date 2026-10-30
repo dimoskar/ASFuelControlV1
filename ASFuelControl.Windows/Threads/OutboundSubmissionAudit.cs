@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -33,6 +34,9 @@ namespace ASFuelControl.Windows.Threads
         public DateTime? CompletedUtc { get; set; }
         public string LastErrorCategory { get; set; }
         public string LastErrorSummary { get; set; }
+        public bool IsPinned { get; set; }
+        public DateTime? PinnedUtc { get; set; }
+        public string PinnedBy { get; set; }
     }
 
     internal sealed class OutboundSubmissionAttemptEntry
@@ -56,6 +60,73 @@ namespace ASFuelControl.Windows.Threads
         public string MachineName { get; set; }
         public string CorrelationId { get; set; }
         public string InitiatedBy { get; set; }
+        public Guid? ArchiveId { get; set; }
+        public DateTime? ArchivedUtc { get; set; }
+        public DateTime? PayloadPurgedUtc { get; set; }
+        public string ArchiveFilePath { get; set; }
+        public string ArchiveSha256 { get; set; }
+    }
+
+    internal sealed class OutboundAuditRetentionPolicy
+    {
+        private const string Prefix = "OutboundAudit.";
+
+        public bool Enabled { get; set; }
+        public string ArchiveDirectory { get; set; }
+        public int CompletedPayloadDays { get; set; }
+        public int FailedPayloadDays { get; set; }
+        public int UnknownPayloadDays { get; set; }
+        public int MetadataDays { get; set; }
+        public int ArchiveFileDays { get; set; }
+        public int BatchSize { get; set; }
+        public int RunHour { get; set; }
+        public int MinimumFreeSpaceMb { get; set; }
+
+        public static OutboundAuditRetentionPolicy Load()
+        {
+            var options = Data.Implementation.OptionHandler.Instance;
+            return new OutboundAuditRetentionPolicy
+            {
+                Enabled = options.GetBoolOption(Prefix + "Enabled", true),
+                ArchiveDirectory = options.GetOption(Prefix + "ArchiveDirectory", DefaultArchiveDirectory()),
+                CompletedPayloadDays = ClampDays(options.GetIntOption(Prefix + "CompletedPayloadDays", 30), 1),
+                FailedPayloadDays = ClampDays(options.GetIntOption(Prefix + "FailedPayloadDays", 180), 1),
+                UnknownPayloadDays = ClampDays(options.GetIntOption(Prefix + "UnknownPayloadDays", 365), 1),
+                MetadataDays = ClampDays(options.GetIntOption(Prefix + "MetadataDays", 0), 0),
+                ArchiveFileDays = ClampDays(options.GetIntOption(Prefix + "ArchiveFileDays", 0), 0),
+                BatchSize = Math.Max(10, Math.Min(options.GetIntOption(Prefix + "BatchSize", 100), 500)),
+                RunHour = Math.Max(0, Math.Min(options.GetIntOption(Prefix + "RunHour", 3), 23)),
+                MinimumFreeSpaceMb = Math.Max(100, options.GetIntOption(Prefix + "MinimumFreeSpaceMb", 1024))
+            };
+        }
+
+        public void Save()
+        {
+            var options = Data.Implementation.OptionHandler.Instance;
+            options.SetOption(Prefix + "Enabled", this.Enabled);
+            options.SetOption(Prefix + "ArchiveDirectory", string.IsNullOrWhiteSpace(this.ArchiveDirectory) ? DefaultArchiveDirectory() : this.ArchiveDirectory.Trim());
+            options.SetOption(Prefix + "CompletedPayloadDays", ClampDays(this.CompletedPayloadDays, 1));
+            options.SetOption(Prefix + "FailedPayloadDays", ClampDays(this.FailedPayloadDays, 1));
+            options.SetOption(Prefix + "UnknownPayloadDays", ClampDays(this.UnknownPayloadDays, 1));
+            options.SetOption(Prefix + "MetadataDays", ClampDays(this.MetadataDays, 0));
+            options.SetOption(Prefix + "ArchiveFileDays", ClampDays(this.ArchiveFileDays, 0));
+            options.SetOption(Prefix + "BatchSize", Math.Max(10, Math.Min(this.BatchSize, 500)));
+            options.SetOption(Prefix + "RunHour", Math.Max(0, Math.Min(this.RunHour, 23)));
+            options.SetOption(Prefix + "MinimumFreeSpaceMb", Math.Max(100, this.MinimumFreeSpaceMb));
+        }
+
+        public static string DefaultArchiveDirectory()
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "ASFuelControl",
+                "OutboundAuditArchive");
+        }
+
+        private static int ClampDays(int value, int minimum)
+        {
+            return Math.Max(minimum, Math.Min(value, 36500));
+        }
     }
 
     /// <summary>
@@ -236,7 +307,7 @@ VALUES
 SELECT TOP (@MaximumRows)
     OutboundSubmissionId, EntityType, EntityId, Destination, Status, AttemptCount,
     CreatedUtc, LastAttemptUtc, NextAttemptUtc, CompletedUtc,
-    LastErrorCategory, LastErrorSummary
+    LastErrorCategory, LastErrorSummary, IsPinned, PinnedUtc, PinnedBy
 FROM dbo.OutboundSubmission
 WHERE CreatedUtc >= @FromUtc AND CreatedUtc < @ToUtc
   AND (@Status IS NULL OR Status = @Status OR (@Status = N'Problems' AND Status <> N'Completed'))
@@ -264,7 +335,10 @@ ORDER BY COALESCE(LastAttemptUtc, CreatedUtc) DESC;"))
                             NextAttemptUtc = GetNullableDateTime(reader, 8),
                             CompletedUtc = GetNullableDateTime(reader, 9),
                             LastErrorCategory = GetNullableString(reader, 10),
-                            LastErrorSummary = GetNullableString(reader, 11)
+                            LastErrorSummary = GetNullableString(reader, 11),
+                            IsPinned = reader.GetBoolean(12),
+                            PinnedUtc = GetNullableDateTime(reader, 13),
+                            PinnedBy = GetNullableString(reader, 14)
                         });
                     }
                 }
@@ -283,9 +357,12 @@ SELECT AttemptId, AttemptNumber, StartedUtc, FinishedUtc, Outcome,
        RequestHash, ResponseStatusCode,
        ResponseContentType, CAST(NULL AS nvarchar(max)) AS ResponsePayload,
        ErrorType, ErrorMessage, CAST(NULL AS nvarchar(max)) AS StackTrace,
-       DurationMilliseconds, ApplicationVersion, MachineName, CorrelationId, InitiatedBy
-FROM dbo.OutboundSubmissionAttempt
-WHERE OutboundSubmissionId = @SubmissionId
+       DurationMilliseconds, ApplicationVersion, MachineName, CorrelationId, InitiatedBy,
+       attempt.ArchiveId, attempt.ArchivedUtc, attempt.PayloadPurgedUtc,
+       archive.FilePath, archive.Sha256
+FROM dbo.OutboundSubmissionAttempt attempt
+LEFT JOIN dbo.OutboundAuditArchive archive ON archive.ArchiveId = attempt.ArchiveId
+WHERE attempt.OutboundSubmissionId = @SubmissionId
 ORDER BY AttemptNumber DESC;"))
             {
                 Add(command, "@SubmissionId", SqlDbType.UniqueIdentifier, submissionId);
@@ -307,14 +384,36 @@ ORDER BY AttemptNumber DESC;"))
 SELECT AttemptId, AttemptNumber, StartedUtc, FinishedUtc, Outcome,
        RequestContentType, RequestPayload, RequestHash, ResponseStatusCode,
        ResponseContentType, ResponsePayload, ErrorType, ErrorMessage, StackTrace,
-       DurationMilliseconds, ApplicationVersion, MachineName, CorrelationId, InitiatedBy
-FROM dbo.OutboundSubmissionAttempt
-WHERE AttemptId = @AttemptId;"))
+       DurationMilliseconds, ApplicationVersion, MachineName, CorrelationId, InitiatedBy,
+       attempt.ArchiveId, attempt.ArchivedUtc, attempt.PayloadPurgedUtc,
+       archive.FilePath, archive.Sha256
+FROM dbo.OutboundSubmissionAttempt attempt
+LEFT JOIN dbo.OutboundAuditArchive archive ON archive.ArchiveId = attempt.ArchiveId
+WHERE attempt.AttemptId = @AttemptId;"))
             {
                 Add(command, "@AttemptId", SqlDbType.UniqueIdentifier, attemptId);
                 connection.Open();
                 using (var reader = command.ExecuteReader(CommandBehavior.SingleRow))
                     return reader.Read() ? ReadAttempt(reader) : null;
+            }
+        }
+
+        public void SetPinned(Guid submissionId, bool pinned, string initiatedBy)
+        {
+            EnsureSchema();
+            using (var connection = new SqlConnection(connectionString))
+            using (var command = CreateCommand(connection, null, @"
+UPDATE dbo.OutboundSubmission
+SET IsPinned = @Pinned,
+    PinnedUtc = CASE WHEN @Pinned = 1 THEN SYSUTCDATETIME() ELSE NULL END,
+    PinnedBy = CASE WHEN @Pinned = 1 THEN @PinnedBy ELSE NULL END
+WHERE OutboundSubmissionId = @SubmissionId;"))
+            {
+                Add(command, "@Pinned", SqlDbType.Bit, pinned);
+                Add(command, "@PinnedBy", SqlDbType.NVarChar, 128, initiatedBy);
+                Add(command, "@SubmissionId", SqlDbType.UniqueIdentifier, submissionId);
+                connection.Open();
+                command.ExecuteNonQuery();
             }
         }
 
@@ -474,7 +573,12 @@ WHERE OutboundSubmissionId = @SubmissionId;"))
                 ApplicationVersion = GetNullableString(reader, 15),
                 MachineName = GetNullableString(reader, 16),
                 CorrelationId = GetNullableString(reader, 17),
-                InitiatedBy = GetNullableString(reader, 18)
+                InitiatedBy = GetNullableString(reader, 18),
+                ArchiveId = reader.IsDBNull(19) ? (Guid?)null : reader.GetGuid(19),
+                ArchivedUtc = GetNullableDateTime(reader, 20),
+                PayloadPurgedUtc = GetNullableDateTime(reader, 21),
+                ArchiveFilePath = GetNullableString(reader, 22),
+                ArchiveSha256 = GetNullableString(reader, 23)
             };
         }
 
@@ -509,12 +613,37 @@ BEGIN
         CompletedUtc datetime2(3) NULL,
         LastErrorCategory nvarchar(64) NULL,
         LastErrorSummary nvarchar(2000) NULL,
+        IsPinned bit NOT NULL CONSTRAINT DF_OutboundSubmission_IsPinned DEFAULT (0),
+        PinnedUtc datetime2(3) NULL,
+        PinnedBy nvarchar(128) NULL,
         RowVersion rowversion NOT NULL,
         CONSTRAINT PK_OutboundSubmission PRIMARY KEY (OutboundSubmissionId),
         CONSTRAINT UQ_OutboundSubmission_Entity UNIQUE (EntityType, EntityId, Destination)
     );
     CREATE INDEX IX_OutboundSubmission_StatusNext
         ON dbo.OutboundSubmission(Status, NextAttemptUtc, CreatedUtc);
+END;
+
+IF OBJECT_ID(N'dbo.OutboundAuditArchive', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.OutboundAuditArchive
+    (
+        ArchiveId uniqueidentifier NOT NULL,
+        CreatedUtc datetime2(3) NOT NULL,
+        CompletedUtc datetime2(3) NULL,
+        Status nvarchar(32) NOT NULL,
+        FilePath nvarchar(1024) NOT NULL,
+        FromUtc datetime2(3) NULL,
+        ToUtc datetime2(3) NULL,
+        RecordCount int NULL,
+        CompressedBytes bigint NULL,
+        Sha256 char(64) NULL,
+        ErrorMessage nvarchar(2000) NULL,
+        MachineName nvarchar(128) NULL,
+        CONSTRAINT PK_OutboundAuditArchive PRIMARY KEY (ArchiveId)
+    );
+    CREATE INDEX IX_OutboundAuditArchive_StatusCreated
+        ON dbo.OutboundAuditArchive(Status, CreatedUtc);
 END;
 
 IF OBJECT_ID(N'dbo.OutboundSubmissionAttempt', N'U') IS NULL
@@ -541,14 +670,54 @@ BEGIN
         MachineName nvarchar(128) NULL,
         CorrelationId nvarchar(64) NULL,
         InitiatedBy nvarchar(128) NULL,
+        ArchiveId uniqueidentifier NULL,
+        ArchivedUtc datetime2(3) NULL,
+        PayloadPurgedUtc datetime2(3) NULL,
         CONSTRAINT PK_OutboundSubmissionAttempt PRIMARY KEY (AttemptId),
         CONSTRAINT FK_OutboundSubmissionAttempt_Submission FOREIGN KEY (OutboundSubmissionId)
             REFERENCES dbo.OutboundSubmission(OutboundSubmissionId),
+        CONSTRAINT FK_OutboundSubmissionAttempt_Archive FOREIGN KEY (ArchiveId)
+            REFERENCES dbo.OutboundAuditArchive(ArchiveId),
         CONSTRAINT UQ_OutboundSubmissionAttempt_Number UNIQUE (OutboundSubmissionId, AttemptNumber)
     );
     CREATE INDEX IX_OutboundSubmissionAttempt_SubmissionStarted
         ON dbo.OutboundSubmissionAttempt(OutboundSubmissionId, StartedUtc DESC);
 END;
+
+IF COL_LENGTH(N'dbo.OutboundSubmission', N'IsPinned') IS NULL
+    ALTER TABLE dbo.OutboundSubmission ADD IsPinned bit NOT NULL
+        CONSTRAINT DF_OutboundSubmission_IsPinned DEFAULT (0);
+IF COL_LENGTH(N'dbo.OutboundSubmission', N'PinnedUtc') IS NULL
+    ALTER TABLE dbo.OutboundSubmission ADD PinnedUtc datetime2(3) NULL;
+IF COL_LENGTH(N'dbo.OutboundSubmission', N'PinnedBy') IS NULL
+    ALTER TABLE dbo.OutboundSubmission ADD PinnedBy nvarchar(128) NULL;
+
+IF COL_LENGTH(N'dbo.OutboundSubmissionAttempt', N'ArchiveId') IS NULL
+    ALTER TABLE dbo.OutboundSubmissionAttempt ADD ArchiveId uniqueidentifier NULL;
+IF COL_LENGTH(N'dbo.OutboundSubmissionAttempt', N'ArchivedUtc') IS NULL
+    ALTER TABLE dbo.OutboundSubmissionAttempt ADD ArchivedUtc datetime2(3) NULL;
+IF COL_LENGTH(N'dbo.OutboundSubmissionAttempt', N'PayloadPurgedUtc') IS NULL
+    ALTER TABLE dbo.OutboundSubmissionAttempt ADD PayloadPurgedUtc datetime2(3) NULL;
+
+IF NOT EXISTS
+(
+    SELECT 1 FROM sys.foreign_keys
+    WHERE name = N'FK_OutboundSubmissionAttempt_Archive'
+      AND parent_object_id = OBJECT_ID(N'dbo.OutboundSubmissionAttempt')
+)
+    ALTER TABLE dbo.OutboundSubmissionAttempt WITH CHECK
+        ADD CONSTRAINT FK_OutboundSubmissionAttempt_Archive FOREIGN KEY (ArchiveId)
+        REFERENCES dbo.OutboundAuditArchive(ArchiveId);
+
+IF NOT EXISTS
+(
+    SELECT 1 FROM sys.indexes
+    WHERE name = N'IX_OutboundSubmissionAttempt_ArchiveEligibility'
+      AND object_id = OBJECT_ID(N'dbo.OutboundSubmissionAttempt')
+)
+    CREATE INDEX IX_OutboundSubmissionAttempt_ArchiveEligibility
+        ON dbo.OutboundSubmissionAttempt(PayloadPurgedUtc, StartedUtc, Outcome)
+        INCLUDE (OutboundSubmissionId, ArchiveId);
 
 UPDATE attempt
 SET FinishedUtc = SYSUTCDATETIME(), Outcome = N'Unknown',
