@@ -23,7 +23,7 @@ namespace ASFuelControl.Windows.Threads
                     !alert.ResolvedDate.HasValue ||
                     (
                         alert.ResolveMessage != null &&
-                        alert.ResolveMessage != "" &&
+                        alert.ResolveMessage.Length > 0 &&
                         !alert.ResolveMessage.Contains(SystemResolvedMarker) &&
                         !alert.ResolveMessage.Contains(DateResolvedMarker) &&
                         !alert.ResolveMessage.Contains(LegacyAutoResolvedMarker)

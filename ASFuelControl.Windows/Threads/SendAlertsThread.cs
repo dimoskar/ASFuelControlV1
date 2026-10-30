@@ -1035,9 +1035,9 @@ namespace ASFuelControl.Windows.Threads
                     &&
                     (
                         se.DocumentSign != null &&
-                        se.DocumentSign != "" &&
+                        se.DocumentSign.Length > 0 &&
                         !se.DocumentSign.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ") &&
-                        (se.DocumentSign == "-" || se.DocumentSign.Length >= 15)
+                        ((se.DocumentSign.Length == 1 && se.DocumentSign.Contains("-")) || se.DocumentSign.Length >= 15)
                     //    se.EventDate < dtAlertCheck
                     ))
                     .Where(AlertSubmissionPolicy.IsEligibleForMinistry)
@@ -1228,7 +1228,7 @@ namespace ASFuelControl.Windows.Threads
                 var q3 = database.Balances.Where(se => !se.SentDateTime.HasValue && se.EndDate >= this.officialStartDate && 
                             (
                                 se.DocumentSign != null && 
-                                se.DocumentSign != "" && 
+                                se.DocumentSign.Length > 0 &&
                                 !se.DocumentSign.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ") &&
                                 se.DocumentSign.Length > 15
                             )
