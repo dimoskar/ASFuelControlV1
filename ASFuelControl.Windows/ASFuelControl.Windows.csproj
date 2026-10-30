@@ -1818,6 +1818,9 @@
     <Compile Include="UI\Forms\HeatingCorrectionBatchForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="UI\Forms\GBridgeDiagnosticsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Threads\SharedInvoiceConfiguration.cs" />
     <Compile Include="Threads\SharedInvoicingSettings.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.Status.cs" />

@@ -21532,7 +21532,7 @@ namespace ASFuelControl.Data
                 if (this._ProviderUrl != value)
                 {
                     this.OnProviderUrlChanging(value);
-                    this._VerificationHash = value;
+                    this._ProviderUrl = value;
                     this.SendPropertyChanged("ProviderUrl");
                     this.OnProviderUrlChanged();
                 }

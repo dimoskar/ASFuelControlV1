@@ -72,6 +72,12 @@ internal static partial class Program
     static FiscalOperationRecord[] Prints(Guid id) { using(var lease = database.EnterInvoice(id)) return new SqlFiscalOperationStore(database).Load(lease,true).ToArray(); }
     static void WorkflowTests()
     {
+        Test("provider URL projection does not overwrite the verification hash", () => {
+            var row = new ASFuelControl.Data.MyDataInvoice { VerificationHash = "verification-hash" };
+            row.ProviderUrl = "https://provider.invalid/invoices/123";
+            Equal("verification-hash",row.VerificationHash);
+            Equal("https://provider.invalid/invoices/123",row.ProviderUrl);
+        });
         Test("explicit workflow resume retries a declined POS payment and shows its reason", () => {
             var source = new WorkflowSource(); source.Source.Invoice.PaymentType = 2;
             using(var lease = database.EnterInvoice(source.Source.Id)) source.Prepare(lease);
@@ -86,6 +92,27 @@ internal static partial class Program
             workflow.Process(source.Source.Id,null,false); Equal(1,gateway.Calls);
             Check(workflow.Process(source.Source.Id,null,false,retryDeclinedPayment:true).Accepted,"Explicit POS retry did not finish issuance");
             Equal(2,gateway.Calls); Equal(2,http.Signatures); Equal(1,http.Posts); Equal(0,printer.Calls);
+        });
+        Test("iTimologia operator-authorized invoice resend reuses the approved POS payment", () => {
+            var key = InvoiceProviderCatalog.ITimologiaKey;
+            var source = new WorkflowSource(); source.Source.Invoice.PaymentType = 2;
+            using(var lease = database.EnterInvoice(source.Source.Id)) source.Prepare(lease);
+            source.Snapshot.Provider = Route(key);
+            source.Snapshot.Invoice = source.Source.Prepare(source.Source.Id,source.Snapshot.Provider);
+            source.Snapshot.Payment = PaymentRoute.ForMode(source.Snapshot.Provider,"http://gateway.invalid:1234","TID-1","EDPS");
+            var http = new Http(source.Source.Id,key) { InvoicePost = b => { throw new System.Net.Http.HttpRequestException("timeout"); } };
+            http.Lookup = () => Reply("{}",404);
+            var gateway = new Gateway(); var printer = new Printer(); var credentials = new Credentials();
+            var workflow = new InvoiceWorkflowService(database,Service(http,credentials),
+                new ProviderPaymentService(database,credentials,r => http,r => gateway),null,
+                new FiscalPrintService(database,printer),(s,r) => s.PrintContent,(id,r) => {});
+            var unknown = workflow.Process(source.Source.Id,source,false);
+            Equal("Approved",unknown.PaymentState); Equal("Unknown",unknown.FiscalState); Equal(1,gateway.Calls); Equal(1,http.Posts);
+            Service(http,credentials).AuthorizeResend(source.Source.Id,"synthetic-operator","confirmed duplicate risk");
+            http.InvoicePost = b => Reply(TimReply(source.Source.Id));
+            var completed = workflow.Process(source.Source.Id,null,false,retryRejected:true);
+            Check(completed.Accepted,"authorized provider resend did not finish");
+            Equal(1,gateway.Calls); Equal(2,http.Posts); Equal(0,printer.Calls);
         });
         PrinterFallbackTests();
         foreach (string key in new[] { "myDATA","iTimologia","Ilyda.Direct" })
@@ -350,6 +377,22 @@ internal static partial class Program
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey) { InvoicePost = b => { throw new System.Net.Http.HttpRequestException("timeout"); } }; var printer = new Printer(); var workflow = Workflow(http,printer);
             Check(!workflow.Process(source.Source.Id,source).Accepted,"unknown accepted"); workflow.Process(source.Source.Id,null); Equal(1,http.Posts); Equal(0,printer.Calls); Equal(1,source.Loads);
         });
+        foreach (var key in new[] { InvoiceProviderCatalog.ITimologiaKey,InvoiceProviderCatalog.DirectIlydaKey })
+            Test(key + " operator-authorized resend continues the frozen workflow", () => {
+                var source = new WorkflowSource();
+                using(var lease = database.EnterInvoice(source.Source.Id)) source.Prepare(lease);
+                source.Snapshot.Provider = Route(key);
+                source.Snapshot.Invoice = source.Source.Prepare(source.Source.Id,source.Snapshot.Provider);
+                var http = new Http(source.Source.Id,key) { InvoicePost = b => { throw new System.Net.Http.HttpRequestException("timeout"); } };
+                if (key == InvoiceProviderCatalog.ITimologiaKey) http.Lookup = () => Reply("{}",404);
+                var printer = new Printer(); var workflow = Workflow(http,printer);
+                Equal("Unknown",workflow.Process(source.Source.Id,source,false).FiscalState); Equal(1,http.Posts);
+                var service = Service(http); Check(service.GetResendAssessment(source.Source.Id).CanResend,"resend was not offered");
+                service.AuthorizeResend(source.Source.Id,"synthetic-operator","confirmed duplicate risk");
+                http.InvoicePost = b => Reply(key == InvoiceProviderCatalog.ITimologiaKey ? TimReply(source.Source.Id) : IlydaReply);
+                Check(workflow.Process(source.Source.Id,null,false,retryRejected:true).Accepted,"authorized resend did not complete");
+                Equal(2,http.Posts); Equal(0,printer.Calls); Equal(2,History(source.Source.Id).Length);
+            });
         Test("reprint is incapable of starting first issuance", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer();
             Throws(() => Workflow(http,printer).Process(source.Source.Id,source,true,"copy")); Equal(0,http.Calls); Equal(0,source.Loads);

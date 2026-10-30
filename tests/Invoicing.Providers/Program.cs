@@ -113,6 +113,29 @@ internal static class Program
                 var service = Service(h); Equal("Unknown",service.Send(s.Id,Route(h.Key),s).State);
                 Equal("Unknown",service.Send(s.Id,Route(h.Key),s).State); Equal(1,h.Posts); Equal(1,s.Loads);
             });
+        Test("iTimologia 404 permits only an audited operator-authorized resend", () => {
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.ITimologiaKey) {
+                InvoicePost = b => { throw new HttpRequestException("timeout"); }, Lookup = () => Reply("{}",404) };
+            var service = Service(h); Equal("Unknown",service.Send(s.Id,Route(h.Key),s).State); Equal(1,h.Posts);
+            var assessment = service.GetResendAssessment(s.Id);
+            Check(assessment.CanResend && assessment.RequiresAuthorization,"404 did not offer an explicit resend");
+            service.Send(s.Id,Route(h.Key),s,true); Equal(1,h.Posts);
+            var original = Latest(s.Id);
+            service.AuthorizeResend(s.Id,"synthetic-operator","confirmed iTimologia 404");
+            Equal("RetryAuthorized",Latest(s.Id).State);
+            var authorization = JObject.Parse(Latest(s.Id).SnapshotJson)["OperatorResendAuthorization"];
+            Equal("synthetic-operator",(string)authorization["AuthorizedBy"]); Equal("Unknown",(string)authorization["PreviousState"]);
+            h.InvoicePost = b => Reply(TimReply(s.Id));
+            var resent = service.Send(s.Id,Route(h.Key),s,true); Check(resent.Accepted,Errors(resent)); Equal(2,h.Posts);
+            Equal(2,History(s.Id).Length); Equal(original.AttemptId,History(s.Id).Last().OriginalAttemptId.Value);
+        });
+        Test("iTimologia non-404 uncertainty cannot be operator-authorized", () => {
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.ITimologiaKey) {
+                InvoicePost = b => { throw new HttpRequestException("timeout"); }, Lookup = () => Reply("{}",503) };
+            var service = Service(h); Equal("Unknown",service.Send(s.Id,Route(h.Key),s).State);
+            Check(!service.GetResendAssessment(s.Id).CanResend,"non-404 iTimologia result offered resend");
+            Throws(() => service.AuthorizeResend(s.Id,"synthetic-operator","not allowed")); Equal(1,h.Posts);
+        });
         Test("iTimologia 401 retries only after durable rejection", () => {
             var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.ITimologiaKey);
             h.InvoicePost = b => h.Posts == 1 ? Reply("",401) : Reply(TimReply(s.Id));
@@ -145,6 +168,7 @@ internal static class Program
                 var service = Service(h); Equal("Queued",service.Send(s.Id,Route(h.Key),s).State);
                 Equal("QueueFailed",service.Recover(s.Id).State); Equal(terminalState,(string)JObject.Parse(Latest(s.Id).SnapshotJson)["QueueState"]);
                 Equal("QueueFailed",service.Send(s.Id,Route(h.Key),s,true).State); Equal(1,h.Posts);
+                Check(!service.GetResendAssessment(s.Id).CanResend,"a known Ilyda queue outcome was treated as an unknown submission");
             });
         Test("definitive myDATA rejection requires explicit corrected retry", () => {
             var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.MyDataKey) { InvoicePost = b => Reply("<ResponseDoc><response><statusCode>ValidationError</statusCode><errors><error><code>1</code><message>synthetic</message></error></errors></response></ResponseDoc>") }; var service = Service(h);
@@ -161,6 +185,20 @@ internal static class Program
             var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.DirectIlydaKey) { InvoicePost = b => Reply("broken-response") };
             Equal("Unknown",Service(h).Send(s.Id,Route(h.Key),s).State); Equal("broken-response",(string)JObject.Parse(Latest(s.Id).SnapshotJson)["ResponseJson"]);
         });
+        Test("Ilyda unknown permits only an audited operator-authorized resend", () => {
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.DirectIlydaKey) {
+                InvoicePost = b => { throw new HttpRequestException("timeout"); } };
+            var service = Service(h); Equal("Unknown",service.Send(s.Id,Route(h.Key),s).State); Equal(1,h.Posts);
+            var assessment = service.GetResendAssessment(s.Id);
+            Check(assessment.CanResend && assessment.RequiresAuthorization,"unknown Ilyda result did not offer explicit resend");
+            service.Send(s.Id,Route(h.Key),s,true); Equal(1,h.Posts);
+            var original = Latest(s.Id);
+            service.AuthorizeResend(s.Id,"synthetic-operator","confirmed Ilyda unknown result");
+            Equal("RetryAuthorized",Latest(s.Id).State);
+            h.InvoicePost = b => Reply(IlydaReply);
+            var resent = service.Send(s.Id,Route(h.Key),s,true); Check(resent.Accepted,Errors(resent)); Equal(2,h.Posts);
+            Equal(2,History(s.Id).Length); Equal(original.AttemptId,History(s.Id).Last().OriginalAttemptId.Value);
+        });
         Test("Ilyda queue recovery verifies identity and preserves original response", () => {
             var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.DirectIlydaKey);
             h.InvoicePost = b => Reply("{\"invoiceMarking\":{\"invoiceIdentifier\":\"UID\",\"mark\":null},\"errors\":[{\"code\":\"MQ001\",\"fatal\":false}]}");
@@ -172,6 +210,7 @@ internal static class Program
         Test("Ilyda queue not-found is still queued", () => {
             var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.DirectIlydaKey) { InvoicePost = b => Reply("{\"invoiceMarking\":{\"invoiceIdentifier\":\"UID\"},\"errors\":[{\"code\":\"MQ002\",\"fatal\":false}]}"), Lookup = () => Reply("{}",404) };
             var service = Service(h); service.Send(s.Id,Route(h.Key),s); Equal("Queued",service.Recover(s.Id).State); Equal(1,h.Posts);
+            Check(!service.GetResendAssessment(s.Id).CanResend,"an active Ilyda queue offered a duplicate POST");
         });
         Test("Ilyda PDF failure leaves issuance accepted and upload success is cached", () => {
             var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.DirectIlydaKey); var service = Service(h);

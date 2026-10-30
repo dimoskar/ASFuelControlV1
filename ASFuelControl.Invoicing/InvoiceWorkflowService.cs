@@ -137,6 +137,21 @@ namespace ASFuelControl.Invoicing
                     {
                         result.AcceptedAttemptId = previousPrint.OriginalAttemptId;
                         result.FiscalState = snapshot.LocalOnly ? "LocalOnly" : "Accepted";
+                        if (!snapshot.LocalOnly && snapshot.Provider != null)
+                        {
+                            var submission = history.Load(lease,FiscalJournalFamily.Submission)
+                                .Single(a => a.AttemptId == previousPrint.OriginalAttemptId);
+                            result.Response = ProviderSubmissionService.ReadAcceptedResponse(submission);
+                        }
+                        if (!snapshot.LocalOnly && snapshot.Signing != null)
+                        {
+                            var signed = history.Load(lease,FiscalJournalFamily.Signing).Last(a => a.State == "Signed");
+                            var signingEvidence = Newtonsoft.Json.Linq.JObject.Parse(signed.SnapshotJson);
+                            if (result.Response == null) result.Response = new InvoiceResponse();
+                            result.Response.InvoiceSignature = (string)signingEvidence["Signature"];
+                            if (string.IsNullOrWhiteSpace(result.Response.QrCodeUrl))
+                                result.Response.QrCodeUrl = (string)signingEvidence["QrCode"];
+                        }
                     }
                     result.Print = previousPrint;
                     project(invoiceId,result);

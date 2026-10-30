@@ -967,7 +967,7 @@ namespace Exedron.Invoicing.Adapters
             };
         }
 
-        private static InvoiceResponse MapResponse(string responseBody, string externalSystemId)
+        public static InvoiceResponse MapResponse(string responseBody, string externalSystemId)
         {
             ITimologiaInvoiceReply response;
             try

@@ -191,7 +191,9 @@ namespace ASFuelControl.Invoicing
                     if (retryPaymentAttemptId.HasValue) return new ProviderPaymentResult { Payment = payment };
                     if (payment.State != "Approved" && payment.State != "Invoiced") return new ProviderPaymentResult { Payment = payment };
                     InvoiceResponse response = null;
-                    if (submission != null && (submission.State != "Rejected" || !retryRejectedInvoice || recoverOnly))
+                    bool retryableSubmission = submission != null &&
+                        (submission.State == "Rejected" || submission.State == "RetryAuthorized");
+                    if (submission != null && (!retryableSubmission || !retryRejectedInvoice || recoverOnly))
                         response = ((IInvoiceProviderRecovery)provider).RecoverInvoice(invoiceId);
                     else if (!recoverOnly)
                         response = provider.SendInvoice(snapshot.Invoice, invoiceId, new ProviderPaymentContext {

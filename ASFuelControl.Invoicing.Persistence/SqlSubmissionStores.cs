@@ -26,15 +26,16 @@ namespace ASFuelControl.Invoicing.Persistence
                 var prefix = provider + "|";
                 if (!entry.Scope.StartsWith(prefix, StringComparison.Ordinal))
                 {
-                    if (entry.State == "Rejected") return null;
+                    if (entry.State == "Rejected" || entry.State == "RetryAuthorized") return null;
                     throw new InvalidOperationException("Resolve the invoice through its historical provider before changing route.");
                 }
                 var value = SqlFiscalDatabase.Read<T>(entry.Snapshot);
                 if (!scopeMatches(value))
                 {
-                    if (entry.State == "Rejected") return null;
+                    if (entry.State == "Rejected" || entry.State == "RetryAuthorized") return null;
                     throw new InvalidOperationException("The original invoice environment/issuer differs. Reconcile its saved scope first.");
                 }
+                if (entry.State == "RetryAuthorized") return null;
                 stamps.Add(value, new Stamp { Entry = entry });
                 return value;
             }
@@ -68,10 +69,17 @@ namespace ASFuelControl.Invoicing.Persistence
                     new int?[] { 401,422,452 }.Contains((int?)evidence["StatusCode"]);
                 if (!hasBody && !httpRejected) throw new InvalidOperationException("An outcome requires retained response evidence.");
             }
+            Guid? originalAttemptId = null;
+            if (!exists)
+            {
+                var previous = database.Load(lease, "Submission").LastOrDefault();
+                if (previous?.State == "RetryAuthorized") originalAttemptId = previous.Id;
+            }
             var entry = new SqlFiscalDatabase.JournalEntry { Id = attemptId, Family = "Submission", Operation = "Issue",
                 Scope = provider + "|" + scope, Format = provider == "myDATA" ? "xml; charset=utf-8" : "json; charset=utf-8",
                 Payload = Encoding.UTF8.GetBytes(payload), CreatedUtc = exists ? stamp.Entry.CreatedUtc : createdUtc,
-                UpdatedUtc = DateTime.UtcNow, Revision = exists ? stamp.Entry.Revision + 1 : 0, State = state, Snapshot = snapshot };
+                UpdatedUtc = DateTime.UtcNow, Revision = exists ? stamp.Entry.Revision + 1 : 0, State = state, Snapshot = snapshot,
+                OriginalId = exists ? stamp.Entry.OriginalId : originalAttemptId };
             database.Write(lease, entry, exists ? (long?)stamp.Entry.Revision : null, state != "Rejected", old =>
                 (old.State == "Sending" || old.State == "Unknown") && state != "Sending" ||
                 (old.State == "Queued" || old.State == "QueueFailed") && new[] { "Queued", "QueueFailed", "Accepted" }.Contains(state) ||
@@ -101,6 +109,39 @@ namespace ASFuelControl.Invoicing.Persistence
             return Newtonsoft.Json.Linq.JToken.DeepEquals(old, next);
         }
         private sealed class Stamp { internal SqlFiscalDatabase.JournalEntry Entry; }
+    }
+    public sealed class SqlProviderSubmissionResendStore
+    {
+        private readonly SqlFiscalDatabase database;
+        public SqlProviderSubmissionResendStore(SqlFiscalDatabase database)
+        { this.database = database ?? throw new ArgumentNullException(nameof(database)); }
+
+        public void Authorize(IFiscalDocumentLease lease, Guid attemptId, string providerKey,
+            string authorizedBy, string reason)
+        {
+            if (lease == null) throw new ArgumentNullException(nameof(lease));
+            if (string.IsNullOrWhiteSpace(authorizedBy)) throw new ArgumentException("The operator identity is required.", nameof(authorizedBy));
+            if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("The resend reason is required.", nameof(reason));
+            var current = database.Load(lease, "Submission").LastOrDefault();
+            if (current == null || current.Id != attemptId ||
+                !current.Scope.StartsWith(providerKey + "|", StringComparison.Ordinal))
+                throw new InvalidOperationException("The provider submission changed. Recover its current state before resending.");
+            if (current.State == "RetryAuthorized") return;
+            if (current.State != "Unknown" && current.State != "Sending")
+                throw new InvalidOperationException("The current provider state does not permit an operator-authorized resend.");
+
+            var snapshot = Newtonsoft.Json.Linq.JObject.Parse(current.Snapshot);
+            snapshot["OperatorResendAuthorization"] = Newtonsoft.Json.Linq.JObject.FromObject(new {
+                Version = 1, AuthorizedBy = authorizedBy.Trim(), Reason = reason.Trim(),
+                AuthorizedUtc = DateTime.UtcNow, PreviousState = current.State, PreviousAttemptId = current.Id
+            });
+            database.Write(lease, new SqlFiscalDatabase.JournalEntry {
+                Id = current.Id, Family = current.Family, Operation = current.Operation, Scope = current.Scope,
+                Format = current.Format, Payload = current.Payload, CreatedUtc = current.CreatedUtc,
+                UpdatedUtc = DateTime.UtcNow, Revision = current.Revision + 1, State = "RetryAuthorized",
+                Snapshot = snapshot.ToString(Newtonsoft.Json.Formatting.None), OriginalId = current.OriginalId
+            }, current.Revision, false, old => old.State == "Unknown" || old.State == "Sending");
+        }
     }
     public sealed class SqlMyDataSubmissionStore : IMyDataSubmissionStore
     {

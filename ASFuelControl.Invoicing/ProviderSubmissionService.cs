@@ -16,10 +16,19 @@ namespace ASFuelControl.Invoicing
     public sealed class ProviderSubmissionResult
     {
         public Guid? AttemptId { get; internal set; }
-        // NotSubmitted, Sending, Unknown, Queued, Rejected or Accepted; independent of print/payment.
+        // NotSubmitted, Sending, Unknown, Queued, QueueFailed, RetryAuthorized,
+        // Rejected or Accepted; independent of print/payment.
         public string State { get; internal set; }
         public InvoiceResponse Response { get; internal set; }
         public bool Accepted => State == "Accepted" && Response != null && !Response.HasErrors;
+    }
+    public sealed class ProviderResendAssessment
+    {
+        public bool CanResend { get; internal set; }
+        public bool RequiresAuthorization { get; internal set; }
+        public string ProviderKey { get; internal set; }
+        public string PreviousState { get; internal set; }
+        public string Warning { get; internal set; }
     }
 
     // Synchronous on purpose: SqlFiscalDatabase's document lease is thread-affine.
@@ -64,10 +73,13 @@ namespace ASFuelControl.Invoicing
             using (var lease = database.EnterInvoice(invoiceId))
             {
                 var previous = Latest(lease);
-                if (previous != null && previous.State != "Rejected")
+                bool retryable = previous != null && (previous.State == "Rejected" || previous.State == "RetryAuthorized");
+                if (previous != null && !retryable)
                     return Recover(lease, invoiceId, previous); // No remapping or current-setting fallback.
                 if (previous != null && !retryRejected)
-                    return Result(previous, Error("The previous attempt was rejected. An explicit corrected retry is required."));
+                    return Result(previous, Error(previous.State == "RetryAuthorized"
+                        ? "The operator-authorized resend must be continued explicitly."
+                        : "The previous attempt was rejected. An explicit corrected retry is required."));
                 Require(route != null && source != null, "A route and host invoice source are required.");
                 // These stages are integrated in steps 6-8. Do not bypass an old/unknown
                 // payment, signature, cancellation or print by switching the invoice provider.
@@ -118,6 +130,25 @@ namespace ASFuelControl.Invoicing
             }
         }
 
+        public ProviderResendAssessment GetResendAssessment(Guid invoiceId)
+        {
+            using (var lease = database.EnterInvoice(invoiceId))
+                return AssessResend(Latest(lease));
+        }
+
+        public void AuthorizeResend(Guid invoiceId, string authorizedBy, string reason)
+        {
+            using (var lease = database.EnterInvoice(invoiceId))
+            {
+                var saved = Latest(lease);
+                var assessment = AssessResend(saved);
+                Require(assessment.CanResend, "The provider result does not permit an operator-authorized resend.");
+                if (!assessment.RequiresAuthorization) return;
+                new SqlProviderSubmissionResendStore(database).Authorize(lease, saved.AttemptId,
+                    assessment.ProviderKey, authorizedBy, reason);
+            }
+        }
+
         // Read-only bridge for MappingContext.Parents. No credentials or provider call.
         // A legacy MARK or an uncertain cancellation is never upgraded to accepted evidence.
         public ParentEvidence LoadParentEvidence(Guid invoiceId)
@@ -147,6 +178,40 @@ namespace ASFuelControl.Invoicing
             }
         }
 
+        // Rebuild the normalized response only from the immutable, accepted journal
+        // evidence. This performs no authentication and no provider request.
+        public static InvoiceResponse ReadAcceptedResponse(FiscalAttemptEvidence saved)
+        {
+            Require(saved != null && saved.Family == FiscalJournalFamily.Submission.ToString() && saved.State == "Accepted",
+                "Accepted provider evidence is required.");
+            var route = ReadContext(saved)["Route"].ToObject<ProviderRoute>();
+            var evidence = JObject.Parse(saved.SnapshotJson);
+            InvoiceResponse response;
+            switch (route.ProviderKey)
+            {
+                case InvoiceProviderCatalog.MyDataKey:
+                    response = MyDataClient.MapResponse((string)evidence["ResponseXml"]);
+                    break;
+                case InvoiceProviderCatalog.ITimologiaKey:
+                    var invoiceId = (Guid)evidence["InvoiceId"];
+                    var responseJson = (string)evidence["PrintMetadataResponseJson"];
+                    if (string.IsNullOrWhiteSpace(responseJson))
+                        responseJson = (string)evidence["ResponseJson"];
+                    response = ITimologiaInvoiceProvider.MapResponse(
+                        responseJson,
+                        invoiceId.ToString("N", CultureInfo.InvariantCulture));
+                    break;
+                case InvoiceProviderCatalog.DirectIlydaKey:
+                    response = IlydaInvoiceProvider.MapResponse(JObject.Parse((string)evidence["ResponseJson"]));
+                    break;
+                default:
+                    throw new InvalidOperationException("Unsupported saved provider route.");
+            }
+            Require(response != null && !response.HasErrors,
+                "The accepted provider evidence could not be reconstructed.");
+            return response;
+        }
+
         public void UploadIlydaPdf(Guid invoiceId, byte[] pdf)
         {
             using (var lease = database.EnterInvoice(invoiceId))
@@ -164,6 +229,8 @@ namespace ASFuelControl.Invoicing
         private ProviderSubmissionResult Recover(IFiscalDocumentLease lease, Guid invoiceId, FiscalAttemptEvidence saved)
         {
             var context = ReadContext(saved);
+            if (saved.State == "RetryAuthorized") return Result(saved, Error(
+                "Η επανάληψη διαβίβασης έχει εγκριθεί από τον χειριστή. Επιλέξτε «Επανάληψη διαβίβασης» για να συνεχίσετε."));
             if (saved.State == "Rejected") return Result(saved, Error(
                 "Η προηγούμενη προσπάθεια απορρίφθηκε. Η ανάκτηση κατάστασης δεν κάνει νέα αποστολή. " +
                 "Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια με το διορθωμένο αίτημα."));
@@ -208,6 +275,37 @@ namespace ASFuelControl.Invoicing
         }
 
         private FiscalAttemptEvidence Latest(IFiscalDocumentLease lease) => history.Load(lease, FiscalJournalFamily.Submission).LastOrDefault();
+        private static ProviderResendAssessment AssessResend(FiscalAttemptEvidence saved)
+        {
+            var result = new ProviderResendAssessment { PreviousState = saved?.State };
+            if (saved == null || saved.Family != FiscalJournalFamily.Submission.ToString()) return result;
+            var route = ReadContext(saved)["Route"].ToObject<ProviderRoute>();
+            result.ProviderKey = route.ProviderKey;
+            if (saved.State == "RetryAuthorized")
+            {
+                result.CanResend = true;
+                result.Warning = "Η επανάληψη έχει ήδη εγκριθεί και δεν ολοκληρώθηκε. Θα συνεχιστεί με τα ίδια αποθηκευμένα στοιχεία.";
+                return result;
+            }
+            var evidence = JObject.Parse(saved.SnapshotJson);
+            if (route.ProviderKey == InvoiceProviderCatalog.ITimologiaKey && saved.State == "Unknown" &&
+                (int?)evidence["StatusCode"] == 404)
+            {
+                result.CanResend = result.RequiresAuthorization = true;
+                result.Warning = "Η iTimologia επέστρεψε HTTP 404 και δεν βρήκε το παραστατικό. " +
+                    "Να γίνει νέα διαβίβαση με τα ίδια στοιχεία; Η αρχική προσπάθεια θα παραμείνει στο ιστορικό. " +
+                    "Αν η ενημέρωση του παρόχου έχει καθυστερήσει, υπάρχει κίνδυνος διπλής έκδοσης.";
+            }
+            else if (route.ProviderKey == InvoiceProviderCatalog.DirectIlydaKey &&
+                (saved.State == "Unknown" || saved.State == "Sending"))
+            {
+                result.CanResend = result.RequiresAuthorization = true;
+                result.Warning = "Η Ilyda δεν επιβεβαίωσε την έκβαση της προηγούμενης διαβίβασης. " +
+                    "Να γίνει νέα διαβίβαση με τα ίδια στοιχεία; Η αρχική προσπάθεια θα παραμείνει στο ιστορικό. " +
+                    "Υπάρχει κίνδυνος διπλής έκδοσης και πρέπει πρώτα να ελεγχθεί ο πάροχος.";
+            }
+            return result;
+        }
         private static JObject ReadContext(FiscalAttemptEvidence saved)
         {
             string json = (string)JObject.Parse(saved.SnapshotJson)["RoutingContext"];

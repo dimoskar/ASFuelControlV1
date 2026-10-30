@@ -17,13 +17,14 @@ namespace ASFuelControl.Windows.UI.Controls
         private readonly RadPageView pages = new RadPageView { Dock = DockStyle.Fill };
         private readonly RadTextBox summary, history, payment, printing, evidence;
         private readonly FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill,WrapContents = true };
-        private readonly RadButton recover, retryPayment, resume, print, reconcile;
+        private readonly RadButton recover, retryPayment, resume, print, reconcile, voidPayment, recoverVoid, refundPayment, recoverRefund, diagnostics;
         private Guid invoiceId;
         private SharedInvoiceStatus status;
         private string lastActionMessage;
         private Guid lastActionInvoiceId;
         private string CurrentActionMessage => lastActionInvoiceId == invoiceId ? lastActionMessage : null;
         internal bool Owned => status?.Snapshot != null || status?.Attempts.Any() == true;
+        internal string InvoiceSignature => status?.InvoiceSignature;
         internal bool ReadFailed { get; private set; }
         internal bool Busy { get; private set; }
         internal event EventHandler StateChanged;
@@ -37,7 +38,13 @@ namespace ASFuelControl.Windows.UI.Controls
             layout.Controls.Add(pages,0,0); layout.Controls.Add(actions,0,1);
             Controls.Add(layout);
             summary = Page("Σύνοψη"); history = Page("Ιστορικό"); payment = Page("Πληρωμή"); printing = Page("Εκτύπωση"); evidence = Page("Τεκμήρια");
-            recover = Button("Ανάκτηση κατάστασης",async () => { var id = invoiceId; await Run(() => RadResult(SharedInvoiceRuntime.RecoverStatus(id))); });
+            recover = Button("Ανάκτηση κατάστασης",async () => {
+                var id = invoiceId; string recovered = null;
+                await Run(() => recovered = SharedInvoiceRuntime.RecoverStatus(id));
+                if (IsDisposed || invoiceId != id || recovered == null) return;
+                if (status?.ProviderResend?.CanResend == true) await ConfirmProviderResend(id,recovered);
+                else RadMessageBox.Show(recovered,"Ανάκτηση");
+            });
             retryPayment = Button("Επανάληψη πληρωμής",async () => {
                 if (Busy || status?.RetryPaymentAttemptId == null) return;
                 var id = invoiceId; var attemptId = status.RetryPaymentAttemptId.Value;
@@ -50,9 +57,40 @@ namespace ASFuelControl.Windows.UI.Controls
                 });
             });
             retryPayment.Enabled = false; retryPayment.Visible = false;
+            voidPayment = Button("Ακύρωση πληρωμής",async () => {
+                if (!Program.AdminConnected) { RadMessageBox.Show("Απαιτείται σύνδεση διαχειριστή."); return; }
+                string reason;
+                if (!AskReason("Ακύρωση πληρωμής POS","Αιτιολογία ακύρωσης (υποχρεωτική)",out reason)) return;
+                var id = invoiceId;
+                if (RadMessageBox.Show("Να ακυρωθεί η εγκεκριμένη συναλλαγή POS; Η ενέργεια αφορά μόνο πληρωμή που δεν συνδέθηκε με αποδεκτό παραστατικό.",
+                    "Ακύρωση πληρωμής",MessageBoxButtons.YesNo,RadMessageIcon.Exclamation) != DialogResult.Yes) return;
+                await Run(() => { var result = SharedInvoiceRuntime.VoidPayment(id,reason); RecordCompensation(id,result); });
+            });
+            recoverVoid = Button("Ανάκτηση ακύρωσης",async () => {
+                var id = invoiceId;
+                await Run(() => { var result = SharedInvoiceRuntime.RecoverVoid(id); RecordCompensation(id,result); });
+            });
+            refundPayment = Button("Πλήρης επιστροφή",async () => {
+                if (!Program.AdminConnected) { RadMessageBox.Show("Απαιτείται σύνδεση διαχειριστή."); return; }
+                if (status?.RefundOriginalInvoiceId == null) return;
+                var id = invoiceId; var original = status.RefundOriginalInvoiceId.Value;
+                if (RadMessageBox.Show("Να εκτελεστεί πλήρης επιστροφή της αρχικής συναλλαγής, διαβίβαση και εκτύπωση του πιστωτικού;\r\n\r\nΔεν υποστηρίζεται μερική ή δεύτερη επιστροφή.",
+                    "Πλήρης επιστροφή POS",MessageBoxButtons.YesNo,RadMessageIcon.Exclamation) != DialogResult.Yes) return;
+                await Run(() => { var result = SharedInvoiceRuntime.RefundPayment(id,original); RecordPaymentResult(id,"Επιστροφή",result); });
+            });
+            recoverRefund = Button("Ανάκτηση επιστροφής",async () => {
+                if (status?.RefundOriginalInvoiceId == null) return;
+                var id = invoiceId; var original = status.RefundOriginalInvoiceId.Value;
+                await Run(() => { var result = SharedInvoiceRuntime.RecoverRefund(id,original); RecordPaymentResult(id,"Επιστροφή",result); });
+            });
+            diagnostics = Button("Διαγνωστικά GBridge",async () => {
+                using (var form = new GBridgeDiagnosticsForm(invoiceId)) form.ShowDialog(this);
+                await Task.FromResult(true);
+            });
             resume = Button("Συνέχιση έκδοσης",async () => {
                 if (!Owned) { await SubmitPrintedInvoice(); return; }
                 var id = invoiceId;
+                if (status?.ProviderResend?.CanResend == true) { await ConfirmProviderResend(id,null); return; }
                 bool rejectedSubmission = status.State("Submission") == "Rejected";
                 var question = rejectedSubmission
                     ? "Να γίνει νέα διαβίβαση με το διορθωμένο αίτημα; Η απορριφθείσα προσπάθεια θα παραμείνει στο ιστορικό."
@@ -74,11 +112,10 @@ namespace ASFuelControl.Windows.UI.Controls
                 var id = invoiceId;
                 var job = status.Attempts.Last(a => a.Family == "Print");
                 bool confirmed; string reason;
-                if (!AskEvidence(true,out reason,out confirmed)) return;
+                if (!AskPrintOutcome(out reason,out confirmed)) return;
                 await Run(() => SharedInvoiceRuntime.ReconcilePrint(id,job.AttemptId,confirmed,reason));
             });
         }
-        private void RadResult(string text) { if (!IsDisposed) BeginInvoke((Action)(() => RadMessageBox.Show(text,"Ανάκτηση"))); }
         private RadTextBox Page(string title)
         {
             var page = new RadPageViewPage { Text = title };
@@ -109,8 +146,19 @@ namespace ASFuelControl.Windows.UI.Controls
                 var snapshot = status?.Snapshot;
                 retryPayment.Visible = snapshot?.Payment != null;
                 retryPayment.Enabled = snapshot?.Payment != null && status.RetryPaymentAttemptId.HasValue;
+                voidPayment.Visible = status?.PaymentAttemptId.HasValue == true && !status.IsRefundPayment;
+                voidPayment.Enabled = status?.CanVoidPayment == true;
+                recoverVoid.Visible = status?.Compensation?.Operation == "Void";
+                recoverVoid.Enabled = status?.CanRecoverVoid == true;
+                refundPayment.Visible = status?.RefundOriginalInvoiceId.HasValue == true;
+                refundPayment.Enabled = status?.CanRefundPayment == true;
+                recoverRefund.Visible = status?.Compensation?.Operation == "Refund";
+                recoverRefund.Enabled = status?.CanRecoverRefund == true;
+                diagnostics.Visible = status?.PaymentAttemptId.HasValue == true || status?.Compensation != null || snapshot?.Payment != null;
+                diagnostics.Enabled = diagnostics.Visible;
                 resume.Text = snapshot == null && status?.CanSubmitPrinted == true ? "Διαβίβαση" :
-                    status?.State("Submission") == "Rejected" ? "Επανάληψη διαβίβασης" : "Συνέχιση έκδοσης";
+                    status?.State("Submission") == "Rejected" || status?.ProviderResend?.CanResend == true
+                    ? "Επανάληψη διαβίβασης" : "Συνέχιση έκδοσης";
                 if (snapshot == null)
                 {
                     summary.Text = Owned ? "Υπάρχει κοινό φορολογικό ιστορικό χωρίς αποθηκευμένη ροή. Απαιτείται έλεγχος ιστορικών στοιχείων." :
@@ -129,6 +177,8 @@ namespace ASFuelControl.Windows.UI.Controls
                 if (!string.IsNullOrWhiteSpace(status.ConnectionProblem)) summary.Text += "\r\nΈλεγχος σύνδεσης: " + status.ConnectionProblem;
                 if (status.State("Submission") == "Rejected")
                     summary.Text += "\r\nΗ προηγούμενη διαβίβαση απορρίφθηκε. Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια με το διορθωμένο αίτημα.";
+                if (status.ProviderResend?.CanResend == true)
+                    summary.Text += "\r\nΗ έκβαση δεν επιβεβαιώθηκε. Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια μετά από ρητή επιβεβαίωση του κινδύνου διπλής έκδοσης.";
                 if (string.IsNullOrWhiteSpace(CurrentActionMessage) && snapshot.Provider != null && snapshot.Payment == null && snapshot.Signing == null && !status.Attempts.Any(a => a.Family == "Submission"))
                     summary.Text += "\r\nΈχουν αποθηκευτεί τα στοιχεία έκδοσης, αλλά δεν έχει καταγραφεί αποστολή παραστατικού.\r\nΗ σύνδεση / προετοιμασία μπορεί να μην ολοκληρώθηκε. Η «Συνέχιση έκδοσης» εμφανίζει το αποτέλεσμα.";
                 history.Text = string.Join("\r\n",status.Revisions.Select(a => a.UpdatedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") + " · " + a.Family + " · " + StateLabel(a.State) + " · " + a.AttemptId));
@@ -155,6 +205,17 @@ namespace ASFuelControl.Windows.UI.Controls
                     summary.Text += "\r\n" + retryMessage;
                     payment.Text += "\r\n" + retryMessage;
                 }
+                if (status.PaymentAttemptId.HasValue)
+                    payment.Text += "\r\nΠροσπάθεια: " + status.PaymentAttemptId +
+                        (status.OriginalPaymentAttemptId.HasValue ? "\r\nΑρχική / αντικατασταθείσα: " + status.OriginalPaymentAttemptId : "");
+                if (status.Compensation != null)
+                    payment.Text += "\r\n" + (status.Compensation.Operation == "Void" ? "Ακύρωση" : "Επιστροφή") +
+                        ": " + StateLabel(status.Compensation.State.ToString()) +
+                        "\r\nΕνέργεια: " + status.Compensation.Id +
+                        "\r\nΑρχική πληρωμή: " + status.Compensation.OriginalPaymentAttemptId +
+                        (string.IsNullOrWhiteSpace(status.Compensation.Evidence) ? "" : "\r\n" + status.Compensation.Evidence);
+                if (status.RefundOriginalInvoiceId.HasValue)
+                    payment.Text += "\r\nΑρχικό παραστατικό επιστροφής: " + status.RefundOriginalInvoiceId;
                 printing.Text = PrintStatus() + "\r\n" + snapshot.PrintDestination + "\r\nΗ παράδοση στα Windows δεν επιβεβαιώνει φυσική εκτύπωση.\r\n" + Details("Print");
                 if (status.State("Signing") == "Unknown") summary.Text += "\r\nΕλέγξτε την έκβαση στον μηχανισμό. Δεν επιτρέπεται νέα σήμανση.";
                 evidence.Text = string.Join("\r\n",status.Attempts.Select(a => a.Family + " · " + a.AttemptId + "\r\nSHA-256: " + a.RequestSha256)) +
@@ -162,7 +223,9 @@ namespace ASFuelControl.Windows.UI.Controls
                 if (snapshot.Provider != null) evidence.Text += "\r\nΑποθηκευμένος λογαριασμός / συνδρομή: " + snapshot.Provider.Account + "\r\nΠροφίλ διαπιστευτηρίων: " + snapshot.Provider.CredentialProfile;
                 if (configured != null) evidence.Text += "\r\nΠροφίλ από τις τρέχουσες ρυθμίσεις: " + configured.CredentialProfile;
                 recover.Enabled = status.Attempts.Any() && !status.Attempts.Any(a => a.Family == "Print" && a.Operation != "PrintTF2");
-                resume.Enabled = !status.Attempts.Any(a => a.Family == "Print" || a.Family == "Cancellation") && !status.Attempts.GroupBy(a => a.Family).Select(g => g.Last()).Any(a => a.State == "Unknown" || a.State == "Signing" || a.State == "Sending" || a.State == "Queued" || a.State == "QueueFailed");
+                resume.Enabled = status.ProviderResend?.CanResend == true ||
+                    !status.Attempts.Any(a => a.Family == "Print" || a.Family == "Cancellation") &&
+                    !status.Attempts.GroupBy(a => a.Family).Select(g => g.Last()).Any(a => a.State == "Unknown" || a.State == "Signing" || a.State == "Sending" || a.State == "Queued" || a.State == "QueueFailed");
                 bool printable = snapshot.LocalOnly || status.Attempts.Any(a => a.Operation == "PrintTF2") || (snapshot.Provider != null ? status.State("Submission") == "Accepted" || status.State("Submission") == "Queued" : status.State("Signing") == "Signed");
                 if (printable || status.RetryPaymentAttemptId.HasValue || !string.IsNullOrWhiteSpace(status.ConnectionProblem)) resume.Enabled = false;
                 print.Enabled = printable && status.State("Print") != "Unknown" && status.State("Print") != "Dispatching";
@@ -172,7 +235,8 @@ namespace ASFuelControl.Windows.UI.Controls
             {
                 ReadFailed = true;
                 status = null; summary.Text = "Δεν ήταν δυνατός ο έλεγχος: " + ex.Message;
-                recover.Enabled = retryPayment.Enabled = resume.Enabled = print.Enabled = reconcile.Enabled = false;
+                recover.Enabled = retryPayment.Enabled = resume.Enabled = print.Enabled = reconcile.Enabled =
+                    voidPayment.Enabled = recoverVoid.Enabled = refundPayment.Enabled = recoverRefund.Enabled = diagnostics.Enabled = false;
             }
             finally
             {
@@ -184,6 +248,20 @@ namespace ASFuelControl.Windows.UI.Controls
             ? "Ήδη εκτυπωμένο · δεν έγινε νέα εκτύπωση" : StateLabel(status.State("Print"));
         internal void RecordResult(Guid id,ASFuelControl.Invoicing.InvoiceWorkflowResult result)
         { if (result != null) { lastActionInvoiceId = id; lastActionMessage = ResultMessage(result); } }
+        private void RecordCompensation(Guid id,ASFuelControl.Invoicing.Persistence.PaymentCompensationRecord result)
+        {
+            lastActionInvoiceId = id;
+            lastActionMessage = (result.Operation == "Void" ? "Ακύρωση πληρωμής: " : "Επιστροφή: ") +
+                StateLabel(result.State.ToString()) + (string.IsNullOrWhiteSpace(result.Evidence) ? "" : "\r\n" + result.Evidence);
+        }
+        private void RecordPaymentResult(Guid id,string title,ASFuelControl.Invoicing.ProviderPaymentResult result)
+        {
+            lastActionInvoiceId = id;
+            lastActionMessage = title + ": " + StateLabel(result.Payment?.State) +
+                "\r\nΔιαβίβαση: " + StateLabel(result.Submission?.State) +
+                (string.IsNullOrWhiteSpace(result.Payment?.ErrorMessage) ? "" : "\r\n" + result.Payment.ErrorMessage) +
+                (result.Submission?.Response?.Errors == null ? "" : "\r\n" + string.Join("\r\n",result.Submission.Response.Errors));
+        }
         internal static string ResultMessage(ASFuelControl.Invoicing.InvoiceWorkflowResult result)
         {
             var message = "Διαβίβαση: " + StateLabel(result.FiscalState);
@@ -232,6 +310,7 @@ namespace ASFuelControl.Windows.UI.Controls
                 case "Rejected": return "Απορρίφθηκε";
                 case "Queued": return "Σε ουρά παρόχου";
                 case "QueueFailed": return "Σφάλμα ουράς — απαιτείται παρέμβαση";
+                case "RetryAuthorized": return "Εγκρίθηκε νέα διαβίβαση";
                 case "Declined": return "Μη εγκεκριμένο";
                 case "FailedBeforeDispatch": return "Τοπική αποτυχία";
                 case "Dispatching": return "Σε εκτύπωση";
@@ -256,6 +335,16 @@ namespace ASFuelControl.Windows.UI.Controls
             catch (Exception ex) { lastActionInvoiceId = actionInvoiceId; lastActionMessage = ex.Message; if (invoiceId == actionInvoiceId) RadMessageBox.Show(ex.Message,"Κοινή τιμολόγηση",MessageBoxButtons.OK,RadMessageIcon.Error); }
             finally { Busy = false; if (!IsDisposed) { actions.Enabled = true; LoadInvoice(invoiceId); ActionCompleted?.Invoke(this,EventArgs.Empty); } }
         }
+        private async Task ConfirmProviderResend(Guid id,string recoveryMessage)
+        {
+            var assessment = status?.ProviderResend;
+            if (assessment?.CanResend != true || invoiceId != id) return;
+            var message = (string.IsNullOrWhiteSpace(recoveryMessage) ? "" : recoveryMessage + "\r\n\r\n") + assessment.Warning;
+            if (RadMessageBox.Show(message,"Επανάληψη διαβίβασης",MessageBoxButtons.YesNo,RadMessageIcon.Exclamation) != DialogResult.Yes) return;
+            ASFuelControl.Invoicing.InvoiceWorkflowResult result = null;
+            await Run(() => { result = SharedInvoiceRuntime.AuthorizeAndResumeSubmission(id); RecordResult(id,result); });
+            if (!IsDisposed && invoiceId == id && result != null) ShowResult(result,"Επανάληψη διαβίβασης");
+        }
         internal async Task PrintSaved()
         {
             if (!Owned || !print.Enabled || !actions.Enabled) return;
@@ -277,29 +366,45 @@ namespace ASFuelControl.Windows.UI.Controls
             if (ReadFailed || Busy || !actions.Enabled) return;
             var id = invoiceId;
             var previous = status?.Attempts.LastOrDefault(a => a.Family == "Print");
-            string reason = null; bool unused;
-            if (previous != null && (previous.State == "HandedOff" || previous.State == "Confirmed") &&
-                !AskEvidence(false,out reason,out unused)) return;
+            bool reprint = previous != null && (previous.State == "HandedOff" || previous.State == "Confirmed");
+            if (reprint && RadMessageBox.Show("Θέλετε να εκτυπώσετε ξανά το παραστατικό;",
+                "Επανεκτύπωση Παραστατικού",MessageBoxButtons.YesNo,RadMessageIcon.Question) != DialogResult.Yes)
+                return;
+            string reason = reprint ? SharedInvoiceRuntime.OperatorRequestedCopyReason : null;
             // First issuance and recovery use exactly the PrintAgent workflow. Only
-            // an explicitly requested copy supplies a reason; retries keep saved pages.
+            // an explicitly requested copy supplies an audit reason; the print click
+            // itself is sufficient and does not require a second operator dialog.
             ASFuelControl.Invoicing.InvoiceWorkflowResult result = null;
             await Run(() => { result = SharedInvoiceRuntime.Process(id,true,reason); RecordResult(id,result); });
             if (!IsDisposed && invoiceId == id && result != null && (result.Print == null ||
                 (result.Print.State != "HandedOff" && result.Print.State != "Confirmed")))
                 ShowResult(result,"Εκτύπωση Παραστατικού");
         }
-        private bool AskEvidence(bool outcome,out string reason,out bool confirmed)
+        private bool AskPrintOutcome(out string reason,out bool confirmed)
         {
-            using (var dialog = new RadForm { Text = outcome ? "Έκβαση εκτύπωσης" : "Αιτιολογία αντιγράφου",ClientSize = new Size(550,220),StartPosition = FormStartPosition.CenterParent })
+            using (var dialog = new RadForm { Text = "Έκβαση εκτύπωσης",ClientSize = new Size(550,220),StartPosition = FormStartPosition.CenterParent })
             {
                 var label = new RadLabel { Text = "Αιτιολογία / τεκμήριο (υποχρεωτικό)",Dock = DockStyle.Top,Height = 30 };
                 var text = new RadTextBox { Multiline = true,Dock = DockStyle.Fill };
-                var choice = InvoicingFields.Choice("Επιβεβαιωμένη εκτύπωση","Επιβεβαιωμένη μη εκτύπωση"); choice.Dock = DockStyle.Top; choice.Visible = outcome;
+                var choice = InvoicingFields.Choice("Επιβεβαιωμένη εκτύπωση","Επιβεβαιωμένη μη εκτύπωση"); choice.Dock = DockStyle.Top;
                 var accept = new RadButton { Text = "Καταχώριση",Dock = DockStyle.Bottom,Height = 36 };
                 accept.Click += (s,e) => { if (!string.IsNullOrWhiteSpace(text.Text)) dialog.DialogResult = DialogResult.OK; };
                 dialog.Controls.Add(text); dialog.Controls.Add(choice); dialog.Controls.Add(label); dialog.Controls.Add(accept);
                 bool ok = dialog.ShowDialog(this) == DialogResult.OK;
                 reason = text.Text.Trim(); confirmed = choice.SelectedIndex == 0; return ok;
+            }
+        }
+        private bool AskReason(string title,string prompt,out string reason)
+        {
+            using (var dialog = new RadForm { Text = title,ClientSize = new Size(550,180),StartPosition = FormStartPosition.CenterParent })
+            {
+                var label = new RadLabel { Text = prompt,Dock = DockStyle.Top,Height = 30 };
+                var text = new RadTextBox { Multiline = true,Dock = DockStyle.Fill };
+                var accept = new RadButton { Text = "Συνέχεια",Dock = DockStyle.Bottom,Height = 36 };
+                accept.Click += (s,e) => { if (!string.IsNullOrWhiteSpace(text.Text)) dialog.DialogResult = DialogResult.OK; };
+                dialog.Controls.Add(text); dialog.Controls.Add(label); dialog.Controls.Add(accept);
+                bool ok = dialog.ShowDialog(this) == DialogResult.OK;
+                reason = text.Text.Trim(); return ok;
             }
         }
     }
