@@ -664,6 +664,9 @@ namespace ASFuelControl.DartMithra
             try
             {
                 string fileName = "dart_errors_" + this.serialPort.PortName + ".txt";
+                if (!File.Exists(fileName))
+                    return;
+
                 using (StreamWriter writer = new StreamWriter(fileName, true, Encoding.UTF8))
                 {
                     writer.Write(DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss.fff") + " \t" + txt + "  " + "\r\n" /*+ Error_Recieve.ToString() + "\r\n\r\n"*/);
