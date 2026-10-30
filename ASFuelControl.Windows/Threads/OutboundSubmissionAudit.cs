@@ -134,6 +134,15 @@ namespace ASFuelControl.Windows.Threads
         }
     }
 
+    internal sealed class OutboundAuditStorageStatistics
+    {
+        public long AttemptCount { get; set; }
+        public long PurgedAttemptCount { get; set; }
+        public long DatabasePayloadBytes { get; set; }
+        public long VerifiedArchiveCount { get; set; }
+        public long ArchiveBytes { get; set; }
+    }
+
     /// <summary>
     /// Durable, append-only audit trail for outbound submissions. The request is
     /// persisted before the remote call so that a process failure leaves an
@@ -399,8 +408,164 @@ WHERE attempt.AttemptId = @AttemptId;"))
                 Add(command, "@AttemptId", SqlDbType.UniqueIdentifier, attemptId);
                 connection.Open();
                 using (var reader = command.ExecuteReader(CommandBehavior.SingleRow))
-                    return reader.Read() ? ReadAttempt(reader) : null;
+                {
+                    OutboundSubmissionAttemptEntry attempt = reader.Read() ? ReadAttempt(reader) : null;
+                    return attempt == null ? null : RestoreArchivedPayload(attempt);
+                }
             }
+        }
+
+        public OutboundSubmissionAuditEntry LoadSubmission(Guid submissionId)
+        {
+            EnsureSchema();
+            using (var connection = new SqlConnection(connectionString))
+            using (var command = CreateCommand(connection, null, @"
+SELECT OutboundSubmissionId, EntityType, EntityId, Destination, Status, AttemptCount,
+       CreatedUtc, LastAttemptUtc, NextAttemptUtc, CompletedUtc,
+       LastErrorCategory, LastErrorSummary, IsPinned, PinnedUtc, PinnedBy
+FROM dbo.OutboundSubmission
+WHERE OutboundSubmissionId = @SubmissionId;"))
+            {
+                Add(command, "@SubmissionId", SqlDbType.UniqueIdentifier, submissionId);
+                connection.Open();
+                using (var reader = command.ExecuteReader(CommandBehavior.SingleRow))
+                {
+                    if (!reader.Read())
+                        return null;
+                    return new OutboundSubmissionAuditEntry
+                    {
+                        SubmissionId = reader.GetGuid(0),
+                        EntityType = reader.GetString(1),
+                        EntityId = reader.GetGuid(2),
+                        Destination = reader.GetString(3),
+                        Status = reader.GetString(4),
+                        AttemptCount = reader.GetInt32(5),
+                        CreatedUtc = reader.GetDateTime(6),
+                        LastAttemptUtc = GetNullableDateTime(reader, 7),
+                        NextAttemptUtc = GetNullableDateTime(reader, 8),
+                        CompletedUtc = GetNullableDateTime(reader, 9),
+                        LastErrorCategory = GetNullableString(reader, 10),
+                        LastErrorSummary = GetNullableString(reader, 11),
+                        IsPinned = reader.GetBoolean(12),
+                        PinnedUtc = GetNullableDateTime(reader, 13),
+                        PinnedBy = GetNullableString(reader, 14)
+                    };
+                }
+            }
+        }
+
+        public OutboundAuditStorageStatistics GetStorageStatistics()
+        {
+            EnsureSchema();
+            var result = new OutboundAuditStorageStatistics();
+            using (var connection = new SqlConnection(connectionString))
+            using (var command = CreateCommand(connection, null, @"
+SELECT COUNT_BIG(*) AS AttemptCount,
+       COALESCE(SUM(CAST(CASE WHEN PayloadPurgedUtc IS NULL THEN 0 ELSE 1 END AS bigint)), 0) AS PurgedCount,
+       COALESCE(SUM(CAST(COALESCE(DATALENGTH(RequestPayload), 0) AS bigint) +
+                    CAST(COALESCE(DATALENGTH(ResponsePayload), 0) AS bigint) +
+                    CAST(COALESCE(DATALENGTH(StackTrace), 0) AS bigint)), 0) AS PayloadBytes
+FROM dbo.OutboundSubmissionAttempt;
+
+SELECT COUNT_BIG(*) AS ArchiveCount,
+       COALESCE(SUM(CompressedBytes), 0) AS ArchiveBytes
+FROM dbo.OutboundAuditArchive
+WHERE Status = N'Verified';"))
+            {
+                connection.Open();
+                using (var reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        result.AttemptCount = reader.GetInt64(0);
+                        result.PurgedAttemptCount = reader.GetInt64(1);
+                        result.DatabasePayloadBytes = reader.GetInt64(2);
+                    }
+                    if (reader.NextResult() && reader.Read())
+                    {
+                        result.VerifiedArchiveCount = reader.GetInt64(0);
+                        result.ArchiveBytes = reader.GetInt64(1);
+                    }
+                }
+            }
+            return result;
+        }
+
+        public void ExportSubmission(Guid submissionId, string targetPath)
+        {
+            if (string.IsNullOrWhiteSpace(targetPath))
+                throw new ArgumentException("An export path is required.", "targetPath");
+            OutboundSubmissionAuditEntry submission = LoadSubmission(submissionId);
+            if (submission == null)
+                throw new InvalidOperationException("The selected outbound submission no longer exists.");
+            IList<OutboundSubmissionAttemptEntry> attempts = LoadAttempts(submissionId);
+            string directory = Path.GetDirectoryName(Path.GetFullPath(targetPath));
+            if (!string.IsNullOrWhiteSpace(directory))
+                Directory.CreateDirectory(directory);
+            using (var stream = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536))
+            using (var text = new StreamWriter(stream, new UTF8Encoding(true), 65536))
+            using (var writer = new JsonTextWriter(text) { Formatting = Formatting.Indented })
+            {
+                var serializer = JsonSerializer.CreateDefault();
+                writer.WriteStartObject();
+                WriteJson(writer, "ExportVersion", 1);
+                WriteJson(writer, "ExportedUtc", DateTime.UtcNow);
+                writer.WritePropertyName("Submission");
+                serializer.Serialize(writer, submission);
+                writer.WritePropertyName("Attempts");
+                writer.WriteStartArray();
+                foreach (OutboundSubmissionAttemptEntry summary in attempts.OrderBy(item => item.AttemptNumber))
+                    serializer.Serialize(writer, LoadAttempt(summary.AttemptId));
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            }
+        }
+
+        private static void WriteJson(JsonTextWriter writer, string name, object value)
+        {
+            writer.WritePropertyName(name);
+            writer.WriteValue(value);
+        }
+
+        private static OutboundSubmissionAttemptEntry RestoreArchivedPayload(OutboundSubmissionAttemptEntry attempt)
+        {
+            if (!attempt.PayloadPurgedUtc.HasValue)
+                return attempt;
+            if (string.IsNullOrWhiteSpace(attempt.ArchiveFilePath))
+                throw new InvalidDataException("The archived audit payload has no archive file reference.");
+            if (!File.Exists(attempt.ArchiveFilePath))
+                throw new FileNotFoundException("The archived audit payload file was not found.", attempt.ArchiveFilePath);
+            if (!string.IsNullOrWhiteSpace(attempt.ArchiveSha256))
+            {
+                string actualHash = OutboundAuditArchiveService.ComputeFileHash(attempt.ArchiveFilePath);
+                if (!string.Equals(actualHash, attempt.ArchiveSha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("The archived audit payload checksum is invalid.");
+            }
+            using (var file = new FileStream(attempt.ArchiveFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.SequentialScan))
+            using (var gzip = new GZipStream(file, CompressionMode.Decompress, false))
+            using (var reader = new StreamReader(gzip, Encoding.UTF8, true, 65536))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+                    JObject item = JObject.Parse(line);
+                    Guid id;
+                    if (!Guid.TryParse((string)item["AttemptId"], out id) || id != attempt.AttemptId)
+                        continue;
+                    attempt.RequestContentType = (string)item["RequestContentType"];
+                    attempt.RequestPayload = (string)item["RequestPayload"];
+                    attempt.RequestHash = (string)item["RequestHash"];
+                    attempt.ResponseContentType = (string)item["ResponseContentType"];
+                    attempt.ResponsePayload = (string)item["ResponsePayload"];
+                    attempt.ErrorType = (string)item["ErrorType"];
+                    attempt.ErrorMessage = (string)item["ErrorMessage"];
+                    attempt.StackTrace = (string)item["StackTrace"];
+                    return attempt;
+                }
+            }
+            throw new InvalidDataException("The selected audit attempt was not found in its verified archive.");
         }
 
         public void SetPinned(Guid submissionId, bool pinned, string initiatedBy)
@@ -1190,7 +1355,7 @@ IF @@ROWCOUNT = 0
                 throw new InvalidDataException("The verified audit archive does not contain every selected attempt.");
         }
 
-        private static string ComputeFileHash(string path)
+        internal static string ComputeFileHash(string path)
         {
             using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.SequentialScan))
             using (var sha = SHA256.Create())
