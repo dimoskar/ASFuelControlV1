@@ -713,6 +713,8 @@ namespace ASFuelControl.Windows.Threads
 
             Data.Balance balance = Data.Balance.CreateBalance(dtStart, dtEnd, AlertChecker.Instance);
             Common.Logger.Instance.Debug(string.Format("Balance Ready"));
+            if (balance != null && this.BalanceCreated != null)
+                this.BalanceCreated(balance, EventArgs.Empty);
             return balance;
         }
 

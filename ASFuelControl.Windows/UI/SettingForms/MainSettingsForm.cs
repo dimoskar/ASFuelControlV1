@@ -382,6 +382,15 @@ namespace ASFuelControl.Windows.UI.SettingForms
             Exedron.MyData.Settings.SubscriptionKey = Data.Implementation.OptionHandler.Instance.GetOption("MyDataSubscriptionKey", "");
 
             Data.Implementation.OptionHandler.Instance.SetOption("ProviderEnabled", this.providerEnabled.IsChecked);
+
+            // Apply automatic worker startup immediately. Previously the option
+            // was persisted but did not take effect until the application was
+            // restarted, leaving balance generation and outbound sending stopped.
+            if (this.startThreadsOnStartCheck.IsChecked &&
+                !Program.ApplicationMainForm.ThreadControllerInstance.IsRunning)
+            {
+                Program.ApplicationMainForm.ThreadControllerInstance.StartThreads();
+            }
         }
 
         private void MainSettingsForm_Load(object sender, EventArgs e)
