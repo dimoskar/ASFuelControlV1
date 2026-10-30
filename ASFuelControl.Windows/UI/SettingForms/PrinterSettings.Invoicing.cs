@@ -55,8 +55,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
             foreach (string printer in System.Drawing.Printing.PrinterSettings.InstalledPrinters) sharedPrinterName.Items.Add(printer);
             sharedPrinterName.Text = p.PrinterName ?? "";
             fields.Row("Προεπιλεγμένος εκτυπωτής",sharedPrinterName);
-            sharedPaperWidth = fields.Row("Πλάτος (1/100 ίντσας)",Number(p.WidthHundredths,200,1200));
-            sharedPaperHeight = fields.Row("Ύψος (1/100 ίντσας)",Number(p.HeightHundredths,400,2000));
+            sharedPaperWidth = fields.Row("Πλάτος (mm)",Millimetres(p.WidthHundredths,200,1200));
+            sharedPaperHeight = fields.Row("Ύψος (mm)",Millimetres(p.HeightHundredths,400,2000));
             sharedCopies = fields.Row("Αντίγραφα",Number(p.Copies,1,10));
             sharedFontSize = fields.Row("Μέγεθος γραμμάτων",Number((decimal)p.FontSize,6,20));
             fields.Note("Αν ο εκτυπωτής του τύπου λείπει, χρησιμοποιείται ο παραπάνω.\r\nΑν λείπει και αυτός, χρησιμοποιείται ο προεπιλεγμένος Windows.");
@@ -65,6 +65,16 @@ namespace ASFuelControl.Windows.UI.SettingForms
         }
         private static RadSpinEditor Number(decimal value,decimal min,decimal max)
             => new RadSpinEditor { Minimum = min, Maximum = max, Value = Math.Max(min,Math.Min(max,value)) };
+
+        private static RadSpinEditor Millimetres(int hundredths,int minHundredths,int maxHundredths)
+            => new RadSpinEditor { Minimum = ToMillimetres(minHundredths), Maximum = ToMillimetres(maxHundredths),
+                DecimalPlaces = 1, Increment = 1, Value = ToMillimetres(hundredths) };
+
+        private static decimal ToMillimetres(int hundredths)
+            => Math.Round(hundredths * 0.254m,1,MidpointRounding.AwayFromZero);
+
+        private static int ToHundredthsOfInch(decimal millimetres)
+            => (int)Math.Round(millimetres / 0.254m,0,MidpointRounding.AwayFromZero);
 
         private static string LegacySamtecEndpoint()
         {
@@ -85,8 +95,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
             {
                 if (sharedPrinterConfiguration.Version != 2 && sharedPrinterConfiguration.Version != 3) throw new InvalidOperationException("Αποθηκεύστε πρώτα τις κοινές ρυθμίσεις στην φόρμα Γενικές Επιλογές.");
                 var value = JsonConvert.DeserializeObject<SharedInvoiceConfiguration>(JsonConvert.SerializeObject(sharedPrinterConfiguration));
-                value.DefaultPrinter = new SharedPrinterProfile { PrinterName = sharedPrinterName.Text.Trim(), WidthHundredths = (int)sharedPaperWidth.Value,
-                    HeightHundredths = (int)sharedPaperHeight.Value, Copies = (short)sharedCopies.Value, FontSize = (float)sharedFontSize.Value };
+                value.DefaultPrinter = new SharedPrinterProfile { PrinterName = sharedPrinterName.Text.Trim(), WidthHundredths = ToHundredthsOfInch(sharedPaperWidth.Value),
+                    HeightHundredths = ToHundredthsOfInch(sharedPaperHeight.Value), Copies = (short)sharedCopies.Value, FontSize = (float)sharedFontSize.Value };
                 SharedInvoicePrinting.CheckProfile(value.DefaultPrinter);
                 value.FiscalDevice = null;
                 if (sharedDeviceEnabled.IsChecked)
