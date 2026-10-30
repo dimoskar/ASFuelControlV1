@@ -1223,6 +1223,11 @@ namespace ASFuelControl.Windows.Threads
                 this.agentRunning = false;
                 return;
             }
+
+            // Repair local PDF archives that may be absent even though fiscal
+            // processing and submission already completed successfully.
+            this.RestoreMissingRecentBalanceReports();
+
             int index = 0;
             while (agentRunning)
             {
@@ -2065,7 +2070,25 @@ namespace ASFuelControl.Windows.Threads
 
         public void PrintToPrinter(Data.Balance balance, bool sendMail)
         {
-            if (SharedInvoiceRuntime.HandlesDocument("Balance", balance.BalanceId)) { SharedInvoiceRuntime.ProcessDocument("Balance", balance.BalanceId); return; }
+            this.PrintToPrinter(balance, sendMail, false, true);
+        }
+
+        internal void StoreBalanceReport(Data.Balance balance, bool sendMail)
+        {
+            this.PrintToPrinter(balance, sendMail, true, false);
+        }
+
+        private void PrintToPrinter(
+            Data.Balance balance,
+            bool sendMail,
+            bool sharedWorkflowCompleted,
+            bool printPhysical)
+        {
+            if (!sharedWorkflowCompleted && SharedInvoiceRuntime.HandlesDocument("Balance", balance.BalanceId))
+            {
+                SharedInvoiceRuntime.ProcessDocument("Balance", balance.BalanceId);
+                return;
+            }
             //Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
 
             Reports.BalanceReports.BalanceLoad bl = new Reports.BalanceReports.BalanceLoad();
@@ -2129,7 +2152,7 @@ namespace ASFuelControl.Windows.Threads
                 Telerik.Reporting.InstanceReportSource reportSource = new Telerik.Reporting.InstanceReportSource();
                 reportSource.ReportDocument = report;
 
-                if (this.printBalancesPhysical)
+                if (printPhysical && this.printBalancesPhysical)
                 {
                     System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                     PrintReport(report, printerSettings);
@@ -2165,7 +2188,8 @@ namespace ASFuelControl.Windows.Threads
                 if (hasError)
                     companyDesc = companyDesc + " ΕΚΤΟΣ ΟΡΙΩΝ";
                 //MailSender.Instance.SendSms(fileName);
-                MailSender.Instance.SendMail(new string[] { fileName }, companyDesc, companyDesc);
+                if (sendMail)
+                    MailSender.Instance.SendMail(new string[] { fileName }, companyDesc, companyDesc);
                 bool isCustom = false;
                 string newFileName = "";
                 if (hasError)
@@ -2208,6 +2232,56 @@ namespace ASFuelControl.Windows.Threads
                     System.Diagnostics.Process.Start(newFileName);
                 }
 
+            }
+        }
+
+        private void RestoreMissingRecentBalanceReports()
+        {
+            try
+            {
+                using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                {
+                    List<Data.Balance> recentBalances = db.Balances
+                        .Where(balance => balance.PrintDate.HasValue)
+                        .OrderByDescending(balance => balance.EndDate)
+                        .Take(31)
+                        .ToList();
+
+                    foreach (Data.Balance balance in recentBalances)
+                    {
+                        string archiveDirectory = Path.Combine(Environment.CurrentDirectory, "Ισοζύγια");
+                        string archiveName = string.Format("Balance_{0:yyyyMMdd}.pdf", balance.StartDate.Date);
+                        if (balance.StartDate.Date != balance.EndDate.Date &&
+                            balance.StartDate.Day == 1 &&
+                            balance.EndDate.AddDays(1).Day == 1)
+                        {
+                            archiveName = string.Format(
+                                "Monthly_Balance_{0:yyyyMMdd}_{1:yyyyMMdd}.pdf",
+                                balance.StartDate.Date,
+                                balance.EndDate.Date);
+                        }
+                        else if (balance.StartDate.Date != balance.EndDate.Date &&
+                            balance.StartDate.Day != 1 &&
+                            balance.EndDate.AddDays(1).Day != 1)
+                        {
+                            archiveName = string.Format(
+                                "Custom_Balance_{0:yyyyMMdd}_{1:yyyyMMdd}.pdf",
+                                balance.StartDate.Date,
+                                balance.EndDate.Date);
+                        }
+
+                        string regularPath = Path.Combine(archiveDirectory, archiveName);
+                        string outOfRangePath = Path.Combine(archiveDirectory, "Εκτός Ορίων", archiveName);
+                        if (File.Exists(regularPath) || File.Exists(outOfRangePath))
+                            continue;
+
+                        this.StoreBalanceReport(balance, false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogToFile("RestoreMissingRecentBalanceReports", ex);
             }
         }
 

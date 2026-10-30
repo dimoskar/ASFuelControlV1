@@ -29,12 +29,14 @@ namespace ASFuelControl.Windows.Threads
             service.Process(document,() => PrepareDocument(document), result => {
                 using(var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
+                    Data.Balance completedBalance = null;
                     bool printed = result.Print?.State == "HandedOff" || result.Print?.State == "Confirmed";
                     if (document.Kind == FiscalDocumentKind.Balance)
                     {
                         var balance = db.Balances.Single(b => b.BalanceId == id);
                         if (result.Response != null) balance.DocumentSign = result.Response.InvoiceSignature;
                         if (printed && !balance.PrintDate.HasValue) balance.PrintDate = DateTime.Now;
+                        if (printed) completedBalance = balance;
                     }
                     else if (printed)
                     {
@@ -45,6 +47,11 @@ namespace ASFuelControl.Windows.Threads
                                 new SqlFiscalSigningStore(sql.Value).Load(lease).Last(a => a.State == FiscalSigningState.Signed).Result.Signature;
                     }
                     db.SaveChanges();
+
+                    // Shared fiscal processing owns signing/printing, but the
+                    // application still owns its local PDF balance archive.
+                    if (completedBalance != null)
+                        new PrintAgent().StoreBalanceReport(completedBalance, true);
                 }
             });
         }
