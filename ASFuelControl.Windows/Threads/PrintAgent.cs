@@ -3198,6 +3198,17 @@ namespace ASFuelControl.Windows.Threads
                 alert.EventId,
                 "Samtec.Sign",
                 req.ToString());
+            if (string.IsNullOrWhiteSpace(alertText))
+            {
+                const string emptyAlertError = "The alert signing content is empty.";
+                FinishInvoiceAudit(
+                    audit,
+                    false,
+                    null,
+                    emptyAlertError,
+                    new InvalidOperationException(emptyAlertError));
+                return;
+            }
             Samtec.WebService.Models.Response resp;
             try
             {
@@ -3381,24 +3392,48 @@ namespace ASFuelControl.Windows.Threads
         }
 
         List<Guid> alertsProcessed = new List<Guid>();
+        internal static string GenerateAlertContext(Data.SystemEvent alert)
+        {
+            if (alert == null)
+                throw new ArgumentNullException("alert");
+
+            var lines = new List<string>();
+            Action<string, string> add = (label, value) =>
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                    lines.Add(label + value.Trim());
+            };
+
+            add("", Data.Implementation.OptionHandler.Instance.GetOption("CompanyName"));
+            add("", Data.Implementation.OptionHandler.Instance.GetOption("CompanyOccupation"));
+            add("Διεύθυνση: ", Data.Implementation.OptionHandler.Instance.GetOption("CompanyAddress"));
+            add("Πόλη: ", Data.Implementation.OptionHandler.Instance.GetOption("CompanyPostalCode") + " " +
+                Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity"));
+            add("ΑΦΜ: ", Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN"));
+            add("ΔΟΥ: ", Data.Implementation.OptionHandler.Instance.GetOption("CompanyTaxOffice"));
+            if (lines.Count > 0)
+                lines.Add("");
+
+            lines.Add("ΣΥΝΑΓΕΡΜΟΣ");
+            lines.Add("Κωδικός συμβάντος: " + alert.EventId);
+            lines.Add("Ημερομηνία: " + alert.EventDate.ToString("dd/MM/yyyy HH:mm:ss"));
+            lines.Add("Τύπος συμβάντος: " + alert.EventType);
+            lines.Add("Τύπος συναγερμού: " + alert.AlarmType);
+            add("Συσκευή: ", alert.DeviceDescription);
+            add("Περιγραφή: ", alert.OfficialDescription);
+            if (alert.ResolvedDate.HasValue)
+                lines.Add("Ημερομηνία αποκατάστασης: " + alert.ResolvedDate.Value.ToString("dd/MM/yyyy HH:mm:ss"));
+            add("Αποκατάσταση: ", alert.ResolveMessage);
+
+            return string.Join("\r\n", lines);
+        }
+
         private void PrintAlert(Data.DatabaseModel db, Data.SystemEvent alert)
         {
             if (alertsProcessed.Contains(alert.EventId))
                 return;
             alertsProcessed.Add(alert.EventId);
-
-            using (Reports.AlertReport report = new Reports.AlertReport())
-            using (var reportData = new Telerik.Reporting.OpenAccessDataSource(db, "SystemEvents"))
-            {
-                report.DataSource = reportData;
-                report.ReportParameters[0].Value = alert.EventId.ToString().ToLower();
-
-                this.ExportReportAsText(report, "Alert_" + alert.EventId.ToString() + ".xls");
-                var fileName = this.processFolder + "\\" + "Alert_" + alert.EventId.ToString() + ".xls";
-                FileTypeInfo ft = GetFileTypeInfo(fileName, "xls");
-                string alertText = ExcelTextStripper.GetText(fileName, ft.ReportName);
-                SignAlert(db, alert, alertText);
-            }
+            SignAlert(db, alert, GenerateAlertContext(alert));
         }
 
         List<Guid> balancesProcessed = new List<Guid>();

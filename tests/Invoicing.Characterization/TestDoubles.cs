@@ -264,10 +264,12 @@ namespace Samtec.WebService
     public static class HttpClient
     {
         public static int Calls;
+        public static Models.Request LastRequest;
         public static Func<Models.Response> Reply;
         public static Models.Response CallWS(Models.Request request, string endpoint)
         {
             Calls++;
+            LastRequest = request;
             if (Reply == null) throw new InvalidOperationException("No offline device response configured");
             return Reply();
         }

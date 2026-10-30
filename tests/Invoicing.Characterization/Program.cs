@@ -383,6 +383,7 @@ namespace Invoicing.Characterization
                 }
                 Equal("SYNTHETIC-SIGNATURE", alert.DocumentSign, "alert device signature"); Equal("-", titrimetry.DocumentSign, "titrimetry placeholder");
                 Equal(1, Samtec.WebService.HttpClient.Calls, "one alert device call");
+                Equal("synthetic alert", Samtec.WebService.HttpClient.LastRequest.AtxtContent, "alert signing content");
             });
         }
     }
