@@ -665,14 +665,7 @@ namespace ASFuelControl.Windows.Threads
             bool currentBalanceOK = this.IsCurrentBalanceOK(balances);
 
             bool createBalance = false;
-            if (monthBalanceEnabled && !monthBalanceOK)
-            {
-                DateTime previousMonthDay = DateTime.Today.AddMonths(-1).Date;
-                dtStart = new DateTime(previousMonthDay.Year, previousMonthDay.Month, 1);
-                dtEnd = dtStart.AddMonths(1).AddMilliseconds(-1);
-                createBalance = true;
-            }
-            else if (!currentBalanceOK)
+            if (!currentBalanceOK)
             {
                 dtStart = DateTime.Today;
                 dtEnd = dtStart.AddDays(1).AddMilliseconds(-1);
@@ -681,10 +674,20 @@ namespace ASFuelControl.Windows.Threads
             else
             {
                 DateTime missingDay;
-                if (this.TryGetMissingBackfillDay(balances, out missingDay))
+                if (this.TryGetMissingBackfillDay(balances, balanceSearchStart, out missingDay))
                 {
                     dtStart = missingDay;
                     dtEnd = missingDay.AddDays(1).AddMilliseconds(-1);
+                    createBalance = true;
+                    Common.Logger.Instance.Debug(string.Format(
+                        "Recovering missing daily balance for {0:dd-MM-yyyy}",
+                        missingDay));
+                }
+                else if (monthBalanceEnabled && !monthBalanceOK)
+                {
+                    DateTime previousMonthDay = DateTime.Today.AddMonths(-1).Date;
+                    dtStart = new DateTime(previousMonthDay.Year, previousMonthDay.Month, 1);
+                    dtEnd = dtStart.AddMonths(1).AddMilliseconds(-1);
                     createBalance = true;
                 }
 
@@ -734,26 +737,30 @@ namespace ASFuelControl.Windows.Threads
             return dtReference.Date <= DateTime.Today;
         }
 
-        private bool TryGetMissingBackfillDay(BalanceCheckClass[] balances, out DateTime missingDay)
+        private bool TryGetMissingBackfillDay(
+            BalanceCheckClass[] balances,
+            DateTime balanceSearchStart,
+            out DateTime missingDay)
         {
             missingDay = DateTime.MinValue;
-            DateTime qMindate = balances.Select(b => b.StartDate).DefaultIfEmpty(DateTime.MinValue).Min();
-            if (qMindate == DateTime.MinValue)
-                return false;
+            DateTime firstEligibleDay = balanceSearchStart.Date;
+            if (firstEligibleDay <= officialStartDate.Date)
+                firstEligibleDay = officialStartDate.Date.AddDays(1);
 
-            int days = DateTime.Today.Subtract(qMindate).Days;
-            for (int i = 0; i < days; i++)
+            // Recover the most recent completed day first. This guarantees that
+            // a balance which failed before midnight remains eligible immediately
+            // after 00:00, even when there are no recent balance rows to anchor
+            // the search. Older gaps are handled one per following worker cycle.
+            for (DateTime candidate = DateTime.Today.AddDays(-1);
+                candidate >= firstEligibleDay;
+                candidate = candidate.AddDays(-1))
             {
-                DateTime cdate = qMindate.Date.AddDays(i);
-                if (cdate.Date <= officialStartDate.Date)
-                    continue;
-                if (cdate.Date == DateTime.Today)
-                    continue;
-
-                var oldBalance = balances.FirstOrDefault(b => b.StartDate.Date == cdate && b.EndDate.AddHours(-1).Date == cdate);
+                BalanceCheckClass oldBalance = balances.FirstOrDefault(b =>
+                    b.StartDate.Date == candidate &&
+                    b.EndDate.AddHours(-1).Date == candidate);
                 if (oldBalance == null)
                 {
-                    missingDay = cdate;
+                    missingDay = candidate;
                     return true;
                 }
             }
