@@ -57,7 +57,18 @@ namespace ASFuelControl.Windows.UI.Forms
         }
         private void ChangePolicy()
         {
-            if (loadingPolicy || transmission.SelectedIndex < 0) return;
+            if (loadingPolicy) return;
+            // A fiscal-device-only policy means local fiscal signing without
+            // transmission. New/unreviewed invoice types deliberately show no
+            // transmission selection, so choose None when signing is the first
+            // option the administrator selects.
+            if (transmission.SelectedIndex < 0)
+            {
+                if (!fiscalSigning.IsChecked) return;
+                loadingPolicy = true;
+                try { transmission.SelectedIndex = (int)InvoiceTransmissionMode.None; }
+                finally { loadingPolicy = false; }
+            }
             var type = invoiceTypeViewModelBindingSource.Current as ViewModels.InvoiceTypeDetailViewModel;
             if (type == null) return;
             InvoiceTypePolicy policy;
