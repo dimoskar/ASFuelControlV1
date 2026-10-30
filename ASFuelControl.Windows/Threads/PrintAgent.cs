@@ -3855,12 +3855,123 @@ namespace ASFuelControl.Windows.Threads
             }
         }
 
+        private static OutboundSubmissionAttempt StartInvoiceAudit(
+            string entityType,
+            Guid invoiceId,
+            string destination,
+            string requestPayload)
+        {
+            try
+            {
+                var store = new OutboundSubmissionAuditStore(Properties.Settings.Default.DBConnection);
+                return store.StartAttempt(
+                    entityType,
+                    invoiceId,
+                    destination,
+                    "application/xml",
+                    requestPayload,
+                    Environment.UserName);
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogToFile("PrintAgent::AuditStart", ex);
+                return null;
+            }
+        }
+
+        private static void FinishInvoiceAudit(
+            OutboundSubmissionAttempt attempt,
+            bool accepted,
+            string responsePayload,
+            string errorSummary,
+            Exception exception)
+        {
+            if (attempt == null)
+                return;
+            try
+            {
+                var store = new OutboundSubmissionAuditStore(Properties.Settings.Default.DBConnection);
+                if (accepted)
+                {
+                    store.Complete(attempt, null, "application/xml", responsePayload);
+                }
+                else
+                {
+                    Exception error = exception;
+                    if (error == null && !string.IsNullOrWhiteSpace(errorSummary))
+                        error = new InvalidOperationException(errorSummary);
+                    store.Fail(
+                        attempt,
+                        "Failed",
+                        null,
+                        "application/xml",
+                        responsePayload,
+                        exception == null ? "RemoteRejected" : "TransportFailure",
+                        error,
+                        null);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogToFile("PrintAgent::AuditFinish", ex);
+            }
+        }
+
+        private static string SerializeAuditResponse(object value)
+        {
+            if (value == null)
+                return null;
+            try
+            {
+                var serializer = new XmlSerializer(value.GetType());
+                using (var writer = new StringWriter())
+                {
+                    serializer.Serialize(writer, value);
+                    return writer.ToString();
+                }
+            }
+            catch
+            {
+                return value.ToString();
+            }
+        }
+
         public static void CancelInvoice(Data.DatabaseModel db, Data.MyDataInvoice invToCancel)
         {
             if (SharedInvoiceRuntime.Handles(invToCancel.InvoiceId)) throw new InvalidOperationException("Use the journalled cancellation/reconciliation workflow for this invoice.");
             var url = Data.Implementation.OptionHandler.Instance.GetOption("MyDataUrl", "https://mydata-dev.azure-api.net");
-            var respCancel = Exedron.MyData.InvoiceCancelation.MakeRequest(url, invToCancel.Mark.Value);
-            if (respCancel.response.cancellationMark.HasValue)
+            string requestPayload = string.Format(
+                "<CancelInvoice><mark>{0}</mark></CancelInvoice>",
+                invToCancel.Mark.Value);
+            OutboundSubmissionAttempt audit = StartInvoiceAudit(
+                "InvoiceCancellation",
+                invToCancel.InvoiceId,
+                "AADE MyData",
+                requestPayload);
+            Exedron.MyData.Models.Responses.ResponseDoc respCancel;
+            try
+            {
+                respCancel = Exedron.MyData.InvoiceCancelation.MakeRequest(url, invToCancel.Mark.Value);
+            }
+            catch (Exception ex)
+            {
+                FinishInvoiceAudit(audit, false, null, ex.Message, ex);
+                throw;
+            }
+            bool accepted = respCancel != null && respCancel.response != null &&
+                respCancel.response.cancellationMark.HasValue;
+            string responsePayload = respCancel == null || respCancel.response == null
+                ? null
+                : respCancel.response.responseData;
+            string errorSummary = null;
+            if (!accepted)
+            {
+                errorSummary = respCancel != null && respCancel.response != null && respCancel.response.errors != null
+                    ? string.Join("\r\n", respCancel.response.errors.Select(e => e.code + " - " + e.message))
+                    : "No response";
+            }
+            FinishInvoiceAudit(audit, accepted, responsePayload, errorSummary, null);
+            if (accepted)
             {
                 long mark = (long)respCancel.response.cancellationMark.Value;
                 invToCancel.CanceledByMark = mark;
@@ -3891,7 +4002,35 @@ namespace ASFuelControl.Windows.Threads
             mdInvoice.InvoiceId = invoiceId;
             db.SaveChanges();
 
-            var resp = Exedron.MyData.InvoiceSender.MakeRequest(myDataUrl, xml);
+            OutboundSubmissionAttempt audit = StartInvoiceAudit(
+                "Invoice",
+                invoiceId,
+                "AADE MyData",
+                xml);
+            Exedron.MyData.Models.Responses.ResponseDoc resp;
+            try
+            {
+                resp = Exedron.MyData.InvoiceSender.MakeRequest(myDataUrl, xml);
+            }
+            catch (Exception ex)
+            {
+                FinishInvoiceAudit(audit, false, null, ex.Message, ex);
+                throw;
+            }
+
+            bool accepted = resp != null && resp.response != null &&
+                !string.IsNullOrEmpty(resp.response.invoiceUid);
+            string responsePayload = resp == null || resp.response == null
+                ? null
+                : resp.response.responseData;
+            string errorSummary = null;
+            if (!accepted)
+            {
+                errorSummary = resp != null && resp.response != null && resp.response.errors != null
+                    ? string.Join("\r\n", resp.response.errors.Select(e => e.code + " - " + e.message))
+                    : "No response";
+            }
+            FinishInvoiceAudit(audit, accepted, responsePayload, errorSummary, null);
 
             if (resp != null && resp.response != null)
             {
@@ -3953,8 +4092,32 @@ namespace ASFuelControl.Windows.Threads
             db.SaveChanges();
 
             LogProviderMemory("Provider send start", invoiceId, printMode);
-            var resp = Exedron.ProviderInvoicing.InvoiceHandler.Instance.SendInvoice(inv);
+            OutboundSubmissionAttempt audit = StartInvoiceAudit(
+                "Invoice",
+                invoiceId,
+                "Invoice Provider",
+                xml);
+            Exedron.ProviderInvoicing.InvoiceResponse resp;
+            try
+            {
+                resp = Exedron.ProviderInvoicing.InvoiceHandler.Instance.SendInvoice(inv);
+            }
+            catch (Exception ex)
+            {
+                FinishInvoiceAudit(audit, false, null, ex.Message, ex);
+                throw;
+            }
             LogProviderMemory("Provider send end", invoiceId, printMode);
+
+            bool accepted = resp != null && !resp.HasErrors && !string.IsNullOrEmpty(resp.Uid);
+            string errorSummary = null;
+            if (!accepted)
+            {
+                errorSummary = resp == null
+                    ? "No response"
+                    : string.Join("\r\n", (resp.Errors ?? new string[0]).Concat(resp.Warnings ?? new string[0]));
+            }
+            FinishInvoiceAudit(audit, accepted, SerializeAuditResponse(resp), errorSummary, null);
 
             if (resp != null)
             {

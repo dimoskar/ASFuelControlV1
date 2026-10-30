@@ -39,6 +39,14 @@ namespace ASFuelControl.Windows.Threads
         private readonly object submissionBackoffSync = new object();
         private int consecutiveSubmissionFailures;
         private DateTime nextSubmissionAttemptUtc = DateTime.MinValue;
+        private readonly OutboundSubmissionAuditStore submissionAudit;
+
+        private sealed class SubmissionAuditContext
+        {
+            public OutboundSubmissionAttempt Attempt { get; set; }
+            public string ResponsePayload { get; set; }
+            public Exception Error { get; set; }
+        }
 
         public DateTime LastAction { set; get; }
 
@@ -77,8 +85,20 @@ namespace ASFuelControl.Windows.Threads
             }
         }
 
+        private DateTime? ScheduledRetryUtc
+        {
+            get
+            {
+                lock (submissionBackoffSync)
+                    return nextSubmissionAttemptUtc == DateTime.MinValue
+                        ? (DateTime?)null
+                        : nextSubmissionAttemptUtc;
+            }
+        }
+
         public SendAlertsThread()
         {
+            this.submissionAudit = new OutboundSubmissionAuditStore(Properties.Settings.Default.DBConnection);
             this.sendData = Data.Implementation.OptionHandler.Instance.GetBoolOption("SendData", false);
             this.tankCheckInterval = Data.Implementation.OptionHandler.Instance.GetIntOption("TankCheckInterval", 60000);
             this.sendMethods.Simulation = !Data.Implementation.OptionHandler.Instance.GetBoolOption("SendData", false);
@@ -886,7 +906,7 @@ namespace ASFuelControl.Windows.Threads
                             continue;
                         try
                         {
-                            this.SendObject(tc);
+                            this.SendObject(tc, "TankCheck", tc.TankCheckId);
                             System.Threading.Thread.Sleep(250);
                         }
                         catch (Exception etc)
@@ -930,7 +950,7 @@ namespace ASFuelControl.Windows.Threads
                                 if (se.Tank.FuelType.ExcludeFromBalance.HasValue && se.Tank.FuelType.ExcludeFromBalance.Value)
                                     continue;
                             }
-                            if (this.SendObject(se))
+                            if (this.SendObject(se, "Alert", se.EventId))
                             {
                                 //if (!sendMethods.Simulation)
                                 se.SentDate = DateTime.Now;
@@ -981,7 +1001,7 @@ namespace ASFuelControl.Windows.Threads
                             if (se.InvoiceLines.Count == 0)
                                 continue;
                             object obj = this.CreateDeliveryNote(se);
-                            if (this.SendObject(obj))
+                            if (this.SendObject(obj, "TankFilling", se.TankFillingId))
                             {
                                 if (!sendMethods.Simulation)
                                     se.SentDateTime = DateTime.Now;
@@ -1040,7 +1060,7 @@ namespace ASFuelControl.Windows.Threads
                                 se.SentDateTime = DateTime.Now;
                             else
                             {
-                                if (this.SendObject(income))
+                                if (this.SendObject(income, "SalesTransaction", se.SalesTransactionId))
                                 {
                                     if (!sendMethods.Simulation)
                                         se.SentDateTime = DateTime.Now;
@@ -1093,7 +1113,7 @@ namespace ASFuelControl.Windows.Threads
                             cpc.FuelType = (Communication.Enums.FuelTypeEnum)ftp.FuelType.EnumeratorValue;
                             cpc.Price = ftp.Price;
 
-                            if (this.SendObject(cpc))
+                            if (this.SendObject(cpc, "FuelTypePrice", ftp.FuelTypePriceId))
                             {
                                 if (!sendMethods.Simulation)
                                     ftp.SentDateTime = DateTime.Now;
@@ -1184,7 +1204,7 @@ namespace ASFuelControl.Windows.Threads
                             using (TextReader reader = new StringReader(bal.BalanceText))
                             {
                                 object result = ser.Deserialize(reader);
-                                if (this.SendObject(result))
+                                if (this.SendObject(result, "Balance", bal.BalanceId))
                                 {
                                     if (!sendMethods.Simulation)
                                         bal.SentDateTime = DateTime.Now;
@@ -1347,25 +1367,104 @@ namespace ASFuelControl.Windows.Threads
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        private bool SendObject(object obj)
+        private bool SendObject(object obj, string entityType, Guid entityId)
         {
             if (!CanAttemptSubmission)
                 return false;
 
+            var auditContext = new SubmissionAuditContext();
             bool attempted;
-            bool succeeded = SendObjectCore(obj, out attempted);
+            bool succeeded = SendObjectCore(
+                obj,
+                out attempted,
+                auditContext,
+                request => BeginSubmissionAudit(auditContext, entityType, entityId, request));
             if (attempted)
                 RecordSubmissionResult(succeeded);
+            FinishSubmissionAudit(auditContext, succeeded);
             return succeeded;
         }
 
-        private bool SendObjectCore(object obj, out bool attempted)
+        private void BeginSubmissionAudit(
+            SubmissionAuditContext context,
+            string entityType,
+            Guid entityId,
+            object request)
+        {
+            if (context.Attempt != null)
+                return;
+            try
+            {
+                context.Attempt = submissionAudit.StartAttempt(
+                    entityType,
+                    entityId,
+                    "GGPS FuelFlow",
+                    "application/xml",
+                    SerializeAuditPayload(request),
+                    Environment.UserName);
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogToFile("SendAlertsThread::AuditStart", ex);
+            }
+        }
+
+        private void FinishSubmissionAudit(SubmissionAuditContext context, bool succeeded)
+        {
+            if (context.Attempt == null)
+                return;
+            try
+            {
+                if (succeeded)
+                {
+                    submissionAudit.Complete(
+                        context.Attempt,
+                        null,
+                        "text/plain",
+                        context.ResponsePayload);
+                }
+                else
+                {
+                    submissionAudit.Fail(
+                        context.Attempt,
+                        "Failed",
+                        null,
+                        "text/plain",
+                        context.ResponsePayload,
+                        context.Error == null ? "RemoteRejected" : "TransportFailure",
+                        context.Error,
+                        ScheduledRetryUtc);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogToFile("SendAlertsThread::AuditFinish", ex);
+            }
+        }
+
+        private static string SerializeAuditPayload(object value)
+        {
+            if (value == null)
+                return null;
+            var serializer = new System.Xml.Serialization.XmlSerializer(value.GetType());
+            using (var writer = new StringWriter())
+            {
+                serializer.Serialize(writer, value);
+                return writer.ToString();
+            }
+        }
+
+        private bool SendObjectCore(
+            object obj,
+            out bool attempted,
+            SubmissionAuditContext auditContext,
+            Action<object> beginAudit)
         {
             string typeName = "";
+            string seriallizedData = "";
             attempted = false;
             try
             {
-                string seriallizedData = "";
                 typeName = obj.GetType().Name;
                 ClientHeader header = new ClientHeader();
                 
@@ -1375,6 +1474,7 @@ namespace ASFuelControl.Windows.Threads
                 {
                     case "TankCheckClass":
                         TankCheckClass tc = obj as TankCheckClass;
+                        beginAudit(tc);
                         attempted = true;
                         seriallizedData = sendMethods.SendTankCheck(header, tc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
@@ -1403,6 +1503,7 @@ namespace ASFuelControl.Windows.Threads
                         }
                         else
                         {
+                            beginAudit(tankCheck);
                             attempted = true;
                             seriallizedData = sendMethods.SendTankCheck(header, tankCheck);
                             if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
@@ -1416,6 +1517,7 @@ namespace ASFuelControl.Windows.Threads
                         return true;
                     case "AlertClass":
                         AlertClass ac = obj as AlertClass;
+                        beginAudit(ac);
                         attempted = true;
                         seriallizedData = sendMethods.SendAlert(header, ac);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
@@ -1462,6 +1564,7 @@ namespace ASFuelControl.Windows.Threads
                         }
                         else
                         {
+                            beginAudit(alert);
                             attempted = true;
                             seriallizedData = sendMethods.SendAlert(header, alert);
                             if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
@@ -1474,6 +1577,7 @@ namespace ASFuelControl.Windows.Threads
                         return true;
                     case "ChangePriceClass":
                         ChangePriceClass cp = obj as ChangePriceClass;
+                        beginAudit(cp);
                         attempted = true;
                         seriallizedData = sendMethods.SendChangePrice(header, cp);
 
@@ -1492,6 +1596,7 @@ namespace ASFuelControl.Windows.Threads
                         return true;
                     case "IncomeRecieptClass":
                         IncomeRecieptClass inc = obj as IncomeRecieptClass;
+                        beginAudit(inc);
                         attempted = true;
                         seriallizedData = sendMethods.SendIncome(header, inc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
@@ -1504,6 +1609,7 @@ namespace ASFuelControl.Windows.Threads
 
                     case "DeliveryNoteClass":
                         DeliveryNoteClass del = obj as DeliveryNoteClass;
+                        beginAudit(del);
                         attempted = true;
                         seriallizedData = sendMethods.SendDelivery(header, del);
 
@@ -1533,6 +1639,7 @@ namespace ASFuelControl.Windows.Threads
                         return true;
                     case "LiterCheckClass":
                         LiterCheckClass lc = obj as LiterCheckClass;
+                        beginAudit(lc);
                         attempted = true;
                         seriallizedData = sendMethods.SendLiterCheck(header, lc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
@@ -1544,6 +1651,7 @@ namespace ASFuelControl.Windows.Threads
                         return true;
                     case "BalanceClass":
                         BalanceClass bc = obj as BalanceClass;
+                        beginAudit(bc);
                         attempted = true;
                         seriallizedData = sendMethods.SendBalance(header, bc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
@@ -1559,8 +1667,13 @@ namespace ASFuelControl.Windows.Threads
             }
             catch (Exception ex)
             {
+                auditContext.Error = ex;
                 Logger.Instance.LogToFile("SendObject::" + typeName, ex);
                 return false;
+            }
+            finally
+            {
+                auditContext.ResponsePayload = seriallizedData;
             }
         }
 
