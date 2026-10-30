@@ -327,10 +327,9 @@ namespace ASFuelControl.Windows.Threads
                     if (invoice.InvoiceType.IsInternal.HasValue && invoice.InvoiceType.IsInternal.Value)
                     {
                         using (Reports.Invoices.InvoiceReport report = new Reports.Invoices.InvoiceReport())
+                        using (var reportData = new Telerik.Reporting.OpenAccessDataSource(db, "InvoiceLines"))
                         {
-                            report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db, "InvoiceLines");
-
-                            report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db, "InvoiceLines");
+                            report.DataSource = reportData;
                             report.ReportParameters["InvoiceId"].Value = invoice.InvoiceId.ToString().ToLower();
                             report.ReportParameters["CompanyName"].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyName");
                             report.ReportParameters["CompanyAddress"].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyAddress");
@@ -453,7 +452,9 @@ namespace ASFuelControl.Windows.Threads
                                 invLine.InvoiceDiscountAmount = invoice.DiscountAmount;
                                 invLine.InvoiceNettoAfterDiscountAmount = invoice.NettoAfterDiscount;
                             }
-                            report.DataSource = new Telerik.Reporting.OpenAccessDataSource(invLines, "");
+                            using (var reportData = new Telerik.Reporting.OpenAccessDataSource(invLines, ""))
+                            {
+                                report.DataSource = reportData;
                             report.ReportParameters[0].Value = invoice.InvoiceId.ToString().ToLower();
                             report.ReportParameters[1].Value = printBarCode;
                             report.ReportParameters[2].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyName");
@@ -471,7 +472,8 @@ namespace ASFuelControl.Windows.Threads
                             SetNarrowReportSupplyNumber(report, invoice, myDataQrCode);
                             System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                             SetPrinter(printerSettings, invoice);
-                            PrintReport(report, printerSettings);
+                                PrintReport(report, printerSettings);
+                            }
                         }
                         //}
 
@@ -1998,11 +2000,11 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintToPrinter(Data.SystemEvent alert)
         {
-            Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-
+            using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             using (Reports.AlertReport report = new Reports.AlertReport())
+            using (var reportData = new Telerik.Reporting.OpenAccessDataSource(db, "SystemEvents"))
             {
-                report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db, "SystemEvents");
+                report.DataSource = reportData;
                 report.ReportParameters[0].Value = alert.EventId.ToString().ToLower();
 
                 if (this.printAlertsPhysical)
@@ -2022,18 +2024,17 @@ namespace ASFuelControl.Windows.Threads
                 string taxNumber = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN");
                 
                 MailSender.Instance.SendMail(new string[] { fileName }, "Συναγερμός " + compName + "(" + taxNumber + ")", "Συναγερμός " + compName + "(" + taxNumber + ")");
-
             }
-            db.Dispose();
         }
 
         private void PrintToPrinter(Data.Titrimetry titrimetry)
         {
-            Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-
+            using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             using (Reports.TitrimetryReport report = new Reports.TitrimetryReport())
+            using (var reportData = new Telerik.Reporting.OpenAccessDataSource(
+                db.TitrimetryLevels.Where(tl => tl.TitrimetryId == titrimetry.TitrimetryId), ""))
             {
-                report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db.TitrimetryLevels.Where(tl => tl.TitrimetryId == titrimetry.TitrimetryId), "");
+                report.DataSource = reportData;
                 //report.ReportParameters[0].Value = titrimetry.TitrimetryId.ToString().ToLower();
 
                 if (this.printPhysical)
@@ -2050,7 +2051,6 @@ namespace ASFuelControl.Windows.Threads
                 string fileName = alertDirectory + "\\" + string.Format("Titrimetry_{0:yyyyMMdd_HHmmssfff}.pdf", DateTime.Now);
                 this.SaveReport(report, fileName);
             }
-            db.Dispose();
         }
 
         public void PrintToPrinter(Data.Balance balance, bool sendMail)
@@ -2062,29 +2062,28 @@ namespace ASFuelControl.Windows.Threads
             bl.LoadBalance(balance.BalanceId, balance.BalanceText);
             bl.Model.Balance[0].Sign = balance.DocumentSign;
             using (Reports.BalanceReport report = new Reports.BalanceReport())
+            using (Reports.BalanceReports.TankBalanceReport subReport1 = new Reports.BalanceReports.TankBalanceReport())
+            using (Reports.BalanceReports.PumpBalanceReport subReport2 = new Reports.BalanceReports.PumpBalanceReport())
+            using (Reports.BalanceReports.DivergenceBalanceReport subReport3 = new Reports.BalanceReports.DivergenceBalanceReport())
+            using (Reports.BalanceReports.TankFillingBalanceReport subReport4 = new Reports.BalanceReports.TankFillingBalanceReport())
+            using (Telerik.Reporting.ObjectDataSource ds1 = new Telerik.Reporting.ObjectDataSource())
+            using (Telerik.Reporting.ObjectDataSource ds2 = new Telerik.Reporting.ObjectDataSource())
+            using (Telerik.Reporting.ObjectDataSource ds3 = new Telerik.Reporting.ObjectDataSource())
+            using (Telerik.Reporting.ObjectDataSource ds4 = new Telerik.Reporting.ObjectDataSource())
+            using (Telerik.Reporting.ObjectDataSource ds5 = new Telerik.Reporting.ObjectDataSource())
             {
-                Reports.BalanceReports.TankBalanceReport subReport1 = new Reports.BalanceReports.TankBalanceReport();
-                Reports.BalanceReports.PumpBalanceReport subReport2 = new Reports.BalanceReports.PumpBalanceReport();
-                Reports.BalanceReports.DivergenceBalanceReport subReport3 = new Reports.BalanceReports.DivergenceBalanceReport();
-                Reports.BalanceReports.TankFillingBalanceReport subReport4 = new Reports.BalanceReports.TankFillingBalanceReport();
-
-                Telerik.Reporting.ObjectDataSource ds1 = new Telerik.Reporting.ObjectDataSource();
                 ds1.DataSource = bl.Model;
                 ds1.DataMember = "TankData";
 
-                Telerik.Reporting.ObjectDataSource ds2 = new Telerik.Reporting.ObjectDataSource();
                 ds2.DataSource = bl.Model;
                 ds2.DataMember = "DispenserData";
 
-                Telerik.Reporting.ObjectDataSource ds3 = new Telerik.Reporting.ObjectDataSource();
                 ds3.DataSource = bl.Model;
                 ds3.DataMember = "FuelTypeData";
 
-                Telerik.Reporting.ObjectDataSource ds4 = new Telerik.Reporting.ObjectDataSource();
                 ds4.DataSource = bl.Model;
                 ds4.DataMember = "Balance";
 
-                Telerik.Reporting.ObjectDataSource ds5 = new Telerik.Reporting.ObjectDataSource();
                 ds5.DataSource = bl.Model;
                 ds5.DataMember = "TankFillingData";
 
@@ -2199,16 +2198,6 @@ namespace ASFuelControl.Windows.Threads
                     System.Diagnostics.Process.Start(newFileName);
                 }
 
-                try
-                {
-                    subReport1.Dispose();
-                    subReport2.Dispose();
-                    subReport3.Dispose();
-                    subReport4.Dispose();
-                }
-                catch
-                {
-                }
             }
         }
 
@@ -2299,7 +2288,9 @@ namespace ASFuelControl.Windows.Threads
                             invLine.InvoiceNettoAfterDiscountAmount = invoice.NettoAfterDiscount;
                         }
 
-                        report.DataSource = new Telerik.Reporting.OpenAccessDataSource(invLines, "");
+                        using (var reportData = new Telerik.Reporting.OpenAccessDataSource(invLines, ""))
+                        {
+                            report.DataSource = reportData;
                         report.ReportParameters[0].Value = invoice.InvoiceId.ToString().ToLower();
                         report.ReportParameters[1].Value = this.printBarCode;
                         report.ReportParameters[2].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyName");
@@ -2315,7 +2306,8 @@ namespace ASFuelControl.Windows.Threads
                         SetNarrowReportSupplyNumber(report, invoice, myDataQrCode);
                         System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                         SetPrinter(printerSettings, invoice);
-                        PrintReport(report, printerSettings);
+                            PrintReport(report, printerSettings);
+                        }
                     }
                     //}
                 }
@@ -2377,11 +2369,11 @@ namespace ASFuelControl.Windows.Threads
                 return;
             try
             {
-                Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-
+                using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 using (Reports.Invoices.TankFillingReport report = new Reports.Invoices.TankFillingReport())
+                using (var reportData = new Telerik.Reporting.OpenAccessDataSource(db, "InvoiceLines"))
                 {
-                    report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db, "InvoiceLines");
+                    report.DataSource = reportData;
                     report.ReportParameters[0].Value = tankFilling.TankFillingId.ToString();
 
                     string idd = tankFilling.InvoiceLines[0].Invoice.InvoiceType.InternalDeliveryDescription == null ? "" : tankFilling.InvoiceLines[0].Invoice.InvoiceType.InternalDeliveryDescription;
@@ -2418,7 +2410,6 @@ namespace ASFuelControl.Windows.Threads
                     string fileName = alertDirectory + "\\" + string.Format("TankFilling_{0:yyyyMMdd_HHmmssfff}.pdf", DateTime.Now);
                     this.SaveReport(report, fileName);
                 }
-                db.Dispose();
             }
             catch(Exception ex)
             {
@@ -2461,8 +2452,9 @@ namespace ASFuelControl.Windows.Threads
                 if (invoice.InvoiceType.IsInternal.HasValue && invoice.InvoiceType.IsInternal.Value)
                 {
                     using (Reports.Invoices.InvoiceReport report = new Reports.Invoices.InvoiceReport())
+                    using (var reportData = new Telerik.Reporting.OpenAccessDataSource(db, "InvoiceLines"))
                     {
-                        report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db, "InvoiceLines");
+                        report.DataSource = reportData;
                         report.ReportParameters["InvoiceId"].Value = invoice.InvoiceId.ToString().ToLower();
                         report.ReportParameters["CompanyName"].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyName");
                         report.ReportParameters["CompanyAddress"].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyAddress");
@@ -3289,8 +3281,9 @@ namespace ASFuelControl.Windows.Threads
             alertsProcessed.Add(alert.EventId);
 
             using (Reports.AlertReport report = new Reports.AlertReport())
+            using (var reportData = new Telerik.Reporting.OpenAccessDataSource(db, "SystemEvents"))
             {
-                report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db, "SystemEvents");
+                report.DataSource = reportData;
                 report.ReportParameters[0].Value = alert.EventId.ToString().ToLower();
 
                 this.ExportReportAsText(report, "Alert_" + alert.EventId.ToString() + ".xls");
@@ -3315,29 +3308,28 @@ namespace ASFuelControl.Windows.Threads
             bl.LoadBalance(balance.BalanceId, balance.BalanceText);
             bl.Model.Balance[0].Sign = balance.DocumentSign;
             using (Reports.BalanceReport report = new Reports.BalanceReport())
+            using (Reports.BalanceReports.TankBalanceReport subReport1 = new Reports.BalanceReports.TankBalanceReport())
+            using (Reports.BalanceReports.PumpBalanceReport subReport2 = new Reports.BalanceReports.PumpBalanceReport())
+            using (Reports.BalanceReports.DivergenceBalanceReport subReport3 = new Reports.BalanceReports.DivergenceBalanceReport())
+            using (Reports.BalanceReports.TankFillingBalanceReport subReport4 = new Reports.BalanceReports.TankFillingBalanceReport())
+            using (Telerik.Reporting.ObjectDataSource ds1 = new Telerik.Reporting.ObjectDataSource())
+            using (Telerik.Reporting.ObjectDataSource ds2 = new Telerik.Reporting.ObjectDataSource())
+            using (Telerik.Reporting.ObjectDataSource ds3 = new Telerik.Reporting.ObjectDataSource())
+            using (Telerik.Reporting.ObjectDataSource ds4 = new Telerik.Reporting.ObjectDataSource())
+            using (Telerik.Reporting.ObjectDataSource ds5 = new Telerik.Reporting.ObjectDataSource())
             {
-                Reports.BalanceReports.TankBalanceReport subReport1 = new Reports.BalanceReports.TankBalanceReport();
-                Reports.BalanceReports.PumpBalanceReport subReport2 = new Reports.BalanceReports.PumpBalanceReport();
-                Reports.BalanceReports.DivergenceBalanceReport subReport3 = new Reports.BalanceReports.DivergenceBalanceReport();
-                Reports.BalanceReports.TankFillingBalanceReport subReport4 = new Reports.BalanceReports.TankFillingBalanceReport();
-
-                Telerik.Reporting.ObjectDataSource ds1 = new Telerik.Reporting.ObjectDataSource();
                 ds1.DataSource = bl.Model;
                 ds1.DataMember = "TankData";
 
-                Telerik.Reporting.ObjectDataSource ds2 = new Telerik.Reporting.ObjectDataSource();
                 ds2.DataSource = bl.Model;
                 ds2.DataMember = "DispenserData";
 
-                Telerik.Reporting.ObjectDataSource ds3 = new Telerik.Reporting.ObjectDataSource();
                 ds3.DataSource = bl.Model;
                 ds3.DataMember = "FuelTypeData";
 
-                Telerik.Reporting.ObjectDataSource ds4 = new Telerik.Reporting.ObjectDataSource();
                 ds4.DataSource = bl.Model;
                 ds4.DataMember = "Balance";
 
-                Telerik.Reporting.ObjectDataSource ds5 = new Telerik.Reporting.ObjectDataSource();
                 ds5.DataSource = bl.Model;
                 ds5.DataMember = "TankFillingData";
 
@@ -3396,8 +3388,10 @@ namespace ASFuelControl.Windows.Threads
             //string data = this.database.SerializeEntity(titrimetry);
 
             using (Reports.TitrimetryReport report = new Reports.TitrimetryReport())
+            using (var reportData = new Telerik.Reporting.OpenAccessDataSource(
+                db.TitrimetryLevels.Where(tl => tl.TitrimetryId == titrimetry.TitrimetryId), ""))
             {
-                report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db.TitrimetryLevels.Where(tl => tl.TitrimetryId == titrimetry.TitrimetryId), "");
+                report.DataSource = reportData;
                 //report.ReportParameters[0].Value = titrimetry.TitrimetryId.ToString().ToLower();
 
                 this.ExportReportAsText(report, "Titrimetry_" + titrimetry.TitrimetryId.ToString() + ".xls");
@@ -3420,8 +3414,9 @@ namespace ASFuelControl.Windows.Threads
                 return;
 
             using (Reports.Invoices.TankFillingReport report = new Reports.Invoices.TankFillingReport())
+            using (var reportData = new Telerik.Reporting.OpenAccessDataSource(db, "InvoiceLines"))
             {
-                report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db, "InvoiceLines");
+                report.DataSource = reportData;
                 report.ReportParameters[0].Value = tankFilling.TankFillingId.ToString();
 
                 string idd = tankFilling.InvoiceLines[0].Invoice.InvoiceType.InternalDeliveryDescription == null ? "" : tankFilling.InvoiceLines[0].Invoice.InvoiceType.InternalDeliveryDescription;
