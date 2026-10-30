@@ -480,6 +480,9 @@
     <Compile Include="UI\Forms\SendHistoryForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="UI\Forms\OutboundSubmissionAuditForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\Forms\SendHistoryForm.Designer.cs">
       <DependentUpon>SendHistoryForm.cs</DependentUpon>
     </Compile>

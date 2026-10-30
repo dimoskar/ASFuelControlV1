@@ -19,7 +19,25 @@ namespace ASFuelControl.Windows.UI.Forms
             InitializeComponent();
             this.radDateTimePicker1.Value = DateTime.Today.AddDays(-7);
             this.radDateTimePicker2.Value = DateTime.Today;
+            AddAuditButton();
             this.Disposed += SendHistoryForm_Disposed;
+        }
+
+        private void AddAuditButton()
+        {
+            var auditButton = new RadButton
+            {
+                Text = "Αποτυχημένες Αποστολές",
+                Location = new Point(450, 2),
+                Size = new Size(175, 24),
+                Visible = Program.AdminConnected
+            };
+            auditButton.Click += delegate
+            {
+                using (var form = new OutboundSubmissionAuditForm())
+                    form.ShowDialog(this);
+            };
+            this.panel1.Controls.Add(auditButton);
         }
 
         private void SendHistoryForm_Disposed(object sender, EventArgs e)

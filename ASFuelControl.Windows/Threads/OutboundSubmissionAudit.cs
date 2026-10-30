@@ -239,7 +239,7 @@ SELECT TOP (@MaximumRows)
     LastErrorCategory, LastErrorSummary
 FROM dbo.OutboundSubmission
 WHERE CreatedUtc >= @FromUtc AND CreatedUtc < @ToUtc
-  AND (@Status IS NULL OR Status = @Status)
+  AND (@Status IS NULL OR Status = @Status OR (@Status = N'Problems' AND Status <> N'Completed'))
 ORDER BY COALESCE(LastAttemptUtc, CreatedUtc) DESC;"))
             {
                 Add(command, "@MaximumRows", SqlDbType.Int, Math.Max(1, Math.Min(maximumRows, 5000)));
@@ -279,8 +279,10 @@ ORDER BY COALESCE(LastAttemptUtc, CreatedUtc) DESC;"))
             using (var connection = new SqlConnection(connectionString))
             using (var command = CreateCommand(connection, null, @"
 SELECT AttemptId, AttemptNumber, StartedUtc, FinishedUtc, Outcome,
-       RequestContentType, RequestPayload, RequestHash, ResponseStatusCode,
-       ResponseContentType, ResponsePayload, ErrorType, ErrorMessage, StackTrace,
+       RequestContentType, CAST(NULL AS nvarchar(max)) AS RequestPayload,
+       RequestHash, ResponseStatusCode,
+       ResponseContentType, CAST(NULL AS nvarchar(max)) AS ResponsePayload,
+       ErrorType, ErrorMessage, CAST(NULL AS nvarchar(max)) AS StackTrace,
        DurationMilliseconds, ApplicationVersion, MachineName, CorrelationId, InitiatedBy
 FROM dbo.OutboundSubmissionAttempt
 WHERE OutboundSubmissionId = @SubmissionId
@@ -291,33 +293,29 @@ ORDER BY AttemptNumber DESC;"))
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
-                    {
-                        result.Add(new OutboundSubmissionAttemptEntry
-                        {
-                            AttemptId = reader.GetGuid(0),
-                            AttemptNumber = reader.GetInt32(1),
-                            StartedUtc = reader.GetDateTime(2),
-                            FinishedUtc = GetNullableDateTime(reader, 3),
-                            Outcome = reader.GetString(4),
-                            RequestContentType = GetNullableString(reader, 5),
-                            RequestPayload = GetNullableString(reader, 6),
-                            RequestHash = GetNullableString(reader, 7),
-                            ResponseStatusCode = reader.IsDBNull(8) ? (int?)null : reader.GetInt32(8),
-                            ResponseContentType = GetNullableString(reader, 9),
-                            ResponsePayload = GetNullableString(reader, 10),
-                            ErrorType = GetNullableString(reader, 11),
-                            ErrorMessage = GetNullableString(reader, 12),
-                            StackTrace = GetNullableString(reader, 13),
-                            DurationMilliseconds = reader.IsDBNull(14) ? (long?)null : reader.GetInt64(14),
-                            ApplicationVersion = GetNullableString(reader, 15),
-                            MachineName = GetNullableString(reader, 16),
-                            CorrelationId = GetNullableString(reader, 17),
-                            InitiatedBy = GetNullableString(reader, 18)
-                        });
-                    }
+                        result.Add(ReadAttempt(reader));
                 }
             }
             return result;
+        }
+
+        public OutboundSubmissionAttemptEntry LoadAttempt(Guid attemptId)
+        {
+            EnsureSchema();
+            using (var connection = new SqlConnection(connectionString))
+            using (var command = CreateCommand(connection, null, @"
+SELECT AttemptId, AttemptNumber, StartedUtc, FinishedUtc, Outcome,
+       RequestContentType, RequestPayload, RequestHash, ResponseStatusCode,
+       ResponseContentType, ResponsePayload, ErrorType, ErrorMessage, StackTrace,
+       DurationMilliseconds, ApplicationVersion, MachineName, CorrelationId, InitiatedBy
+FROM dbo.OutboundSubmissionAttempt
+WHERE AttemptId = @AttemptId;"))
+            {
+                Add(command, "@AttemptId", SqlDbType.UniqueIdentifier, attemptId);
+                connection.Open();
+                using (var reader = command.ExecuteReader(CommandBehavior.SingleRow))
+                    return reader.Read() ? ReadAttempt(reader) : null;
+            }
         }
 
         internal static string RedactSecrets(string value)
@@ -452,6 +450,32 @@ WHERE OutboundSubmissionId = @SubmissionId;"))
         private static string GetNullableString(IDataRecord reader, int ordinal)
         {
             return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+        }
+
+        private static OutboundSubmissionAttemptEntry ReadAttempt(IDataRecord reader)
+        {
+            return new OutboundSubmissionAttemptEntry
+            {
+                AttemptId = reader.GetGuid(0),
+                AttemptNumber = reader.GetInt32(1),
+                StartedUtc = reader.GetDateTime(2),
+                FinishedUtc = GetNullableDateTime(reader, 3),
+                Outcome = reader.GetString(4),
+                RequestContentType = GetNullableString(reader, 5),
+                RequestPayload = GetNullableString(reader, 6),
+                RequestHash = GetNullableString(reader, 7),
+                ResponseStatusCode = reader.IsDBNull(8) ? (int?)null : reader.GetInt32(8),
+                ResponseContentType = GetNullableString(reader, 9),
+                ResponsePayload = GetNullableString(reader, 10),
+                ErrorType = GetNullableString(reader, 11),
+                ErrorMessage = GetNullableString(reader, 12),
+                StackTrace = GetNullableString(reader, 13),
+                DurationMilliseconds = reader.IsDBNull(14) ? (long?)null : reader.GetInt64(14),
+                ApplicationVersion = GetNullableString(reader, 15),
+                MachineName = GetNullableString(reader, 16),
+                CorrelationId = GetNullableString(reader, 17),
+                InitiatedBy = GetNullableString(reader, 18)
+            };
         }
 
         private static string GetApplicationVersion()
