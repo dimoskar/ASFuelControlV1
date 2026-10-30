@@ -1131,6 +1131,15 @@ namespace ASFuelControl.Windows.Threads
         {
             this.restartDatabase = true;
 
+            Data.Balance balance = sender as Data.Balance;
+            if (balance != null && this.printAgent != null &&
+                !this.printAgent.ProcessBalanceImmediately(balance.BalanceId))
+            {
+                Logger.Instance.LogToFile(
+                    "BalancePriority",
+                    string.Format("Balance {0} could not be signed immediately.", balance.BalanceId));
+            }
+
             //this.database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
             //Data.Shift currentShift = this.database.Shifts.Where(s => !s.ShiftEnd.HasValue).FirstOrDefault();
             //if (currentShift != null)

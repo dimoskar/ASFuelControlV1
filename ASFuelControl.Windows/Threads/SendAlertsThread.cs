@@ -19,6 +19,7 @@ namespace ASFuelControl.Windows.Threads
         private const int SalesBatchSize = 5;
         private const int PriceBatchSize = 1;
         private const int BalanceBatchSize = 1;
+        private const int BalanceCloseWindowMinutes = 10;
         private const int InitialRetryDelaySeconds = 30;
         private const int MaximumRetryDelaySeconds = 15 * 60;
 
@@ -700,11 +701,6 @@ namespace ASFuelControl.Windows.Threads
             {
                 if (currentBalanceOK)
                     return null;
-                //Program.ApplicationMainForm.Invoke(new Action(() =>
-                //{
-                //    Program.ApplicationMainForm.ThreadControllerInstance.LockDispensers();
-                //    Common.Logger.Instance.Debug(string.Format("Dispensers Locked"));
-                //}));
                 while (!Program.ApplicationMainForm.ThreadControllerInstance.CanCreateBalance())
                 {
                     System.Threading.Thread.Sleep(500);
@@ -734,8 +730,7 @@ namespace ASFuelControl.Windows.Threads
             if (currentBalanceOK)
                 return true;
 
-            const int minutesBeforeMidnightToLock = 5;
-            DateTime dtReference = DateTime.Now.AddMinutes(minutesBeforeMidnightToLock);
+            DateTime dtReference = DateTime.Now.AddMinutes(BalanceCloseWindowMinutes);
             return dtReference.Date <= DateTime.Today;
         }
 
@@ -777,6 +772,7 @@ namespace ASFuelControl.Windows.Threads
             // unlock immediately after midnight on the next checks.
             if (DateTime.Now.AddMinutes(5).Date > DateTime.Today)
                 return;
+
             if (Data.Implementation.OptionHandler.Instance.GetBoolOption("StartThreadsOnStart", true))
                 return;
 
@@ -785,6 +781,11 @@ namespace ASFuelControl.Windows.Threads
                 Program.ApplicationMainForm.ThreadControllerInstance.UnlockDispensers();
                 Common.Logger.Instance.Debug(string.Format("Dispensers Unlocked"));
             }));
+        }
+
+        private bool IsBalanceCloseWindow()
+        {
+            return DateTime.Now.AddMinutes(BalanceCloseWindowMinutes).Date > DateTime.Today;
         }
             
         //private void LockDispensers()
@@ -987,6 +988,66 @@ namespace ASFuelControl.Windows.Threads
         /// <summary>
         /// Checks if there are data for sending avaliable
         /// </summary>
+        private void CheckForBalanceSend(Data.DatabaseModel database)
+        {
+            try
+            {
+                List<Data.Balance> balances = database.Balances
+                    .Where(balance =>
+                        !balance.SentDateTime.HasValue &&
+                        balance.EndDate >= this.officialStartDate &&
+                        balance.DocumentSign != null &&
+                        balance.DocumentSign.Length > 15 &&
+                        !balance.DocumentSign.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ"))
+                    .OrderByDescending(balance => balance.EndDate)
+                    .Take(BalanceBatchSize)
+                    .ToList();
+
+                foreach (Data.Balance balance in balances)
+                {
+                    if (!CanAttemptSubmission("Balance"))
+                        break;
+
+                    try
+                    {
+                        System.Xml.Serialization.XmlSerializer serializer =
+                            new System.Xml.Serialization.XmlSerializer(typeof(Communication.BalanceClass));
+                        using (TextReader reader = new StringReader(balance.BalanceText))
+                        {
+                            object payload = serializer.Deserialize(reader);
+                            if (this.SendObject(payload, "Balance", balance.BalanceId))
+                            {
+                                if (!sendMethods.Simulation)
+                                    balance.SentDateTime = DateTime.Now;
+                                if (this.SubmissionSuccess != null)
+                                    this.SubmissionSuccess(balance, EventArgs.Empty);
+                                this.LogSend(database, balance, 1);
+                            }
+                            else
+                            {
+                                if (this.SubmissionFailed != null)
+                                    this.SubmissionFailed(balance, EventArgs.Empty);
+                                this.LogSend(database, balance, 0);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Instance.LogToFile("CheckForSend:Balance", ex);
+                        Logger.Instance.LogToFile(
+                            "CheckForSend:Balance::Object",
+                            database.SerializeEntity(balance));
+                    }
+                }
+
+                database.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogToFile("CheckForSend:BalanceSend", ex);
+            }
+        }
+
         private void CheckForSend(Data.DatabaseModel database)
         {
             try
@@ -994,6 +1055,11 @@ namespace ASFuelControl.Windows.Threads
                 this.LastAction = DateTime.Now;
                 int interval = this.tankCheckInterval;
                 DateTime dt = DateTime.Now;
+
+                // During station close, the daily balance has a hard midnight
+                // deadline and must go ahead of the normal round-robin streams.
+                if (this.IsBalanceCloseWindow())
+                    this.CheckForBalanceSend(database);
 
                 // Sales are the most time-sensitive stream. Process a bounded
                 // batch first, then give every other stream its own bounded turn.
@@ -1227,58 +1293,7 @@ namespace ASFuelControl.Windows.Threads
                 //{
                 //    Logger.Instance.LogToFile("CheckForSend:Balance", e);
                 //}
-                var q3 = database.Balances.Where(se => !se.SentDateTime.HasValue && se.EndDate >= this.officialStartDate && 
-                            (
-                                se.DocumentSign != null && 
-                                se.DocumentSign.Length > 0 &&
-                                !se.DocumentSign.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ") &&
-                                se.DocumentSign.Length > 15
-                            )
-                        )
-                    .OrderBy(se => se.EndDate)
-                    .Take(BalanceBatchSize)
-                    .ToList();
-                try
-                {
-                    foreach (Data.Balance bal in q3)
-                    {
-                        if (!CanAttemptSubmission("Balance"))
-                            break;
-                        try
-                        {
-                            System.Xml.Serialization.XmlSerializer ser = new System.Xml.Serialization.XmlSerializer(typeof(Communication.BalanceClass));
-                            using (TextReader reader = new StringReader(bal.BalanceText))
-                            {
-                                object result = ser.Deserialize(reader);
-                                if (this.SendObject(result, "Balance", bal.BalanceId))
-                                {
-                                    if (!sendMethods.Simulation)
-                                        bal.SentDateTime = DateTime.Now;
-                                    if (this.SubmissionSuccess != null)
-                                        this.SubmissionSuccess(bal, new EventArgs());
-                                    this.LogSend(database, bal, 1);
-                                }
-                                else
-                                {
-                                    if (this.SubmissionFailed != null)
-                                        this.SubmissionFailed(bal, new EventArgs());
-                                    this.LogSend(database, bal, 0);
-                                }
-                                System.Threading.Thread.Sleep(1000);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Instance.LogToFile("CheckForSend:Balance", ex);
-                            Logger.Instance.LogToFile("CheckForSend:Balance::Object", database.SerializeEntity(bal));
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    Logger.Instance.LogToFile("CheckForSend:BalanceSend", e);
-                }
-                database.SaveChanges();
+                this.CheckForBalanceSend(database);
                 if ((int)dt.TimeOfDay.TotalMinutes % 5 == 0 && !this.logCleared)
                 {
                     try
@@ -1351,13 +1366,13 @@ namespace ASFuelControl.Windows.Threads
                     using (Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                     {
                         database.AlertChecker = AlertChecker.Instance;
+                        // Create and synchronously sign a due balance before the
+                        // outbound turn. In the close window CheckForSend gives it
+                        // priority, so no other stream can consume its deadline.
+                        this.CheckForBalance(database, false);
+
                         if (this.sendData)
                             this.CheckForSend(database);
-
-                        // Balance generation can be expensive when old periods
-                        // need backfilling. Keep it after the outbound turn so it
-                        // cannot delay newly eligible sales at worker startup.
-                        this.CheckForBalance(database, false);
 
                         if (!this.sendData)
                         {

@@ -3305,12 +3305,52 @@ namespace ASFuelControl.Windows.Threads
         }
 
         List<Guid> balancesProcessed = new List<Guid>();
+        public bool ProcessBalanceImmediately(Guid balanceId)
+        {
+            try
+            {
+                using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                {
+                    Data.Balance balance = db.Balances.FirstOrDefault(b => b.BalanceId == balanceId);
+                    if (balance == null)
+                        return false;
+
+                    this.PrintBalance(db, balance);
+                }
+
+                using (Data.DatabaseModel verificationDb = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                {
+                    Data.Balance signedBalance = verificationDb.Balances.FirstOrDefault(b => b.BalanceId == balanceId);
+                    return signedBalance != null &&
+                        signedBalance.PrintDate.HasValue &&
+                        !string.IsNullOrEmpty(signedBalance.DocumentSign) &&
+                        signedBalance.DocumentSign.Length > 15 &&
+                        !signedBalance.DocumentSign.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogToFile("ProcessBalanceImmediately", ex);
+                return false;
+            }
+            finally
+            {
+                lock (this.balancesProcessed)
+                {
+                    this.balancesProcessed.Remove(balanceId);
+                }
+            }
+        }
+
         private void PrintBalance(Data.DatabaseModel db, Data.Balance balance)
         {
             if (SharedInvoiceRuntime.HandlesDocument("Balance", balance.BalanceId)) { SharedInvoiceRuntime.ProcessDocument("Balance", balance.BalanceId); return; }
-            if (balancesProcessed.Contains(balance.BalanceId))
-                return;
-            balancesProcessed.Add(balance.BalanceId);
+            lock (this.balancesProcessed)
+            {
+                if (balancesProcessed.Contains(balance.BalanceId))
+                    return;
+                balancesProcessed.Add(balance.BalanceId);
+            }
             string data = balance.BalanceText;
 
 
