@@ -52,6 +52,7 @@
             this.btnPrinter = new Telerik.WinControls.UI.RadButton();
             this.radButton4 = new Telerik.WinControls.UI.RadButton();
             this.radButton6 = new Telerik.WinControls.UI.RadButton();
+            this.btnOutboundAudit = new Telerik.WinControls.UI.RadButton();
             this.radButton7 = new Telerik.WinControls.UI.RadButton();
             this.btnFleetManagment = new Telerik.WinControls.UI.RadButton();
             this.flowLayoutPanel1.SuspendLayout();
@@ -79,6 +80,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.btnPrinter)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton4)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton6)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.btnOutboundAudit)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton7)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnFleetManagment)).BeginInit();
             this.SuspendLayout();
@@ -266,6 +268,7 @@
             this.flowLayoutPanel2.Controls.Add(this.btnPrinter);
             this.flowLayoutPanel2.Controls.Add(this.radButton4);
             this.flowLayoutPanel2.Controls.Add(this.radButton6);
+            this.flowLayoutPanel2.Controls.Add(this.btnOutboundAudit);
             this.flowLayoutPanel2.Controls.Add(this.radButton7);
             this.flowLayoutPanel2.Controls.Add(this.btnFleetManagment);
             this.flowLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -442,6 +445,22 @@
             this.radButton6.TextWrap = true;
             this.radButton6.Click += new System.EventHandler(this.radButton6_Click_1);
             // 
+            // btnOutboundAudit
+            //
+            this.btnOutboundAudit.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
+            this.btnOutboundAudit.Image = global::ASFuelControl.Windows.Properties.Resources.MailSend;
+            this.btnOutboundAudit.ImageAlignment = System.Drawing.ContentAlignment.MiddleCenter;
+            this.btnOutboundAudit.Location = new System.Drawing.Point(10, 360);
+            this.btnOutboundAudit.Margin = new System.Windows.Forms.Padding(10);
+            this.btnOutboundAudit.Name = "btnOutboundAudit";
+            this.btnOutboundAudit.Size = new System.Drawing.Size(155, 155);
+            this.btnOutboundAudit.TabIndex = 23;
+            this.btnOutboundAudit.Text = "Έλεγχος Αποστολών";
+            this.btnOutboundAudit.TextAlignment = System.Drawing.ContentAlignment.TopCenter;
+            this.btnOutboundAudit.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
+            this.btnOutboundAudit.TextWrap = true;
+            this.btnOutboundAudit.Click += new System.EventHandler(this.btnOutboundAudit_Click);
+            //
             // radButton7
             // 
             this.radButton7.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
@@ -507,6 +526,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.btnPrinter)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton4)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton6)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.btnOutboundAudit)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radButton7)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnFleetManagment)).EndInit();
             this.ResumeLayout(false);
@@ -539,6 +559,7 @@
         private Telerik.WinControls.UI.RadButton radButton7;
         private Telerik.WinControls.UI.RadButton radButton8;
         private Telerik.WinControls.UI.RadButton btnFleetManagment;
+        private Telerik.WinControls.UI.RadButton btnOutboundAudit;
         private Telerik.WinControls.UI.RadButton radButton11;
         private Telerik.WinControls.UI.RadButton radButton10;
     }

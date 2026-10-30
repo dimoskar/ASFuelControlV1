@@ -231,6 +231,15 @@ namespace ASFuelControl.Windows.UI.Catalogs
             mmf.Show(this);
         }
 
+        private void btnOutboundAudit_Click(object sender, EventArgs e)
+        {
+            if (!Program.AdminConnected)
+                return;
+
+            using (UI.Forms.OutboundSubmissionAuditForm auditForm = new UI.Forms.OutboundSubmissionAuditForm())
+                auditForm.ShowDialog(this);
+        }
+
         private void radButton7_Click(object sender, EventArgs e)
         {
             UI.SettingForms.SerialNumbersForm snf = new SettingForms.SerialNumbersForm();
