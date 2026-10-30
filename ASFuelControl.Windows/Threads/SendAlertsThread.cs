@@ -13,6 +13,13 @@ namespace ASFuelControl.Windows.Threads
     /// </summary>
     public class SendAlertsThread
     {
+        private const int TankCheckBatchSize = 20;
+        private const int AlertBatchSize = 10;
+        private const int TankFillingBatchSize = 5;
+        private const int SalesBatchSize = 10;
+        private const int PriceBatchSize = 10;
+        private const int BalanceBatchSize = 1;
+
         public event EventHandler<PrintAlertEventArgs> PrintAlert;
         public event EventHandler BalanceCreated;
         public event EventHandler SubmissionFailed;
@@ -293,7 +300,11 @@ namespace ASFuelControl.Windows.Threads
             try
             {
                 bool validValues = true;
-                var q = database.TankChecks.Where(t => !t.SentDatetime.HasValue).ToList();
+                var q = database.TankChecks
+                    .Where(t => !t.SentDatetime.HasValue)
+                    .OrderBy(t => t.CheckDate)
+                    .Take(TankCheckBatchSize)
+                    .ToList();
                 foreach (Data.TankCheck tc in q)
                 {
                     ASFuelControl.Communication.TankCheckClass tankCheck = new Communication.TankCheckClass();
@@ -820,7 +831,12 @@ namespace ASFuelControl.Windows.Threads
                 DateTime dt = DateTime.Now;
                 try
                 {
-                    var qtc = database.TankChecks.Where(t => !t.SentDatetime.HasValue).OrderByDescending(t=>t.CheckDate).Take(10).ToList();
+                    var qtc = database.TankChecks
+                        .Where(t => !t.SentDatetime.HasValue &&
+                            !(t.Tank.FuelType.ExcludeFromBalance.HasValue && t.Tank.FuelType.ExcludeFromBalance.Value))
+                        .OrderBy(t => t.CheckDate)
+                        .Take(TankCheckBatchSize)
+                        .ToList();
 
                     foreach (Data.TankCheck tc in qtc)
                     {
@@ -842,7 +858,6 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:TankCheck", e);
                 }
                 database.SaveChanges();
-                database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, database.SystemEvents.Where(se => !se.SentDate.HasValue));
                 //DateTime dtAlertCheck = DateTime.Now.AddMinutes(-1);
                 var q = database.SystemEvents.Where(se => !se.SentDate.HasValue && se.EventDate >= this.officialStartDate
                     &&
@@ -854,7 +869,9 @@ namespace ASFuelControl.Windows.Threads
                     //    se.EventDate < dtAlertCheck
                     ))
                     .Where(AlertSubmissionPolicy.IsEligibleForMinistry)
-                    .OrderByDescending(t => t.EventDate).Take(10).Take(10).ToList();
+                    .OrderBy(t => t.EventDate)
+                    .Take(AlertBatchSize)
+                    .ToList();
 
                 try
                 {
@@ -895,9 +912,14 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:Alarm", e);
                 }
                 database.SaveChanges();
-                database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, database.TankFillings.Where(tf => !tf.SentDateTime.HasValue));
-                var q1 = database.TankFillings.Where(se => !se.SentDateTime.HasValue && se.TransactionTime >= this.officialStartDate).
-                    OrderByDescending(t => t.TransactionTimeEnd).Take(10).ToList();
+                var q1 = database.TankFillings
+                    .Where(se => !se.SentDateTime.HasValue &&
+                        se.TransactionTime >= this.officialStartDate &&
+                        se.InvoiceLines.Count > 0 &&
+                        !(se.Tank.FuelType.ExcludeFromBalance.HasValue && se.Tank.FuelType.ExcludeFromBalance.Value))
+                    .OrderBy(t => t.TransactionTimeEnd)
+                    .Take(TankFillingBatchSize)
+                    .ToList();
                 try
                 {
                     foreach (Data.TankFilling se in q1)
@@ -937,41 +959,16 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:Delivery", e);
                 }
                 database.SaveChanges();
-                database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, database.SalesTransactions.Where(tf => !tf.SentDateTime.HasValue));
-
-
-                var qst = database.SalesTransactions.Where(se => !se.SentDateTime.HasValue && se.InvoiceLines.Count > 0 && se.TransactionTimeStamp >= this.officialStartDate).ToList();
-
-
-
-                var qil = database.InvoiceLines.Where(il => il.Invoice.InvoiceSignature != null && il.Invoice.InvoiceSignature != "" && il.Invoice.InvoiceSignature.Length > 20);
-                var qse = qil.Where(il => il.SaleTransactionId.HasValue).Select(il => il.SalesTransaction);
-                qse = qse.Where(se => !se.SentDateTime.HasValue);
-                qse = qse.Where(se => se.InvoiceLines.Count > 0);
-                qse = qse.Where(se => se.TransactionTimeStamp >= this.officialStartDate);
-
-
-                //var q5 = qst.Where(se => 
-                //        (
-                //            se.InvoiceLines.Where(il=>
-                //                //il.Invoice.InvoiceSignature != null &&
-                //                //il.Invoice.InvoiceSignature != "" &&
-                //                //!il.Invoice.InvoiceSignature.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ") &&
-                //                il.Invoice.InvoiceSignature.Length > 20
-                //             ).Count() == 0
-                //        )
-                //    ).ToList();
-                var q2 = qst.OrderByDescending(t => t.TransactionTimeStamp).Take(10).ToList();//qse.OrderByDescending(t => t.TransactionTimeStamp).Take(10).ToList();
-                //var q2 = database.SalesTransactions.Where(se => !se.SentDateTime.HasValue && se.InvoiceLines.Count > 0 && se.TransactionTimeStamp >= this.officialStartDate &&
-                //        (
-                //            se.InvoiceLines.Where(il=>
-                //                il.Invoice.InvoiceSignature != null &&
-                //                il.Invoice.InvoiceSignature != "" &&
-                //                !il.Invoice.InvoiceSignature.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ") &&
-                //                il.Invoice.InvoiceSignature.Length > 20
-                //             ).Count() == 0
-                //        )
-                //    ).ToList();
+                var q2 = database.SalesTransactions
+                    .Where(se => !se.SentDateTime.HasValue &&
+                        se.TransactionTimeStamp >= this.officialStartDate &&
+                        se.InvoiceLines.Count > 0 &&
+                        se.InvoiceLines.Where(il => il.Invoice.InvoiceSignature != null &&
+                            il.Invoice.InvoiceSignature != "" &&
+                            il.Invoice.InvoiceSignature.Length > 20).Count() > 0)
+                    .OrderBy(t => t.TransactionTimeStamp)
+                    .Take(SalesBatchSize)
+                    .ToList();
 
                 try
                 {
@@ -1018,8 +1015,13 @@ namespace ASFuelControl.Windows.Threads
                     Logger.Instance.LogToFile("CheckForSend:SalesTransaction", e);
                 }
                 database.SaveChanges();
-                database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, database.FuelTypePrices.Where(tf => !tf.SentDateTime.HasValue));
-                var q4 = database.FuelTypePrices.Where(se => !se.SentDateTime.HasValue && se.ChangeDate >= this.officialStartDate).ToList();
+                var q4 = database.FuelTypePrices
+                    .Where(se => !se.SentDateTime.HasValue &&
+                        se.ChangeDate >= this.officialStartDate &&
+                        !(se.FuelType.ExcludeFromBalance.HasValue && se.FuelType.ExcludeFromBalance.Value))
+                    .OrderBy(se => se.ChangeDate)
+                    .Take(PriceBatchSize)
+                    .ToList();
                 try
                 {
                     foreach (Data.FuelTypePrice ftp in q4)
@@ -1108,7 +1110,10 @@ namespace ASFuelControl.Windows.Threads
                                 !se.DocumentSign.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ") &&
                                 se.DocumentSign.Length > 15
                             )
-                        ).ToList();
+                        )
+                    .OrderBy(se => se.EndDate)
+                    .Take(BalanceBatchSize)
+                    .ToList();
                 try
                 {
                     foreach (Data.Balance bal in q3)
@@ -1190,7 +1195,11 @@ namespace ASFuelControl.Windows.Threads
                 return;
             try
             {
-                List<Data.SystemEvent> q = database.SystemEvents.Where(se => !se.ResolvedDate.HasValue && !se.PrintedDate.HasValue).ToList();
+                List<Data.SystemEvent> q = database.SystemEvents
+                    .Where(se => !se.ResolvedDate.HasValue && !se.PrintedDate.HasValue)
+                    .OrderBy(se => se.EventDate)
+                    .Take(AlertBatchSize)
+                    .ToList();
                 foreach (Data.SystemEvent ev in q)
                 {
                     this.PrintAlert(this, new PrintAlertEventArgs() { AlertId = ev.EventId });
