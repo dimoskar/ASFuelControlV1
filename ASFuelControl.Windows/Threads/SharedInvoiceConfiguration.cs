@@ -137,15 +137,23 @@ namespace ASFuelControl.Windows.Threads
                 return null;
             if (invoice.InvoiceType.IsLaserPrint == true)
                 return null;
+            bool saleInvoice = false;
             foreach (var line in invoice.InvoiceLines)
             {
-                var dispenser = line.SalesTransaction?.Nozzle?.Dispenser;
+                if (line.SalesTransaction == null)
+                    continue;
+                saleInvoice = true;
+                var dispenser = line.SalesTransaction.Nozzle?.Dispenser;
                 var dispenserPrinter = dispenser?.InvoicePrints
                     .FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.Printer));
                 if (dispenserPrinter != null)
                     return dispenserPrinter.Printer.Trim();
             }
-            return null;
+            // A sale always follows its dispenser route and then the Windows
+            // default. Other compact documents may use their invoice-type printer.
+            if (saleInvoice || string.IsNullOrWhiteSpace(invoice.InvoiceType.Printer))
+                return null;
+            return invoice.InvoiceType.Printer.Trim();
         }
         internal static string TransmissionLabel(ProviderRoute provider)
         {

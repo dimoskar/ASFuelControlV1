@@ -69,16 +69,17 @@ internal static partial class Program
                 Equal("global",config.DefaultPrinter.PrinterName);
             }
         });
-        Test("laser invoices use the common printer while compact invoices use the related dispenser only", () => {
-            var type = new ASFuelControl.Data.InvoiceType { InvoiceTypeId = Guid.NewGuid(),Printer = "obsolete-type-printer",IsLaserPrint = true };
+        Test("laser sales and other compact invoices use their explicit printer routes", () => {
+            var type = new ASFuelControl.Data.InvoiceType { InvoiceTypeId = Guid.NewGuid(),Printer = "type-printer",IsLaserPrint = true };
             var invoice = new ASFuelControl.Data.Invoice { InvoiceTypeId = type.InvoiceTypeId,InvoiceType = type,Printer = "obsolete-saved-printer" };
             Equal(null,SharedInvoiceConfiguration.PrinterName(invoice));
             type.IsLaserPrint = false;
-            Equal(null,SharedInvoiceConfiguration.PrinterName(invoice));
+            Equal("type-printer",SharedInvoiceConfiguration.PrinterName(invoice));
             var dispenser = new ASFuelControl.Data.Dispenser();
-            dispenser.InvoicePrints.Add(new ASFuelControl.Data.InvoicePrint { Printer = "dispenser-printer" });
             invoice.InvoiceLines.Add(new ASFuelControl.Data.InvoiceLine { SalesTransaction = new ASFuelControl.Data.SalesTransaction {
                 Nozzle = new ASFuelControl.Data.Nozzle { Dispenser = dispenser } } });
+            Equal(null,SharedInvoiceConfiguration.PrinterName(invoice));
+            dispenser.InvoicePrints.Add(new ASFuelControl.Data.InvoicePrint { Printer = "dispenser-printer" });
             Equal("dispenser-printer",SharedInvoiceConfiguration.PrinterName(invoice));
             var config = new SharedInvoiceConfiguration { Version = 2,Policies = new Dictionary<Guid,InvoiceTypePolicy> {
                 { type.InvoiceTypeId,new InvoiceTypePolicy { InvoiceTypeId = type.InvoiceTypeId } } },
