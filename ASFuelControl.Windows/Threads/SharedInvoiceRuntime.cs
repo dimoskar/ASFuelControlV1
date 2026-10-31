@@ -137,14 +137,14 @@ namespace ASFuelControl.Windows.Threads
                 using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
                     var pending = Check(db,id,config);
-                    ValidateMyDiesel(pending,config.Route(pending.InvoiceTypeId,SharedInvoiceConfiguration.PrinterName(pending)),config);
+                    ValidateMyDiesel(pending,config.Route(pending),config);
                     needsNumber = pending.Number == 0;
                 }
                 if (needsNumber) new SqlInvoiceWorkflowStore(sql.Value).AllocateNumbers(lease,config.FirstInvoiceDate);
                 using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
                     var invoice = Check(db, id, config);
-                    var route = config.Route(invoice.InvoiceTypeId,SharedInvoiceConfiguration.PrinterName(invoice));
+                    var route = config.Route(invoice);
                     var coupon = ValidateMyDiesel(invoice,route,config);
                     var printer = printRequested ? SharedInvoicePrinting.ResolveProfile(route.Printer,config.DefaultPrinter) :
                         route.Printer ?? config.DefaultPrinter ?? new SharedPrinterProfile();

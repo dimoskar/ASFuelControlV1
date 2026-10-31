@@ -15,6 +15,10 @@ namespace ASFuelControl.Windows.Threads
     internal sealed class SharedPrinterProfile
     {
         public string PrinterName { get; set; }
+        // Historical shared pages used the configurable narrow dimensions. Keep
+        // that as the deserialization default; new routes set this explicitly
+        // from InvoiceType.IsLaserPrint.
+        public bool Thermal { get; set; } = true;
         public int WidthHundredths { get; set; } = 315;
         public int HeightHundredths { get; set; } = 1100;
         public short Copies { get; set; } = 1;
@@ -52,7 +56,9 @@ namespace ASFuelControl.Windows.Threads
             // destination. Only the physical printer may fall back for this handoff.
             var profile = JsonConvert.DeserializeObject<SharedPrinterProfile>(JsonConvert.SerializeObject(requested ?? installationDefault ?? new SharedPrinterProfile()));
             CheckProfile(profile);
-            profile.PrinterName = ResolvePrinterName(profile.PrinterName,installationDefault?.PrinterName,installedPrinters,windowsDefault);
+            profile.PrinterName = ResolvePrinterName(profile.PrinterName,
+                profile.Thermal ? null : installationDefault?.PrinterName,
+                installedPrinters,windowsDefault);
             if (profile.PrinterName == null) throw new InvalidOperationException(MissingPrinterMessage);
             return profile;
         }

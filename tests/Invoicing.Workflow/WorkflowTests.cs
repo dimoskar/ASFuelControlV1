@@ -499,12 +499,17 @@ internal static partial class Program
             SharedInvoicePrinting.CheckProfile(new SharedPrinterProfile()); // Blank selection is valid when saving settings.
         });
         Test("fallback after printer removal preserves saved destination geometry copies and font", () => {
-            var saved = new SharedPrinterProfile { PrinterName = "Type thermal",WidthHundredths = 825,HeightHundredths = 1169,Copies = 2,FontSize = 10 };
+            var saved = new SharedPrinterProfile { PrinterName = "Type laser",Thermal = false,WidthHundredths = 825,HeightHundredths = 1169,Copies = 2,FontSize = 10 };
             var original = JsonConvert.SerializeObject(saved); var defaults = JsonConvert.SerializeObject(defaultProfile);
             var profile = SharedInvoicePrinting.ResolveProfile(saved,defaultProfile,new[] { "Installation default","Windows default" },"Windows default");
             Equal("Installation default",profile.PrinterName); Equal(825,profile.WidthHundredths); Equal(1169,profile.HeightHundredths);
             Equal((short)2,profile.Copies); Equal(10f,profile.FontSize);
             Equal(original,JsonConvert.SerializeObject(saved)); Equal(defaults,JsonConvert.SerializeObject(defaultProfile));
+        });
+        Test("thermal printer removal falls back to Windows rather than the configured laser printer", () => {
+            var saved = new SharedPrinterProfile { PrinterName = "Removed dispenser",Thermal = true };
+            var profile = SharedInvoicePrinting.ResolveProfile(saved,defaultProfile,new[] { "Installation default","Windows default" },"Windows default");
+            Equal("Windows default",profile.PrinterName);
         });
         Test("printer fallback requires a valid selection or default instead of choosing an arbitrary printer", () => {
             Equal(null,SharedInvoicePrinting.ResolvePrinterName("old","missing",new[] { "unrelated printer" },null));

@@ -89,7 +89,7 @@ namespace ASFuelControl.Windows.Threads
         [JsonIgnore] public Dictionary<Guid, InvoiceTypePolicy> Policies { get; set; }
         [JsonIgnore] public HashSet<FiscalDocumentKind> ProtectedKinds { get; set; } = new HashSet<FiscalDocumentKind>();
 
-        internal SharedInvoiceRoute Route(Guid typeId, string printerName)
+        internal SharedInvoiceRoute Route(Guid typeId, string printerName, bool laserPrint = false)
         {
             if (Version == 1)
             {
@@ -110,26 +110,42 @@ namespace ASFuelControl.Windows.Threads
             if (provider != null && provider.TestMode != TestMode || policy.SignWithFiscalDevice && (FiscalDevice.Environment == FiscalEnvironment.Test) != TestMode)
                 throw new InvalidOperationException("Το προφίλ δεν συμφωνεί με το κοινό περιβάλλον.");
             var printer = JsonConvert.DeserializeObject<SharedPrinterProfile>(JsonConvert.SerializeObject(DefaultPrinter ?? new SharedPrinterProfile()));
-            if (!string.IsNullOrWhiteSpace(printerName)) printer.PrinterName = printerName;
+            printer.Thermal = !laserPrint;
+            // The configured common printer belongs to laser/full-page invoices.
+            // A compact invoice uses only its related dispenser printer and then
+            // the Windows default; it must not inherit the configured laser device.
+            printer.PrinterName = laserPrint ? printer.PrinterName :
+                (string.IsNullOrWhiteSpace(printerName) ? null : printerName.Trim());
             return new SharedInvoiceRoute { Provider = provider, Payment = policy.Transmission == InvoiceTransmissionMode.Provider ? Pos : null,
                 Signing = policy.SignWithFiscalDevice ? FiscalDevice : null, Printer = printer, LocalOnly = policy.LocalOnly };
+        }
+        internal SharedInvoiceRoute Route(Data.Invoice invoice)
+        {
+            if (invoice == null || invoice.InvoiceType == null)
+                throw new InvalidOperationException("Απαιτείται αποθηκευμένος τύπος παραστατικού.");
+            return Route(invoice.InvoiceTypeId,PrinterName(invoice),invoice.InvoiceType.IsLaserPrint == true);
+        }
+        internal SharedInvoiceRoute Route(Data.InvoiceType type)
+        {
+            if (type == null)
+                throw new InvalidOperationException("Απαιτείται τύπος παραστατικού.");
+            return Route(type.InvoiceTypeId,null,type.IsLaserPrint == true);
         }
         internal static string PrinterName(Data.Invoice invoice)
         {
             if (invoice == null || invoice.InvoiceType == null)
                 return null;
-            // Full-page/laser documents use the common installation printer.
-            // Compact pump documents keep the printer captured from the dispenser,
-            // falling back to the legacy per-type printer only when it is absent.
             if (invoice.InvoiceType.IsLaserPrint == true)
                 return null;
-            return !string.IsNullOrWhiteSpace(invoice.Printer)
-                ? invoice.Printer
-                : invoice.InvoiceType.Printer;
-        }
-        internal static string PrinterName(Data.InvoiceType type)
-        {
-            return type == null || type.IsLaserPrint == true ? null : type.Printer;
+            foreach (var line in invoice.InvoiceLines)
+            {
+                var dispenser = line.SalesTransaction?.Nozzle?.Dispenser;
+                var dispenserPrinter = dispenser?.InvoicePrints
+                    .FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.Printer));
+                if (dispenserPrinter != null)
+                    return dispenserPrinter.Printer.Trim();
+            }
+            return null;
         }
         internal static string TransmissionLabel(ProviderRoute provider)
         {
@@ -155,7 +171,7 @@ namespace ASFuelControl.Windows.Threads
             if (problem != null) throw new InvalidOperationException(problem);
             if (invoice.TransactionDate < FirstInvoiceDate && !(historicalPrinted && invoice.IsPrinted == true))
                 throw new InvalidOperationException("Η ημερομηνία παραστατικού είναι πριν από την έναρξη κοινής τιμολόγησης. Για ήδη εκτυπωμένο παραστατικό χρησιμοποιήστε τη Διαβίβαση.");
-            var route = Route(invoice.InvoiceTypeId,PrinterName(invoice));
+            var route = Route(invoice);
             bool pos = invoice.PaymentType == 2 || invoice.PaymentType == 4;
             if (invoice.IsPrinted == true && (pos || route.Signing != null))
                 throw new InvalidOperationException("Το ήδη εκτυπωμένο παραστατικό χρειάζεται έλεγχο της προηγούμενης πληρωμής / σήμανσης. Δεν θα γίνει νέα χρέωση POS ή σήμανση.");
@@ -193,7 +209,7 @@ namespace ASFuelControl.Windows.Threads
             var type = invoice.InvoiceType;
             try
             {
-                var route = Route(invoice.InvoiceTypeId,PrinterName(invoice));
+                var route = Route(invoice);
                 lines.Add("Ρυθμισμένη διαβίβαση: " + TransmissionLabel(route.Provider));
                 if (route.Provider != null || route.Signing != null)
                 {

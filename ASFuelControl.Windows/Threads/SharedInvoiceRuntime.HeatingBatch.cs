@@ -112,8 +112,8 @@ namespace ASFuelControl.Windows.Threads
                     (credit.RetailInvoice==true)!=retail)
                     throw new InvalidOperationException("Επιλέξτε οικονομικό πιστωτικό πωλήσεων (κίνηση εξαγωγής), χωρίς υποχρεωτική διακίνηση, του αντίστοιχου τύπου (λιανική / χονδρική).");
                 // A dedicated historical route is used, but the document must still be configured for provider issuance.
-                var creditRoute=config.Route(credit.InvoiceTypeId,SharedInvoiceConfiguration.PrinterName(credit));
-                var originalRoute=config.Route(invoice.InvoiceTypeId,SharedInvoiceConfiguration.PrinterName(invoice));
+                var creditRoute=config.Route(credit);
+                var originalRoute=config.Route(invoice);
                 if(creditRoute.LocalOnly||creditRoute.Signing!=null||creditRoute.Provider==null||originalRoute.LocalOnly||originalRoute.Signing!=null||originalRoute.Provider==null)
                     throw new InvalidOperationException("Οι τύποι πιστωτικού και επανέκδοσης πρέπει να έχουν διαβίβαση σε πάροχο χωρίς φορολογικό μηχανισμό.");
                 if(invoice.PaymentType!=0&&invoice.PaymentType!=1)throw new InvalidOperationException("Η παρτίδα δέχεται μόνο μετρητά ή επί πιστώσει. Οι πληρωμές POS/IRIS/στόλου εξαιρούνται.");
@@ -208,7 +208,7 @@ namespace ASFuelControl.Windows.Threads
                     return new InvoiceWorkflowSnapshot{InvoiceId=invoice.InvoiceId,Provider=plan.Original.Provider,
                         Invoice=plan.Request(credit,invoice.Number,invoice.Series,invoice.TransactionDate),
                         PrintFormat=SharedInvoicePrinting.Format,PrintDestination=JsonConvert.SerializeObject(
-                            settings.Value.Route(invoice.InvoiceTypeId,SharedInvoiceConfiguration.PrinterName(invoice)).Printer??settings.Value.DefaultPrinter??new SharedPrinterProfile()),
+                            settings.Value.Route(invoice).Printer??settings.Value.DefaultPrinter??new SharedPrinterProfile()),
                         PrintContent=Encoding.UTF8.GetBytes(PrintAgent.RenderSharedInvoiceContent(db,invoice))};
                 }
             }

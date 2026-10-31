@@ -69,16 +69,23 @@ internal static partial class Program
                 Equal("global",config.DefaultPrinter.PrinterName);
             }
         });
-        Test("laser invoices use the common printer while compact invoices retain dispenser routing", () => {
-            var type = new ASFuelControl.Data.InvoiceType { Printer = "type-printer",IsLaserPrint = true };
-            var invoice = new ASFuelControl.Data.Invoice { InvoiceType = type,Printer = "dispenser-printer" };
+        Test("laser invoices use the common printer while compact invoices use the related dispenser only", () => {
+            var type = new ASFuelControl.Data.InvoiceType { InvoiceTypeId = Guid.NewGuid(),Printer = "obsolete-type-printer",IsLaserPrint = true };
+            var invoice = new ASFuelControl.Data.Invoice { InvoiceTypeId = type.InvoiceTypeId,InvoiceType = type,Printer = "obsolete-saved-printer" };
             Equal(null,SharedInvoiceConfiguration.PrinterName(invoice));
-            Equal(null,SharedInvoiceConfiguration.PrinterName(type));
             type.IsLaserPrint = false;
+            Equal(null,SharedInvoiceConfiguration.PrinterName(invoice));
+            var dispenser = new ASFuelControl.Data.Dispenser();
+            dispenser.InvoicePrints.Add(new ASFuelControl.Data.InvoicePrint { Printer = "dispenser-printer" });
+            invoice.InvoiceLines.Add(new ASFuelControl.Data.InvoiceLine { SalesTransaction = new ASFuelControl.Data.SalesTransaction {
+                Nozzle = new ASFuelControl.Data.Nozzle { Dispenser = dispenser } } });
             Equal("dispenser-printer",SharedInvoiceConfiguration.PrinterName(invoice));
-            Equal("type-printer",SharedInvoiceConfiguration.PrinterName(type));
-            invoice.Printer = "";
-            Equal("type-printer",SharedInvoiceConfiguration.PrinterName(invoice));
+            var config = new SharedInvoiceConfiguration { Version = 2,Policies = new Dictionary<Guid,InvoiceTypePolicy> {
+                { type.InvoiceTypeId,new InvoiceTypePolicy { InvoiceTypeId = type.InvoiceTypeId } } },
+                DefaultPrinter = new SharedPrinterProfile { PrinterName = "laser-printer" } };
+            var compact = config.Route(invoice); Equal(true,compact.Printer.Thermal); Equal("dispenser-printer",compact.Printer.PrinterName);
+            type.IsLaserPrint = true;
+            var laser = config.Route(invoice); Equal(false,laser.Printer.Thermal); Equal("laser-printer",laser.Printer.PrinterName);
         });
         Test("missing reviewed policy and conflicting environment cannot silently fall back", () => {
             var type = Guid.NewGuid(); var config = new SharedInvoiceConfiguration { Version = 2,TestMode = true,
