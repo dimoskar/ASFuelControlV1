@@ -353,9 +353,8 @@ namespace ASFuelControl.Windows.Threads
                             report.ReportParameters["CompanyEfk"].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyEFK");
                             
                             report.SetSupplyNumber(invoice, myDataQrCode);
-                            System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                             short invCopies = (short)Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceCopies", 2);
-                            printerSettings.Copies = invCopies;
+                            System.Drawing.Printing.PrinterSettings printerSettings = CreateLegacyReportPrinterSettings(invoice, invCopies);
                             PrintReport(report, printerSettings);
 
                             //report.ReportParameters["InvoiceId"].Value = invoice.InvoiceId.ToString().ToLower();
@@ -404,9 +403,8 @@ namespace ASFuelControl.Windows.Threads
 
                             report.SetSupplyNumber(invoice, myDataQrCode);
                             report.SetRestAmounts(invoice);
-                            System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                             short invCopies = (short)Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceCopies", 2);
-                            printerSettings.Copies = invCopies;
+                            System.Drawing.Printing.PrinterSettings printerSettings = CreateLegacyReportPrinterSettings(invoice, invCopies);
                             PrintReport(report, printerSettings);
                         }
                     }
@@ -793,6 +791,32 @@ namespace ASFuelControl.Windows.Threads
             }
             if (invoice.Printer != null && invoice.Printer != "")
                 printerSettings.PrinterName = invoice.Printer;
+        }
+
+        private static System.Drawing.Printing.PrinterSettings CreateLegacyReportPrinterSettings(Data.Invoice invoice, short copies)
+        {
+            var printerSettings = new System.Drawing.Printing.PrinterSettings { Copies = copies };
+            if (invoice == null || invoice.InvoiceType == null || invoice.InvoiceType.IsLaserPrint != true)
+                return printerSettings;
+            try
+            {
+                long revision;
+                var config = SharedInvoicingSettings.Load(out revision);
+                var configured = config == null ? null : config.DefaultPrinter;
+                var installed = System.Drawing.Printing.PrinterSettings.InstalledPrinters.Cast<string>().ToArray();
+                var printerName = SharedInvoicePrinting.ResolvePrinterName(
+                    configured == null ? null : configured.PrinterName,
+                    null,
+                    installed,
+                    installed.Length == 0 ? null : new System.Drawing.Printing.PrinterSettings().PrinterName);
+                if (!string.IsNullOrWhiteSpace(printerName))
+                    printerSettings.PrinterName = printerName;
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogToFile("Legacy invoice printer", ex);
+            }
+            return printerSettings;
         }
 
         private string CreateSignLine(Data.Invoice invoice)
@@ -3911,7 +3935,7 @@ namespace ASFuelControl.Windows.Threads
                 Telerik.Reporting.Processing.ReportProcessor processor = new Telerik.Reporting.Processing.ReportProcessor();
                 Telerik.Reporting.InstanceReportSource reportSource = new Telerik.Reporting.InstanceReportSource();
                 reportSource.ReportDocument = report;
-                if(!installedPrintrers.Contains(printerSettings.PrinterName))
+                if (string.IsNullOrWhiteSpace(printerSettings.PrinterName) || !printerSettings.IsValid)
                 {
                     PrinterSettings defPrinterSettings = new PrinterSettings();
                     printerSettings.PrinterName = defPrinterSettings.PrinterName;

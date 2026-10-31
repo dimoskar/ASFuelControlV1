@@ -69,6 +69,17 @@ internal static partial class Program
                 Equal("global",config.DefaultPrinter.PrinterName);
             }
         });
+        Test("laser invoices use the common printer while compact invoices retain dispenser routing", () => {
+            var type = new ASFuelControl.Data.InvoiceType { Printer = "type-printer",IsLaserPrint = true };
+            var invoice = new ASFuelControl.Data.Invoice { InvoiceType = type,Printer = "dispenser-printer" };
+            Equal(null,SharedInvoiceConfiguration.PrinterName(invoice));
+            Equal(null,SharedInvoiceConfiguration.PrinterName(type));
+            type.IsLaserPrint = false;
+            Equal("dispenser-printer",SharedInvoiceConfiguration.PrinterName(invoice));
+            Equal("type-printer",SharedInvoiceConfiguration.PrinterName(type));
+            invoice.Printer = "";
+            Equal("type-printer",SharedInvoiceConfiguration.PrinterName(invoice));
+        });
         Test("missing reviewed policy and conflicting environment cannot silently fall back", () => {
             var type = Guid.NewGuid(); var config = new SharedInvoiceConfiguration { Version = 2,TestMode = true,
                 Policies = new Dictionary<Guid,InvoiceTypePolicy>(),InvoiceProvider = Route(InvoiceProviderCatalog.ITimologiaKey,false) };

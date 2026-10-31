@@ -79,7 +79,7 @@ namespace ASFuelControl.Windows.Threads
                     }
                     try
                     {
-                        var printer = value.Route(type.InvoiceTypeId,type.Printer).Printer ?? value.DefaultPrinter ?? new SharedPrinterProfile();
+                        var printer = value.Route(type.InvoiceTypeId,SharedInvoiceConfiguration.PrinterName(type)).Printer ?? value.DefaultPrinter ?? new SharedPrinterProfile();
                         SharedInvoicePrinting.CheckProfile(printer);
                         if (SharedInvoicePrinting.ResolvePrinterName(printer.PrinterName,value.DefaultPrinter?.PrinterName,printers,windowsDefault) == null)
                             missingPrinter = true;

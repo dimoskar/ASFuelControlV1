@@ -114,6 +114,23 @@ namespace ASFuelControl.Windows.Threads
             return new SharedInvoiceRoute { Provider = provider, Payment = policy.Transmission == InvoiceTransmissionMode.Provider ? Pos : null,
                 Signing = policy.SignWithFiscalDevice ? FiscalDevice : null, Printer = printer, LocalOnly = policy.LocalOnly };
         }
+        internal static string PrinterName(Data.Invoice invoice)
+        {
+            if (invoice == null || invoice.InvoiceType == null)
+                return null;
+            // Full-page/laser documents use the common installation printer.
+            // Compact pump documents keep the printer captured from the dispenser,
+            // falling back to the legacy per-type printer only when it is absent.
+            if (invoice.InvoiceType.IsLaserPrint == true)
+                return null;
+            return !string.IsNullOrWhiteSpace(invoice.Printer)
+                ? invoice.Printer
+                : invoice.InvoiceType.Printer;
+        }
+        internal static string PrinterName(Data.InvoiceType type)
+        {
+            return type == null || type.IsLaserPrint == true ? null : type.Printer;
+        }
         internal static string TransmissionLabel(ProviderRoute provider)
         {
             if (provider == null) return "Χωρίς διαβίβαση";
@@ -138,7 +155,7 @@ namespace ASFuelControl.Windows.Threads
             if (problem != null) throw new InvalidOperationException(problem);
             if (invoice.TransactionDate < FirstInvoiceDate && !(historicalPrinted && invoice.IsPrinted == true))
                 throw new InvalidOperationException("Η ημερομηνία παραστατικού είναι πριν από την έναρξη κοινής τιμολόγησης. Για ήδη εκτυπωμένο παραστατικό χρησιμοποιήστε τη Διαβίβαση.");
-            var route = Route(invoice.InvoiceTypeId,invoice.InvoiceType.Printer);
+            var route = Route(invoice.InvoiceTypeId,PrinterName(invoice));
             bool pos = invoice.PaymentType == 2 || invoice.PaymentType == 4;
             if (invoice.IsPrinted == true && (pos || route.Signing != null))
                 throw new InvalidOperationException("Το ήδη εκτυπωμένο παραστατικό χρειάζεται έλεγχο της προηγούμενης πληρωμής / σήμανσης. Δεν θα γίνει νέα χρέωση POS ή σήμανση.");
@@ -176,7 +193,7 @@ namespace ASFuelControl.Windows.Threads
             var type = invoice.InvoiceType;
             try
             {
-                var route = Route(invoice.InvoiceTypeId,type.Printer);
+                var route = Route(invoice.InvoiceTypeId,PrinterName(invoice));
                 lines.Add("Ρυθμισμένη διαβίβαση: " + TransmissionLabel(route.Provider));
                 if (route.Provider != null || route.Signing != null)
                 {

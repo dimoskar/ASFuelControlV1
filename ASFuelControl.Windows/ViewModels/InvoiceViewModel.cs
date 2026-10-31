@@ -1540,6 +1540,19 @@ namespace ASFuelControl.Windows.ViewModels
 
         public override void Load(DatabaseModel db, Guid id)
         {
+            // Make the persisted type available before BaseViewModel raises the
+            // InvoiceTypeId notification. Otherwise a bound Telerik dropdown whose
+            // active list omits a hidden/invalidated historical type selects its
+            // first item and writes that unrelated value back into this view model.
+            var persistedTypeId = db.Invoices.Where(i => i.InvoiceId == id)
+                .Select(i => i.InvoiceTypeId)
+                .SingleOrDefault();
+            if (persistedTypeId != Guid.Empty &&
+                !this.InvoiceTypes.Any(i => i.InvoiceTypeId == persistedTypeId))
+            {
+                this.InvoiceTypes = CommonCache.Instance.InvoiceTypes.ToArray();
+                this.OnPropertyChanged("InvoiceTypes");
+            }
             base.Load(db, id);
             
             if(!this.EditEnabled)
