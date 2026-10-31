@@ -157,6 +157,20 @@ namespace ASFuelControl.Windows.Threads
             try { return ProviderSubmissionService.ReadAcceptedResponse(accepted).InvoiceSignature; }
             catch { return null; }
         }
+        private static string CurrentPrintDestination(Guid id)
+        {
+            // Reprints preserve the original rendered document, but routing is
+            // recalculated from the invoice type actually stored in the database.
+            var current = SharedInvoicingSettings.LoadRuntime();
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var invoice = db.Invoices.SingleOrDefault(i => i.InvoiceId == id);
+                if (invoice == null) throw new InvalidOperationException("Το παραστατικό δεν βρέθηκε.");
+                var route = current.Route(invoice);
+                var printer = SharedInvoicePrinting.ResolveProfile(route.Printer,current.DefaultPrinter);
+                return JsonConvert.SerializeObject(printer);
+            }
+        }
         private static FiscalSigningService SigningService() => new FiscalSigningService(sql.Value,scope =>
             new SamtecFiscalSigner((settings.Value.Devices ?? new SamtecDeviceProfile[0]).Single(p => FiscalSigningCoordinator.SameScope(p.Scope,scope))));
 

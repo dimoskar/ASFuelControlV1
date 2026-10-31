@@ -34,9 +34,12 @@ namespace ASFuelControl.Invoicing
             {
                 // Every subsequent attempt copies the FIRST saved document, even after
                 // rejection or a local failure. Never render today's entity/settings.
+                // An explicit operator reprint may, however, use a freshly resolved
+                // printer. Automatic recovery keeps the original destination.
                 var original = all.FirstOrDefault();
+                var explicitReprint = !string.IsNullOrWhiteSpace(reprintReason);
                 last = store.BeginPrint(lease, original?.OriginalAttemptId ?? acceptedAttemptId,
-                    original?.Scope ?? destination, original?.PayloadFormat ?? format,
+                    explicitReprint ? destination : original?.Scope ?? destination, original?.PayloadFormat ?? format,
                     original?.Payload ?? render(), reprintReason ?? last?.Reason, original?.OfflineReceipt ?? offlineReceipt);
             }
             try { transport.Validate(last.Scope, last.PayloadFormat, last.Payload); }

@@ -314,12 +314,12 @@ internal static partial class Program
             workflow.Process(source.Source.Id,source); var calls = http.Calls;
             workflow.Process(source.Source.Id,null); Equal(calls,http.Calls); Equal(1,printer.Calls); Equal(1,renders); Equal(1,source.Loads);
         });
-        Test("explicit reprint copies original pages and destination after entity/config edits", () => {
+        Test("explicit reprint copies original pages and uses the freshly resolved destination", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer(); var workflow = Workflow(http,printer);
             workflow.Process(source.Source.Id,source); var original = printer.Bytes; var calls = http.Calls;
             source.Snapshot.PrintContent = Encoding.UTF8.GetBytes("edited"); source.Snapshot.PrintDestination = "different"; source.Source.Invoice.TotalAmount = 999;
-            workflow.Process(source.Source.Id,source,true,"Customer requested copy");
-            Check(original.SequenceEqual(printer.Bytes),"rendered current data"); Equal("original-printer",printer.Destination); Equal(2,printer.Calls); Equal(calls,http.Calls); Equal(1,source.Loads);
+            workflow.Process(source.Source.Id,source,true,"Customer requested copy",reprintDestination:"corrected-printer");
+            Check(original.SequenceEqual(printer.Bytes),"rendered current data"); Equal("corrected-printer",printer.Destination); Equal(2,printer.Calls); Equal(calls,http.Calls); Equal(1,source.Loads);
             Equal("Customer requested copy",Prints(source.Source.Id).Last().Reason);
         });
         Test("unknown printer handoff blocks automatic and explicit reprint", () => {

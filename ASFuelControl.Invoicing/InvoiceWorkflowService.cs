@@ -89,7 +89,7 @@ namespace ASFuelControl.Invoicing
         }
 
         public InvoiceWorkflowResult Process(Guid invoiceId, IInvoiceWorkflowSource source, bool print = true, string reprintReason = null, bool retryRejected = false,
-            bool retryDeclinedPayment = false)
+            bool retryDeclinedPayment = false, string reprintDestination = null)
         {
             using (var lease = database.EnterInvoice(invoiceId))
             {
@@ -217,7 +217,10 @@ namespace ASFuelControl.Invoicing
                 }
                 if (print)
                 {
-                    result.Print = printing.Print(lease, result.OfflineAttemptId ?? result.AcceptedAttemptId, snapshot.PrintDestination,
+                    var printDestination = !string.IsNullOrWhiteSpace(reprintReason) && !string.IsNullOrWhiteSpace(reprintDestination)
+                        ? reprintDestination
+                        : snapshot.PrintDestination;
+                    result.Print = printing.Print(lease, result.OfflineAttemptId ?? result.AcceptedAttemptId, printDestination,
                         snapshot.PrintFormat, () => render(snapshot, result.Response), reprintReason, result.OfflineAttemptId.HasValue);
                     project(invoiceId, result);
                 }
