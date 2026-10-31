@@ -39,6 +39,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 InitializeComponent();
             else
                 InitializeFixedLayout(layout);
+            RemoveTopPaymentSelector();
             InitializeFiscalStatus();
             fiscalPanel.ActionCompleted += (s, e) => {
                 if (!IsDisposed && fiscalPanel.Owned) LoadInvoice(ivm.InvoiceId);
@@ -59,6 +60,19 @@ namespace ASFuelControl.Windows.UI.Forms
             ivm.QueryInvoiceData += Ivm_QueryInvoiceData;
             ivm.PropertyChanged += Ivm_PropertyChanged;
             ivm.RefreshView += Ivm_RefreshView;
+        }
+
+        private void RemoveTopPaymentSelector()
+        {
+            // Payment is edited in the invoice body. The toolbar copy was only
+            // made visible for saved/printed invoices and duplicated that value.
+            // Remove it for every InvoiceFormEx layout, including the legacy
+            // editor and all scenario-specific forms built by the factory.
+            if (panel6 == null)
+                return;
+            panel6.Visible = false;
+            if (panel6.Parent != null)
+                panel6.Parent.Controls.Remove(panel6);
         }
 
         public void CreateNew()
@@ -85,11 +99,6 @@ namespace ASFuelControl.Windows.UI.Forms
             this.invoiceViewModelBindingSource.ResetBindings(false);
             this.invoiceLinesBindingSource.ResetBindings(false);
             this.panel6.Visible = false;
-            if (ivm.IsPrinted.HasValue && ivm.IsPrinted.Value)
-            {
-                //if (string.IsNullOrEmpty(ivm.InvoiceSignature))
-                this.panel6.Visible = true;
-            }
             ApplyPriceBindings();
             this.SetView();
             fiscalPanel.LoadInvoice(invoiceId);
@@ -438,7 +447,7 @@ namespace ASFuelControl.Windows.UI.Forms
             if (editorLayout != ViewModels.InvoiceEditorLayout.Legacy)
             {
                 this.btnSave.Visible = true;
-                this.panel6.Visible = ivm.IsPrinted == true;
+                this.panel6.Visible = false;
                 return;
             }
             this.btnSave.Visible = !this.ivm.SimplePrint;
@@ -447,7 +456,6 @@ namespace ASFuelControl.Windows.UI.Forms
             {
                 //if (string.IsNullOrEmpty(ivm.InvoiceSignature))
                 //{
-                this.panel6.Visible = true;
                 this.btnSave.Visible = true;
                 //}
             }
