@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -484,6 +485,31 @@ internal static partial class Program
         NumberingTests();
         foreach(var kind in new[] { FiscalDocumentKind.Balance,FiscalDocumentKind.TankFilling })
         {
+            Test(kind + " archives after signing without requiring physical printing", () => {
+                var doc = new FiscalDocumentReference(kind,Guid.NewGuid()); var signer = new Signer(); var printer = new Printer();
+                int projects = 0, renders = 0;
+                var service = new SignedDocumentWorkflowService(database,new FiscalSigningService(database,s => signer),
+                    new FiscalPrintService(database,printer),(s,r) => { renders++; return s.PrintContent; });
+                var snapshot = new InvoiceWorkflowSnapshot { InvoiceId = doc.DocumentId,
+                    Signing = new FiscalSigningRequest(Guid.NewGuid(),doc,new FiscalSigningScope("fake","device-v1",FiscalEnvironment.Test,"000000000",0),"fake/v1",Encoding.UTF8.GetBytes("sign me")),
+                    PrintContent = Encoding.UTF8.GetBytes("original document"),PrintDestination = "saved printer",PrintFormat = "test/v1" };
+                var result = service.Process(doc,() => snapshot,r => projects++,null,false);
+                Equal("Signed",result.FiscalState); Check(result.Print == null,"physical print was created");
+                Equal(1,signer.Calls); Equal(1,projects); Equal(0,renders); Equal(0,printer.Calls);
+            });
+            Test(kind + " projects the signed archive before rendering and dispatch", () => {
+                var doc = new FiscalDocumentReference(kind,Guid.NewGuid()); var signer = new Signer(); var printer = new Printer();
+                var timeline = new List<string>();
+                printer.OnDispatch = () => timeline.Add("dispatch");
+                var service = new SignedDocumentWorkflowService(database,new FiscalSigningService(database,s => signer),
+                    new FiscalPrintService(database,printer),(s,r) => { timeline.Add("render"); return s.PrintContent; });
+                var snapshot = new InvoiceWorkflowSnapshot { InvoiceId = doc.DocumentId,
+                    Signing = new FiscalSigningRequest(Guid.NewGuid(),doc,new FiscalSigningScope("fake","device-v1",FiscalEnvironment.Test,"000000000",0),"fake/v1",Encoding.UTF8.GetBytes("sign me")),
+                    PrintContent = Encoding.UTF8.GetBytes("original document"),PrintDestination = "saved printer",PrintFormat = "test/v1" };
+                service.Process(doc,() => snapshot,r => timeline.Add("project"));
+                Check(timeline.IndexOf("project") >= 0 && timeline.IndexOf("project") < timeline.IndexOf("render"),"archive projection did not precede rendering");
+                Check(timeline.IndexOf("render") < timeline.IndexOf("dispatch"),"rendering did not precede dispatch");
+            });
             Test(kind + " signing/printing share one document lease and reuse saved pages", () => {
                 var doc = new FiscalDocumentReference(kind,Guid.NewGuid()); var signer = new Signer(); var printer = new Printer(); int loads = 0;
                 var service = new SignedDocumentWorkflowService(database,new FiscalSigningService(database,s => signer),new FiscalPrintService(database,printer),(s,r) => s.PrintContent);

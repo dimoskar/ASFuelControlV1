@@ -85,7 +85,7 @@ namespace ASFuelControl.Windows.Threads
             report.SetRestAmounts(invoice);
         }
 
-        private static byte[] RenderPages(Telerik.Reporting.Report report, SharedPrinterProfile profile, string fiscalFooter)
+        internal static byte[] RenderPages(Telerik.Reporting.Report report, SharedPrinterProfile profile, string fiscalFooter)
         {
             ConfigurePaper(report,profile);
             AddFiscalFooter(report,fiscalFooter);

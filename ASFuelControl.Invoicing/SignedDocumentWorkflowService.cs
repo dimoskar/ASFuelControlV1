@@ -20,7 +20,7 @@ namespace ASFuelControl.Invoicing
             FiscalPrintService printing, Func<InvoiceWorkflowSnapshot,InvoiceResponse,byte[]> render)
         { this.database = database; this.signing = signing; this.printing = printing; this.render = render; }
         public InvoiceWorkflowResult Process(FiscalDocumentReference document, Func<InvoiceWorkflowSnapshot> prepare,
-            Action<InvoiceWorkflowResult> project, string reprintReason = null)
+            Action<InvoiceWorkflowResult> project, string reprintReason = null, bool printPhysical = true)
         {
             if (document.Kind != FiscalDocumentKind.Balance && document.Kind != FiscalDocumentKind.TankFilling)
                 throw new NotSupportedException("Only balances and tank fillings have a supported signing workflow.");
@@ -47,9 +47,13 @@ namespace ASFuelControl.Invoicing
                     if (signed.State != FiscalSigningState.Signed) return result;
                     result.AcceptedAttemptId = signed.Request.AttemptId;
                     result.Response = new InvoiceResponse { InvoiceSignature = signed.Result.Signature, QrCodeUrl = signed.Result.QrCode };
-                    project(result);
                 }
                 else { result.FiscalState = "Signed"; result.AcceptedAttemptId = last.OriginalAttemptId; }
+                // Projection owns the application's signed PDF archive. It must
+                // complete before an optional physical printer handoff, including
+                // recovery of a document that was signed in an earlier process.
+                project(result);
+                if (!printPhysical) return result;
                 result.Print = printing.Print(lease,result.AcceptedAttemptId.Value,snapshot.PrintDestination,snapshot.PrintFormat,
                     () => render(snapshot,result.Response),reprintReason);
                 project(result); return result;

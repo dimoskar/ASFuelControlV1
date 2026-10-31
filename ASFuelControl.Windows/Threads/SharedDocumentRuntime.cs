@@ -21,50 +21,66 @@ namespace ASFuelControl.Windows.Threads
         internal static void ProcessDocument(string kind, Guid id)
         {
             var document = new FiscalDocumentReference((FiscalDocumentKind)Enum.Parse(typeof(FiscalDocumentKind),kind),id);
+            bool printPhysical = Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintBalancelsOnPrinter",false);
+            bool archived = false;
             var signing = new FiscalSigningService(sql.Value,scope => {
                 var profile = (settings.Value.Devices ?? new SamtecDeviceProfile[0]).Single(d => FiscalSigningCoordinator.SameScope(d.Scope,scope));
                 return new SamtecFiscalSigner(profile);
             });
-            var service = new SignedDocumentWorkflowService(sql.Value,signing,new FiscalPrintService(sql.Value,new SharedInvoicePrinting(() => settings.Value.DefaultPrinter)),SharedInvoicePrinting.Render);
-            service.Process(document,() => PrepareDocument(document), result => {
+            var service = new SignedDocumentWorkflowService(sql.Value,signing,
+                new FiscalPrintService(sql.Value,new SharedInvoicePrinting()),SharedDocumentReportRenderer.Render);
+            service.Process(document,() => PrepareDocument(document,printPhysical), result => {
                 using(var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
-                    Data.Balance completedBalance = null;
-                    Data.TankFilling completedTankFilling = null;
                     bool printed = result.Print?.State == "HandedOff" || result.Print?.State == "Confirmed";
+                    string signature = result.Response?.InvoiceSignature;
+                    if (string.IsNullOrWhiteSpace(signature))
+                    {
+                        using(var lease = sql.Value.EnterDocument(document))
+                            signature = new SqlFiscalSigningStore(sql.Value).Load(lease)
+                                .Last(attempt => attempt.State == FiscalSigningState.Signed).Result.Signature;
+                    }
                     if (document.Kind == FiscalDocumentKind.Balance)
                     {
                         var balance = db.Balances.Single(b => b.BalanceId == id);
-                        if (result.Response != null) balance.DocumentSign = result.Response.InvoiceSignature;
-                        if (printed && !balance.PrintDate.HasValue) balance.PrintDate = DateTime.Now;
-                        if (printed) completedBalance = balance;
+                        if (balance.DocumentSign != signature)
+                        {
+                            balance.DocumentSign = signature;
+                            db.SaveChanges();
+                        }
+                        if (!archived)
+                        {
+                            new PrintAgent().StoreBalanceReport(balance,true,signature);
+                            archived = true;
+                        }
+                        if ((!printPhysical || printed) && !balance.PrintDate.HasValue)
+                            balance.PrintDate = DateTime.Now;
                     }
-                    else if (document.Kind == FiscalDocumentKind.TankFilling && printed)
+                    else if (document.Kind == FiscalDocumentKind.TankFilling)
                     {
-                        // SignSignature is the legacy polling flag for fillings. Set it
-                        // only after handoff, so print failures remain in the worker queue.
                         var filling = db.TankFillings.Single(f => f.TankFillingId == id);
-                        using(var lease = sql.Value.EnterDocument(document))
-                            filling.SignSignature =
-                                new SqlFiscalSigningStore(sql.Value).Load(lease).Last(a => a.State == FiscalSigningState.Signed).Result.Signature;
-                        completedTankFilling = filling;
+                        if (!archived)
+                        {
+                            new PrintAgent().StoreTankFillingReport(filling,signature);
+                            archived = true;
+                        }
+                        // SignSignature is the legacy polling completion flag. Keep
+                        // it empty until the mandatory archive and optional physical
+                        // handoff have both completed.
+                        if (!printPhysical || printed)
+                            filling.SignSignature = signature;
                     }
                     db.SaveChanges();
-
-                    // Shared fiscal processing owns signing/printing, but the
-                    // application still owns its local PDF balance archive.
-                    if (completedBalance != null)
-                        new PrintAgent().StoreBalanceReport(completedBalance, true);
-                    if (completedTankFilling != null)
-                        new PrintAgent().StoreTankFillingReport(completedTankFilling);
                 }
-            });
+            },null,printPhysical);
         }
-        private static InvoiceWorkflowSnapshot PrepareDocument(FiscalDocumentReference document)
+        private static InvoiceWorkflowSnapshot PrepareDocument(FiscalDocumentReference document, bool printPhysical)
         {
             if (!Enabled) throw new InvalidOperationException("First issuance through the shared workflow is disabled.");
             var route = settings.Value.Documents[document.Kind];
-            var printer = SharedInvoicePrinting.ResolveProfile(route.Printer,settings.Value.DefaultPrinter);
+            var printer = new SharedPrinterProfile { Thermal = false, NonThermalPaperSize = "A4",
+                WidthHundredths = 315, HeightHundredths = 1100, Copies = 1, FontSize = 8 };
+            if (printPhysical) printer = SharedInvoicePrinting.ResolveProfile(printer,null);
             if (route.Signing == null || route.Provider != null || route.Payment != null ||
                 route.Signing.IssuerVat != Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN") ||
                 route.Signing.IssuerBranch != Data.Implementation.OptionHandler.Instance.GetIntOption("CompanyBranch",0))

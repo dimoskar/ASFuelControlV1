@@ -1831,6 +1831,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Threads\SharedInvoiceConfiguration.cs" />
+    <Compile Include="Threads\SharedDocumentReportRenderer.cs" />
     <Compile Include="Threads\SharedInvoicingSettings.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.Status.cs" />
     <Compile Include="Threads\SharedInvoiceLaserReportRenderer.cs" />

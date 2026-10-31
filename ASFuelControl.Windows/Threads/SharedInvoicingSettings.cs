@@ -97,16 +97,21 @@ namespace ASFuelControl.Windows.Threads
                     catch (Exception ex) { problems.Add(type.Description + ": " + ex.Message); }
                 }
             }
-            foreach (var route in (value.Documents ?? new Dictionary<FiscalDocumentKind,SharedInvoiceRoute>()).Values)
+            var documents = value.Documents ?? new Dictionary<FiscalDocumentKind,SharedInvoiceRoute>();
+            foreach (var route in documents.Values)
             {
                 if (route.Signing == null || route.Provider != null || route.Payment != null || route.LocalOnly ||
                     !FiscalSigningCoordinator.SameScope(route.Signing,value.FiscalDevice))
                     problems.Add("Τα ισοζύγια / οι παραλαβές πρέπει να χρησιμοποιούν τον κοινό μηχανισμό. Ελέγξτε τη φόρμα εκτύπωσης.");
+            }
+            if (documents.Count != 0 && Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintBalancelsOnPrinter",false))
+            {
                 try
                 {
-                    var printer = route.Printer ?? value.DefaultPrinter ?? new SharedPrinterProfile();
+                    var printer = new SharedPrinterProfile { Thermal = false, NonThermalPaperSize = "A4",
+                        WidthHundredths = 315, HeightHundredths = 1100, Copies = 1, FontSize = 8 };
                     SharedInvoicePrinting.CheckProfile(printer);
-                    if (SharedInvoicePrinting.ResolvePrinterName(printer.PrinterName,value.DefaultPrinter?.PrinterName,printers,windowsDefault) == null)
+                    if (SharedInvoicePrinting.ResolvePrinterName(null,null,printers,windowsDefault) == null)
                         missingPrinter = true;
                 }
                 catch (Exception ex) { problems.Add(ex.Message); }

@@ -62,9 +62,6 @@ namespace ASFuelControl.Windows.Threads
         private int titrimetryBacklogOffset = 0;
         private int tankFillingBacklogOffset = 0;
 
-        private bool printPhysical = false;
-        private bool printAlertsPhysical = false;
-        private bool printBalancesPhysical = false;
         private static bool oldInvoiceRunning = false;
         private static bool resendInvoiceRunning = false;
         private static bool invoicingProviderEnabled = Data.Implementation.OptionHandler.Instance.GetBoolOption("ProviderEnabled", false);
@@ -106,9 +103,6 @@ namespace ASFuelControl.Windows.Threads
             this.thermalPaperWidth = Data.Implementation.OptionHandler.Instance.GetIntOption("ThermalPaperWidth", 80);
             this.printBarCode = Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintInvoiceBarcode", false);
             this.litercheckInvoiceType = Data.Implementation.OptionHandler.Instance.GetGuidOption("3f54a35b-01f6-43b8-a17e-2d4927e319b8", Guid.Empty);
-            this.printPhysical = Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintOnPrinter", false);
-            this.printAlertsPhysical = Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintAlertsOnPrinter", false);
-            this.printBalancesPhysical = Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintBalancelsOnPrinter", true);
             this.invoiceReplaceCodeFrom = Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceReplaceCodeFrom", 173);
             this.invoiceReplaceCodeTo = Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceReplaceCodeTo", 222);
             SetInvoicingParameters();
@@ -2046,7 +2040,7 @@ namespace ASFuelControl.Windows.Threads
                 report.DataSource = reportData;
                 report.ReportParameters[0].Value = alert.EventId.ToString().ToLower();
 
-                if (this.printAlertsPhysical)
+                if (Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintAlertsOnPrinter", false))
                 {
                     System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                     PrintReport(report, printerSettings);
@@ -2076,7 +2070,7 @@ namespace ASFuelControl.Windows.Threads
                 report.DataSource = reportData;
                 //report.ReportParameters[0].Value = titrimetry.TitrimetryId.ToString().ToLower();
 
-                if (this.printPhysical)
+                if (Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintOnPrinter", false))
                 {
                     System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                     PrintReport(report, printerSettings);
@@ -2094,19 +2088,20 @@ namespace ASFuelControl.Windows.Threads
 
         public void PrintToPrinter(Data.Balance balance, bool sendMail)
         {
-            this.PrintToPrinter(balance, sendMail, false, true);
+            this.PrintToPrinter(balance, sendMail, false, true, null);
         }
 
-        internal void StoreBalanceReport(Data.Balance balance, bool sendMail)
+        internal void StoreBalanceReport(Data.Balance balance, bool sendMail, string signature = null)
         {
-            this.PrintToPrinter(balance, sendMail, true, false);
+            this.PrintToPrinter(balance, sendMail, true, false, signature);
         }
 
         private void PrintToPrinter(
             Data.Balance balance,
             bool sendMail,
             bool sharedWorkflowCompleted,
-            bool printPhysical)
+            bool printPhysical,
+            string signature)
         {
             if (!sharedWorkflowCompleted && SharedInvoiceRuntime.HandlesDocument("Balance", balance.BalanceId))
             {
@@ -2117,7 +2112,7 @@ namespace ASFuelControl.Windows.Threads
 
             Reports.BalanceReports.BalanceLoad bl = new Reports.BalanceReports.BalanceLoad();
             bl.LoadBalance(balance.BalanceId, balance.BalanceText);
-            bl.Model.Balance[0].Sign = balance.DocumentSign;
+            bl.Model.Balance[0].Sign = signature ?? balance.DocumentSign;
             using (Reports.BalanceReport report = new Reports.BalanceReport())
             using (Reports.BalanceReports.TankBalanceReport subReport1 = new Reports.BalanceReports.TankBalanceReport())
             using (Reports.BalanceReports.PumpBalanceReport subReport2 = new Reports.BalanceReports.PumpBalanceReport())
@@ -2176,7 +2171,7 @@ namespace ASFuelControl.Windows.Threads
                 Telerik.Reporting.InstanceReportSource reportSource = new Telerik.Reporting.InstanceReportSource();
                 reportSource.ReportDocument = report;
 
-                if (printPhysical && this.printBalancesPhysical)
+                if (printPhysical && Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintBalancelsOnPrinter", false))
                 {
                     System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                     PrintReport(report, printerSettings);
@@ -2195,10 +2190,12 @@ namespace ASFuelControl.Windows.Threads
 
                 string compName = Data.Implementation.OptionHandler.Instance.GetOption("CompanyName");
                 string taxNumber = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN");
-                if (compName == null || compName == "")
+                if (string.IsNullOrWhiteSpace(compName) || string.IsNullOrWhiteSpace(taxNumber))
+                {
+                    if (sharedWorkflowCompleted)
+                        throw new InvalidOperationException("Δεν έχουν οριστεί επωνυμία και ΑΦΜ για την αρχειοθέτηση του ισοζυγίου.");
                     return;
-                if (taxNumber == null || taxNumber == "")
-                    return;
+                }
                 if (System.IO.File.Exists(fileName))
                     System.IO.File.Delete(fileName);
 
@@ -2473,21 +2470,25 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintToPrinter(Data.TankFilling tankFilling)
         {
-            this.PrintToPrinter(tankFilling, false, true);
+            this.PrintToPrinter(tankFilling, false, true, null);
         }
 
-        internal void StoreTankFillingReport(Data.TankFilling tankFilling)
+        internal void StoreTankFillingReport(Data.TankFilling tankFilling, string signature = null)
         {
-            // The shared workflow already handed the document to the physical
-            // printer. Generate only the application's established PDF archive.
-            this.PrintToPrinter(tankFilling, true, false);
+            // Generate the application's established PDF archive without making
+            // physical printing a prerequisite.
+            this.PrintToPrinter(tankFilling, true, false, signature);
         }
 
-        private void PrintToPrinter(Data.TankFilling tankFilling, bool sharedWorkflowCompleted, bool printPhysical)
+        private void PrintToPrinter(Data.TankFilling tankFilling, bool sharedWorkflowCompleted, bool printPhysical, string signature)
         {
             if (!sharedWorkflowCompleted && SharedInvoiceRuntime.HandlesDocument("TankFilling", tankFilling.TankFillingId)) { SharedInvoiceRuntime.ProcessDocument("TankFilling", tankFilling.TankFillingId); return; }
             if(tankFilling.InvoiceLines.Count == 0)
+            {
+                if (sharedWorkflowCompleted)
+                    throw new InvalidOperationException("Η παραλαβή / εξαγωγή δεν έχει γραμμές για αρχειοθέτηση.");
                 return;
+            }
             try
             {
                 using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
@@ -2496,6 +2497,7 @@ namespace ASFuelControl.Windows.Threads
                 {
                     report.DataSource = reportData;
                     report.ReportParameters[0].Value = tankFilling.TankFillingId.ToString();
+                    report.SetSignature(signature ?? tankFilling.SignSignature);
 
                     string idd = tankFilling.InvoiceLines[0].Invoice.InvoiceType.InternalDeliveryDescription == null ? "" : tankFilling.InvoiceLines[0].Invoice.InvoiceType.InternalDeliveryDescription;
 
@@ -2517,7 +2519,7 @@ namespace ASFuelControl.Windows.Threads
                     else
                         alertDirectory = System.Environment.CurrentDirectory + "\\Παραλαβές";
 
-                    if (printPhysical && this.printBalancesPhysical)
+                    if (printPhysical && Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintBalancelsOnPrinter", false))
                     {
                         System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
                         PrintReport(report, printerSettings);
@@ -2534,6 +2536,8 @@ namespace ASFuelControl.Windows.Threads
             }
             catch(Exception ex)
             {
+                if (sharedWorkflowCompleted)
+                    throw;
                 Logger.Instance.LogToFile("PrintToPrinter : Windows", ex);
             }
 

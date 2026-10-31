@@ -23,5 +23,10 @@ namespace ASFuelControl.Reports.Invoices
             // TODO: Add any constructor code after InitializeComponent call
             //
         }
+
+        public void SetSignature(string signature)
+        {
+            this.textBox20.Value = signature ?? "";
+        }
     }
 }

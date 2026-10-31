@@ -20,6 +20,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
         private RadTextBox sharedDeviceEndpoint;
         private RadDropDownList sharedPrinterName, sharedNonThermalPaperSize;
         private RadSpinEditor sharedPaperWidth, sharedPaperHeight, sharedCopies, sharedFontSize;
+        private RadCheckBox sharedPrintBalances, sharedPrintAlerts, sharedPrintOtherReports;
 
         private void InitializeSharedPrinter()
         {
@@ -45,8 +46,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
             // legacy SamtecSettings.json value) without reusing its signing scope.
             string endpoint = currentDevice?.Endpoint.AbsoluteUri ?? devices.LastOrDefault()?.Endpoint.AbsoluteUri ?? LegacySamtecEndpoint();
             sharedDeviceEndpoint = signing.Row("Endpoint Samtec",InvoicingFields.Text(endpoint));
-            sharedBalances = signing.Row("Ισοζύγια",new RadCheckBox { Text = "Κοινή ροή σήμανσης / εκτύπωσης", IsChecked = sharedPrinterConfiguration.Documents?.ContainsKey(FiscalDocumentKind.Balance) == true });
-            sharedFillings = signing.Row("Παραλαβές δεξαμενής",new RadCheckBox { Text = "Κοινή ροή σήμανσης / εκτύπωσης", IsChecked = sharedPrinterConfiguration.Documents?.ContainsKey(FiscalDocumentKind.TankFilling) == true });
+            sharedBalances = signing.Row("Ισοζύγια",new RadCheckBox { Text = "Κοινή ροή σήμανσης / αρχειοθέτησης", IsChecked = sharedPrinterConfiguration.Documents?.ContainsKey(FiscalDocumentKind.Balance) == true });
+            sharedFillings = signing.Row("Παραλαβές δεξαμενής",new RadCheckBox { Text = "Κοινή ροή σήμανσης / αρχειοθέτησης", IsChecked = sharedPrinterConfiguration.Documents?.ContainsKey(FiscalDocumentKind.TankFilling) == true });
             signing.Note("Η σήμανση τιμολογίων επιλέγεται στον τύπο παραστατικού.\r\nΗ υπογραφή παρόχου παραμένει μέρος της έκδοσης παρόχου.");
             signing.Note("Οι παλιές εκδόσεις προφίλ διατηρούνται για ανάκτηση.\r\nΤο Sign A παραμένει στην παλαιά ροή.");
             var fields = new InvoicingFields("Κοινές ρυθμίσεις εκτύπωσης"); printing.Controls.Add(fields.Group);
@@ -61,11 +62,19 @@ namespace ASFuelControl.Windows.UI.SettingForms
             sharedPaperHeight = fields.Row("Μήκος θερμικού (mm)",Millimetres(p.HeightHundredths,400,2000));
             sharedCopies = fields.Row("Αντίγραφα",Number(p.Copies,1,10));
             sharedFontSize = fields.Row("Γράμματα θερμικού",Number((decimal)p.FontSize,6,20));
+            sharedPrintBalances = fields.Row("Εκτύπωση Ισοζυγίων / Παραλαβών",new RadCheckBox {
+                IsChecked = optionHandler.GetBoolOption("PrintBalancelsOnPrinter",false) });
+            sharedPrintAlerts = fields.Row("Εκτύπωση Συναγερμών",new RadCheckBox {
+                IsChecked = optionHandler.GetBoolOption("PrintAlertsOnPrinter",false) });
+            sharedPrintOtherReports = fields.Row("Εκτύπωση Άλλων Αναφορών",new RadCheckBox {
+                IsChecked = optionHandler.GetBoolOption("PrintOnPrinter",false) });
             fields.Note("Τύπος με «Εκτύπωση Laser»: χρησιμοποιείται ο παραπάνω εκτυπωτής και το επιλεγμένο χαρτί.\r\n" +
                 "Θερμική πώληση: χρησιμοποιείται ο εκτυπωτής της αντλίας. Χωρίς αυτόν: ο προεπιλεγμένος Windows.\r\n" +
                 "Άλλο θερμικό παραστατικό: χρησιμοποιείται ο εκτυπωτής του τύπου παραστατικού και μετά ο προεπιλεγμένος Windows.");
             fields.Note("Το πλάτος, μήκος και μέγεθος γραμμάτων αφορούν μόνο θερμική εκτύπωση.\r\n" +
                 "Οι επανεκτυπώσεις διατηρούν τις αρχικές σελίδες και ρυθμίσεις.");
+            fields.Note("Τα υπογεγραμμένα ισοζύγια και οι παραλαβές αποθηκεύονται πάντα ως πλήρεις αναφορές PDF.\r\n" +
+                "Οι παραπάνω επιλογές ελέγχουν μόνο τη φυσική εκτύπωση σε χαρτί.");
             save.Click += (s,e) => SaveSharedPrinter();
         }
         private static RadSpinEditor Number(decimal value,decimal min,decimal max)
@@ -104,6 +113,9 @@ namespace ASFuelControl.Windows.UI.SettingForms
                     HeightHundredths = ToHundredthsOfInch(sharedPaperHeight.Value), Copies = (short)sharedCopies.Value, FontSize = (float)sharedFontSize.Value,
                     NonThermalPaperSize = sharedNonThermalPaperSize.SelectedIndex == 1 ? "A5" : "A4" };
                 SharedInvoicePrinting.CheckProfile(value.DefaultPrinter);
+                if (sharedPrintBalances.IsChecked)
+                    SharedInvoicePrinting.ResolveProfile(new SharedPrinterProfile { Thermal = false, NonThermalPaperSize = "A4",
+                        WidthHundredths = 315, HeightHundredths = 1100, Copies = 1, FontSize = 8 },null);
                 value.FiscalDevice = null;
                 if (sharedDeviceEnabled.IsChecked)
                 {
@@ -117,13 +129,17 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 foreach (var kind in new[] { FiscalDocumentKind.Balance,FiscalDocumentKind.TankFilling })
                 {
                     bool enabled = kind == FiscalDocumentKind.Balance ? sharedBalances.IsChecked : sharedFillings.IsChecked;
-                    if (enabled) value.Documents[kind] = new SharedInvoiceRoute { Signing = value.FiscalDevice, Printer = value.DefaultPrinter };
+                    if (enabled) value.Documents[kind] = new SharedInvoiceRoute { Signing = value.FiscalDevice };
                     else value.Documents.Remove(kind);
                 }
                 sharedPrinterRevision = SharedInvoicingSettings.Save(value,sharedPrinterRevision);
                 optionHandler.SetOption("InvoicePageSetting",value.DefaultPrinter.NonThermalPaperSize);
+                optionHandler.SetOption("PrintBalancelsOnPrinter",sharedPrintBalances.IsChecked);
+                optionHandler.SetOption("PrintAlertsOnPrinter",sharedPrintAlerts.IsChecked);
+                optionHandler.SetOption("PrintOnPrinter",sharedPrintOtherReports.IsChecked);
                 sharedPrinterConfiguration = value;
-                RadMessageBox.Show("Αποθηκεύτηκε. Απαιτείται επανεκκίνηση της εφαρμογής.","Σήμανση / Εκτύπωση");
+                RadMessageBox.Show("Αποθηκεύτηκε. Οι επιλογές φυσικής εκτύπωσης εφαρμόζονται άμεσα.\r\n" +
+                    "Αλλαγές μηχανισμού ή δρομολόγησης εφαρμόζονται μετά από επανεκκίνηση.","Σήμανση / Εκτύπωση");
             }
             catch (Exception ex) { RadMessageBox.Show(ex.Message,"Σήμανση / Εκτύπωση",MessageBoxButtons.OK,RadMessageIcon.Error); }
         }
