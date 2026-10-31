@@ -1272,6 +1272,11 @@
       <Project>{80D12E04-F31E-4868-940F-3FC81B387FCC}</Project>
       <Name>ASFuelControl.Communication</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ASFuelControl.ETokenHost\ASFuelControl.ETokenHost.csproj">
+      <Project>{4D037F18-6C11-490B-87C7-5C76D705007D}</Project>
+      <Name>ASFuelControl.ETokenHost</Name>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\ASFuelControl.DartFalcon\ASFuelControl.DartFalcon.csproj">
       <Project>{6be6be54-addd-4227-8aa9-d49b9d950eeb}</Project>
       <Name>ASFuelControl.DartFalcon</Name>

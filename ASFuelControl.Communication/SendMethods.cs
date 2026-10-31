@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using static System.Net.WebRequestMethods;
+using System.Threading.Tasks;
 
 namespace ASFuelControl.Communication
 {
@@ -90,6 +91,13 @@ namespace ASFuelControl.Communication
                 DateTime dtEnd = DateTime.Now;
                 if (otp.Contains("ERROR"))
                 {
+                    if (otp.Contains("Πρόβλημα συγχρονισμού ώρας"))
+                    {
+                        // eTokenLib has no reset API. Recycle the isolated host so
+                        // Windows unloads its mixed/native state completely. The
+                        // next sending pass starts a clean host instance.
+                        etoken.Unload();
+                    }
                     Common.Logger.Instance.Error($"Start: {dtStart: yyyy/MM/dd HH:mm:ss.fff} - End: {dtEnd: yyyy/MM/dd HH:mm:ss.fff}, OTP Value: {otp}");
                 }
                 return otp;
@@ -493,55 +501,249 @@ namespace ASFuelControl.Communication
         }
         // Add more methods/properties as needed
     }
+    internal sealed class ETokenProcessClient : IDisposable
+    {
+        private const string ProtocolPrefix = "ASFC_ETOKEN";
+        private static readonly TimeSpan CommandTimeout = TimeSpan.FromMinutes(1);
+        private readonly string _assemblyPath;
+        private readonly string _typeName;
+        private Process _process;
+        private StreamWriter _input;
+        private StreamReader _output;
+        private int _requestId;
+
+        public ETokenProcessClient(string assemblyPath, string typeName)
+        {
+            _assemblyPath = assemblyPath;
+            _typeName = typeName;
+        }
+
+        public string Invoke(string command, params string[] arguments)
+        {
+            EnsureStarted();
+
+            int requestId = ++_requestId;
+            var request = new StringBuilder();
+            request.Append(ProtocolPrefix).Append('|').Append(requestId).Append('|').Append(command);
+            foreach (string argument in arguments ?? new string[0])
+                request.Append('|').Append(Encode(argument));
+
+            try
+            {
+                _input.WriteLine(request.ToString());
+                _input.Flush();
+
+                DateTime deadline = DateTime.UtcNow.Add(CommandTimeout);
+                while (true)
+                {
+                    TimeSpan remaining = deadline - DateTime.UtcNow;
+                    if (remaining <= TimeSpan.Zero)
+                        throw new TimeoutException("The eToken helper did not answer within one minute.");
+
+                    Task<string> readTask = _output.ReadLineAsync();
+                    if (!readTask.Wait(remaining))
+                        throw new TimeoutException("The eToken helper did not answer within one minute.");
+
+                    string response = readTask.Result;
+                    if (response == null)
+                        throw new InvalidOperationException("The eToken helper stopped before returning a response.");
+
+                    string[] fields = response.Split('|');
+                    if (fields.Length < 4 || fields[0] != ProtocolPrefix || fields[1] != requestId.ToString())
+                        continue;
+
+                    string payload = Decode(fields[3]);
+                    if (fields[2] == "OK")
+                        return payload;
+                    throw new InvalidOperationException("The eToken helper returned an error: " + payload);
+                }
+            }
+            catch
+            {
+                DisposeProcess();
+                throw;
+            }
+        }
+
+        private void EnsureStarted()
+        {
+            if (_process != null && !_process.HasExited)
+                return;
+
+            DisposeProcess();
+            string executablePath = Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "ASFuelControl.ETokenHost.exe");
+            if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
+                throw new InvalidOperationException(
+                    "The isolated eToken host was not found: " + executablePath);
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = executablePath,
+                Arguments = ETokenProcessHost.HostArgument + " " + Encode(_assemblyPath) + " " + Encode(_typeName),
+                WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true
+            };
+
+            _process = Process.Start(startInfo);
+            if (_process == null)
+                throw new InvalidOperationException("The isolated eToken helper could not be started.");
+            _input = _process.StandardInput;
+            _output = _process.StandardOutput;
+        }
+
+        private void DisposeProcess()
+        {
+            Process process = _process;
+            _process = null;
+
+            try { if (_input != null) _input.Dispose(); } catch { }
+            try { if (_output != null) _output.Dispose(); } catch { }
+            _input = null;
+            _output = null;
+
+            if (process == null)
+                return;
+
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    process.WaitForExit(5000);
+                }
+            }
+            catch { }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        public void Dispose()
+        {
+            DisposeProcess();
+        }
+
+        internal static string Encode(string value)
+        {
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(value ?? string.Empty));
+        }
+
+        internal static string Decode(string value)
+        {
+            return Encoding.UTF8.GetString(Convert.FromBase64String(value ?? string.Empty));
+        }
+    }
+
+    public static class ETokenProcessHost
+    {
+        internal const string HostArgument = "--asfuel-etoken-host";
+        private const string ProtocolPrefix = "ASFC_ETOKEN";
+
+        public static bool IsHostInvocation(string[] arguments)
+        {
+            return arguments != null && arguments.Length >= 3 &&
+                string.Equals(arguments[0], HostArgument, StringComparison.Ordinal);
+        }
+
+        public static int Run(string[] arguments)
+        {
+            if (!IsHostInvocation(arguments))
+                return 2;
+
+            string assemblyPath = ETokenProcessClient.Decode(arguments[1]);
+            string typeName = ETokenProcessClient.Decode(arguments[2]);
+            ETokenProxy proxy = null;
+
+            using (var input = new StreamReader(Console.OpenStandardInput()))
+            using (var output = new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true })
+            {
+                string request;
+                while ((request = input.ReadLine()) != null)
+                {
+                    string[] fields = request.Split('|');
+                    if (fields.Length < 3 || fields[0] != ProtocolPrefix)
+                        continue;
+
+                    string requestId = fields[1];
+                    try
+                    {
+                        if (proxy == null)
+                        {
+                            proxy = new ETokenProxy();
+                            proxy.Load(assemblyPath, typeName);
+                        }
+
+                        string result = Execute(proxy, fields);
+                        output.WriteLine(ProtocolPrefix + "|" + requestId + "|OK|" + ETokenProcessClient.Encode(result));
+                    }
+                    catch (Exception ex)
+                    {
+                        output.WriteLine(ProtocolPrefix + "|" + requestId + "|ERR|" + ETokenProcessClient.Encode(Unwrap(ex).ToString()));
+                    }
+                }
+            }
+            return 0;
+        }
+
+        private static string Execute(ETokenProxy proxy, string[] fields)
+        {
+            string command = fields[2];
+            string[] arguments = fields.Skip(3).Select(ETokenProcessClient.Decode).ToArray();
+            switch (command)
+            {
+                case "GET_OTP":
+                    return proxy.GetOTP();
+                case "GET_DIR_HASH":
+                    return proxy.GetDirFileHash(arguments[0]);
+                case "REGISTER_UPDATE":
+                    return proxy.RegSoftwareUpdate(arguments[0], arguments[1], arguments[2], arguments[3]).ToString();
+                case "GET_REG_NUMS":
+                    return proxy.GetRegNums(arguments[0], arguments[1]);
+                case "IS_TIME_IN_SYNC":
+                    return proxy.IsTimeInSync().ToString();
+                case "LAST_ERROR":
+                    return proxy.LastErrorMsg();
+                case "AMDIKA_ID":
+                    return proxy.AMDIKA_ID;
+                default:
+                    throw new InvalidOperationException("Unknown eToken helper command: " + command);
+            }
+        }
+
+        private static Exception Unwrap(Exception exception)
+        {
+            var invocationException = exception as TargetInvocationException;
+            return invocationException != null && invocationException.InnerException != null
+                ? invocationException.InnerException
+                : exception;
+        }
+    }
+
     public class ETokenDomainManager
     {
         string _path = "";
         string _typeName = "";
         private readonly object _sync = new object();
-        private AppDomain _domain;
-        private ETokenProxy _proxy;
-        private Exception _loadFailure;
+        private ETokenProcessClient _client;
         public bool IsUnloaded { get; private set; } = false;
 
         public void Load(string assemblyPath, string typeName)
         {
             lock (_sync)
             {
-                ThrowIfLoadFailed();
-                if (_domain != null && _proxy != null && !IsUnloaded)
+                if (_client != null && !IsUnloaded)
                     return;
 
                 _path = assemblyPath;
                 _typeName = typeName;
-                var setup = new AppDomainSetup
-                {
-                    ApplicationBase = Path.GetDirectoryName(assemblyPath)
-                };
-
-                AppDomain domain = AppDomain.CreateDomain("ETokenDomain_" + Guid.NewGuid(), null, setup);
-                try
-                {
-                    ETokenProxy proxy = (ETokenProxy)domain.CreateInstanceAndUnwrap(
-                        typeof(ETokenProxy).Assembly.FullName,
-                        typeof(ETokenProxy).FullName);
-                    proxy.Load(assemblyPath, typeName);
-                    _domain = domain;
-                    _proxy = proxy;
-                    IsUnloaded = false;
-                }
-                catch (Exception ex)
-                {
-                    // eTokenLib contains native/mixed initialization. Unloading a
-                    // partially initialized domain and loading it again can corrupt
-                    // native state and raise AccessViolationException. Keep this
-                    // process faulted and require a clean application restart.
-                    _domain = domain;
-                    _proxy = null;
-                    _loadFailure = ex;
-                    IsUnloaded = false;
-                    throw new InvalidOperationException(
-                        "Η βιβλιοθήκη eToken δεν αρχικοποιήθηκε. Επανεκκινήστε την εφαρμογή πριν από νέα προσπάθεια αποστολής.",ex);
-                }
+                _client = new ETokenProcessClient(_path, _typeName);
+                IsUnloaded = false;
             }
         }
 
@@ -549,17 +751,9 @@ namespace ASFuelControl.Communication
         {
             lock (_sync)
             {
-                ThrowIfLoadFailed();
-                if (_domain == null || _proxy == null || IsUnloaded)
+                if (_client == null || IsUnloaded)
                     Load(_path, _typeName);
             }
-        }
-
-        private void ThrowIfLoadFailed()
-        {
-            if (_loadFailure != null)
-                throw new InvalidOperationException(
-                    "Η βιβλιοθήκη eToken απέτυχε να φορτωθεί σε αυτή την εκτέλεση. Επανεκκινήστε την εφαρμογή.",_loadFailure);
         }
 
         public string GetOTP()
@@ -567,7 +761,7 @@ namespace ASFuelControl.Communication
             lock (_sync)
             {
                 EnsureLoaded();
-                return _proxy.GetOTP();
+                return _client.Invoke("GET_OTP");
             }
         }
 
@@ -576,7 +770,7 @@ namespace ASFuelControl.Communication
             lock (_sync)
             {
                 EnsureLoaded();
-                return _proxy.RegSoftwareUpdate(amdika, otp, swname, swversion);
+                return bool.Parse(_client.Invoke("REGISTER_UPDATE", amdika, otp, swname, swversion));
             }
         }
 
@@ -585,7 +779,7 @@ namespace ASFuelControl.Communication
             lock (_sync)
             {
                 EnsureLoaded();
-                return _proxy.GetRegNums(amdika, otp);
+                return _client.Invoke("GET_REG_NUMS", amdika, otp);
             }
         }
         public string GetDirFileHash(string dirName)
@@ -593,7 +787,7 @@ namespace ASFuelControl.Communication
             lock (_sync)
             {
                 EnsureLoaded();
-                return _proxy.GetDirFileHash(dirName);
+                return _client.Invoke("GET_DIR_HASH", dirName);
             }
         }
         public bool IsTimeInSync()
@@ -601,7 +795,7 @@ namespace ASFuelControl.Communication
             lock (_sync)
             {
                 EnsureLoaded();
-                return _proxy.IsTimeInSync();
+                return bool.Parse(_client.Invoke("IS_TIME_IN_SYNC"));
             }
         }
         public string LastErrorMsg()
@@ -609,7 +803,7 @@ namespace ASFuelControl.Communication
             lock (_sync)
             {
                 EnsureLoaded();
-                return _proxy.LastErrorMsg();
+                return _client.Invoke("LAST_ERROR");
             }
         }
         public string AMDIKA_ID
@@ -619,7 +813,7 @@ namespace ASFuelControl.Communication
                 lock (_sync)
                 {
                     EnsureLoaded();
-                    return _proxy.AMDIKA_ID;
+                    return _client.Invoke("AMDIKA_ID");
                 }
             }
         }
@@ -628,8 +822,10 @@ namespace ASFuelControl.Communication
         {
             lock (_sync)
             {
-                // Intentionally retained until process exit. eTokenLib uses native
-                // state and is not safe to unload/reload inside the same process.
+                if (_client != null)
+                    _client.Dispose();
+                _client = null;
+                IsUnloaded = true;
             }
         }
     }

@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.Data", "ASFue
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.Communication", "ASFuelControl.Communication\ASFuelControl.Communication.csproj", "{80D12E04-F31E-4868-940F-3FC81B387FCC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.ETokenHost", "ASFuelControl.ETokenHost\ASFuelControl.ETokenHost.csproj", "{4D037F18-6C11-490B-87C7-5C76D705007D}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.StartItaliana", "ASFuelControl.StartItaliana\ASFuelControl.StartItaliana.csproj", "{DCA5919C-20D1-499C-A91B-749ECA0AD432}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASFuelControl.Ametek", "ASFuelControl.Ametek\ASFuelControl.Ametek.csproj", "{FCD7F7D7-C8A6-4244-99B9-D4593558332E}"
@@ -274,6 +276,18 @@ Global
 		{80D12E04-F31E-4868-940F-3FC81B387FCC}.Release|Mixed Platforms.Build.0 = Release|x86
 		{80D12E04-F31E-4868-940F-3FC81B387FCC}.Release|x86.ActiveCfg = Release|x86
 		{80D12E04-F31E-4868-940F-3FC81B387FCC}.Release|x86.Build.0 = Release|x86
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Debug|Mixed Platforms.Build.0 = Debug|x86
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Debug|x86.ActiveCfg = Debug|x86
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Debug|x86.Build.0 = Debug|x86
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Release|Mixed Platforms.ActiveCfg = Release|x86
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Release|Mixed Platforms.Build.0 = Release|x86
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Release|x86.ActiveCfg = Release|x86
+		{4D037F18-6C11-490B-87C7-5C76D705007D}.Release|x86.Build.0 = Release|x86
 		{DCA5919C-20D1-499C-A91B-749ECA0AD432}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{DCA5919C-20D1-499C-A91B-749ECA0AD432}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DCA5919C-20D1-499C-A91B-749ECA0AD432}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
