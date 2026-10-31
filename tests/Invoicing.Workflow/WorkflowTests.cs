@@ -302,6 +302,21 @@ internal static partial class Program
             using(var stream = new System.IO.MemoryStream(pages[0])) using(var image = System.Drawing.Image.FromStream(stream))
             { Equal(1240,image.Width); Equal(874,image.Height); }
         });
+        Test("laser profiles delegate to the full invoice report renderer", () => {
+            var snapshot = new InvoiceWorkflowSnapshot { InvoiceId = Guid.NewGuid(),
+                PrintDestination = JsonConvert.SerializeObject(new SharedPrinterProfile { PrinterName = "test-only",Thermal = false,
+                    NonThermalPaperSize = "A4" }), PrintContent = Encoding.UTF8.GetBytes("thermal text must not be rendered") };
+            int calls = 0;
+            var expected = Encoding.UTF8.GetBytes("full invoice report pages");
+            var actual = SharedInvoicePrinting.Render(snapshot,new Exedron.Invoicing.Core.Models.InvoiceResponse(),(saved,response,profile) => {
+                calls++;
+                Equal(snapshot.InvoiceId,saved.InvoiceId);
+                Check(!profile.Thermal,"Laser renderer received a thermal profile");
+                return expected;
+            });
+            Equal(1,calls);
+            Check(actual.SequenceEqual(expected),"The thermal text renderer replaced the laser invoice report");
+        });
         Test("issuance, acceptance projection and independent print handoff", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer();
             int projections = 0; var workflow = Workflow(http,printer,(id,r) => { projections++; Check(r.Accepted,"projected unaccepted result"); if (r.Print == null) Equal(0,printer.Calls); });

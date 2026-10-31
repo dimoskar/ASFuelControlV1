@@ -82,8 +82,15 @@ namespace ASFuelControl.Windows.Threads
         }
         internal static byte[] Render(InvoiceWorkflowSnapshot snapshot, Exedron.Invoicing.Core.Models.InvoiceResponse response)
         {
+            return Render(snapshot,response,null);
+        }
+        internal static byte[] Render(InvoiceWorkflowSnapshot snapshot, Exedron.Invoicing.Core.Models.InvoiceResponse response,
+            Func<InvoiceWorkflowSnapshot,Exedron.Invoicing.Core.Models.InvoiceResponse,SharedPrinterProfile,byte[]> laserRenderer)
+        {
             var profile = JsonConvert.DeserializeObject<SharedPrinterProfile>(snapshot.PrintDestination);
             CheckProfile(profile);
+            if (!profile.Thermal && laserRenderer != null)
+                return laserRenderer(snapshot,response,profile);
             var text = Encoding.UTF8.GetString(snapshot.PrintContent) + "\r\n" + Footer(snapshot,response);
             const int dpi = 150;
             int pageWidth, pageHeight;

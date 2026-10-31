@@ -1828,6 +1828,7 @@
     <Compile Include="Threads\SharedInvoiceConfiguration.cs" />
     <Compile Include="Threads\SharedInvoicingSettings.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.Status.cs" />
+    <Compile Include="Threads\SharedInvoiceLaserReportRenderer.cs" />
     <Compile Include="UI\Controls\FiscalDocumentPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>

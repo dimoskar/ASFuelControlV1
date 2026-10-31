@@ -78,7 +78,8 @@ namespace ASFuelControl.Windows.Threads
                 return new SamtecFiscalSigner(device);
             });
             return new InvoiceWorkflowService(database, providers, payments, signing,
-                new FiscalPrintService(database, new SharedInvoicePrinting(() => settings.Value.DefaultPrinter)), SharedInvoicePrinting.Render, Project, CurrentConnection,
+                new FiscalPrintService(database, new SharedInvoicePrinting(() => settings.Value.DefaultPrinter)),
+                (snapshot,response) => SharedInvoicePrinting.Render(snapshot,response,SharedInvoiceLaserReportRenderer.Render), Project, CurrentConnection,
                 new SharedMyDieselRedemptionCoordinator(database));
         });
         internal static bool Handles(Guid invoiceId)
