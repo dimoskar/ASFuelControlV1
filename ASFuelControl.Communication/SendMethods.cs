@@ -388,6 +388,7 @@ namespace ASFuelControl.Communication
 
     public class ETokenProxy : MarshalByRefObject
     {
+        private readonly object _sync = new object();
         private object _etoken;
         private Type _etokenType;
         public override object InitializeLifetimeService()
@@ -396,51 +397,89 @@ namespace ASFuelControl.Communication
         }
         public void Load(string assemblyPath, string typeName)
         {
-            var asm = Assembly.LoadFrom(assemblyPath);
-            _etokenType = asm.GetType(typeName);
-            _etoken = Activator.CreateInstance(_etokenType);
+            lock (_sync)
+            {
+                var asm = Assembly.LoadFrom(assemblyPath);
+                _etokenType = asm.GetType(typeName, true);
+                _etoken = Activator.CreateInstance(_etokenType);
+                if (_etoken == null)
+                    throw new InvalidOperationException("The eToken library did not create an instance of " + typeName + ".");
+            }
+        }
+
+        private object GetInvocationTarget(MethodInfo method)
+        {
+            if (method == null)
+                throw new MissingMethodException("The required eToken member was not found.");
+            if (method.IsStatic)
+                return null;
+            if (_etokenType == null)
+                throw new InvalidOperationException("The eToken library has not been loaded.");
+            if (_etoken == null || !method.DeclaringType.IsInstanceOfType(_etoken))
+                _etoken = Activator.CreateInstance(_etokenType);
+            if (_etoken == null)
+                throw new InvalidOperationException("The eToken target instance is unavailable.");
+            return _etoken;
+        }
+
+        private object Invoke(string methodName, object[] parameters)
+        {
+            lock (_sync)
+            {
+                if (_etokenType == null)
+                    throw new InvalidOperationException("The eToken library has not been loaded.");
+                var method = _etokenType.GetMethod(methodName);
+                return method.Invoke(GetInvocationTarget(method), parameters);
+            }
+        }
+
+        private object ReadProperty(string propertyName)
+        {
+            lock (_sync)
+            {
+                if (_etokenType == null)
+                    throw new InvalidOperationException("The eToken library has not been loaded.");
+                var property = _etokenType.GetProperty(propertyName);
+                if (property == null)
+                    throw new MissingMemberException(_etokenType.FullName, propertyName);
+                var getter = property.GetGetMethod(true);
+                return getter.Invoke(GetInvocationTarget(getter), null);
+            }
         }
 
         public string GetOTP()
         {
-            var method = _etokenType.GetMethod("GetOTP");
-            return (string)method.Invoke(_etoken, null);
+            return (string)Invoke("GetOTP", null);
         }
         public string GetDirFileHash(string dirName)
         {
-            var method = _etokenType.GetMethod("GetDirFileHash");
             object[] parameters = new object[] { dirName };
-            return (string)method.Invoke(_etoken, parameters);
+            return (string)Invoke("GetDirFileHash", parameters);
         }
         public bool RegSoftwareUpdate(string amdika, string otp, string swname, string swversion)
         {
-            var method = _etokenType.GetMethod("RegSoftwareUpdate");
             object[] parameters = new object[] { amdika, otp, swname, swversion };
-            return (bool)method.Invoke(_etoken, parameters);
+            return (bool)Invoke("RegSoftwareUpdate", parameters);
         }
         public string GetRegNums(string amdika, string otp)
         {
-            var method = _etokenType.GetMethod("GetRegisteredNums");
             object[] parameters = new object[] { amdika, otp };
-            return (string)method.Invoke(_etoken, parameters);
+            return (string)Invoke("GetRegisteredNums", parameters);
         }
         public bool IsTimeInSync()
         {
-            var prop = _etokenType.GetProperty("IsTimeInSync");
-            return (bool)prop.GetValue(_etoken);
+            return (bool)ReadProperty("IsTimeInSync");
         }
 
         public string LastErrorMsg()
         {
-            var prop = _etokenType.GetProperty("LastErrorMsg");
-            return (string)prop.GetValue(_etoken);
+            return (string)ReadProperty("LastErrorMsg");
         }
         public string AMDIKA_ID
         {
             get
             {
-                var prop = _etokenType.GetProperty("AMDIKA_ID");
-                return (string)prop.GetValue(_etoken);
+                return (string)ReadProperty("AMDIKA_ID");
             }
         }
         // Add more methods/properties as needed
@@ -458,7 +497,7 @@ namespace ASFuelControl.Communication
         {
             lock (_sync)
             {
-                if (_domain != null)
+                if (_domain != null && _proxy != null && !IsUnloaded)
                     return;
 
                 _path = assemblyPath;
@@ -468,14 +507,22 @@ namespace ASFuelControl.Communication
                     ApplicationBase = Path.GetDirectoryName(assemblyPath)
                 };
 
-                _domain = AppDomain.CreateDomain("ETokenDomain_" + Guid.NewGuid(), null, setup);
-
-                _proxy = (ETokenProxy)_domain.CreateInstanceAndUnwrap(
-                    typeof(ETokenProxy).Assembly.FullName,
-                    typeof(ETokenProxy).FullName);
-
-                _proxy.Load(assemblyPath, typeName);
-                IsUnloaded = false;
+                AppDomain domain = AppDomain.CreateDomain("ETokenDomain_" + Guid.NewGuid(), null, setup);
+                try
+                {
+                    ETokenProxy proxy = (ETokenProxy)domain.CreateInstanceAndUnwrap(
+                        typeof(ETokenProxy).Assembly.FullName,
+                        typeof(ETokenProxy).FullName);
+                    proxy.Load(assemblyPath, typeName);
+                    _domain = domain;
+                    _proxy = proxy;
+                    IsUnloaded = false;
+                }
+                catch
+                {
+                    AppDomain.Unload(domain);
+                    throw;
+                }
             }
         }
 
@@ -493,42 +540,63 @@ namespace ASFuelControl.Communication
 
         public string GetOTP()
         {
-            EnsureLoaded();
-            return _proxy.GetOTP();
+            lock (_sync)
+            {
+                EnsureLoaded();
+                return _proxy.GetOTP();
+            }
         }
 
         public bool RegSoftwareUpdate(string amdika, string otp, string swname, string swversion)
         {
-            EnsureLoaded();
-            return _proxy.RegSoftwareUpdate(amdika, otp, swname, swversion);
+            lock (_sync)
+            {
+                EnsureLoaded();
+                return _proxy.RegSoftwareUpdate(amdika, otp, swname, swversion);
+            }
         }
 
         public string GetRegNums(string amdika, string otp)
         {
-            EnsureLoaded();
-            return _proxy.GetRegNums(amdika, otp);
+            lock (_sync)
+            {
+                EnsureLoaded();
+                return _proxy.GetRegNums(amdika, otp);
+            }
         }
         public string GetDirFileHash(string dirName)
         {
-            EnsureLoaded();
-            return _proxy.GetDirFileHash(dirName); ;
+            lock (_sync)
+            {
+                EnsureLoaded();
+                return _proxy.GetDirFileHash(dirName);
+            }
         }
         public bool IsTimeInSync()
         {
-            EnsureLoaded();
-            return _proxy.IsTimeInSync();
+            lock (_sync)
+            {
+                EnsureLoaded();
+                return _proxy.IsTimeInSync();
+            }
         }
         public string LastErrorMsg()
         {
-            EnsureLoaded();
-            return _proxy.LastErrorMsg(); ;
+            lock (_sync)
+            {
+                EnsureLoaded();
+                return _proxy.LastErrorMsg();
+            }
         }
         public string AMDIKA_ID
         {
             get
             {
-                EnsureLoaded();
-                return _proxy.AMDIKA_ID;
+                lock (_sync)
+                {
+                    EnsureLoaded();
+                    return _proxy.AMDIKA_ID;
+                }
             }
         }
 
@@ -536,13 +604,12 @@ namespace ASFuelControl.Communication
         {
             lock (_sync)
             {
-                if (_domain != null)
-                {
-                    AppDomain.Unload(_domain);
-                    _domain = null;
-                    _proxy = null;
-                }
+                AppDomain domain = _domain;
+                _domain = null;
+                _proxy = null;
                 IsUnloaded = true;
+                if (domain != null)
+                    AppDomain.Unload(domain);
             }
         }
     }
