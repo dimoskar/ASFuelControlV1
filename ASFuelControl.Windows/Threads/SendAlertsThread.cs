@@ -30,13 +30,12 @@ namespace ASFuelControl.Windows.Threads
 
         //Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
         System.Threading.Thread th = null;
+        System.Threading.Thread tankCheckSenderThread = null;
         volatile bool haltThread = false;
-        bool isTankCheck = false;
-        int tankCheckInterval = 0;
-        DateTime lastTankCheck = DateTime.Now.Subtract(TimeSpan.FromMinutes(5));
         DateTime officialStartDate;
         private bool sendData = false;
         private Communication.SendMethods sendMethods = new Communication.SendMethods();
+        private Communication.SendMethods tankCheckSendMethods = new Communication.SendMethods();
         private readonly object submissionBackoffSync = new object();
         private readonly Dictionary<string, SubmissionBackoffState> submissionBackoffs =
             new Dictionary<string, SubmissionBackoffState>(StringComparer.OrdinalIgnoreCase);
@@ -56,7 +55,14 @@ namespace ASFuelControl.Windows.Threads
         }
 
         public DateTime LastAction { set; get; }
-        public bool IsAlive { get { return this.th != null && this.th.IsAlive; } }
+        public bool IsAlive
+        {
+            get
+            {
+                return (this.th != null && this.th.IsAlive) ||
+                    (this.tankCheckSenderThread != null && this.tankCheckSenderThread.IsAlive);
+            }
+        }
 
         private bool CanAttemptSubmission(string entityType)
         {
@@ -118,8 +124,8 @@ namespace ASFuelControl.Windows.Threads
         {
             this.submissionAudit = new OutboundSubmissionAuditStore(Properties.Settings.Default.DBConnection);
             this.sendData = Data.Implementation.OptionHandler.Instance.GetBoolOption("SendData", false);
-            this.tankCheckInterval = Data.Implementation.OptionHandler.Instance.GetIntOption("TankCheckInterval", 60000);
-            this.sendMethods.Simulation = !Data.Implementation.OptionHandler.Instance.GetBoolOption("SendData", false);
+            this.sendMethods.Simulation = !this.sendData;
+            this.tankCheckSendMethods.Simulation = !this.sendData;
             DateTime dtStart = DateTime.Now;
             string datestart = Data.Implementation.OptionHandler.Instance.GetOption("StartDate");
             if (datestart != null && datestart != "")
@@ -134,15 +140,28 @@ namespace ASFuelControl.Windows.Threads
         /// </summary>
         public void StartThread()
         {
-            if (this.th != null && this.th.IsAlive)
+            bool senderAlive = this.th != null && this.th.IsAlive;
+            bool tankSenderAlive = this.tankCheckSenderThread != null && this.tankCheckSenderThread.IsAlive;
+            if (senderAlive && tankSenderAlive)
                 return;
             this.sendData = Data.Implementation.OptionHandler.Instance.GetBoolOption("SendData", false);
+            this.sendMethods.Simulation = !this.sendData;
+            this.tankCheckSendMethods.Simulation = !this.sendData;
             this.haltThread = false;
-            //this.database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-            //this.database.AlertChecker = AlertChecker.Instance;
-            th = new System.Threading.Thread(new System.Threading.ThreadStart(this.ThreadRun));
-            th.IsBackground = true;
-            th.Start();
+            if (!senderAlive)
+            {
+                th = new System.Threading.Thread(new System.Threading.ThreadStart(this.ThreadRun));
+                th.IsBackground = true;
+                th.Name = "GGPS outbound sender";
+                th.Start();
+            }
+            if (!tankSenderAlive)
+            {
+                tankCheckSenderThread = new System.Threading.Thread(new System.Threading.ThreadStart(this.TankCheckSenderRun));
+                tankCheckSenderThread.IsBackground = true;
+                tankCheckSenderThread.Name = "GGPS tank-check sender";
+                tankCheckSenderThread.Start();
+            }
         }
 
 
@@ -153,12 +172,16 @@ namespace ASFuelControl.Windows.Threads
         {
             this.haltThread = true;
             System.Threading.Thread worker = this.th;
-            if (worker == null || worker == System.Threading.Thread.CurrentThread)
-                return true;
-            bool stopped = worker.Join(TimeSpan.FromSeconds(30));
-            if (!stopped)
+            System.Threading.Thread tankWorker = this.tankCheckSenderThread;
+            bool senderStopped = worker == null || worker == System.Threading.Thread.CurrentThread ||
+                worker.Join(TimeSpan.FromSeconds(30));
+            bool tankSenderStopped = tankWorker == null || tankWorker == System.Threading.Thread.CurrentThread ||
+                tankWorker.Join(TimeSpan.FromSeconds(30));
+            if (!senderStopped)
                 Logger.Instance.LogToFile("SendAlertsThread::Stop", "Sender did not stop within 30 seconds.");
-            return stopped;
+            if (!tankSenderStopped)
+                Logger.Instance.LogToFile("SendAlertsThread::Stop", "Tank-check sender did not stop within 30 seconds.");
+            return senderStopped && tankSenderStopped;
         }
 
         private object CreateDeliveryNote(Data.TankFilling tankFilling)
@@ -1058,12 +1081,50 @@ namespace ASFuelControl.Windows.Threads
             }
         }
 
+        /// <summary>
+        /// Sends tank measurements on their dedicated worker. Its database
+        /// context and transport are never shared with the normal outbound cycle.
+        /// </summary>
+        private void CheckForTankCheckSend(Data.DatabaseModel database)
+        {
+            if (!CanAttemptSubmission("TankCheck"))
+                return;
+            try
+            {
+                var checks = database.TankChecks
+                    .Where(t => !t.SentDatetime.HasValue &&
+                        !(t.Tank.FuelType.ExcludeFromBalance.HasValue && t.Tank.FuelType.ExcludeFromBalance.Value))
+                    .OrderBy(t => t.CheckDate)
+                    .Take(TankCheckBatchSize)
+                    .ToList();
+
+                foreach (Data.TankCheck check in checks)
+                {
+                    if (!CanAttemptSubmission("TankCheck"))
+                        break;
+                    try
+                    {
+                        this.SendObject(check,"TankCheck",check.TankCheckId,this.tankCheckSendMethods);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Instance.LogToFile("TankCheckSender:TankCheck",ex);
+                        Logger.Instance.LogToFile("TankCheckSender:TankCheck::Object",database.SerializeEntity(check));
+                    }
+                }
+                database.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogToFile("TankCheckSender",ex);
+            }
+        }
+
         private void CheckForSend(Data.DatabaseModel database)
         {
             try
             {
                 this.LastAction = DateTime.Now;
-                int interval = this.tankCheckInterval;
                 DateTime dt = DateTime.Now;
 
                 // During station close, the daily balance has a hard midnight
@@ -1075,38 +1136,6 @@ namespace ASFuelControl.Windows.Threads
                 // batch first, then give every other stream its own bounded turn.
                 // The next loop repeats the same fair cycle.
                 this.CheckForSales(database);
-                database.SaveChanges();
-
-                try
-                {
-                    var qtc = database.TankChecks
-                        .Where(t => !t.SentDatetime.HasValue &&
-                            !(t.Tank.FuelType.ExcludeFromBalance.HasValue && t.Tank.FuelType.ExcludeFromBalance.Value))
-                        .OrderBy(t => t.CheckDate)
-                        .Take(TankCheckBatchSize)
-                        .ToList();
-
-                    foreach (Data.TankCheck tc in qtc)
-                    {
-                        if (!CanAttemptSubmission("TankCheck"))
-                            break;
-                        if (tc.Tank.FuelType.ExcludeFromBalance.HasValue && tc.Tank.FuelType.ExcludeFromBalance.Value)
-                            continue;
-                        try
-                        {
-                            this.SendObject(tc, "TankCheck", tc.TankCheckId);
-                            System.Threading.Thread.Sleep(250);
-                        }
-                        catch (Exception etc)
-                        {
-                            Logger.Instance.LogToFile("CheckForSend:TankCheck", etc);
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    Logger.Instance.LogToFile("CheckForSend:TankCheck", e);
-                }
                 database.SaveChanges();
                 //DateTime dtAlertCheck = DateTime.Now.AddMinutes(-1);
                 var q = database.SystemEvents.Where(se => !se.SentDate.HasValue && se.EventDate >= this.officialStartDate
@@ -1367,6 +1396,35 @@ namespace ASFuelControl.Windows.Threads
         DateTime dtAlertPrint = DateTime.Now;
 
         bool logCleared = false;
+        private void TankCheckSenderRun()
+        {
+            try
+            {
+                while (!haltThread)
+                {
+                    try
+                    {
+                        if (this.sendData)
+                        {
+                            using (Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                                this.CheckForTankCheckSend(database);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Instance.LogToFile("TankCheckSender::Loop",ex);
+                    }
+                    if (!haltThread)
+                        System.Threading.Thread.Sleep(10000);
+                }
+            }
+            finally
+            {
+                Common.Logger.Instance.Debug("TankCheckSender::ThreadRun, Thread Stopped");
+                this.tankCheckSenderThread = null;
+            }
+        }
+
         private void ThreadRun()
         {
             while (!haltThread)
@@ -1417,6 +1475,11 @@ namespace ASFuelControl.Windows.Threads
         /// <returns></returns>
         private bool SendObject(object obj, string entityType, Guid entityId)
         {
+            return SendObject(obj,entityType,entityId,this.sendMethods);
+        }
+
+        private bool SendObject(object obj, string entityType, Guid entityId, Communication.SendMethods sender)
+        {
             if (!CanAttemptSubmission(entityType))
                 return false;
 
@@ -1424,6 +1487,7 @@ namespace ASFuelControl.Windows.Threads
             bool attempted;
             bool succeeded = SendObjectCore(
                 obj,
+                sender,
                 out attempted,
                 auditContext,
                 request => BeginSubmissionAudit(auditContext, entityType, entityId, request));
@@ -1507,6 +1571,7 @@ namespace ASFuelControl.Windows.Threads
 
         private bool SendObjectCore(
             object obj,
+            Communication.SendMethods sender,
             out bool attempted,
             SubmissionAuditContext auditContext,
             Action<object> beginAudit)
@@ -1527,7 +1592,7 @@ namespace ASFuelControl.Windows.Threads
                         TankCheckClass tc = obj as TankCheckClass;
                         beginAudit(tc);
                         attempted = true;
-                        seriallizedData = sendMethods.SendTankCheck(header, tc);
+                        seriallizedData = sender.SendTankCheck(header, tc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendTankCheck", seriallizedData);
@@ -1556,7 +1621,7 @@ namespace ASFuelControl.Windows.Threads
                         {
                             beginAudit(tankCheck);
                             attempted = true;
-                            seriallizedData = sendMethods.SendTankCheck(header, tankCheck);
+                            seriallizedData = sender.SendTankCheck(header, tankCheck);
                             if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                             {
                                 this.LogSend("SendTankCheck", seriallizedData);
@@ -1570,7 +1635,7 @@ namespace ASFuelControl.Windows.Threads
                         AlertClass ac = obj as AlertClass;
                         beginAudit(ac);
                         attempted = true;
-                        seriallizedData = sendMethods.SendAlert(header, ac);
+                        seriallizedData = sender.SendAlert(header, ac);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendAlert", seriallizedData);
@@ -1617,7 +1682,7 @@ namespace ASFuelControl.Windows.Threads
                         {
                             beginAudit(alert);
                             attempted = true;
-                            seriallizedData = sendMethods.SendAlert(header, alert);
+                            seriallizedData = sender.SendAlert(header, alert);
                             if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                             {
                                 this.LogSend("SendAlert", seriallizedData);
@@ -1630,7 +1695,7 @@ namespace ASFuelControl.Windows.Threads
                         ChangePriceClass cp = obj as ChangePriceClass;
                         beginAudit(cp);
                         attempted = true;
-                        seriallizedData = sendMethods.SendChangePrice(header, cp);
+                        seriallizedData = sender.SendChangePrice(header, cp);
 
                         bool sendPriceChange = Data.Implementation.OptionHandler.Instance.GetBoolOption("SmsSendPriceChange", false);
                         if (sendPriceChange)
@@ -1649,7 +1714,7 @@ namespace ASFuelControl.Windows.Threads
                         IncomeRecieptClass inc = obj as IncomeRecieptClass;
                         beginAudit(inc);
                         attempted = true;
-                        seriallizedData = sendMethods.SendIncome(header, inc);
+                        seriallizedData = sender.SendIncome(header, inc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendIncome", seriallizedData);
@@ -1662,7 +1727,7 @@ namespace ASFuelControl.Windows.Threads
                         DeliveryNoteClass del = obj as DeliveryNoteClass;
                         beginAudit(del);
                         attempted = true;
-                        seriallizedData = sendMethods.SendDelivery(header, del);
+                        seriallizedData = sender.SendDelivery(header, del);
 
                         bool sendDelivery = Data.Implementation.OptionHandler.Instance.GetBoolOption("SmsSendDelivery", false);
                         if (sendDelivery)
@@ -1692,7 +1757,7 @@ namespace ASFuelControl.Windows.Threads
                         LiterCheckClass lc = obj as LiterCheckClass;
                         beginAudit(lc);
                         attempted = true;
-                        seriallizedData = sendMethods.SendLiterCheck(header, lc);
+                        seriallizedData = sender.SendLiterCheck(header, lc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendLiterCheck", seriallizedData);
@@ -1704,7 +1769,7 @@ namespace ASFuelControl.Windows.Threads
                         BalanceClass bc = obj as BalanceClass;
                         beginAudit(bc);
                         attempted = true;
-                        seriallizedData = sendMethods.SendBalance(header, bc);
+                        seriallizedData = sender.SendBalance(header, bc);
                         if (seriallizedData == "[ERROR]" || seriallizedData.Contains("[ERROR]") || seriallizedData.Contains("ERROR"))
                         {
                             this.LogSend("SendBalance", seriallizedData);
@@ -1740,7 +1805,8 @@ namespace ASFuelControl.Windows.Threads
             return updated;
         }
 
-        private Dictionary<string, DateTime> lastLoggedActions = new Dictionary<string, DateTime>();
+        private System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> lastLoggedActions =
+            new System.Collections.Concurrent.ConcurrentDictionary<string, DateTime>();
         /// <summary>
         /// Method for logging the send status of each sending process
         /// </summary>
@@ -1763,12 +1829,10 @@ namespace ASFuelControl.Windows.Threads
 
                 if (data.StartsWith("[ERROR") || data == "[ERROR]")
                 {
-                    if (lastLoggedActions.ContainsKey(action) && DateTime.Now.Subtract(lastLoggedActions[action]).TotalSeconds < 60)
+                    DateTime lastLogged;
+                    if (lastLoggedActions.TryGetValue(action,out lastLogged) && DateTime.Now.Subtract(lastLogged).TotalSeconds < 60)
                         return true;
-                    if (!this.lastLoggedActions.ContainsKey(action))
-                        this.lastLoggedActions.Add(action, DateTime.Now);
-                    else
-                        this.lastLoggedActions[action] = DateTime.Now;
+                    this.lastLoggedActions[action] = DateTime.Now;
 
                     System.IO.File.AppendAllText(fileName, "==============================================================\r\n");
                     System.IO.File.AppendAllText(fileName, string.Format("Date: {0:dd/MM/yyyy HH:mm:dd.fff}\r\n", DateTime.Now));
@@ -1789,8 +1853,7 @@ namespace ASFuelControl.Windows.Threads
                     System.IO.File.AppendAllText(fileName, data + "\r\n");
                     System.IO.File.AppendAllText(fileName, "==============================================================\r\n");
                     System.IO.File.AppendAllText(fileName, "");
-                    if (this.lastLoggedActions.ContainsKey(action))
-                        this.lastLoggedActions[action] = DateTime.MinValue;
+                    this.lastLoggedActions[action] = DateTime.MinValue;
                 }
                 //Data.SendLog log = new Data.SendLog();
                 //log.SendLogId = Guid.NewGuid();
