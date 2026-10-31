@@ -13,7 +13,7 @@ namespace ASFuelControl.Windows.Threads
     /// </summary>
     public class SendAlertsThread
     {
-        private const int TankCheckBatchSize = 1;
+        private const int TankCheckBatchSize = 20;
         private const int AlertBatchSize = 1;
         private const int TankFillingBatchSize = 1;
         private const int SalesBatchSize = 5;
@@ -1085,10 +1085,11 @@ namespace ASFuelControl.Windows.Threads
         /// Sends tank measurements on their dedicated worker. Its database
         /// context and transport are never shared with the normal outbound cycle.
         /// </summary>
-        private void CheckForTankCheckSend(Data.DatabaseModel database)
+        private int CheckForTankCheckSend(Data.DatabaseModel database)
         {
             if (!CanAttemptSubmission("TankCheck"))
-                return;
+                return 0;
+            int processed = 0;
             try
             {
                 var checks = database.TankChecks
@@ -1105,6 +1106,7 @@ namespace ASFuelControl.Windows.Threads
                     try
                     {
                         this.SendObject(check,"TankCheck",check.TankCheckId,this.tankCheckSendMethods);
+                        processed++;
                     }
                     catch (Exception ex)
                     {
@@ -1113,10 +1115,12 @@ namespace ASFuelControl.Windows.Threads
                     }
                 }
                 database.SaveChanges();
+                return processed;
             }
             catch (Exception ex)
             {
                 Logger.Instance.LogToFile("TankCheckSender",ex);
+                return processed;
             }
         }
 
@@ -1402,12 +1406,13 @@ namespace ASFuelControl.Windows.Threads
             {
                 while (!haltThread)
                 {
+                    int processed = 0;
                     try
                     {
                         if (this.sendData)
                         {
                             using (Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
-                                this.CheckForTankCheckSend(database);
+                                processed = this.CheckForTankCheckSend(database);
                         }
                     }
                     catch (Exception ex)
@@ -1415,7 +1420,7 @@ namespace ASFuelControl.Windows.Threads
                         Logger.Instance.LogToFile("TankCheckSender::Loop",ex);
                     }
                     if (!haltThread)
-                        System.Threading.Thread.Sleep(10000);
+                        System.Threading.Thread.Sleep(processed > 0 ? 1000 : 5000);
                 }
             }
             finally
