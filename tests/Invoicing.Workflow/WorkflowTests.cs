@@ -292,6 +292,30 @@ internal static partial class Program
             using(var stream = new System.IO.MemoryStream(pages[0])) using(var image = System.Drawing.Image.FromStream(stream)) { Equal(472,image.Width); Equal(1650,image.Height); }
             System.IO.File.WriteAllBytes(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"render-preview.png"),pages[0]);
         });
+        Test("thermal invoices print the optional company QR beside the fiscal QR", () => {
+            var snapshot = new InvoiceWorkflowSnapshot { InvoiceId = Guid.NewGuid(),
+                PrintDestination = JsonConvert.SerializeObject(new SharedPrinterProfile { PrinterName = "test-only",WidthHundredths = 315,HeightHundredths = 1100 }),
+                CompanyQrContent = "1;STORE-01;AMDIKA-001;2026-10-31;12:45:00;TIM;57270;A;1;30;Diesel;2.079;94.56;196.59;57270",
+                PrintContent = Encoding.UTF8.GetBytes(string.Join("\r\n",new[] {
+                    "FISCAL INVOICE", "Date: 31/10/2026  12:45", "Invoice: TIM-57270", "Customer: SAMPLE CUSTOMER",
+                    "----------------------------------------", "Description       Qty    Price    Total", "Diesel           94.56   2.079   196.59",
+                    "----------------------------------------", "Net amount:                    158.54", "VAT 24%:                        38.05",
+                    "TOTAL:                         EUR 196.59", "Payment: Credit", "", "Thank you"
+                })) };
+            var bytes = SharedInvoicePrinting.Render(snapshot,new Exedron.Invoicing.Core.Models.InvoiceResponse {
+                Mark = "40000523", InvoiceSignature = "SAMPLE-FISCAL-SIGNATURE",
+                QrCodeUrl = "https://example.invalid/invoice/57270"
+            });
+            var pages = JsonConvert.DeserializeObject<byte[][]>(Encoding.UTF8.GetString(bytes)); Equal(1,pages.Length);
+            using(var stream = new System.IO.MemoryStream(pages[0])) using(var image = new System.Drawing.Bitmap(stream)) {
+                int dark = 0;
+                for(int y=200;y<650;y+=2) for(int x=10;x<image.Width-10;x+=2) {
+                    var pixel = image.GetPixel(x,y); if(pixel.R < 80 && pixel.G < 80 && pixel.B < 80) dark++;
+                }
+                Check(dark > 2500,"The fiscal and company QR codes were not rendered");
+            }
+            System.IO.File.WriteAllBytes(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"thermal-layout-preview.png"),pages[0]);
+        });
         Test("laser renderer uses the legacy A5 landscape paper option instead of thermal dimensions", () => {
             var snapshot = new InvoiceWorkflowSnapshot { InvoiceId = Guid.NewGuid(),
                 PrintDestination = JsonConvert.SerializeObject(new SharedPrinterProfile { PrinterName = "test-only",Thermal = false,
@@ -327,6 +351,14 @@ internal static partial class Program
             Equal((int)System.Drawing.Printing.PaperKind.A5,selected.RawKind);
             Equal("EPSON A5 148 x 210 mm",selected.PaperName);
             Throws(() => SharedInvoicePrinting.ResolvePaperSize(profile,new[] { a4 }));
+        });
+        Test("A5 spool geometry follows the landscape page when a driver reports portrait printable bounds", () => {
+            var portrait = new System.Drawing.RectangleF(12,18,559,803);
+            var normalized = SharedInvoicePrinting.NormalizePrintableArea(portrait,1240,874);
+            Equal(18f,normalized.X); Equal(12f,normalized.Y);
+            Equal(803f,normalized.Width); Equal(559f,normalized.Height);
+            var thermal = SharedInvoicePrinting.NormalizePrintableArea(portrait,472,1650);
+            Equal(portrait,thermal);
         });
         Test("issuance, acceptance projection and independent print handoff", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer();

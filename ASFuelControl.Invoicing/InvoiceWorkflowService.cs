@@ -22,6 +22,8 @@ namespace ASFuelControl.Invoicing
         public string PrintDestination { get; set; }
         public string PrintFormat { get; set; }
         public byte[] PrintContent { get; set; }
+        // Optional brand/company QR payload frozen with the printable document.
+        public string CompanyQrContent { get; set; }
         public Guid? MyDieselCouponCaseId { get; set; }
         public MyDieselScope MyDieselScope { get; set; }
         public decimal? MyDieselExciseDiscountPerLitre { get; set; }

@@ -161,7 +161,8 @@ namespace ASFuelControl.Windows.Threads
                     var content = PrintAgent.RenderSharedInvoiceContent(db, invoice);
                     var value = new InvoiceWorkflowSnapshot { InvoiceId = id, Provider = route.Provider, LocalOnly = route.LocalOnly,
                         Payment = invoice.PaymentType == 2 || invoice.PaymentType == 4 ? route.Payment : null,
-                        PrintContent = Encoding.UTF8.GetBytes(content), PrintDestination = JsonConvert.SerializeObject(printer), PrintFormat = SharedInvoicePrinting.Format };
+                        PrintContent = Encoding.UTF8.GetBytes(content), PrintDestination = JsonConvert.SerializeObject(printer), PrintFormat = SharedInvoicePrinting.Format,
+                        CompanyQrContent = Reports.BrandData.SetBrandData(invoice) };
                     if (coupon != null)
                     {
                         value.Version = 2; value.MyDieselCouponCaseId = coupon.CouponCaseId;

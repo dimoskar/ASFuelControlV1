@@ -209,7 +209,8 @@ namespace ASFuelControl.Windows.Threads
                         Invoice=plan.Request(credit,invoice.Number,invoice.Series,invoice.TransactionDate),
                         PrintFormat=SharedInvoicePrinting.Format,PrintDestination=JsonConvert.SerializeObject(
                             settings.Value.Route(invoice).Printer??settings.Value.DefaultPrinter??new SharedPrinterProfile()),
-                        PrintContent=Encoding.UTF8.GetBytes(PrintAgent.RenderSharedInvoiceContent(db,invoice))};
+                        PrintContent=Encoding.UTF8.GetBytes(PrintAgent.RenderSharedInvoiceContent(db,invoice)),
+                        CompanyQrContent=Reports.BrandData.SetBrandData(invoice)};
                 }
             }
         }

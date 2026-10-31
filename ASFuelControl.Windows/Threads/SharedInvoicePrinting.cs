@@ -99,10 +99,11 @@ namespace ASFuelControl.Windows.Threads
             int width = (landscape ? pageHeight : pageWidth) * dpi / 100;
             int height = (landscape ? pageWidth : pageHeight) * dpi / 100;
             var pages = new List<byte[]>();
-            bool qrPrinted = false;
+            bool qrCodesPrinted = false;
             using (var font = new Font("Consolas", profile.FontSize))
             using (var format = new StringFormat { Trimming = StringTrimming.None })
-            using (var qrImage = CreateQr(response?.QrCodeUrl))
+            using (var fiscalQrImage = CreateQr(response?.QrCodeUrl,QRCoder.QRCodeGenerator.ECCLevel.M))
+            using (var companyQrImage = CreateQr(snapshot.CompanyQrContent,QRCoder.QRCodeGenerator.ECCLevel.L))
             {
                 format.FormatFlags = StringFormatFlags.LineLimit;
                 while (text.Length > 0)
@@ -114,26 +115,21 @@ namespace ASFuelControl.Windows.Threads
                         {
                             graphics.Clear(Color.White);
                             int chars, lines;
-                            var area = new RectangleF(15, 15, width - 30, height - 30);
+                            var area = new RectangleF(15,15,width - 30,height - 30);
                             graphics.MeasureString(text, font, area.Size, format, out chars, out lines);
                             if (chars <= 0) throw new InvalidOperationException("The invoice cannot fit the configured paper.");
                             graphics.DrawString(text.Substring(0, chars), font, Brushes.Black, area, format);
                             text = text.Substring(chars);
-                            if (text.Length == 0 && qrImage != null)
+                            if (text.Length == 0 && (fiscalQrImage != null || companyQrImage != null))
                             {
-                                int size = Math.Min(width - 30, 300);
                                 int top = 30 + (int)Math.Ceiling(font.GetHeight(graphics) * lines);
-                                if (top + size < height - 15)
-                                {
-                                    graphics.DrawImage(qrImage, 15, top, size, size);
-                                    qrPrinted = true;
-                                }
+                                qrCodesPrinted = DrawQrCodes(graphics,fiscalQrImage,companyQrImage,width,height,top,font) >= 0;
                             }
                         }
                         using (var output = new MemoryStream()) { page.Save(output, ImageFormat.Png); pages.Add(output.ToArray()); }
                     }
                 }
-                if (qrImage != null && !qrPrinted)
+                if ((fiscalQrImage != null || companyQrImage != null) && !qrCodesPrinted)
                 {
                     using (var page = new Bitmap(width, height))
                     {
@@ -141,10 +137,10 @@ namespace ASFuelControl.Windows.Threads
                         using (var graphics = Graphics.FromImage(page))
                         {
                             graphics.Clear(Color.White);
-                            int size = Math.Min(width - 30, 300);
-                            graphics.DrawImage(qrImage, 15, 15, size, size);
-                            graphics.DrawString("Invoice: " + snapshot.InvoiceId + "\r\nMARK: " + response.Mark + "\r\n" + response.QrCodeUrl,
-                                font, Brushes.Black, new RectangleF(15, size + 30, width - 30, height - size - 45));
+                            int bottom = DrawQrCodes(graphics,fiscalQrImage,companyQrImage,width,height,15,font);
+                            if (bottom < 0) throw new InvalidOperationException("The QR codes cannot fit the configured paper.");
+                            graphics.DrawString("Invoice: " + snapshot.InvoiceId + "\r\nMARK: " + response?.Mark + "\r\n" + response?.QrCodeUrl,
+                                font, Brushes.Black, new RectangleF(15,bottom + 15,width - 30,height - bottom - 30));
                         }
                         using (var output = new MemoryStream()) { page.Save(output, ImageFormat.Png); pages.Add(output.ToArray()); }
                     }
@@ -152,11 +148,34 @@ namespace ASFuelControl.Windows.Threads
             }
             return Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(pages));
         }
-        private static Bitmap CreateQr(string url)
+        private static int DrawQrCodes(Graphics graphics, Bitmap fiscalQr, Bitmap companyQr, int pageWidth, int pageHeight, int top, Font font)
         {
-            if (string.IsNullOrWhiteSpace(url)) return null;
+            var images = new List<Bitmap>();
+            var labels = new List<string>();
+            if (fiscalQr != null) { images.Add(fiscalQr); labels.Add("QR Φορολογικό"); }
+            if (companyQr != null) { images.Add(companyQr); labels.Add("QR Εταιρείας"); }
+            if (images.Count == 0) return top;
+
+            const int gap = 15;
+            int size = images.Count == 1 ? Math.Min(pageWidth - 30,300) : Math.Min((pageWidth - gap * 3) / 2,240);
+            int labelHeight = (int)Math.Ceiling(font.GetHeight(graphics));
+            int bottom = top + labelHeight + size;
+            if (bottom > pageHeight - 15) return -1;
+            int totalWidth = images.Count * size + (images.Count - 1) * gap;
+            int left = (pageWidth - totalWidth) / 2;
+            for (int index = 0; index < images.Count; index++)
+            {
+                int x = left + index * (size + gap);
+                graphics.DrawString(labels[index],font,Brushes.Black,new RectangleF(x,top,size,labelHeight));
+                graphics.DrawImage(images[index],x,top + labelHeight,size,size);
+            }
+            return bottom;
+        }
+        private static Bitmap CreateQr(string content, QRCoder.QRCodeGenerator.ECCLevel level)
+        {
+            if (string.IsNullOrWhiteSpace(content)) return null;
             using (var generator = new QRCoder.QRCodeGenerator())
-            using (var data = generator.CreateQrCode(url, QRCoder.QRCodeGenerator.ECCLevel.M))
+            using (var data = generator.CreateQrCode(content,level))
             using (var code = new QRCoder.QRCode(data)) return code.GetGraphic(6);
         }
         internal static void CheckProfile(SharedPrinterProfile p)
@@ -207,6 +226,14 @@ namespace ASFuelControl.Windows.Threads
             settings.Landscape = landscape;
             settings.Margins = new Margins(0,0,0,0);
         }
+        internal static RectangleF NormalizePrintableArea(RectangleF area, int imageWidth, int imageHeight)
+        {
+            bool imageLandscape = imageWidth > imageHeight;
+            bool areaLandscape = area.Width > area.Height;
+            if (imageWidth == imageHeight || area.Width == area.Height || imageLandscape == areaLandscape)
+                return area;
+            return new RectangleF(area.Y,area.X,area.Height,area.Width);
+        }
         public void Validate(string destination, string format, byte[] document)
         {
             if (format != Format) throw new InvalidOperationException("Unsupported saved print format.");
@@ -240,8 +267,13 @@ namespace ASFuelControl.Windows.Threads
                     using (var image = Image.FromStream(stream))
                     {
                         // Account for the physical printer's non-printable margins.
-                        args.Graphics.TranslateTransform(-args.PageSettings.HardMarginX, -args.PageSettings.HardMarginY);
-                        var area = args.PageSettings.PrintableArea;
+                        var reportedArea = args.PageSettings.PrintableArea;
+                        var area = NormalizePrintableArea(reportedArea,image.Width,image.Height);
+                        bool swapped = area.Width == reportedArea.Height && area.Height == reportedArea.Width &&
+                            (reportedArea.Width != reportedArea.Height);
+                        float hardMarginX = swapped ? args.PageSettings.HardMarginY : args.PageSettings.HardMarginX;
+                        float hardMarginY = swapped ? args.PageSettings.HardMarginX : args.PageSettings.HardMarginY;
+                        args.Graphics.TranslateTransform(-hardMarginX,-hardMarginY);
                         float scale = Math.Min(area.Width / image.Width, area.Height / image.Height);
                         args.Graphics.DrawImage(image, area.X, area.Y, image.Width * scale, image.Height * scale);
                     }
