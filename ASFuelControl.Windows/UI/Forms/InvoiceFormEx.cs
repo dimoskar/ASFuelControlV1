@@ -97,7 +97,9 @@ namespace ASFuelControl.Windows.UI.Forms
             ivm.Load(invoiceId);
             
             this.invoiceViewModelBindingSource.ResetBindings(false);
+            this.invoiceTypesBindingSource.ResetBindings(false);
             this.invoiceLinesBindingSource.ResetBindings(false);
+            this.radDropDownList1.SelectedValue = ivm.InvoiceTypeId;
             this.panel6.Visible = false;
             ApplyPriceBindings();
             this.SetView();

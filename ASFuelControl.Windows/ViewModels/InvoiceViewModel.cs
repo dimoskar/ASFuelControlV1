@@ -1561,6 +1561,21 @@ namespace ASFuelControl.Windows.ViewModels
                 this.SuspendRecalculation = true;
             }
 
+            // Replacing InvoiceTypes does not notify the nested BindingSource.
+            // Publish the final list, then reassert the value read from the
+            // invoice so Telerik cannot leave its first filtered item selected.
+            if (persistedTypeId != Guid.Empty)
+            {
+                if (!this.InvoiceTypes.Any(i => i.InvoiceTypeId == persistedTypeId))
+                    this.InvoiceTypes = CommonCache.Instance.InvoiceTypes.ToArray();
+                this.OnPropertyChanged("InvoiceTypes", true);
+                if (this.InvoiceTypeId != persistedTypeId)
+                    this.InvoiceTypeId = persistedTypeId;
+                this.OnPropertyChanged("InvoiceTypeId", true);
+                this.EntityState = EntityStateEnum.Unchanged;
+                this.HasChanges = false;
+            }
+
             var inv = db.Invoices.SingleOrDefault(i => i.InvoiceId == this.InvoiceId);
             if (inv == null)
                 return;
