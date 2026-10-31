@@ -132,6 +132,14 @@ namespace ASFuelControl.Windows.UI.Forms
                 DeleteRelatedInvoices();
             this.invoiceViewModelBindingSource.ResetBindings(false);
             this.invoiceLinesBindingSource.ResetBindings(false);
+            if (invoiceId != Guid.Empty)
+            {
+                // ResetBindings can make Telerik select the first item and push
+                // that unrelated type back into a newly transformed invoice.
+                // Reassert and pin the requested target type before it can be saved.
+                ivm.InvoiceTypeId = invoiceType;
+                SynchronizeLoadedInvoiceType();
+            }
             SetView();
             return invoiceId;
         }
