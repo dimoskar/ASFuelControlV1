@@ -292,6 +292,16 @@ internal static partial class Program
             using(var stream = new System.IO.MemoryStream(pages[0])) using(var image = System.Drawing.Image.FromStream(stream)) { Equal(472,image.Width); Equal(1650,image.Height); }
             System.IO.File.WriteAllBytes(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"render-preview.png"),pages[0]);
         });
+        Test("laser renderer uses the legacy A5 landscape paper option instead of thermal dimensions", () => {
+            var snapshot = new InvoiceWorkflowSnapshot { InvoiceId = Guid.NewGuid(),
+                PrintDestination = JsonConvert.SerializeObject(new SharedPrinterProfile { PrinterName = "test-only",Thermal = false,
+                    NonThermalPaperSize = "A5",WidthHundredths = 315,HeightHundredths = 1100 }),
+                PrintContent = Encoding.UTF8.GetBytes("A5 LASER TEST") };
+            var bytes = SharedInvoicePrinting.Render(snapshot,new Exedron.Invoicing.Core.Models.InvoiceResponse());
+            var pages = JsonConvert.DeserializeObject<byte[][]>(Encoding.UTF8.GetString(bytes)); Equal(1,pages.Length);
+            using(var stream = new System.IO.MemoryStream(pages[0])) using(var image = System.Drawing.Image.FromStream(stream))
+            { Equal(1240,image.Width); Equal(874,image.Height); }
+        });
         Test("issuance, acceptance projection and independent print handoff", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer();
             int projections = 0; var workflow = Workflow(http,printer,(id,r) => { projections++; Check(r.Accepted,"projected unaccepted result"); if (r.Print == null) Equal(0,printer.Calls); });

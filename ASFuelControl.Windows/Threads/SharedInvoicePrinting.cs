@@ -19,6 +19,7 @@ namespace ASFuelControl.Windows.Threads
         // that as the deserialization default; new routes set this explicitly
         // from InvoiceType.IsLaserPrint.
         public bool Thermal { get; set; } = true;
+        public string NonThermalPaperSize { get; set; }
         public int WidthHundredths { get; set; } = 315;
         public int HeightHundredths { get; set; } = 1100;
         public short Copies { get; set; } = 1;
@@ -85,7 +86,11 @@ namespace ASFuelControl.Windows.Threads
             CheckProfile(profile);
             var text = Encoding.UTF8.GetString(snapshot.PrintContent) + "\r\n" + Footer(snapshot,response);
             const int dpi = 150;
-            int width = profile.WidthHundredths * dpi / 100, height = profile.HeightHundredths * dpi / 100;
+            int pageWidth, pageHeight;
+            bool landscape;
+            PageGeometry(profile,out pageWidth,out pageHeight,out landscape);
+            int width = (landscape ? pageHeight : pageWidth) * dpi / 100;
+            int height = (landscape ? pageWidth : pageHeight) * dpi / 100;
             var pages = new List<byte[]>();
             bool qrPrinted = false;
             using (var font = new Font("Consolas", profile.FontSize))
@@ -152,6 +157,22 @@ namespace ASFuelControl.Windows.Threads
             if (p == null || p.Copies < 1 || p.Copies > 10 ||
                 p.WidthHundredths < 200 || p.WidthHundredths > 1200 || p.HeightHundredths < 400 || p.HeightHundredths > 2000 ||
                 p.FontSize < 6 || p.FontSize > 20) throw new InvalidOperationException("Ελέγξτε τις ρυθμίσεις χαρτιού, αντιγράφων και μεγέθους γραμμάτων.");
+            if (!p.Thermal && p.NonThermalPaperSize != "A4" && p.NonThermalPaperSize != "A5")
+                throw new InvalidOperationException("Επιλέξτε μέγεθος χαρτιού Laser A4 ή A5.");
+        }
+        internal static void PageGeometry(SharedPrinterProfile profile, out int width, out int height, out bool landscape)
+        {
+            CheckProfile(profile);
+            if (profile.Thermal)
+            {
+                width = profile.WidthHundredths;
+                height = profile.HeightHundredths;
+                landscape = false;
+                return;
+            }
+            landscape = profile.NonThermalPaperSize == "A5";
+            width = landscape ? 583 : 827;
+            height = landscape ? 827 : 1169;
         }
         public void Validate(string destination, string format, byte[] document)
         {
@@ -172,7 +193,11 @@ namespace ASFuelControl.Windows.Threads
             {
                 job.DocumentName = "Fiscal-" + jobId.ToString("N");
                 job.PrinterSettings.PrinterName = p.PrinterName; job.PrinterSettings.Copies = p.Copies;
-                job.DefaultPageSettings.PaperSize = new PaperSize("Saved invoice", p.WidthHundredths, p.HeightHundredths);
+                int pageWidth, pageHeight;
+                bool landscape;
+                PageGeometry(p,out pageWidth,out pageHeight,out landscape);
+                job.DefaultPageSettings.PaperSize = new PaperSize(p.Thermal ? "Thermal" : p.NonThermalPaperSize,pageWidth,pageHeight);
+                job.DefaultPageSettings.Landscape = landscape;
                 job.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
                 job.PrintController = new StandardPrintController();
                 job.PrintPage += (sender, args) => {

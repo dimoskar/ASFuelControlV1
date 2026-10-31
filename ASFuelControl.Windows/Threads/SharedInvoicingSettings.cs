@@ -17,7 +17,7 @@ namespace ASFuelControl.Windows.Threads
         {
             var record = Store().Load();
             revision = record?.Revision ?? 0;
-            if (record != null) return JsonConvert.DeserializeObject<SharedInvoiceConfiguration>(record.Json);
+            if (record != null) return ApplyLegacyPrinterOptions(JsonConvert.DeserializeObject<SharedInvoiceConfiguration>(record.Json));
             var options = Data.Implementation.OptionHandler.Instance;
             var file = options.GetOption("SharedInvoicingConfiguration", "");
             if (!string.IsNullOrWhiteSpace(file))
@@ -26,14 +26,24 @@ namespace ASFuelControl.Windows.Threads
                 var previous = JsonConvert.DeserializeObject<SharedInvoiceConfiguration>(File.ReadAllText(file));
                 if (previous == null || previous.Version != 1) throw new InvalidOperationException("Invalid legacy configuration.");
                 previous.Enabled = options.GetBoolOption("SharedInvoicingEnabled",false);
-                return previous;
+                return ApplyLegacyPrinterOptions(previous);
             }
             if (options.GetBoolOption("SharedInvoicingEnabled",false)) throw new InvalidOperationException("Shared invoicing is enabled without configuration.");
-            return new SharedInvoiceConfiguration { Version = 3, FirstInvoiceDate = DateTime.Today,
+            return ApplyLegacyPrinterOptions(new SharedInvoiceConfiguration { Version = 3, FirstInvoiceDate = DateTime.Today,
                 Mapping = new MappingContext { WholesaleCodes = new HashSet<int>(), Countries = new[] { new CountryInput { CountryCode = "GR", DisplayMember = "Ελλάδα", IsEu = true } } },
                 DefaultPrinter = new SharedPrinterProfile(), InvoiceTypes = new Dictionary<Guid,SharedInvoiceRoute>(),
                 Documents = new Dictionary<FiscalDocumentKind,SharedInvoiceRoute>(), Credentials = new SharedCredentialProfile[0],
-                Devices = new Exedron.Invoicing.Adapters.Samtec.SamtecDeviceProfile[0], MyDieselCredentials = new SharedMyDieselCredentialProfile[0] };
+                Devices = new Exedron.Invoicing.Adapters.Samtec.SamtecDeviceProfile[0], MyDieselCredentials = new SharedMyDieselCredentialProfile[0] });
+        }
+        private static SharedInvoiceConfiguration ApplyLegacyPrinterOptions(SharedInvoiceConfiguration value)
+        {
+            if (value == null) return null;
+            if (value.DefaultPrinter == null) value.DefaultPrinter = new SharedPrinterProfile();
+            if (string.IsNullOrWhiteSpace(value.DefaultPrinter.NonThermalPaperSize))
+                value.DefaultPrinter.NonThermalPaperSize = Data.Implementation.OptionHandler.Instance.GetOptionOrAdd("InvoicePageSetting","A4");
+            if (value.DefaultPrinter.NonThermalPaperSize != "A4" && value.DefaultPrinter.NonThermalPaperSize != "A5")
+                value.DefaultPrinter.NonThermalPaperSize = "A4";
+            return value;
         }
         internal static SharedInvoiceConfiguration LoadRuntime()
         {

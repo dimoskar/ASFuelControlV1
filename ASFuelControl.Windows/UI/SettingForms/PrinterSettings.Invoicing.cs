@@ -18,7 +18,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
         private long sharedPrinterRevision;
         private RadCheckBox sharedDeviceEnabled, sharedBalances, sharedFillings;
         private RadTextBox sharedDeviceEndpoint;
-        private RadDropDownList sharedPrinterName;
+        private RadDropDownList sharedPrinterName, sharedNonThermalPaperSize;
         private RadSpinEditor sharedPaperWidth, sharedPaperHeight, sharedCopies, sharedFontSize;
 
         private void InitializeSharedPrinter()
@@ -54,13 +54,17 @@ namespace ASFuelControl.Windows.UI.SettingForms
             sharedPrinterName = new RadDropDownList();
             foreach (string printer in System.Drawing.Printing.PrinterSettings.InstalledPrinters) sharedPrinterName.Items.Add(printer);
             sharedPrinterName.Text = p.PrinterName ?? "";
-            fields.Row("Προεπιλεγμένος εκτυπωτής",sharedPrinterName);
-            sharedPaperWidth = fields.Row("Πλάτος (mm)",Millimetres(p.WidthHundredths,200,1200));
-            sharedPaperHeight = fields.Row("Ύψος (mm)",Millimetres(p.HeightHundredths,400,2000));
+            fields.Row("Εκτυπωτής Laser",sharedPrinterName);
+            sharedNonThermalPaperSize = fields.Row("Χαρτί Laser",InvoicingFields.Choice("A4 Κατακόρυφα","A5 Οριζόντια"));
+            sharedNonThermalPaperSize.SelectedIndex = p.NonThermalPaperSize == "A5" ? 1 : 0;
+            sharedPaperWidth = fields.Row("Πλάτος θερμικού (mm)",Millimetres(p.WidthHundredths,200,1200));
+            sharedPaperHeight = fields.Row("Μήκος θερμικού (mm)",Millimetres(p.HeightHundredths,400,2000));
             sharedCopies = fields.Row("Αντίγραφα",Number(p.Copies,1,10));
-            sharedFontSize = fields.Row("Μέγεθος γραμμάτων",Number((decimal)p.FontSize,6,20));
-            fields.Note("Αν ο εκτυπωτής του τύπου λείπει, χρησιμοποιείται ο παραπάνω.\r\nΑν λείπει και αυτός, χρησιμοποιείται ο προεπιλεγμένος Windows.");
-            fields.Note("Κενή επιλογή: προεπιλεγμένος Windows. Οι επανεκτυπώσεις\r\nδιατηρούν τις αρχικές σελίδες με την ίδια εφεδρική επιλογή.");
+            sharedFontSize = fields.Row("Γράμματα θερμικού",Number((decimal)p.FontSize,6,20));
+            fields.Note("Τύπος με «Εκτύπωση Laser»: χρησιμοποιείται ο παραπάνω εκτυπωτής και το επιλεγμένο χαρτί.\r\n" +
+                "Θερμική πώληση: χρησιμοποιείται ο εκτυπωτής της αντλίας. Χωρίς αυτόν: ο προεπιλεγμένος Windows.");
+            fields.Note("Το πλάτος, μήκος και μέγεθος γραμμάτων αφορούν μόνο θερμική εκτύπωση.\r\n" +
+                "Οι επανεκτυπώσεις διατηρούν τις αρχικές σελίδες και ρυθμίσεις.");
             save.Click += (s,e) => SaveSharedPrinter();
         }
         private static RadSpinEditor Number(decimal value,decimal min,decimal max)
@@ -96,7 +100,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 if (sharedPrinterConfiguration.Version != 2 && sharedPrinterConfiguration.Version != 3) throw new InvalidOperationException("Αποθηκεύστε πρώτα τις κοινές ρυθμίσεις στην φόρμα Γενικές Επιλογές.");
                 var value = JsonConvert.DeserializeObject<SharedInvoiceConfiguration>(JsonConvert.SerializeObject(sharedPrinterConfiguration));
                 value.DefaultPrinter = new SharedPrinterProfile { PrinterName = sharedPrinterName.Text.Trim(), WidthHundredths = ToHundredthsOfInch(sharedPaperWidth.Value),
-                    HeightHundredths = ToHundredthsOfInch(sharedPaperHeight.Value), Copies = (short)sharedCopies.Value, FontSize = (float)sharedFontSize.Value };
+                    HeightHundredths = ToHundredthsOfInch(sharedPaperHeight.Value), Copies = (short)sharedCopies.Value, FontSize = (float)sharedFontSize.Value,
+                    NonThermalPaperSize = sharedNonThermalPaperSize.SelectedIndex == 1 ? "A5" : "A4" };
                 SharedInvoicePrinting.CheckProfile(value.DefaultPrinter);
                 value.FiscalDevice = null;
                 if (sharedDeviceEnabled.IsChecked)
@@ -115,6 +120,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
                     else value.Documents.Remove(kind);
                 }
                 sharedPrinterRevision = SharedInvoicingSettings.Save(value,sharedPrinterRevision);
+                optionHandler.SetOption("InvoicePageSetting",value.DefaultPrinter.NonThermalPaperSize);
                 sharedPrinterConfiguration = value;
                 RadMessageBox.Show("Αποθηκεύτηκε. Απαιτείται επανεκκίνηση της εφαρμογής.","Σήμανση / Εκτύπωση");
             }
