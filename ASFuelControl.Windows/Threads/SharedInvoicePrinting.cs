@@ -181,11 +181,39 @@ namespace ASFuelControl.Windows.Threads
             width = landscape ? 583 : 827;
             height = landscape ? 827 : 1169;
         }
+        internal static PaperSize ResolvePaperSize(SharedPrinterProfile profile, IEnumerable<PaperSize> driverPaperSizes)
+        {
+            int width, height;
+            bool landscape;
+            PageGeometry(profile,out width,out height,out landscape);
+            if (profile.Thermal) return new PaperSize("Thermal",width,height);
+
+            var expectedKind = profile.NonThermalPaperSize == "A5" ? PaperKind.A5 : PaperKind.A4;
+            var papers = (driverPaperSizes ?? Enumerable.Empty<PaperSize>()).ToArray();
+            var selected = papers.FirstOrDefault(paper => paper.Kind == expectedKind) ??
+                papers.FirstOrDefault(paper => paper.PaperName != null &&
+                    paper.PaperName.IndexOf(profile.NonThermalPaperSize,StringComparison.OrdinalIgnoreCase) >= 0);
+            if (selected == null)
+                throw new InvalidOperationException("Ο εκτυπωτής δεν δηλώνει υποστήριξη για χαρτί " +
+                    profile.NonThermalPaperSize + ". Εγκαταστήστε τον πλήρη οδηγό του εκτυπωτή και ελέγξτε τα υποστηριζόμενα μεγέθη χαρτιού.");
+
+            // Use the driver's RawKind instead of a custom PaperSize. Drivers may
+            // silently replace a custom A5 request with their A4 default.
+            return new PaperSize(selected.PaperName,selected.Width,selected.Height) { RawKind = selected.RawKind };
+        }
+        private static void ApplyPageSettings(PageSettings settings, PaperSize paper, bool landscape)
+        {
+            settings.PaperSize = paper;
+            settings.Landscape = landscape;
+            settings.Margins = new Margins(0,0,0,0);
+        }
         public void Validate(string destination, string format, byte[] document)
         {
             if (format != Format) throw new InvalidOperationException("Unsupported saved print format.");
             var p = ResolveProfile(JsonConvert.DeserializeObject<SharedPrinterProfile>(destination),installationDefault());
-            if (!new PrinterSettings { PrinterName = p.PrinterName }.IsValid) throw new InvalidOperationException(MissingPrinterMessage);
+            var printer = new PrinterSettings { PrinterName = p.PrinterName };
+            if (!printer.IsValid) throw new InvalidOperationException(MissingPrinterMessage);
+            ResolvePaperSize(p,printer.PaperSizes.Cast<PaperSize>());
             var pages = JsonConvert.DeserializeObject<byte[][]>(Encoding.UTF8.GetString(document));
             if (pages == null || pages.Length == 0) throw new InvalidOperationException("No saved pages.");
             foreach (var bytes in pages) using (var stream = new MemoryStream(bytes)) using (var image = Image.FromStream(stream))
@@ -203,9 +231,9 @@ namespace ASFuelControl.Windows.Threads
                 int pageWidth, pageHeight;
                 bool landscape;
                 PageGeometry(p,out pageWidth,out pageHeight,out landscape);
-                job.DefaultPageSettings.PaperSize = new PaperSize(p.Thermal ? "Thermal" : p.NonThermalPaperSize,pageWidth,pageHeight);
-                job.DefaultPageSettings.Landscape = landscape;
-                job.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
+                var paper = ResolvePaperSize(p,job.PrinterSettings.PaperSizes.Cast<PaperSize>());
+                ApplyPageSettings(job.DefaultPageSettings,paper,landscape);
+                job.QueryPageSettings += (sender,args) => ApplyPageSettings(args.PageSettings,paper,landscape);
                 job.PrintController = new StandardPrintController();
                 job.PrintPage += (sender, args) => {
                     using (var stream = new MemoryStream(pages[index++]))
@@ -220,7 +248,8 @@ namespace ASFuelControl.Windows.Threads
                     args.HasMorePages = index < pages.Length;
                 };
                 job.Print();
-                return "Windows spool handoff: " + job.DocumentName + "; printer: " + p.PrinterName;
+                return "Windows spool handoff: " + job.DocumentName + "; printer: " + p.PrinterName +
+                    "; paper: " + paper.PaperName + "; landscape: " + landscape;
             }
         }
     }

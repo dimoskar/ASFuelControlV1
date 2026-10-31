@@ -317,6 +317,17 @@ internal static partial class Program
             Equal(1,calls);
             Check(actual.SequenceEqual(expected),"The thermal text renderer replaced the laser invoice report");
         });
+        Test("laser printing selects the driver A5 paper and rejects silent A4 fallback", () => {
+            var a4 = new System.Drawing.Printing.PaperSize("A4 driver paper",827,1169) {
+                RawKind = (int)System.Drawing.Printing.PaperKind.A4 };
+            var a5 = new System.Drawing.Printing.PaperSize("EPSON A5 148 x 210 mm",583,827) {
+                RawKind = (int)System.Drawing.Printing.PaperKind.A5 };
+            var profile = new SharedPrinterProfile { Thermal = false,NonThermalPaperSize = "A5" };
+            var selected = SharedInvoicePrinting.ResolvePaperSize(profile,new[] { a4,a5 });
+            Equal((int)System.Drawing.Printing.PaperKind.A5,selected.RawKind);
+            Equal("EPSON A5 148 x 210 mm",selected.PaperName);
+            Throws(() => SharedInvoicePrinting.ResolvePaperSize(profile,new[] { a4 }));
+        });
         Test("issuance, acceptance projection and independent print handoff", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer();
             int projections = 0; var workflow = Workflow(http,printer,(id,r) => { projections++; Check(r.Accepted,"projected unaccepted result"); if (r.Print == null) Equal(0,printer.Calls); });
