@@ -20,27 +20,9 @@ namespace ASFuelControl.Communication
             }
         }
 
-        ETokenDomainManager _etoken;
-        readonly object etokenSync = new object();
         ETokenDomainManager etoken
         {
-            get
-            {
-                if (_etoken == null)
-                {
-                    lock (etokenSync)
-                    {
-                        if (_etoken == null)
-                        {
-                            //eTokenLib.eTokenLib
-                            GC.Collect(); GC.WaitForPendingFinalizers();
-                            _etoken = new ETokenDomainManager();
-                            _etoken.Load("C:\\ASFuelControl\\eTokenLib.dll", "eTokenLib.eTokenLib");
-                        }
-                    }
-                }
-                return _etoken;
-            }
+            get { return SendMethods.TokenManager; }
         }
 
         public bool Simulation { set; get; }
@@ -91,7 +73,7 @@ namespace ASFuelControl.Communication
             get 
             {
                 if (Amdika == null || Amdika == "")
-                    Amdika = etoken.AMDIKA_ID;
+                    Amdika = SendMethods.SharedAmdikaId;
                 return this.etoken; 
             }
         }
@@ -105,7 +87,7 @@ namespace ASFuelControl.Communication
             change.F_4001 = DateTime.Now;
             change.F_4002 = ft;
             change.F_4003 = newPrice;
-            change.F_AM_DIKA = etoken.AMDIKA_ID;
+            change.F_AM_DIKA = SendMethods.SharedAmdikaId;
             change.Header = new FuelFlowService.Header_Type();
             change.Header.CompanyTIN = header.CompanyTIN;
             change.Header.SubmissionDate = header.SubmissionDate;
@@ -139,7 +121,7 @@ namespace ASFuelControl.Communication
             alert.Header.CompanyTIN = header.CompanyTIN;
             alert.Header.SubmissionDate = header.SubmissionDate;
             alert.Header.SubmitterTIN = header.SubmitterTIN;
-            alert.F_AM_DIKA = etoken.AMDIKA_ID;
+            alert.F_AM_DIKA = SendMethods.SharedAmdikaId;
             alert.F_ALERT = new FuelFlowService.Alert_Type();
             alert.F_ALERT.F_ALERTID = (int)alertId;
             alert.F_ALERT.F_DATE = dt;
@@ -174,7 +156,7 @@ namespace ASFuelControl.Communication
         public bool SendBalance(ClientHeader header, Communication.BalanceClass balanceClass)
         {
             FuelFlowService.Fuelflows_TypeBalance balance =  balanceClass.GetElement();
-            balance.F_AM_DIKA = etoken.AMDIKA_ID;
+            balance.F_AM_DIKA = SendMethods.SharedAmdikaId;
             balance.Header = new FuelFlowService.Header_Type();
             balance.Header.CompanyTIN = CommunicationMethods.CompanyTin;
             balance.Header.SubmissionDate = DateTime.Now;
@@ -207,7 +189,7 @@ namespace ASFuelControl.Communication
 
         public bool SendDelievery(ClientHeader header, Communication.DeliveryNoteClass delivery)
         {
-            delivery.Document.Amdika = etoken.AMDIKA_ID;
+            delivery.Document.Amdika = SendMethods.SharedAmdikaId;
             FuelFlowService.Fuelflows_TypeDeliveryNote deliveryNote = delivery.GetElement();
 
             deliveryNote.Header.CompanyTIN = CommunicationMethods.CompanyTin;
@@ -242,7 +224,7 @@ namespace ASFuelControl.Communication
             literCheck.Header.SubmitterTIN = SubmitterTin;
             try
             {
-                literCheck.F_AM_DIKA = etoken.AMDIKA_ID;
+                literCheck.F_AM_DIKA = SendMethods.SharedAmdikaId;
                 if (!Simulation)
                 {
                     literCheck.Header.eToken = SendMethods.GetOTP();
@@ -265,7 +247,7 @@ namespace ASFuelControl.Communication
         {
             Communication.IncomeRecieptsClass reciepts = new IncomeRecieptsClass();
             foreach (Communication.IncomeRecieptClass rec in recs)
-                rec.Amdika = etoken.AMDIKA_ID;
+                rec.Amdika = SendMethods.SharedAmdikaId;
 
             reciepts.Reciepts = recs;
             FuelFlowService.Fuelflows_TypeIncomeReceipts reciept = reciepts.GetElement();
@@ -302,7 +284,7 @@ namespace ASFuelControl.Communication
             tankCheck.F_3003 = (tank.TankLevel == 0 ? 1 : tank.TankLevel) * (tank.TankVolume == 0 ? 1 : tank.TankVolume);
             tankCheck.F_3004 = tank.TankTemperature;
             tankCheck.F_3005 = tank.FuelDensity;
-            tankCheck.F_AM_DIKA = etoken.AMDIKA_ID;
+            tankCheck.F_AM_DIKA = SendMethods.SharedAmdikaId;
             tankCheck.F_LABEL = tank.TankId; //A.M Dejamenhs
             tankCheck.Header = new FuelFlowService.Header_Type();
             tankCheck.Header.CompanyTIN = header.CompanyTIN;

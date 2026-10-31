@@ -16,6 +16,7 @@ namespace ASFuelControl.Communication
         static DateTime dtInitOtp = DateTime.MinValue;
         static ETokenDomainManager _etoken;
         static readonly object etokenSync = new object();
+        static string amdikaId;
         static ETokenDomainManager etoken 
         {
             get 
@@ -27,7 +28,6 @@ namespace ASFuelControl.Communication
                         if (_etoken == null || _etoken.IsUnloaded)
                         {
                             //eTokenLib.eTokenLib
-                            GC.Collect(); GC.WaitForPendingFinalizers();
                             _etoken = new ETokenDomainManager();
                             _etoken.Load("C:\\ASFuelControl\\eTokenLib.dll", "eTokenLib.eTokenLib");
                             if (SentObjectLog != null && dtInitOtp == DateTime.MinValue)
@@ -43,8 +43,22 @@ namespace ASFuelControl.Communication
                 return _etoken; 
             }
         }
+        internal static ETokenDomainManager TokenManager { get { return etoken; } }
 
         private static object foo = new object();
+
+        internal static string SharedAmdikaId
+        {
+            get
+            {
+                lock (foo)
+                {
+                    if (string.IsNullOrWhiteSpace(amdikaId))
+                        amdikaId = etoken.AMDIKA_ID;
+                    return amdikaId;
+                }
+            }
+        }
 
         private static TResult UseFuelFlowClient<TResult>(Func<FuelFlowService.achilleas_fuelflow_receiptSoapClient, TResult> action)
         {
@@ -76,10 +90,6 @@ namespace ASFuelControl.Communication
                 DateTime dtEnd = DateTime.Now;
                 if (otp.Contains("ERROR"))
                 {
-                    if (otp.Contains("Πρόβλημα συγχρονισμού ώρας"))
-                    {
-                        etoken.Unload();
-                    }
                     Common.Logger.Instance.Error($"Start: {dtStart: yyyy/MM/dd HH:mm:ss.fff} - End: {dtEnd: yyyy/MM/dd HH:mm:ss.fff}, OTP Value: {otp}");
                 }
                 return otp;
@@ -94,7 +104,7 @@ namespace ASFuelControl.Communication
             tankCheck.F_3003 = tank.TankVolume;
             tankCheck.F_3004 = tank.TankTemperature;
             tankCheck.F_3005 = tank.FuelDensity;
-            tankCheck.F_AM_DIKA = etoken.AMDIKA_ID;
+            tankCheck.F_AM_DIKA = SharedAmdikaId;
             tankCheck.F_LABEL = tank.TankId; //A.M Dejamenhs
             tankCheck.Header = new FuelFlowService.Header_Type();
             tankCheck.Header.CompanyTIN = header.CompanyTIN;
@@ -139,7 +149,7 @@ namespace ASFuelControl.Communication
             alert.Header.CompanyTIN = header.CompanyTIN;
             
             alert.Header.SubmitterTIN = header.SubmitterTIN;
-            alert.F_AM_DIKA = etoken.AMDIKA_ID;
+            alert.F_AM_DIKA = SharedAmdikaId;
             alert.F_ALERT = new FuelFlowService.Alert_Type();
             alert.F_ALERT.F_ALERTID = (int)alertClass.Alert;
             alert.F_ALERT.F_DATE = alertClass.AlertTime;
@@ -182,7 +192,7 @@ namespace ASFuelControl.Communication
             change.F_4001 = changeClass.ChangeTime;
             change.F_4002 = ft;
             change.F_4003 = changeClass.Price;
-            change.F_AM_DIKA = etoken.AMDIKA_ID;
+            change.F_AM_DIKA = SharedAmdikaId;
             change.Header = new FuelFlowService.Header_Type();
             change.Header.CompanyTIN = header.CompanyTIN;
             change.Header.SubmissionDate = header.SubmissionDate;
@@ -217,7 +227,7 @@ namespace ASFuelControl.Communication
         {
             try
             {
-                income.Amdika = etoken.AMDIKA_ID;
+                income.Amdika = SharedAmdikaId;
                 IncomeRecieptsClass list = new IncomeRecieptsClass();
                 list.Reciepts = new List<IncomeRecieptClass>();
                 list.Reciepts.Add(income);
@@ -288,7 +298,7 @@ namespace ASFuelControl.Communication
             FuelFlowService.Fuelflows_TypeLiterCheck literCheck = lc.GetElement();
             try
             {
-                literCheck.F_AM_DIKA = etoken.AMDIKA_ID;
+                literCheck.F_AM_DIKA = SharedAmdikaId;
                 string returnStr = "";
                 if (!Simulation)
                 {
@@ -321,7 +331,7 @@ namespace ASFuelControl.Communication
             FuelFlowService.Fuelflows_TypeBalance balance = bc.GetElement();
             try
             {
-                balance.F_AM_DIKA = etoken.AMDIKA_ID;
+                balance.F_AM_DIKA = SharedAmdikaId;
                 balance.Header = new FuelFlowService.Header_Type();
                 balance.Header.CompanyTIN = header.CompanyTIN;
                 balance.Header.SubmitterTIN = header.SubmitterTIN;
@@ -360,7 +370,7 @@ namespace ASFuelControl.Communication
 
         public string GetSationRecord()
         {
-            return UseFuelFlowClient(client => client.GetRegNums(etoken.AMDIKA_ID, GetOTP()));
+            return UseFuelFlowClient(client => client.GetRegNums(SharedAmdikaId, GetOTP()));
         }
 
         private string SerializeObject(object obj)
@@ -416,9 +426,8 @@ namespace ASFuelControl.Communication
             if (_etokenType == null)
                 throw new InvalidOperationException("The eToken library has not been loaded.");
             if (_etoken == null || !method.DeclaringType.IsInstanceOfType(_etoken))
-                _etoken = Activator.CreateInstance(_etokenType);
-            if (_etoken == null)
-                throw new InvalidOperationException("The eToken target instance is unavailable.");
+                throw new InvalidOperationException(
+                    "The eToken target instance is unavailable. Restart the application; the native token library cannot be re-created safely in-process.");
             return _etoken;
         }
 
@@ -491,12 +500,14 @@ namespace ASFuelControl.Communication
         private readonly object _sync = new object();
         private AppDomain _domain;
         private ETokenProxy _proxy;
+        private Exception _loadFailure;
         public bool IsUnloaded { get; private set; } = false;
 
         public void Load(string assemblyPath, string typeName)
         {
             lock (_sync)
             {
+                ThrowIfLoadFailed();
                 if (_domain != null && _proxy != null && !IsUnloaded)
                     return;
 
@@ -518,24 +529,37 @@ namespace ASFuelControl.Communication
                     _proxy = proxy;
                     IsUnloaded = false;
                 }
-                catch
+                catch (Exception ex)
                 {
-                    AppDomain.Unload(domain);
-                    throw;
+                    // eTokenLib contains native/mixed initialization. Unloading a
+                    // partially initialized domain and loading it again can corrupt
+                    // native state and raise AccessViolationException. Keep this
+                    // process faulted and require a clean application restart.
+                    _domain = domain;
+                    _proxy = null;
+                    _loadFailure = ex;
+                    IsUnloaded = false;
+                    throw new InvalidOperationException(
+                        "Η βιβλιοθήκη eToken δεν αρχικοποιήθηκε. Επανεκκινήστε την εφαρμογή πριν από νέα προσπάθεια αποστολής.",ex);
                 }
             }
         }
 
         private void EnsureLoaded()
         {
-            if (_domain != null && _proxy != null && !IsUnloaded)
-                return;
-
             lock (_sync)
             {
+                ThrowIfLoadFailed();
                 if (_domain == null || _proxy == null || IsUnloaded)
                     Load(_path, _typeName);
             }
+        }
+
+        private void ThrowIfLoadFailed()
+        {
+            if (_loadFailure != null)
+                throw new InvalidOperationException(
+                    "Η βιβλιοθήκη eToken απέτυχε να φορτωθεί σε αυτή την εκτέλεση. Επανεκκινήστε την εφαρμογή.",_loadFailure);
         }
 
         public string GetOTP()
@@ -604,12 +628,8 @@ namespace ASFuelControl.Communication
         {
             lock (_sync)
             {
-                AppDomain domain = _domain;
-                _domain = null;
-                _proxy = null;
-                IsUnloaded = true;
-                if (domain != null)
-                    AppDomain.Unload(domain);
+                // Intentionally retained until process exit. eTokenLib uses native
+                // state and is not safe to unload/reload inside the same process.
             }
         }
     }
