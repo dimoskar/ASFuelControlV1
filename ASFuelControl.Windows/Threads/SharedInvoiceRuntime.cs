@@ -15,6 +15,7 @@ namespace ASFuelControl.Windows.Threads
     internal static partial class SharedInvoiceRuntime
     {
         internal const string OperatorRequestedCopyReason = "Operator requested an invoice copy.";
+        private const string ReprintRequestPrefix = "ASFC-REPRINT-V1:";
 
         // Routing/device settings are stable for this process. Unused provider
         // connections read the latest saved account and credential profile.
@@ -110,8 +111,13 @@ namespace ASFuelControl.Windows.Threads
         {
             if (new SqlHeatingCorrectionStore(sql.Value).IsChild(id,true))
                 throw new InvalidOperationException("Το παραστατικό ελέγχεται από την παρτίδα διόρθωσης επιδόματος θέρμανσης. Συνεχίστε την παρτίδα από τις Ενέργειες του καταλόγου.");
-            var reprintDestination = string.IsNullOrWhiteSpace(reason) ? null : CurrentPrintDestination(id);
-            return workflow.Value.Process(id, new Source(print), print, reason,reprintDestination: reprintDestination);
+            var routedReason = reason;
+            if (!string.IsNullOrWhiteSpace(reason))
+                routedReason = ReprintRequestPrefix + JsonConvert.SerializeObject(new {
+                    Reason = reason,
+                    PrintDestination = CurrentPrintDestination(id)
+                });
+            return workflow.Value.Process(id, new Source(print), print, routedReason);
         }
         internal static InvoiceWorkflowResult SubmitPrintedInvoice(Guid id)
         {

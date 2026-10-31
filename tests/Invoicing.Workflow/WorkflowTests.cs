@@ -318,7 +318,8 @@ internal static partial class Program
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer(); var workflow = Workflow(http,printer);
             workflow.Process(source.Source.Id,source); var original = printer.Bytes; var calls = http.Calls;
             source.Snapshot.PrintContent = Encoding.UTF8.GetBytes("edited"); source.Snapshot.PrintDestination = "different"; source.Source.Invoice.TotalAmount = 999;
-            workflow.Process(source.Source.Id,source,true,"Customer requested copy",reprintDestination:"corrected-printer");
+            var request = "ASFC-REPRINT-V1:" + JsonConvert.SerializeObject(new { Reason = "Customer requested copy",PrintDestination = "corrected-printer" });
+            workflow.Process(source.Source.Id,source,true,request);
             Check(original.SequenceEqual(printer.Bytes),"rendered current data"); Equal("corrected-printer",printer.Destination); Equal(2,printer.Calls); Equal(calls,http.Calls); Equal(1,source.Loads);
             Equal("Customer requested copy",Prints(source.Source.Id).Last().Reason);
         });

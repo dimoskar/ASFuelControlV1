@@ -88,8 +88,19 @@ namespace ASFuelControl.Invoicing
             snapshots = new SqlInvoiceWorkflowStore(database); history = new SqlFiscalHistoryStore(database);
         }
 
+        private const string ReprintRequestPrefix = "ASFC-REPRINT-V1:";
+
         public InvoiceWorkflowResult Process(Guid invoiceId, IInvoiceWorkflowSource source, bool print = true, string reprintReason = null, bool retryRejected = false,
-            bool retryDeclinedPayment = false, string reprintDestination = null)
+            bool retryDeclinedPayment = false)
+        {
+            var reprintDestination = ReadReprintDestination(ref reprintReason);
+            return Process(invoiceId,source,print,reprintReason,retryRejected,retryDeclinedPayment,reprintDestination);
+        }
+
+        // Keep the temporarily published seven-argument entry point so either
+        // executable generation can run while an installation is being updated.
+        public InvoiceWorkflowResult Process(Guid invoiceId, IInvoiceWorkflowSource source, bool print, string reprintReason, bool retryRejected,
+            bool retryDeclinedPayment, string reprintDestination)
         {
             using (var lease = database.EnterInvoice(invoiceId))
             {
@@ -225,6 +236,25 @@ namespace ASFuelControl.Invoicing
                     project(invoiceId, result);
                 }
                 return result;
+            }
+        }
+        private static string ReadReprintDestination(ref string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason) || !reason.StartsWith(ReprintRequestPrefix,StringComparison.Ordinal))
+                return null;
+            try
+            {
+                var request = Newtonsoft.Json.Linq.JObject.Parse(reason.Substring(ReprintRequestPrefix.Length));
+                var destination = (string)request["PrintDestination"];
+                var auditReason = (string)request["Reason"];
+                if (string.IsNullOrWhiteSpace(destination) || string.IsNullOrWhiteSpace(auditReason))
+                    throw new InvalidOperationException("Incomplete reprint routing request.");
+                reason = auditReason;
+                return destination;
+            }
+            catch (Newtonsoft.Json.JsonException ex)
+            {
+                throw new InvalidOperationException("Invalid reprint routing request.",ex);
             }
         }
         private static void Validate(InvoiceWorkflowSnapshot value, Guid id, bool validateInvoice = true)
