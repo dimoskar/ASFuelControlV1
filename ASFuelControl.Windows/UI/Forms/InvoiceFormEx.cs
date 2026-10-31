@@ -97,14 +97,31 @@ namespace ASFuelControl.Windows.UI.Forms
             ivm.Load(invoiceId);
             
             this.invoiceViewModelBindingSource.ResetBindings(false);
-            this.invoiceTypesBindingSource.ResetBindings(false);
             this.invoiceLinesBindingSource.ResetBindings(false);
-            this.radDropDownList1.SelectedValue = ivm.InvoiceTypeId;
+            SynchronizeLoadedInvoiceType();
             this.panel6.Visible = false;
             ApplyPriceBindings();
             this.SetView();
             fiscalPanel.LoadInvoice(invoiceId);
             if (myDieselVisible) myDieselPanel.LoadInvoice(invoiceId);
+        }
+
+        private void SynchronizeLoadedInvoiceType()
+        {
+            this.invoiceTypesBindingSource.ResetBindings(false);
+            var selected = (ivm.InvoiceTypes ?? new ViewModels.InvoiceTypeViewModel[0])
+                .FirstOrDefault(item => item.InvoiceTypeId == ivm.InvoiceTypeId);
+            if (!ivm.EditEnabled && selected != null)
+            {
+                // A locked invoice cannot change type. Bind its combo to the
+                // exact database-backed item so Telerik cannot substitute the
+                // first entry from an earlier scenario-filtered list.
+                this.radDropDownList1.DataSource = new[] { selected };
+                this.radDropDownList1.SelectedIndex = 0;
+                return;
+            }
+            this.radDropDownList1.DataSource = this.invoiceTypesBindingSource;
+            this.radDropDownList1.SelectedValue = ivm.InvoiceTypeId;
         }
 
         public Guid TransformInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId,

@@ -1547,7 +1547,10 @@ namespace ASFuelControl.Windows.ViewModels
             var persistedTypeId = db.Invoices.Where(i => i.InvoiceId == id)
                 .Select(i => i.InvoiceTypeId)
                 .SingleOrDefault();
-            if (persistedTypeId != Guid.Empty &&
+            var persistedType = LoadPersistedInvoiceType(db,persistedTypeId);
+            if (persistedType != null)
+                this.InvoiceTypes = ReplaceInvoiceType(this.InvoiceTypes,persistedType);
+            else if (persistedTypeId != Guid.Empty &&
                 !this.InvoiceTypes.Any(i => i.InvoiceTypeId == persistedTypeId))
             {
                 this.InvoiceTypes = CommonCache.Instance.InvoiceTypes.ToArray();
@@ -1560,6 +1563,8 @@ namespace ASFuelControl.Windows.ViewModels
                 this.InvoiceTypes = CommonCache.Instance.InvoiceTypes.ToArray();
                 this.SuspendRecalculation = true;
             }
+            if (persistedType != null)
+                this.InvoiceTypes = ReplaceInvoiceType(this.InvoiceTypes,persistedType);
 
             // Replacing InvoiceTypes does not notify the nested BindingSource.
             // Publish the final list, then reassert the value read from the
@@ -1595,6 +1600,24 @@ namespace ASFuelControl.Windows.ViewModels
                 }
             }
             this.CurrentLine = this.InvoiceLines.FirstOrDefault();
+        }
+
+        private static InvoiceTypeViewModel LoadPersistedInvoiceType(DatabaseModel db,Guid invoiceTypeId)
+        {
+            if (invoiceTypeId == Guid.Empty) return null;
+            var entity = db.InvoiceTypes.SingleOrDefault(i => i.InvoiceTypeId == invoiceTypeId);
+            if (entity == null) return null;
+            var result = new InvoiceTypeViewModel();
+            result.Load(db,entity);
+            return result;
+        }
+
+        private static InvoiceTypeViewModel[] ReplaceInvoiceType(InvoiceTypeViewModel[] source,InvoiceTypeViewModel persisted)
+        {
+            return (source ?? new InvoiceTypeViewModel[0])
+                .Where(item => item.InvoiceTypeId != persisted.InvoiceTypeId)
+                .Concat(new[] { persisted })
+                .ToArray();
         }
 
         public override bool Save(Guid id)
