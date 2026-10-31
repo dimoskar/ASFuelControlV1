@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using ASFuelControl.Windows.Threads;
 using ASFuelControl.Windows.UI.Forms;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Telerik.WinControls;
 using Telerik.WinControls.UI;
@@ -181,7 +182,7 @@ namespace ASFuelControl.Windows.UI.Controls
                     summary.Text += "\r\nΗ έκβαση δεν επιβεβαιώθηκε. Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια μετά από ρητή επιβεβαίωση του κινδύνου διπλής έκδοσης.";
                 if (string.IsNullOrWhiteSpace(CurrentActionMessage) && snapshot.Provider != null && snapshot.Payment == null && snapshot.Signing == null && !status.Attempts.Any(a => a.Family == "Submission"))
                     summary.Text += "\r\nΈχουν αποθηκευτεί τα στοιχεία έκδοσης, αλλά δεν έχει καταγραφεί αποστολή παραστατικού.\r\nΗ σύνδεση / προετοιμασία μπορεί να μην ολοκληρώθηκε. Η «Συνέχιση έκδοσης» εμφανίζει το αποτέλεσμα.";
-                history.Text = string.Join("\r\n",status.Revisions.Select(a => a.UpdatedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") + " · " + a.Family + " · " + StateLabel(a.State) + " · " + a.AttemptId));
+                history.Text = string.Join("\r\n",status.Revisions.Select(HistoryLine));
                 payment.Text = snapshot.Payment == null ? "Δεν υπάρχει ενσωματωμένη πληρωμή POS." : "GBridge · " + snapshot.Payment.TerminalId +
                     "\r\nΤρόπος POS: " + (snapshot.Payment.PosMode ?? (snapshot.Payment.Provider.ProviderKey == "Ilyda.Direct" ? snapshot.Payment.IlydaProtocol :
                     snapshot.Payment.ITimologiaSignatureFormat == 1 ? "EDPS / Viva (παλαιό προφίλ)" : "Mellon / ePay / Cardlink / Nexi (παλαιό προφίλ)")) +
@@ -291,6 +292,25 @@ namespace ASFuelControl.Windows.UI.Controls
             if (family == "Print") return "Αιτιολογία: " + (string)token["Reason"] + "\r\nΤεκμήριο: " + (string)token["Response"];
             return string.Join("\r\n",((JContainer)token).DescendantsAndSelf().OfType<JProperty>().Where(p => allowed.Contains(p.Name) && p.Value is JValue && p.Value.Type != JTokenType.Null)
                 .Select(p => p.Name == "ErrorMessage" ? (string)p.Value : p.Name + ": " + p.Value));
+        }
+        private static string HistoryLine(ASFuelControl.Invoicing.Persistence.FiscalAttemptEvidence attempt)
+        {
+            var line = attempt.UpdatedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") + " · " +
+                attempt.Family + " · " + StateLabel(attempt.State) + " · " + attempt.AttemptId;
+            if (attempt.Family != "Print" || string.IsNullOrWhiteSpace(attempt.Scope)) return line;
+            try
+            {
+                var profile = JsonConvert.DeserializeObject<SharedPrinterProfile>(attempt.Scope);
+                if (!string.IsNullOrWhiteSpace(profile?.PrinterName))
+                    return line + " · Εκτυπωτής: " + profile.PrinterName;
+            }
+            catch (JsonException)
+            {
+                var legacyName = attempt.Scope.Trim();
+                if (!legacyName.StartsWith("{",StringComparison.Ordinal) && !legacyName.StartsWith("[",StringComparison.Ordinal))
+                    return line + " · Εκτυπωτής: " + legacyName;
+            }
+            return line + " · Εκτυπωτής: (δεν καταγράφηκε)";
         }
         internal static string StateLabel(string state)
         {
