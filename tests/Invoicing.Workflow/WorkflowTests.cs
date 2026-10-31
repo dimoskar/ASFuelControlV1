@@ -314,6 +314,12 @@ internal static partial class Program
                     var pixel = image.GetPixel(x,y); if(pixel.R < 80 && pixel.G < 80 && pixel.B < 80) dark++;
                 }
                 Check(dark > 2500,"The fiscal and company QR codes were not rendered");
+                for(int y=0;y<image.Height;y+=2)
+                    for(int x=image.Width-SharedInvoicePrinting.ThermalContentMarginPixels;x<image.Width;x++)
+                    {
+                        var pixel = image.GetPixel(x,y);
+                        Check(pixel.R > 245 && pixel.G > 245 && pixel.B > 245,"Thermal content entered the right-edge safety gutter");
+                    }
             }
             System.IO.File.WriteAllBytes(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"thermal-layout-preview.png"),pages[0]);
         });
@@ -360,6 +366,9 @@ internal static partial class Program
             Equal(803f,normalized.Width); Equal(559f,normalized.Height);
             var thermal = SharedInvoicePrinting.NormalizePrintableArea(portrait,472,1650);
             Equal(portrait,thermal);
+            var safeThermal = SharedInvoicePrinting.ApplyThermalSafetyInset(new System.Drawing.RectangleF(0,0,315,1100),true);
+            Equal(8f,safeThermal.X); Equal(299f,safeThermal.Width); Equal(1100f,safeThermal.Height);
+            Equal(portrait,SharedInvoicePrinting.ApplyThermalSafetyInset(portrait,false));
         });
         Test("issuance, acceptance projection and independent print handoff", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer();

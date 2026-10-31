@@ -28,6 +28,7 @@ namespace ASFuelControl.Windows.Threads
     internal sealed class SharedInvoicePrinting : IFiscalPrintTransport
     {
         internal const string Format = "invoice-png-pages/v1";
+        internal const int ThermalContentMarginPixels = 24; // 4.064 mm at 150 dpi
         internal const string MissingPrinterMessage = "Δεν βρέθηκε εκτυπωτής για την έκδοση. Ορίστε έναν εγκατεστημένο εκτυπωτή ως προεπιλεγμένο στην εγκατάσταση ή στα Windows.";
         private readonly Func<SharedPrinterProfile> installationDefault;
         internal SharedInvoicePrinting(Func<SharedPrinterProfile> installationDefault = null)
@@ -115,15 +116,17 @@ namespace ASFuelControl.Windows.Threads
                         {
                             graphics.Clear(Color.White);
                             int chars, lines;
-                            var area = new RectangleF(15,15,width - 30,height - 30);
+                            var area = new RectangleF(ThermalContentMarginPixels,ThermalContentMarginPixels,
+                                width - ThermalContentMarginPixels * 2,height - ThermalContentMarginPixels * 2);
                             graphics.MeasureString(text, font, area.Size, format, out chars, out lines);
                             if (chars <= 0) throw new InvalidOperationException("The invoice cannot fit the configured paper.");
                             graphics.DrawString(text.Substring(0, chars), font, Brushes.Black, area, format);
                             text = text.Substring(chars);
                             if (text.Length == 0 && (fiscalQrImage != null || companyQrImage != null))
                             {
-                                int top = 30 + (int)Math.Ceiling(font.GetHeight(graphics) * lines);
-                                qrCodesPrinted = DrawQrCodes(graphics,fiscalQrImage,companyQrImage,width,height,top,font) >= 0;
+                                int top = ThermalContentMarginPixels * 2 + (int)Math.Ceiling(font.GetHeight(graphics) * lines);
+                                qrCodesPrinted = DrawQrCodes(graphics,fiscalQrImage,companyQrImage,width,height,top,font,
+                                    ThermalContentMarginPixels) >= 0;
                             }
                         }
                         using (var output = new MemoryStream()) { page.Save(output, ImageFormat.Png); pages.Add(output.ToArray()); }
@@ -137,10 +140,12 @@ namespace ASFuelControl.Windows.Threads
                         using (var graphics = Graphics.FromImage(page))
                         {
                             graphics.Clear(Color.White);
-                            int bottom = DrawQrCodes(graphics,fiscalQrImage,companyQrImage,width,height,15,font);
+                            int bottom = DrawQrCodes(graphics,fiscalQrImage,companyQrImage,width,height,
+                                ThermalContentMarginPixels,font,ThermalContentMarginPixels);
                             if (bottom < 0) throw new InvalidOperationException("The QR codes cannot fit the configured paper.");
                             graphics.DrawString("Invoice: " + snapshot.InvoiceId + "\r\nMARK: " + response?.Mark + "\r\n" + response?.QrCodeUrl,
-                                font, Brushes.Black, new RectangleF(15,bottom + 15,width - 30,height - bottom - 30));
+                                font, Brushes.Black, new RectangleF(ThermalContentMarginPixels,bottom + ThermalContentMarginPixels,
+                                    width - ThermalContentMarginPixels * 2,height - bottom - ThermalContentMarginPixels * 2));
                         }
                         using (var output = new MemoryStream()) { page.Save(output, ImageFormat.Png); pages.Add(output.ToArray()); }
                     }
@@ -148,7 +153,8 @@ namespace ASFuelControl.Windows.Threads
             }
             return Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(pages));
         }
-        private static int DrawQrCodes(Graphics graphics, Bitmap fiscalQr, Bitmap companyQr, int pageWidth, int pageHeight, int top, Font font)
+        private static int DrawQrCodes(Graphics graphics, Bitmap fiscalQr, Bitmap companyQr, int pageWidth, int pageHeight,
+            int top, Font font, int margin)
         {
             var images = new List<Bitmap>();
             var labels = new List<string>();
@@ -157,10 +163,11 @@ namespace ASFuelControl.Windows.Threads
             if (images.Count == 0) return top;
 
             const int gap = 15;
-            int size = images.Count == 1 ? Math.Min(pageWidth - 30,300) : Math.Min((pageWidth - gap * 3) / 2,240);
+            int availableWidth = pageWidth - margin * 2;
+            int size = images.Count == 1 ? Math.Min(availableWidth,300) : Math.Min((availableWidth - gap) / 2,240);
             int labelHeight = (int)Math.Ceiling(font.GetHeight(graphics));
             int bottom = top + labelHeight + size;
-            if (bottom > pageHeight - 15) return -1;
+            if (bottom > pageHeight - margin) return -1;
             int totalWidth = images.Count * size + (images.Count - 1) * gap;
             int left = (pageWidth - totalWidth) / 2;
             for (int index = 0; index < images.Count; index++)
@@ -234,6 +241,16 @@ namespace ASFuelControl.Windows.Threads
                 return area;
             return new RectangleF(area.Y,area.X,area.Height,area.Width);
         }
+        internal static RectangleF ApplyThermalSafetyInset(RectangleF area, bool thermal)
+        {
+            // Some POS80 drivers report the complete 80 mm roll as printable,
+            // although the print head cannot reach its outer edges. Apply this at
+            // handoff too, so reprints of already-frozen pages remain complete.
+            const float insetHundredths = 8f; // 2.032 mm on each side
+            if (!thermal || area.Width <= insetHundredths * 2) return area;
+            return new RectangleF(area.X + insetHundredths,area.Y,
+                area.Width - insetHundredths * 2,area.Height);
+        }
         public void Validate(string destination, string format, byte[] document)
         {
             if (format != Format) throw new InvalidOperationException("Unsupported saved print format.");
@@ -268,7 +285,8 @@ namespace ASFuelControl.Windows.Threads
                     {
                         // Account for the physical printer's non-printable margins.
                         var reportedArea = args.PageSettings.PrintableArea;
-                        var area = NormalizePrintableArea(reportedArea,image.Width,image.Height);
+                        var area = ApplyThermalSafetyInset(
+                            NormalizePrintableArea(reportedArea,image.Width,image.Height),p.Thermal);
                         bool swapped = area.Width == reportedArea.Height && area.Height == reportedArea.Width &&
                             (reportedArea.Width != reportedArea.Height);
                         float hardMarginX = swapped ? args.PageSettings.HardMarginY : args.PageSettings.HardMarginX;

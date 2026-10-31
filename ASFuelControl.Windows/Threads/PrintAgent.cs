@@ -440,6 +440,7 @@ namespace ASFuelControl.Windows.Threads
                         //{
                         using (Reports.Invoices.InvoiceReportNarrow report = new Reports.Invoices.InvoiceReportNarrow())
                         {
+                            report.ApplyThermalPrintSafety();
                             var fs = Data.Implementation.OptionHandler.Instance.GetDecimalOption("ThermalPrintFontSize", 9);
                             var fn = Data.Implementation.OptionHandler.Instance.GetOption("ThermalPrintFontName", "Bahnschrift Light Condensed");
 
@@ -2379,6 +2380,7 @@ namespace ASFuelControl.Windows.Threads
                     //{
                     using (Reports.Invoices.InvoiceReportNarrow report = new Reports.Invoices.InvoiceReportNarrow())
                     {
+                        report.ApplyThermalPrintSafety();
                         var fs = Data.Implementation.OptionHandler.Instance.GetDecimalOption("ThermalPrintFontSize", 9);
                         var fn = Data.Implementation.OptionHandler.Instance.GetOption("ThermalPrintFontName", "Bahnschrift Light Condensed");
 

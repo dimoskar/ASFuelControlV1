@@ -163,6 +163,9 @@
     <Compile Include="Invoices\InvoiceReportNarrow.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Invoices\InvoiceReportNarrow.PrintSafety.cs">
+      <DependentUpon>InvoiceReportNarrow.cs</DependentUpon>
+    </Compile>
     <Compile Include="Invoices\InvoiceReportNarrow.Designer.cs">
       <DependentUpon>InvoiceReportNarrow.cs</DependentUpon>
     </Compile>
