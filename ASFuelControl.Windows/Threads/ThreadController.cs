@@ -56,6 +56,7 @@ namespace ASFuelControl.Windows.Threads
         private MyDieselPollingWorker myDieselPolling;
         private OutboundAuditArchiveWorker outboundAuditArchiveWorker;
         private bool databaseUpdateVerified;
+        private readonly object salePersistenceSync = new object();
         
 
         #endregion
@@ -1715,12 +1716,23 @@ namespace ASFuelControl.Windows.Threads
         /// <param name="e"></param>
         void controllerThread_SaleAvaliable(object sender, WorkFlow.SaleCompletedArgs e)
         {
-            Common.Sales.SaleData sale = e.Sale;
-            if (sale == null)
+            if (e == null || e.Sale == null)
             {
                 Logger.Instance.LogToFile("controllerThread_SaleAvaliable", "Sale is Null");
                 return;
             }
+
+            lock (this.salePersistenceSync)
+            {
+                if (e.Sale.SaleProcessed)
+                    return;
+                this.PersistSale(e);
+            }
+        }
+
+        private void PersistSale(WorkFlow.SaleCompletedArgs e)
+        {
+            Common.Sales.SaleData sale = e.Sale;
             Data.Invoice newInvoice = null;
             Data.Nozzle nozzle = null;
             try
@@ -1738,56 +1750,76 @@ namespace ASFuelControl.Windows.Threads
                 VirtualDevices.VirtualNozzle vnz = this.controllerThread.GetNozzle(nozzle.NozzleId);
                 nozzle.TotalCounter = vnz.TotalVolumeCounter;
                 this.database.SaveChanges();
+                var matchingSales = this.database.SalesTransactions.Where(s =>
+                    s.NozzleId == sale.NozzleId &&
+                    s.TotalizerStart == sale.TotalizerStart &&
+                    s.TotalizerEnd == sale.TotalizerEnd);
+                Data.SalesTransaction existingSale = sale.InvalidSale
+                    ? matchingSales.Where(s => s.InvalidSale == true)
+                        .OrderByDescending(s => s.TransactionTimeStamp)
+                        .FirstOrDefault()
+                    : matchingSales.Where(s => s.InvalidSale == null || s.InvalidSale == false)
+                        .OrderByDescending(s => s.TransactionTimeStamp)
+                        .FirstOrDefault();
+
+                if (existingSale != null)
+                {
+                    Data.InvoiceLine existingLine = existingSale.InvoiceLines.FirstOrDefault();
+                    if (!sale.InvalidSale && existingLine == null)
+                        throw new InvalidOperationException(string.Format(
+                            "SalesTransaction {0} exists without an invoice line.",
+                            existingSale.SalesTransactionId));
+
+                    if (existingLine != null)
+                        e.InvoiceLineId = existingLine.InvoiceLineId;
+                    sale.SaleProcessed = true;
+                    this.ApplyLiterCheckPersistence(sale, e.InvoiceLineId);
+                    Logger.Instance.LogToFile(
+                        "controllerThread_SaleAvaliable",
+                        string.Format(
+                            "Existing sale acknowledged. SalesId:{0}, NozzleId:{1}, TotalizerStart:{2}, TotalizerEnd:{3}, SalesTransactionId:{4}",
+                            sale.SalesId,
+                            sale.NozzleId,
+                            sale.TotalizerStart,
+                            sale.TotalizerEnd,
+                            existingSale.SalesTransactionId));
+                    return;
+                }
+
                 if (sale.InvalidSale)
                 {
                     Guid saleTransId = nozzle.Dispenser.CreateSalesTransaction(sale);
                     VirtualNozzle nz = this.controllerThread.GetNozzle(sale.NozzleId);
                     if (nz == null || saleTransId == Guid.Empty)
-                    {
-                        //this.controllerThread.RenoveSale();
-                        return;
-                    }
+                        throw new InvalidOperationException(string.Format(
+                            "Invalid sale could not be created for nozzle {0}.",
+                            sale.NozzleId));
+
+                    this.database.SaveChanges();
                     nz.ParentDispenser.HasInvalidSale = true;
                     nz.ParentDispenser.InvalidSales.Add(saleTransId);
-                    //this.controllerThread.RenoveSale();
+                    sale.SaleProcessed = true;
                     return;
                 }
                 else
                 {
                     VirtualDispenser[] dispensers = this.GetDispensers();
                     VirtualNozzle nz = dispensers.SelectMany(d => d.Nozzles).Where(n => n.NozzleId == nozzle.NozzleId).FirstOrDefault();
+                    if (nz == null)
+                        throw new InvalidOperationException(string.Format(
+                            "Virtual nozzle {0} was not found while creating a sale.",
+                            nozzle.NozzleId));
                     nozzle.DiscountPercentage = nz.DiscountPercentage;
-
-                    Data.SalesTransaction previousSale = this.database.SalesTransactions
-                        .Where(s => s.NozzleId == sale.NozzleId)
-                        .OrderByDescending(s => s.TransactionTimeStamp)
-                        .FirstOrDefault();
-
-                    if (previousSale != null &&
-                        previousSale.TotalizerStart == sale.TotalizerStart &&
-                        previousSale.TotalizerEnd == sale.TotalizerEnd)
-                    {
-                        Logger.Instance.LogToFile(
-                            "controllerThread_SaleAvaliable",
-                            string.Format(
-                                "Duplicate sale ignored. NozzleId:{0}, TotalizerStart:{1}, TotalizerEnd:{2}, PreviousSaleId:{3}",
-                                sale.NozzleId,
-                                sale.TotalizerStart,
-                                sale.TotalizerEnd,
-                                previousSale.SalesTransactionId));
-                        return;
-                    }
 
                     newInvoice = nozzle.Dispenser.CreateSale(sale);
                     
                     nozzle.DiscountPercentage = 0;
                     nz.DiscountPercentage = 0;
                     if (newInvoice == null)
-                    {
-                        Logger.Instance.LogToFile("controllerThread_SaleAvaliable", "Invoice not Created");
-                        //this.controllerThread.RenoveSale();
-                        return;
-                    }
+                        throw new InvalidOperationException(string.Format(
+                            "Invoice was not created for sale {0} on nozzle {1}.",
+                            sale.SalesId,
+                            sale.NozzleId));
                 }
                 if (nozzle != null)
                 {
@@ -1807,13 +1839,6 @@ namespace ASFuelControl.Windows.Threads
                         }
                     }
                 }
-                if (newInvoice != null)
-                {
-                    Data.InvoiceLine invLine = newInvoice.InvoiceLines.FirstOrDefault();
-                    if (invLine != null)
-                        e.InvoiceLineId = invLine.InvoiceLineId;
-                }
-                //this.controllerThread.RenoveSale();
                 if (nozzle.Dispenser.EuromatEnabled)
                 {
                     if (sale.EuromatTransaction != null)
@@ -1843,17 +1868,43 @@ namespace ASFuelControl.Windows.Threads
                         }
                     }
                 }
+                this.database.SaveChanges();
+
+                Data.InvoiceLine invoiceLine = newInvoice.InvoiceLines.FirstOrDefault();
+                if (invoiceLine == null)
+                    throw new InvalidOperationException(string.Format(
+                        "Invoice {0} was committed without an invoice line.",
+                        newInvoice.InvoiceId));
+
+                e.InvoiceLineId = invoiceLine.InvoiceLineId;
+                sale.SaleProcessed = true;
+                this.ApplyLiterCheckPersistence(sale, e.InvoiceLineId);
             }
             catch(Exception ex)
             {
-                Logger.Instance.LogToFile("Create Sale", ex);
-                this.database.ClearChanges();
-                System.Threading.Thread.Sleep(500);
-                this.controllerThread_SaleAvaliable(sender, e);
+                sale.SaleProcessed = false;
+                e.InvoiceLineId = Guid.Empty;
+                Logger.Instance.LogToFile(
+                    "Create Sale",
+                    string.Format(
+                        "Sale persistence failed. SalesId:{0}, NozzleId:{1}, TotalizerStart:{2}, TotalizerEnd:{3}\r\n{4}",
+                        sale.SalesId,
+                        sale.NozzleId,
+                        sale.TotalizerStart,
+                        sale.TotalizerEnd,
+                        ex));
+                try
+                {
+                    this.database.ClearChanges();
+                }
+                catch (Exception clearException)
+                {
+                    Logger.Instance.LogToFile("Create Sale ClearChanges", clearException);
+                    this.restartDatabase = true;
+                }
                 return;
             }
 
-            this.database.SaveChanges();
             if (newInvoice != null && nozzle != null)
             {
                 try
@@ -1868,6 +1919,24 @@ namespace ASFuelControl.Windows.Threads
             ///////////////////////////
             //here updates the tanks.//
             ///////////////////////////
+        }
+
+        private void ApplyLiterCheckPersistence(Common.Sales.SaleData sale, Guid invoiceLineId)
+        {
+            if (sale == null || invoiceLineId == Guid.Empty)
+                return;
+
+            VirtualNozzle nozzle = this.controllerThread.GetNozzle(sale.NozzleId);
+            if (nozzle == null || (!sale.LiterCheck && nozzle.Status != Common.Enumerators.NozzleStateEnum.LiterCheck))
+                return;
+
+            foreach (VirtualTank tank in nozzle.ConnectedTanks)
+            {
+                tank.InvoiceLineId = invoiceLineId;
+                tank.InitializeFilling = true;
+                tank.IsLiterCheck = true;
+            }
+            nozzle.Status = Common.Enumerators.NozzleStateEnum.Locked;
         }
 
         void controllerThread_CheckInvoices(object sender, EventArgs e)
