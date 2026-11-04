@@ -125,7 +125,7 @@ internal static partial class Program
         foreach(string column in ids.Split(','))Execute(connection,"ALTER TABLE dbo.Invoice ADD "+column+" uniqueidentifier NULL;");
         foreach(string column in decimals.Split(','))Execute(connection,"ALTER TABLE dbo.Invoice ADD "+column+" decimal(18,4) NULL;");
         foreach(string column in "Printer,Notes,SupplyNumber,DeliveryAddress".Split(','))Execute(connection,"ALTER TABLE dbo.Invoice ADD "+column+" nvarchar(max) NULL;");
-        Execute(connection,"ALTER TABLE dbo.Invoice ADD PaymentType int NULL,IsEuromat bit NULL,AllowEdit bit NULL;");
+        Execute(connection,"ALTER TABLE dbo.Invoice ADD IsEuromat bit NULL,AllowEdit bit NULL;");
         foreach(string column in "InvoiceLineId,SaleTransactionId,TankFillingId,FuelTypeId,TankId,InvoiceRelationId".Split(','))Execute(connection,"ALTER TABLE dbo.InvoiceLine ADD "+column+" uniqueidentifier NULL;");
         foreach(string column in "Volume,VolumeNormalized,Temperature,FuelDensity,UnitPrice,TotalPrice,VatAmount,VatPercentage,DiscountAmount,UnitPriceWhole,DiscountAmountWhole,UnitPriceRetail,DiscountAmountRetail,DiscountPercentage".Split(','))Execute(connection,"ALTER TABLE dbo.InvoiceLine ADD "+column+" decimal(18,4) NULL;");
         Test("batch schema is idempotent and ownership protects reserved children before creation",()=>{

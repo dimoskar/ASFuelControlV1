@@ -374,10 +374,10 @@
             // 
             // radMenuItem1
             // 
-            this.radMenuItem1.AccessibleDescription = "Προσθήκη μέσω ΓΓΠΣ";
-            this.radMenuItem1.AccessibleName = "Προσθήκη μέσω ΓΓΠΣ";
+            this.radMenuItem1.AccessibleDescription = "Προσθήκη μέσω ΑΑΔΕ";
+            this.radMenuItem1.AccessibleName = "Προσθήκη μέσω ΑΑΔΕ";
             this.radMenuItem1.Name = "radMenuItem1";
-            this.radMenuItem1.Text = "Προσθήκη μέσω ΓΓΠΣ";
+            this.radMenuItem1.Text = "Προσθήκη μέσω ΑΑΔΕ";
             this.radMenuItem1.Visibility = Telerik.WinControls.ElementVisibility.Visible;
             this.radMenuItem1.Click += new System.EventHandler(this.radMenuItem1_Click);
             // 

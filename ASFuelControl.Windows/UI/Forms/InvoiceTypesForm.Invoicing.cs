@@ -88,6 +88,20 @@ namespace ASFuelControl.Windows.UI.Forms
             vm.HasChanges = true;
             radLabel25.Text = "Τρόπος διαβίβασης";
         }
+        private void CopyInvoicingPolicy(Guid sourceInvoiceTypeId, Guid copyInvoiceTypeId)
+        {
+            InvoiceTypePolicy source;
+            if (!policies.TryGetValue(sourceInvoiceTypeId,out source))
+                return;
+            policies[copyInvoiceTypeId] = new InvoiceTypePolicy
+            {
+                InvoiceTypeId = copyInvoiceTypeId,
+                Transmission = source.Transmission,
+                SignWithFiscalDevice = source.SignWithFiscalDevice,
+                Revision = 0
+            };
+            changedPolicies.Add(copyInvoiceTypeId);
+        }
         private void SaveInvoicingPolicies()
         {
             foreach (var id in changedPolicies) policies[id].Validate();

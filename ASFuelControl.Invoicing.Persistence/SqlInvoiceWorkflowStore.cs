@@ -94,6 +94,58 @@ namespace ASFuelControl.Invoicing.Persistence
                 return replacementSnapshot;
             });
         }
+        // A direct-pump invoice-delivery that never completed issuance may be
+        // dispatched on a later day. The host invoice row is deliberately not
+        // updated: only the fingerprinted workflow payload changes under the
+        // database guards in ReplaceWorkflowForDispatchRecovery.
+        public byte[] ReplaceDeliveryDispatchForRecovery(IFiscalDocumentLease lease,
+            byte[] expectedSnapshot, byte[] replacementSnapshot)
+        {
+            RequireInvoice(lease);
+            if (expectedSnapshot == null || expectedSnapshot.Length == 0 ||
+                replacementSnapshot == null || replacementSnapshot.Length == 0)
+                throw new ArgumentException("Both workflow snapshots are required.");
+            return database.Locked(lease,(held,tx) => {
+                using (var command = SqlFiscalDatabase.Command(held.Connection,tx,
+                    SqlStatements.ReplaceWorkflowForDispatchRecovery,
+                    "@id",lease.Document.DocumentId,"@expected",expectedSnapshot,
+                    "@expectedHash",SqlFiscalDatabase.Hash(expectedSnapshot),
+                    "@payload",replacementSnapshot,"@hash",SqlFiscalDatabase.Hash(replacementSnapshot),
+                    "@token",held.FencingToken)) command.ExecuteNonQuery();
+                return replacementSnapshot;
+            });
+        }
+        public byte[] ChangePaymentMethod(IFiscalDocumentLease lease, byte[] expectedSnapshot,
+            byte[] replacementSnapshot, int previousPaymentType, int paymentType)
+        {
+            RequireInvoice(lease);
+            if (previousPaymentType == paymentType)
+                return expectedSnapshot;
+            if (paymentType < 0 || paymentType > 4)
+                throw new ArgumentOutOfRangeException(nameof(paymentType));
+            if ((expectedSnapshot == null) != (replacementSnapshot == null))
+                throw new ArgumentException("Both workflow snapshots must either be supplied or omitted.");
+            return database.Locked(lease,(held,tx) => {
+                if (expectedSnapshot == null)
+                {
+                    using (var command = SqlFiscalDatabase.Command(held.Connection,tx,
+                        SqlStatements.ChangePaymentWithoutWorkflow,
+                        "@id",lease.Document.DocumentId,"@oldPayment",previousPaymentType,
+                        "@newPayment",paymentType)) command.ExecuteNonQuery();
+                    return null;
+                }
+                if (expectedSnapshot.Length == 0 || replacementSnapshot.Length == 0)
+                    throw new ArgumentException("Workflow snapshots cannot be empty.");
+                using (var command = SqlFiscalDatabase.Command(held.Connection,tx,
+                    SqlStatements.ReplaceWorkflowForPaymentChange,
+                    "@id",lease.Document.DocumentId,"@oldPayment",previousPaymentType,
+                    "@newPayment",paymentType,"@expected",expectedSnapshot,
+                    "@expectedHash",SqlFiscalDatabase.Hash(expectedSnapshot),
+                    "@payload",replacementSnapshot,"@hash",SqlFiscalDatabase.Hash(replacementSnapshot),
+                    "@now",DateTime.UtcNow,"@token",held.FencingToken)) command.ExecuteNonQuery();
+                return replacementSnapshot;
+            });
+        }
         public int AllocateNumbers(IFiscalDocumentLease lease, DateTime? firstInvoiceDate = null)
         {
             RequireInvoice(lease);

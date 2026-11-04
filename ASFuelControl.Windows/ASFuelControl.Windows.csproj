@@ -407,6 +407,7 @@
     <Compile Include="UI\Forms\GetTaxNumberForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="UI\Forms\AadeTraderImportWorkflow.cs" />
     <Compile Include="UI\Forms\GetTaxNumberForm.Designer.cs">
       <DependentUpon>GetTaxNumberForm.cs</DependentUpon>
     </Compile>

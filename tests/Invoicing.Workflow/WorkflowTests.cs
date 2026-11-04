@@ -754,6 +754,8 @@ internal static partial class Program
             Equal(1,http.Posts); Equal(0,printer.Calls);
         });
         NumberingTests();
+        PaymentMethodChangeTests();
+        DispatchDateRecoveryStoreTests();
         foreach(var kind in new[] { FiscalDocumentKind.Balance,FiscalDocumentKind.TankFilling })
         {
             Test(kind + " archives after signing without requiring physical printing", () => {
@@ -804,7 +806,7 @@ internal static partial class Program
     }
     static void NumberingTests()
     {
-        Execute(connection,"CREATE TABLE dbo.InvoiceType(InvoiceTypeId uniqueidentifier PRIMARY KEY,LastNumber int NOT NULL,DefaultSeries nvarchar(255)); CREATE TABLE dbo.Invoice(InvoiceId uniqueidentifier PRIMARY KEY,InvoiceTypeId uniqueidentifier NOT NULL,Number int NOT NULL,Series nvarchar(255),TransactionDate datetime NOT NULL,IsPrinted bit NULL,InvoiceSignature nvarchar(max) NULL,QRCodeData nvarchar(max) NULL); CREATE TABLE dbo.InvoiceLine(InvoiceId uniqueidentifier); CREATE TABLE dbo.MyDataInvoice(InvoiceId uniqueidentifier);");
+        Execute(connection,"CREATE TABLE dbo.InvoiceType(InvoiceTypeId uniqueidentifier PRIMARY KEY,LastNumber int NOT NULL,DefaultSeries nvarchar(255)); CREATE TABLE dbo.Invoice(InvoiceId uniqueidentifier PRIMARY KEY,InvoiceTypeId uniqueidentifier NOT NULL,Number int NOT NULL,Series nvarchar(255),TransactionDate datetime NOT NULL,IsPrinted bit NULL,InvoiceSignature nvarchar(max) NULL,QRCodeData nvarchar(max) NULL,PaymentType int NULL); CREATE TABLE dbo.InvoiceLine(InvoiceId uniqueidentifier); CREATE TABLE dbo.MyDataInvoice(InvoiceId uniqueidentifier,Mark bigint NULL);");
         Execute(connection,"CREATE TRIGGER TestInvoiceLines ON dbo.Invoice AFTER INSERT AS INSERT dbo.InvoiceLine(InvoiceId) SELECT InvoiceId FROM inserted;");
         Test("manual numbering allocates older invoices first and is idempotent", () => {
             var type = Guid.NewGuid(); var old = Guid.NewGuid(); var recent = Guid.NewGuid();
@@ -846,7 +848,7 @@ internal static partial class Program
             var type = Guid.NewGuid(); var old = Guid.NewGuid(); var signed = Guid.NewGuid(); var submitted = Guid.NewGuid(); var current = Guid.NewGuid();
             Execute(connection,"INSERT dbo.InvoiceType VALUES('" + type + "',0,'CUT');" + string.Join("",new[] { old,signed,submitted,current }.Select(id =>
                 "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate) VALUES('" + id + "','" + type + "',0,NULL,'" + (id == old ? "20261013" : id == current ? "20261015" : "20261014") + "');")) +
-                "UPDATE dbo.Invoice SET InvoiceSignature='legacy signature' WHERE InvoiceId='" + signed + "'; INSERT dbo.MyDataInvoice VALUES('" + submitted + "');");
+                "UPDATE dbo.Invoice SET InvoiceSignature='legacy signature' WHERE InvoiceId='" + signed + "'; INSERT dbo.MyDataInvoice(InvoiceId) VALUES('" + submitted + "');");
             using(var lease = database.EnterInvoice(current)) Equal(1,new SqlInvoiceWorkflowStore(database).AllocateNumbers(lease,new DateTime(2026,10,14)));
             using(var c = new System.Data.SqlClient.SqlConnection(connection)) using(var cmd = c.CreateCommand())
             {
@@ -854,6 +856,106 @@ internal static partial class Program
                 cmd.Parameters.AddWithValue("@type",type); cmd.Parameters.AddWithValue("@current",current); Equal(0,Convert.ToInt32(cmd.ExecuteScalar()));
             }
         });
+    }
+    static void PaymentMethodChangeTests()
+    {
+        Test("numbered invoice without a payload can change payment method", () => {
+            var type=Guid.NewGuid();var id=Guid.NewGuid();
+            Execute(connection,"INSERT dbo.InvoiceType VALUES('"+type+"',1,'P'); INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,PaymentType) VALUES('"+id+"','"+type+"',1,'P','20261104',1);");
+            using(var lease=database.EnterInvoice(id))
+                new SqlInvoiceWorkflowStore(database).ChangePaymentMethod(lease,null,null,1,0);
+            using(var cn=new System.Data.SqlClient.SqlConnection(connection))using(var cmd=cn.CreateCommand())
+            {cn.Open();cmd.CommandText="SELECT PaymentType FROM dbo.Invoice WHERE InvoiceId='"+id+"'";Equal(0,Convert.ToInt32(cmd.ExecuteScalar()));}
+        });
+        Test("payment change supersedes an undispatched signing payload and keeps its history", () => {
+            var type=Guid.NewGuid();var id=Guid.NewGuid();
+            Execute(connection,"INSERT dbo.InvoiceType VALUES('"+type+"',2,'P'); INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,PaymentType) VALUES('"+id+"','"+type+"',2,'P','20261104',1);");
+            var original=Encoding.UTF8.GetBytes("{\"payment\":1}");var replacement=Encoding.UTF8.GetBytes("{\"payment\":0}");
+            var request=new FiscalSigningRequest(Guid.NewGuid(),new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),
+                new FiscalSigningScope("fake","device",FiscalEnvironment.Test,"000000000",0),"test/v1",Encoding.UTF8.GetBytes("old request"));
+            using(var lease=database.EnterInvoice(id))
+            {
+                var workflows=new SqlInvoiceWorkflowStore(database);workflows.Save(lease,original);
+                new SqlFiscalSigningStore(database).Begin(lease,request,DateTime.UtcNow);
+                workflows.ChangePaymentMethod(lease,original,replacement,1,0);
+                Equal("{\"payment\":0}",Encoding.UTF8.GetString(workflows.Load(lease)));
+                var signing=new SqlFiscalSigningStore(database);
+                Equal(FiscalSigningState.FailedBeforeDispatch,signing.Load(lease).Last().State);
+                Equal(2,signing.LoadHistory(lease,request.AttemptId).Count);
+            }
+        });
+        Test("payment change cannot invalidate a confirmed signature", () => {
+            var type=Guid.NewGuid();var id=Guid.NewGuid();
+            Execute(connection,"INSERT dbo.InvoiceType VALUES('"+type+"',3,'P'); INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,PaymentType) VALUES('"+id+"','"+type+"',3,'P','20261104',1);");
+            var original=Encoding.UTF8.GetBytes("{\"payment\":1}");var replacement=Encoding.UTF8.GetBytes("{\"payment\":0}");
+            var request=new FiscalSigningRequest(Guid.NewGuid(),new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),
+                new FiscalSigningScope("fake","device",FiscalEnvironment.Test,"000000000",0),"test/v1",Encoding.UTF8.GetBytes("request"));
+            using(var lease=database.EnterInvoice(id))
+            {
+                var workflows=new SqlInvoiceWorkflowStore(database);workflows.Save(lease,original);
+                var signingStore=new SqlFiscalSigningStore(database);var prepared=signingStore.Begin(lease,request,DateTime.UtcNow);
+                var sending=new FiscalSigningAttempt(request,FiscalSigningState.Signing,prepared.Revision+1,prepared.CreatedUtc,DateTime.UtcNow);
+                signingStore.Save(lease,prepared.Revision,sending);
+                var signed=new FiscalSigningAttempt(request,FiscalSigningState.Signed,sending.Revision+1,sending.CreatedUtc,DateTime.UtcNow,
+                    FiscalSigningResult.Signed(request.AttemptId,"signature",null,null,"ok"));
+                signingStore.Save(lease,sending.Revision,signed);
+                Throws(()=>workflows.ChangePaymentMethod(lease,original,replacement,1,0));
+            }
+        });
+        Test("payment change can supersede a definitively rejected provider POS session", () => {
+            var type=Guid.NewGuid();var id=Guid.NewGuid();
+            Execute(connection,"INSERT dbo.InvoiceType VALUES('"+type+"',4,'P'); INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,PaymentType) VALUES('"+id+"','"+type+"',4,'P','20261104',2);");
+            var original=Encoding.UTF8.GetBytes("{\"payment\":2}");var replacement=Encoding.UTF8.GetBytes("{\"payment\":1}");
+            using(var lease=database.EnterInvoice(id))
+            {
+                var workflows=new SqlInvoiceWorkflowStore(database);workflows.Save(lease,original);
+                var sessions=new SqlIlydaPosStore(database);
+                var session=new IlydaPosSession { Id=Guid.NewGuid(),InvoiceId=id,TestMode=true,
+                    IssuerVat="000000000",Endpoint="https://provider.invalid/sign",RequestJson="{}",State="Requesting" };
+                sessions.Save(session);session.State="Rejected";sessions.Save(session);
+                workflows.ChangePaymentMethod(lease,original,replacement,2,1);
+                Equal("{\"payment\":1}",Encoding.UTF8.GetString(workflows.Load(lease)));
+            }
+        });
+    }
+    static void DispatchDateRecoveryStoreTests()
+    {
+        Execute(connection,"ALTER TABLE dbo.InvoiceType ADD OfficialEnumerator int NULL; ALTER TABLE dbo.InvoiceLine ADD SaleTransactionId uniqueidentifier NULL;");
+        Test("dispatch recovery changes only the frozen direct-pump delivery payload", () => {
+            var type=Guid.NewGuid();var id=Guid.NewGuid();var sale=Guid.NewGuid();
+            Execute(connection,"INSERT dbo.InvoiceType(InvoiceTypeId,LastNumber,DefaultSeries,OfficialEnumerator) VALUES('"+type+"',1,'D',222); " +
+                "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,PaymentType) VALUES('"+id+"','"+type+"',1,'D','20261103',1); " +
+                "INSERT dbo.InvoiceLine(InvoiceId,SaleTransactionId) VALUES('"+id+"','"+sale+"');");
+            var original=Encoding.UTF8.GetBytes("{\"dispatchDate\":\"2026-11-03\"}");
+            var replacement=Encoding.UTF8.GetBytes("{\"dispatchDate\":\"2026-11-04\"}");
+            using(var lease=database.EnterInvoice(id))
+            {
+                var workflows=new SqlInvoiceWorkflowStore(database);workflows.Save(lease,original);
+                workflows.ReplaceDeliveryDispatchForRecovery(lease,original,replacement);
+                Equal(Encoding.UTF8.GetString(replacement),Encoding.UTF8.GetString(workflows.Load(lease)));
+            }
+            using(var cn=new System.Data.SqlClient.SqlConnection(connection))using(var cmd=cn.CreateCommand())
+            {
+                cn.Open();cmd.CommandText="SELECT TransactionDate FROM dbo.Invoice WHERE InvoiceId=@id";
+                cmd.Parameters.AddWithValue("@id",id);
+                Equal(new DateTime(2026,11,3),Convert.ToDateTime(cmd.ExecuteScalar()));
+            }
+        });
+        Test("dispatch recovery rejects an invoice without a pump-sale line", () => {
+            var type=Guid.NewGuid();var id=Guid.NewGuid();
+            Execute(connection,"INSERT dbo.InvoiceType(InvoiceTypeId,LastNumber,DefaultSeries,OfficialEnumerator) VALUES('"+type+"',2,'D',222); " +
+                "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,PaymentType) VALUES('"+id+"','"+type+"',2,'D','20261103',1);");
+            var original=Encoding.UTF8.GetBytes("{\"dispatchDate\":\"2026-11-03\"}");
+            var replacement=Encoding.UTF8.GetBytes("{\"dispatchDate\":\"2026-11-04\"}");
+            using(var lease=database.EnterInvoice(id))
+            {
+                var workflows=new SqlInvoiceWorkflowStore(database);workflows.Save(lease,original);
+                Throws(()=>workflows.ReplaceDeliveryDispatchForRecovery(lease,original,replacement));
+                Equal(Encoding.UTF8.GetString(original),Encoding.UTF8.GetString(workflows.Load(lease)));
+            }
+        });
+        // Heating-store fixtures add their own full InvoiceLine shape later.
+        Execute(connection,"ALTER TABLE dbo.InvoiceLine DROP COLUMN SaleTransactionId;");
     }
     static void PrinterFallbackTests()
     {

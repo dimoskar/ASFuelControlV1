@@ -142,6 +142,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 AddHeaderCell(tableLayoutPanel1, "Τύπος Παραστατικού", radDropDownList1, 0, 1, 3);
                 AddHeaderCell(tableLayoutPanel1, "Τόπος Παράδοσης", radTextBox7, 4, 1, 3);
                 AddHeaderCell(tableLayoutPanel1, "Αριθμός Αναφοράς", radTextBox5, 0, 2, 3);
+                AddHeaderCell(tableLayoutPanel1, "Όχημα", radTextBox4, 4, 2, 3);
             }
             else
             {

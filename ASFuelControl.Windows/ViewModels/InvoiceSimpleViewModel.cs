@@ -483,7 +483,8 @@ namespace ASFuelControl.Windows.ViewModels
             var persistedInvoice = db.Invoices.SingleOrDefault(i => i.InvoiceId == id);
             var persistedPaymentType = persistedInvoice == null
                 ? (int?)null
-                : persistedInvoice.PaymentType;
+                : persistedInvoice.PaymentType ??
+                    (int)Common.Enumerators.PaymentTypeEnum.Cash;
             base.Load(db, id);
             var inv = persistedInvoice;
             if (inv == null)

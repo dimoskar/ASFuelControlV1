@@ -185,6 +185,65 @@ namespace ASFuelControl.Windows.ViewModels
         {
             this.HasChanges = true;
         }
+
+        public InvoiceTypeDetailViewModel CreateCopy()
+        {
+            var copy = new InvoiceTypeDetailViewModel
+            {
+                InvoiceTypeId = Guid.NewGuid(),
+                Description = (this.Description ?? string.Empty) + " (Copy)",
+                Abbreviation = (this.Abbreviation ?? string.Empty) + " (C)",
+                LastNumber = 0,
+                TransactionType = this.TransactionType,
+                Printable = this.Printable,
+                OfficialEnumerator = this.OfficialEnumerator,
+                Printer = this.Printer,
+                InvoiceFormId = this.InvoiceFormId,
+                IsInternal = this.IsInternal,
+                InternalDeliveryDescription = this.InternalDeliveryDescription,
+                NeedsVehicle = this.NeedsVehicle,
+                IsCancelation = this.IsCancelation,
+                HasFinancialTransactions = this.HasFinancialTransactions,
+                IsLaserPrint = this.IsLaserPrint,
+                TransactionSign = this.TransactionSign,
+                ShowFinancialData = this.ShowFinancialData,
+                DeliveryType = this.DeliveryType,
+                AdminView = this.AdminView,
+                Invalidated = this.Invalidated,
+                DispenserType = this.DispenserType,
+                ForcesDelivery = this.ForcesDelivery,
+                RetailInvoice = this.RetailInvoice,
+                IncludeInBalance = this.IncludeInBalance,
+                DefaultSeries = this.DefaultSeries,
+                SendToMyData = this.SendToMyData,
+                InvoiceTransformationTypes = this.InvoiceTransformationTypes,
+                EntityState = EntityStateEnum.Added
+            };
+
+            // Transformations shown on this type are settings owned by the
+            // parent type. Recreate those rows with new identities and the copy
+            // as parent; their configured target/creation types remain intact.
+            foreach (var source in this.AllowedTransformations)
+            {
+                var transformation = new InvoiceTypeTransformViewModel
+                {
+                    InvoiceTypeTransformId = Guid.NewGuid(),
+                    ParentInvoiceTypeId = copy.InvoiceTypeId,
+                    ChildInvoiceTypeId = source.ChildInvoiceTypeId,
+                    TransformationMode = source.TransformationMode,
+                    NotesAddition = source.NotesAddition,
+                    CreationInvoiceTypeId = source.CreationInvoiceTypeId,
+                    CreationType = source.CreationType,
+                    CreationNotesAddition = source.CreationNotesAddition,
+                    EntityState = EntityStateEnum.Added
+                };
+                transformation.PropertyChanged += copy.Ittv_PropertyChanged;
+                copy.allowedTransformations.Add(transformation);
+            }
+            copy.EntityState = EntityStateEnum.Added;
+            copy.HasChanges = true;
+            return copy;
+        }
     }
 
     public class InvoiceTypeCatalogViewModel : INotifyPropertyChanged
@@ -310,6 +369,19 @@ namespace ASFuelControl.Windows.ViewModels
             }
             this.HasChanges = true;
             return nit;
+        }
+
+        public InvoiceTypeDetailViewModel CopyInvoiceType(InvoiceTypeDetailViewModel source)
+        {
+            if (source == null)
+                throw new ArgumentNullException("source");
+            var copy = source.CreateCopy();
+            copy.PropertyChanged += It_PropertyChanged;
+            this.invoiceTypes.Add(copy);
+            if (this.PropertyChanged != null)
+                this.PropertyChanged(this, new PropertyChangedEventArgs("InvoiceTypes"));
+            this.HasChanges = true;
+            return copy;
         }
 
         public bool DeleteInvoiceType(InvoiceTypeDetailViewModel it)

@@ -80,6 +80,14 @@ namespace ASFuelControl.Windows.UI.SelectionForms
         {
             radButton2.Visible = SelectionMode != ViewModels.InvoiceCounterpartySelection.Supplier;
             radButton3.Visible = SelectionMode != ViewModels.InvoiceCounterpartySelection.Customer;
+            int left = 128;
+            if (radButton2.Visible) { radButton2.Left = left; left += radButton2.Width + 6; }
+            if (radButton3.Visible) { radButton3.Left = left; left += radButton3.Width + 6; }
+            radButton1.Text = "Από ΑΑΔΕ";
+            radButton1.Padding = new Padding(5,0,5,0);
+            radButton1.Size = new Size(120,31);
+            radButton1.Left = left;
+            radButton1.Visible = true;
             base.OnShown(e);
         }
 
@@ -103,10 +111,14 @@ namespace ASFuelControl.Windows.UI.SelectionForms
 
         private void radButton1_Click(object sender, EventArgs e)
         {
-            using (Forms.TraderForm tf = new Forms.TraderForm())
-            {
-                tf.CreateCustomer();
-            }
+            Guid traderId = Forms.AadeTraderImportWorkflow.CreateOrSelect(this,SelectionMode,radTextBox1.Text);
+            if (traderId == Guid.Empty)
+                return;
+            LoadDataById(traderId);
+            SelectedEntity = TheSource.Cast<ViewModels.TraderViewModel>()
+                .FirstOrDefault(value => value.TraderId == traderId);
+            if (SelectedEntity != null)
+                DialogResult = DialogResult.OK;
         }
 
         private void radButton2_Click(object sender, EventArgs e)

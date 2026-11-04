@@ -66,6 +66,10 @@ namespace ASFuelControl.Invoicing
                 var records = history.Load(lease, FiscalJournalFamily.Payment);
                 if (records.Any(a => a.Operation != "Payment")) throw new InvalidOperationException("A related payment operation requires reconciliation before invoice processing.");
                 var saved = records.LastOrDefault();
+                var changedWorkflow = source as InvoiceWorkflowSnapshot;
+                bool replaceTerminalPayment = changedWorkflow?.PaymentMethodChanges?.Count > 0 &&
+                    saved != null && (saved.State == "Declined" || saved.State == "Failed");
+                if (replaceTerminalPayment) saved = null;
                 if (retryPaymentAttemptId.HasValue && saved?.AttemptId != retryPaymentAttemptId.Value)
                     throw new InvalidOperationException("Η προσπάθεια πληρωμής έχει αλλάξει. Ανανεώστε την κατάσταση πριν από επανάληψη.");
                 ProviderPaymentAttemptRequest request;
@@ -87,9 +91,18 @@ namespace ASFuelControl.Invoicing
                 {
                     if (recoverOnly) throw new InvalidOperationException("No payment exists to recover.");
                     if (route == null || source == null) throw new ArgumentException("A route and saved invoice source are required.");
-                    foreach (var family in new[] { FiscalJournalFamily.Signing, FiscalJournalFamily.Submission, FiscalJournalFamily.ProviderSession,
+                    foreach (var family in new[] { FiscalJournalFamily.Signing,
                         FiscalJournalFamily.Cancellation, FiscalJournalFamily.Print })
                         if (history.Load(lease, family).Any()) throw new InvalidOperationException("Existing " + family + " history requires reconciliation.");
+                    var priorProviderSessions = history.Load(lease,FiscalJournalFamily.ProviderSession);
+                    if (priorProviderSessions.Any() && !(changedWorkflow?.PaymentMethodChanges?.Count > 0 &&
+                        priorProviderSessions.All(item => item.Operation == "SignPayment" &&
+                            (item.State == "Rejected" || item.State == "Cancelled" || item.State == "Expired"))))
+                        throw new InvalidOperationException("Existing ProviderSession history requires reconciliation.");
+                    var priorSubmissions = history.Load(lease,FiscalJournalFamily.Submission);
+                    if (priorSubmissions.Any() && !(changedWorkflow?.PaymentMethodChanges?.Count > 0 &&
+                        priorSubmissions.All(item => item.State == "Rejected")))
+                        throw new InvalidOperationException("Existing Submission history requires reconciliation.");
                     var input = source.Prepare(invoiceId, route.Provider);
                     if (input?.Invoice?.InvoiceId != invoiceId || !input.RequireIssuedIdentity) throw new InvalidOperationException("A saved issued invoice is required.");
                     var invoice = new InvoiceBuilder(new InvoiceTypeResolver()).Build(input);

@@ -92,27 +92,9 @@ namespace ASFuelControl.Windows.UI.Catalogs
 
         private void radMenuItem1_Click(object sender, EventArgs e)
         {
-            using (Forms.GetTaxNumberForm gtnf = new Forms.GetTaxNumberForm())
-            {
-                var res = gtnf.ShowDialog(this);
-                if (res == DialogResult.OK && gtnf.TraderResponse != null)
-                {
-                    if (gtnf.TraderResponse.Trader != null)
-                    {
-                        if (gtnf.TraderResponse.Trader != null)
-                        {
-                            Forms.TraderForm tf = new Forms.TraderForm();
-                            tf.LoadNew(gtnf.TraderResponse.Trader);
-                            tf.Show(this);
-                        }
-                    }
-                    if (gtnf.TraderResponse.ErrorMessage != null && gtnf.TraderResponse.ErrorMessage != "")
-                    {
-                        Telerik.WinControls.RadMessageBox.Show(this, gtnf.TraderResponse.ErrorMessage, "Σφάλμα κλήσης ΓΓΠΣ...", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
-                        return;
-                    }
-                }
-            }
+            Forms.AadeTraderImportWorkflow.CreateOrSelect(this,
+                ViewModels.InvoiceCounterpartySelection.Any,radTextBox1.Text);
+            vm.LoadData();
         }
     }
 }

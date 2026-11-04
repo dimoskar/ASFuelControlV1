@@ -94,8 +94,7 @@ namespace ASFuelControl.Invoicing
                         "Direct myDATA requires the original workflow's durable signature.");
                 }
                 else Require(signs.Count == 0, "Existing signing history requires the composed workflow.");
-                foreach (var family in new[] { FiscalJournalFamily.ProviderSession,
-                    FiscalJournalFamily.Payment, FiscalJournalFamily.Cancellation, FiscalJournalFamily.Print })
+                foreach (var family in new[] { FiscalJournalFamily.Cancellation, FiscalJournalFamily.Print })
                     Require(history.Load(lease, family).Count == 0,
                         "Existing " + family + " history requires the complete fiscal workflow before submission.");
                 var request = source.Prepare(invoiceId, route);
@@ -107,6 +106,20 @@ namespace ASFuelControl.Invoicing
                 Require(model.Issuer.Branch == route.IssuerBranch, "The invoice branch does not match the selected route.");
                 bool pos = (model.PaymentMethods ?? new PaymentMethod[0]).Any(p => (int)p.Type == 7 || (int)p.Type == 8);
                 var workflow = source as InvoiceWorkflowSnapshot;
+                var previousProviderSessions = history.Load(lease,FiscalJournalFamily.ProviderSession);
+                bool supersededProviderSession = workflow?.PaymentMethodChanges?.Count > 0 &&
+                    previousProviderSessions.Count > 0 && previousProviderSessions.All(item =>
+                        item.Operation == "SignPayment" && (item.State == "Rejected" ||
+                            item.State == "Cancelled" || item.State == "Expired"));
+                Require(previousProviderSessions.Count == 0 || supersededProviderSession,
+                    "Existing ProviderSession history requires the complete fiscal workflow before submission.");
+                var previousPayments = history.Load(lease,FiscalJournalFamily.Payment);
+                bool supersededTerminalPayment = !pos && workflow?.Payment == null &&
+                    workflow?.PaymentMethodChanges?.Count > 0 && previousPayments.Count > 0 &&
+                    previousPayments.All(item => item.Operation == "Payment" &&
+                        (item.State == "Declined" || item.State == "Failed"));
+                Require(previousPayments.Count == 0 || supersededTerminalPayment,
+                    "Existing payment history requires the complete fiscal workflow before submission.");
                 bool integratedSamtecPos = pos && signingAttemptId.HasValue &&
                     workflow?.Signing?.Scope?.SignerKey == SamtecFiscalSigner.Key;
                 Require(!pos || integratedSamtecPos,

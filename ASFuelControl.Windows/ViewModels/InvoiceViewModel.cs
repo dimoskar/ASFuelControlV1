@@ -1294,7 +1294,10 @@ namespace ASFuelControl.Windows.ViewModels
             ConfigureTransformationPriceEditPolicy(false, true, false, null);
             this.InvoiceId = Guid.NewGuid();
             this.TransactionDate = DateTime.Now;
-            this.PaymentType = this.PaymentTypes.First().Value;
+            // Enum order is not a business default (Credit is currently the first
+            // value). New invoice editors have always treated a missing payment as
+            // cash, so select that value explicitly.
+            this.PaymentType = (int)Common.Enumerators.PaymentTypeEnum.Cash;
             this.ApplicationUserId = Data.DatabaseModel.CurrentUserId;
             this.EntityState = EntityStateEnum.Added;
             this.OnPropertyChanged("ReportPrint");
@@ -1912,7 +1915,8 @@ namespace ASFuelControl.Windows.ViewModels
                 : persistedInvoice.InvoiceTypeId;
             var persistedPaymentType = persistedInvoice == null
                 ? (int?)null
-                : persistedInvoice.PaymentType;
+                : persistedInvoice.PaymentType ??
+                    (int)Common.Enumerators.PaymentTypeEnum.Cash;
             var persistedType = LoadPersistedInvoiceType(db,persistedTypeId);
             if (persistedType != null)
                 this.InvoiceTypes = ReplaceInvoiceType(this.InvoiceTypes,persistedType);

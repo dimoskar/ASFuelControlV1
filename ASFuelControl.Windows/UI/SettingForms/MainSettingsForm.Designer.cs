@@ -1702,12 +1702,12 @@
             this.radGroupBox3.Controls.Add(this.ggpsUserName);
             this.radGroupBox3.Controls.Add(this.radLabel44);
             this.radGroupBox3.Font = new System.Drawing.Font("Segoe UI", 9.75F);
-            this.radGroupBox3.HeaderText = "Γ.Γ.Π.Σ. Υπηρεσία ΑΦΜ";
+            this.radGroupBox3.HeaderText = "ΑΑΔΕ - Υπηρεσία αναζήτησης ΑΦΜ";
             this.radGroupBox3.Location = new System.Drawing.Point(3, 230);
             this.radGroupBox3.Name = "radGroupBox3";
             this.radGroupBox3.Size = new System.Drawing.Size(706, 111);
             this.radGroupBox3.TabIndex = 83;
-            this.radGroupBox3.Text = "Γ.Γ.Π.Σ. Υπηρεσία ΑΦΜ";
+            this.radGroupBox3.Text = "ΑΑΔΕ - Υπηρεσία αναζήτησης ΑΦΜ";
             // 
             // radLabel42
             // 

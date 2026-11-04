@@ -293,12 +293,24 @@ namespace ASFuelControl.Windows.Threads
 
         public static void PrintInvoiceDirect(Data.Invoice inv, string selectedPrinter = null)
         {
-            if (SharedInvoiceRuntime.Handles(inv.InvoiceId)) { SharedInvoiceRuntime.Process(inv.InvoiceId,true,null,selectedPrinter); return; }
+            PrintInvoiceDirectCore(inv,selectedPrinter,false);
+        }
+
+        internal static void PrintHistoricalInvoiceCopy(Data.Invoice inv, string selectedPrinter = null)
+        {
+            PrintInvoiceDirectCore(inv,selectedPrinter,true);
+        }
+
+        private static void PrintInvoiceDirectCore(Data.Invoice inv, string selectedPrinter, bool printOnly)
+        {
+            if (inv == null) throw new ArgumentNullException("inv");
+            if (!printOnly && SharedInvoiceRuntime.Handles(inv.InvoiceId)) { SharedInvoiceRuntime.Process(inv.InvoiceId,true,null,selectedPrinter); return; }
             Guid invoiceId = inv.InvoiceId;
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
                 var invoice = db.Invoices.FirstOrDefault(i => i.InvoiceId == invoiceId);
-                if (invoicingProviderEnabled || invoice.InvoiceType.SendToMyData)
+                if (invoice == null) throw new InvalidOperationException("Το παραστατικό δεν βρέθηκε.");
+                if (!printOnly && (invoicingProviderEnabled || invoice.InvoiceType.SendToMyData))
                 {
                     if (!MyDataSendInvoice(invoice.InvoiceId, 1))
                         return;

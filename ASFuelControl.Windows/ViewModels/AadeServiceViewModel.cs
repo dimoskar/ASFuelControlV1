@@ -151,6 +151,14 @@ namespace ASFuelControl.Windows.ViewModels
                 return traderResponse;
             }
         }
+
+        public Task<AadeTraderResponse> GetTraderFromTaxNumberAsync(string taxNumber)
+        {
+            // The legacy SOAP implementation is synchronous. Keep the established
+            // wire contract, but never block a WinForms UI thread while AADE may
+            // take up to the configured HTTP timeout to answer.
+            return Task.Run(() => GetTraderFromTaxNumber(taxNumber));
+        }
     }
     public class AadeTraderResponse
     {

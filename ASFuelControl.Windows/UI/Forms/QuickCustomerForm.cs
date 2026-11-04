@@ -28,6 +28,7 @@ namespace ASFuelControl.Windows.UI.Forms
         private readonly RadSpinEditor odometer = new RadSpinEditor();
         private readonly RadButton saveAndSelect = new RadButton();
         private readonly RadButton cancel = new RadButton();
+        private readonly RadButton aadeLookup = new RadButton();
 
         public Guid SelectedCustomerId { get; private set; }
         public Guid SelectedVehicleId { get; private set; }
@@ -62,7 +63,9 @@ namespace ASFuelControl.Windows.UI.Forms
             MaximizeBox = false;
             MinimizeBox = false;
             ShowIcon = false;
-            ClientSize = new Size(720, 438);
+            AutoScaleMode = AutoScaleMode.Dpi;
+            ClientSize = new Size(820, 535);
+            MinimumSize = new Size(820, 535);
             Font = new Font("Segoe UI", 9.25F);
 
             var root = new TableLayoutPanel
@@ -72,10 +75,10 @@ namespace ASFuelControl.Windows.UI.Forms
                 ColumnCount = 1,
                 RowCount = 4
             };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 232F));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 105F));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 285F));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 115F));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 54F));
 
             var introduction = new RadLabel
             {
@@ -94,7 +97,7 @@ namespace ASFuelControl.Windows.UI.Forms
             AddField(customerLayout, 2, "Διεύθυνση *", address, true);
             AddField(customerLayout, 3, "Πόλη *", city, false);
             AddField(customerLayout, 3, "Τ.Κ.", postalCode, false, 2);
-            AddField(customerLayout, 4, "Προεπιλ. τύπος παραστατικού *", invoiceType, true);
+            AddField(customerLayout, 4, "Τύπος παραστατικού *", invoiceType, true);
             var vatNote = new RadLabel
             {
                 AutoSize = false,
@@ -103,8 +106,13 @@ namespace ASFuelControl.Windows.UI.Forms
                 ForeColor = Color.DimGray,
                 TextAlignment = ContentAlignment.MiddleLeft
             };
-            customerLayout.SetColumnSpan(vatNote, 4);
+            customerLayout.SetColumnSpan(vatNote, 3);
             customerLayout.Controls.Add(vatNote, 0, 5);
+            aadeLookup.Text = "Συμπλήρωση από ΑΑΔΕ";
+            aadeLookup.Dock = DockStyle.Fill;
+            aadeLookup.Margin = new Padding(2,3,2,3);
+            aadeLookup.Click += AadeLookup_Click;
+            customerLayout.Controls.Add(aadeLookup,3,5);
             customerGroup.Controls.Add(customerLayout);
             root.Controls.Add(customerGroup, 0, 1);
 
@@ -151,6 +159,30 @@ namespace ASFuelControl.Windows.UI.Forms
             Controls.Add(root);
         }
 
+        private void AadeLookup_Click(object sender,EventArgs e)
+        {
+            var result = AadeTraderImportWorkflow.Lookup(this,
+                ViewModels.InvoiceCounterpartySelection.Customer,vat.Text);
+            if (result == null)
+                return;
+            if (result.ExistingTraderId != Guid.Empty)
+            {
+                RadMessageBox.Show(this,
+                    "Υπάρχει ήδη πελάτης με αυτό το Α.Φ.Μ. Επιλέξτε τον από τη λίστα πελατών.",
+                    "Υπάρχων πελάτης",MessageBoxButtons.OK,RadMessageIcon.Info);
+                return;
+            }
+            var trader = result.Trader;
+            if (trader == null)
+                return;
+            customerName.Text = trader.Name ?? "";
+            vat.Text = trader.TaxRegistrationNumber ?? "";
+            taxOffice.Text = trader.TaxRegistrationOffice ?? "";
+            address.Text = trader.Address ?? "";
+            city.Text = trader.City ?? "";
+            postalCode.Text = trader.ZipCode ?? "";
+        }
+
         private static TableLayoutPanel CreateDetailsLayout(int rows)
         {
             var layout = new TableLayoutPanel
@@ -160,7 +192,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 ColumnCount = 4,
                 RowCount = rows
             };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
@@ -178,6 +210,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 Text = labelText,
                 TextAlignment = ContentAlignment.MiddleLeft
             };
+            label.LabelElement.TextWrap = false;
             control.Dock = DockStyle.Fill;
             control.Margin = new Padding(2, 3, 2, 3);
             layout.Controls.Add(label, labelColumn, row);

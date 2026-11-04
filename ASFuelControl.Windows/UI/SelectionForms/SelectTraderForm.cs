@@ -15,6 +15,7 @@ namespace ASFuelControl.Windows.UI.SelectionForms
     {
         Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
         BindingList<Data.Trader> traders = new BindingList<Data.Trader>();
+        private readonly RadButton aadeButton = new RadButton();
 
         public bool SelectCustomers { set; get; }
         public bool SelectSuppliers { set; get; }
@@ -24,6 +25,11 @@ namespace ASFuelControl.Windows.UI.SelectionForms
         public SelectTraderForm()
         {
             InitializeComponent();
+            aadeButton.Text = "Από ΑΑΔΕ";
+            aadeButton.Size = new Size(110,40);
+            aadeButton.Location = new Point(749,0);
+            aadeButton.Click += AadeButton_Click;
+            panel1.Controls.Add(aadeButton);
             this.vehiclesRadGridView.GridElement.RowHeight = 50;
 
             this.radButton1.DataBindings.Add(new System.Windows.Forms.Binding("Enabled", this.database, "DatabaseChanged", true));
@@ -44,6 +50,23 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             this.IsCustomer.IsChecked = true;
 
             this.Load += new EventHandler(SelectTraderForm_Load);
+        }
+
+        private void AadeButton_Click(object sender,EventArgs e)
+        {
+            var role = IsSupplier.IsChecked && !IsCustomer.IsChecked
+                ? ViewModels.InvoiceCounterpartySelection.Supplier
+                : IsCustomer.IsChecked && !IsSupplier.IsChecked
+                ? ViewModels.InvoiceCounterpartySelection.Customer
+                : ViewModels.InvoiceCounterpartySelection.Any;
+            Guid traderId = Forms.AadeTraderImportWorkflow.CreateOrSelect(this,role,SearchTextBox.Text);
+            if (traderId == Guid.Empty)
+                return;
+            SearchTextBox.Text = "";
+            LoadTraders();
+            var trader = traders.FirstOrDefault(value => value.TraderId == traderId);
+            if (trader != null)
+                SelectTrader(trader);
         }
 
         private void BindVatExemptionReasons()

@@ -352,7 +352,7 @@ internal static partial class Program
     static void CatalogTests()
     {
         // Extend only the disposable host-schema fixture created by NumberingTests.
-        Execute(connection,"ALTER TABLE dbo.InvoiceType ADD Description nvarchar(100); ALTER TABLE dbo.Invoice ADD TraderId uniqueidentifier NULL,VehiclePlateNumber nvarchar(100) NULL; CREATE TABLE dbo.Trader(TraderId uniqueidentifier,Name nvarchar(100)); ALTER TABLE dbo.MyDataInvoice ADD Mark bigint NULL,MyDataInvoiceId uniqueidentifier NULL,Status int NULL,Errors nvarchar(max),DateTimeSent datetime NULL;");
+        Execute(connection,"ALTER TABLE dbo.InvoiceType ADD Description nvarchar(100); ALTER TABLE dbo.Invoice ADD TraderId uniqueidentifier NULL,VehiclePlateNumber nvarchar(100) NULL; CREATE TABLE dbo.Trader(TraderId uniqueidentifier,Name nvarchar(100)); ALTER TABLE dbo.MyDataInvoice ADD MyDataInvoiceId uniqueidentifier NULL,Status int NULL,Errors nvarchar(max),DateTimeSent datetime NULL;");
         Test("catalog includes local documents without myDATA rows and treats filter text literally", () => {
             var type = Guid.NewGuid(); var source = LocalSource();
             Execute(connection,"INSERT dbo.InvoiceType(InvoiceTypeId,LastNumber,DefaultSeries,Description) VALUES('" + type + "',1,'L',N'sample%test'); INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate) VALUES('" + source.Source.Id + "','" + type + "',1,'L','20261016');");

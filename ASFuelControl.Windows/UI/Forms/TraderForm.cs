@@ -18,6 +18,7 @@ namespace ASFuelControl.Windows.UI.Forms
         private ASFuelControl.RousisRFID.Controller rfid = new ASFuelControl.RousisRFID.Controller();
         System.Threading.Thread th = null;
         private bool stopThread = false;
+        private readonly RadButton aadeLookup = new RadButton();
 
         public Guid SelectedCustomerId
         {
@@ -32,6 +33,7 @@ namespace ASFuelControl.Windows.UI.Forms
         public TraderForm()
         {
             InitializeComponent();
+            InitializeAadeLookup();
             this.FormClosing += TraderForm_FormClosing;
             this.traderViewModel.PropertyChanged += TraderViewModel_PropertyChanged;
             Telerik.WinControls.UI.GridViewSummaryItem gridViewSummaryItem1 = new Telerik.WinControls.UI.GridViewSummaryItem();
@@ -103,6 +105,7 @@ namespace ASFuelControl.Windows.UI.Forms
             this.traderViewModel.Name = "(Νέος Πελάτης)";
             this.traderViewModel.Country = "GR";
             this.traderViewModel.IsCustomer = true;
+            aadeLookup.Visible = true;
             this.traderViewModelBindingSource.ResetBindings(false);
             this.vehiclesBindingSource.ResetBindings(false);
         }
@@ -114,6 +117,7 @@ namespace ASFuelControl.Windows.UI.Forms
             this.traderViewModel.Name = "(Νέος Προμηθευτής)";
             this.traderViewModel.Country = "GR";
             this.traderViewModel.IsSupplier = true;
+            aadeLookup.Visible = true;
             this.traderViewModelBindingSource.ResetBindings(false);
             this.vehiclesBindingSource.ResetBindings(false);
         }
@@ -124,6 +128,7 @@ namespace ASFuelControl.Windows.UI.Forms
             this.traderViewModelBindingSource.DataSource = this.traderViewModel;
             this.traderViewModel.CreateNew();
             this.traderViewModel.Country = "GR";
+            aadeLookup.Visible = true;
             this.traderViewModelBindingSource.ResetBindings(false);
             this.vehiclesBindingSource.ResetBindings(false);
         }
@@ -132,10 +137,50 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             this.traderViewModelBindingSource.DataSource = this.traderViewModel;
             traderViewModel.Load(traderId);
+            aadeLookup.Visible = false;
             this.traderViewModelBindingSource.ResetBindings(false);
             this.vehiclesBindingSource.ResetBindings(false);
 
             this.UpdateSums();
+        }
+
+        private void InitializeAadeLookup()
+        {
+            tableLayoutPanel1.Controls.Remove(radTextBoxVAT);
+            var host = new TableLayoutPanel { Dock = DockStyle.Fill,ColumnCount = 2,RowCount = 1,Margin = new Padding(0) };
+            host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            host.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,92));
+            radTextBoxVAT.Dock = DockStyle.Fill;
+            aadeLookup.Text = "Από ΑΑΔΕ";
+            aadeLookup.Dock = DockStyle.Fill;
+            aadeLookup.Margin = new Padding(3,1,0,1);
+            aadeLookup.Visible = false;
+            aadeLookup.Click += AadeLookup_Click;
+            host.Controls.Add(radTextBoxVAT,0,0);
+            host.Controls.Add(aadeLookup,1,0);
+            tableLayoutPanel1.Controls.Add(host,1,7);
+        }
+
+        private void AadeLookup_Click(object sender,EventArgs e)
+        {
+            var role = traderViewModel.IsSupplier && !traderViewModel.IsCustomer
+                ? ViewModels.InvoiceCounterpartySelection.Supplier
+                : traderViewModel.IsCustomer && !traderViewModel.IsSupplier
+                ? ViewModels.InvoiceCounterpartySelection.Customer
+                : ViewModels.InvoiceCounterpartySelection.Any;
+            var result = AadeTraderImportWorkflow.Lookup(this,role,radTextBoxVAT.Text);
+            if (result == null)
+                return;
+            if (result.ExistingTraderId != Guid.Empty)
+            {
+                if (AadeTraderImportWorkflow.EnsureRole(this,result.ExistingTraderId,role))
+                    LoadTrader(result.ExistingTraderId);
+                return;
+            }
+            if (result.Trader == null)
+                return;
+            AadeTraderImportWorkflow.ApplyRole(result.Trader,role);
+            LoadNew(result.Trader);
         }
 
         private void InitilizeEnrollment()

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using ASFuelControl.Invoicing.Persistence;
@@ -28,6 +29,14 @@ namespace ASFuelControl.Invoicing
         public Guid? MyDieselCouponCaseId { get; set; }
         public MyDieselScope MyDieselScope { get; set; }
         public decimal? MyDieselExciseDiscountPerLitre { get; set; }
+        // Audit trail for an issued identity whose fiscal payload was regenerated
+        // before any external operation completed. Previous attempts remain in the
+        // fiscal journal; this records why the current frozen payload differs.
+        public List<InvoicePaymentMethodChange> PaymentMethodChanges { get; set; }
+        // A stale, unprinted direct-pump delivery can be resumed on a later day.
+        // Its issued identity and host transaction date stay unchanged; only the
+        // planned dispatch timestamp in the frozen electronic payload is moved.
+        public List<InvoiceDispatchDateChange> DispatchDateChanges { get; set; }
         InvoiceBuildRequest IInvoiceSubmissionSource.Prepare(Guid id, ProviderRoute route)
         {
             if (id != InvoiceId || JsonConvert.SerializeObject(route) != JsonConvert.SerializeObject(Provider)) throw new InvalidOperationException("Workflow route mismatch.");
@@ -38,6 +47,20 @@ namespace ASFuelControl.Invoicing
             if (document.DocumentId != InvoiceId || Signing == null || !FiscalSigningCoordinator.SameScope(scope, Signing.Scope)) throw new InvalidOperationException("Workflow signing scope mismatch.");
             return Signing;
         }
+    }
+    public sealed class InvoicePaymentMethodChange
+    {
+        public int PreviousPaymentType { get; set; }
+        public int PaymentType { get; set; }
+        public string ChangedBy { get; set; }
+        public DateTime ChangedUtc { get; set; }
+    }
+    public sealed class InvoiceDispatchDateChange
+    {
+        public DateTime PreviousDispatchDate { get; set; }
+        public DateTime DispatchDate { get; set; }
+        public string ChangedBy { get; set; }
+        public DateTime ChangedUtc { get; set; }
     }
     public sealed class InvoiceWorkflowResult
     {
@@ -433,7 +456,15 @@ namespace ASFuelControl.Invoicing
             // fixed. Calculation-derived provider, print and signing data are
             // replaced together before the new request can be dispatched.
             saved.Version = Math.Max(saved.Version,regenerated.Version);
+            var recoveredDispatch = saved.Invoice?.Delivery?.Departure;
+            var dispatchChanges = saved.DispatchDateChanges;
             saved.Invoice = regenerated.Invoice;
+            // Recalculation repairs calculation-derived signing data. It must not
+            // undo an independently audited next-day dispatch recovery.
+            if (dispatchChanges != null && dispatchChanges.Count > 0 &&
+                recoveredDispatch.HasValue && saved.Invoice?.Delivery != null)
+                saved.Invoice.Delivery.Departure = recoveredDispatch.Value;
+            saved.DispatchDateChanges = dispatchChanges;
             saved.PrintContent = regenerated.PrintContent;
             saved.CompanyQrContent = regenerated.CompanyQrContent;
             saved.MyDieselExciseDiscountPerLitre = regenerated.MyDieselExciseDiscountPerLitre;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,14 +16,71 @@ namespace ASFuelControl.Windows.UI.Forms
     public partial class InvoiceTypesForm : RadForm
     {
         ViewModels.InvoiceTypeCatalogViewModel vm = new ViewModels.InvoiceTypeCatalogViewModel();
+        private RadButton btnCopy;
 
         public InvoiceTypesForm()
         {
             InitializeComponent();
+            InitializeCopyButton();
             PrepareTransformationLookupBindings();
             InitializeInvoicingPolicy();
             vm.PropertyChanged += Vm_PropertyChanged;
             this.Load += InvoiceTypesForm_Load;
+        }
+
+        private void InitializeCopyButton()
+        {
+            btnCopy = new RadButton
+            {
+                Name = "btnCopy",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0),
+                DisplayStyle = DisplayStyle.Image,
+                Image = CreateCopyIcon(),
+                ImageAlignment = ContentAlignment.MiddleCenter,
+                AccessibleName = "Αντιγραφή τύπου παραστατικού"
+            };
+            btnCopy.ButtonElement.ToolTipText = "Αντιγραφή τύπου παραστατικού";
+            btnCopy.Click += btnCopy_Click;
+
+            // Add, delete, copy, filter area, save.
+            tableLayoutPanel3.SuspendLayout();
+            tableLayoutPanel3.ColumnCount = 5;
+            tableLayoutPanel3.ColumnStyles.Clear();
+            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,40F));
+            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,40F));
+            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,40F));
+            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100F));
+            tableLayoutPanel3.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,40F));
+            tableLayoutPanel3.SetCellPosition(panel2,new TableLayoutPanelCellPosition(3,0));
+            tableLayoutPanel3.SetCellPosition(radButton1,new TableLayoutPanelCellPosition(4,0));
+            tableLayoutPanel3.Controls.Add(btnCopy,2,0);
+            tableLayoutPanel3.ResumeLayout(true);
+        }
+
+        private static Image CreateCopyIcon()
+        {
+            // Material-style "content copy" glyph, using the same blue as the
+            // existing invoice toolbar icons.
+            var image = new Bitmap(32,32);
+            using (var graphics = Graphics.FromImage(image))
+            using (var pen = new Pen(Color.FromArgb(57,68,150),3F))
+            {
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                pen.LineJoin = LineJoin.Round;
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+
+                graphics.DrawLines(pen,new[]
+                {
+                    new PointF(6.5F,22.5F),
+                    new PointF(6.5F,4.5F),
+                    new PointF(21.5F,4.5F),
+                    new PointF(21.5F,8.5F)
+                });
+                graphics.DrawRectangle(pen,10.5F,8.5F,15F,19F);
+            }
+            return image;
         }
 
         private void PrepareTransformationLookupBindings()
@@ -89,6 +147,25 @@ namespace ASFuelControl.Windows.UI.Forms
             var it = this.vm.AddNewInvoiceType();
             this.invoiceTypeViewModelBindingSource.ResetBindings(false);
             this.invoiceTypeViewModelBindingSource.Position = this.invoiceTypeViewModelBindingSource.List.IndexOf(it);
+        }
+
+        private void btnCopy_Click(object sender, EventArgs e)
+        {
+            ValidateChildren();
+            invoiceTypeViewModelBindingSource.EndEdit();
+            radGridView2.EndEdit();
+            var source = radGridView1.CurrentRow == null ? null :
+                radGridView1.CurrentRow.DataBoundItem as ViewModels.InvoiceTypeDetailViewModel;
+            if (source == null)
+                return;
+
+            var copy = vm.CopyInvoiceType(source);
+            CopyInvoicingPolicy(source.InvoiceTypeId,copy.InvoiceTypeId);
+            invoiceTypeViewModelBindingSource.ResetBindings(false);
+            var index = invoiceTypeViewModelBindingSource.List.IndexOf(copy);
+            if (index >= 0)
+                invoiceTypeViewModelBindingSource.Position = index;
+            ShowPolicy();
         }
 
         private void btnDelete_Click(object sender, EventArgs e)

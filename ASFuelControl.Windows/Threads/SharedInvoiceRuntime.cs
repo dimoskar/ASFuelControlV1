@@ -417,9 +417,21 @@ namespace ASFuelControl.Windows.Threads
                 ? CurrentPrintDestination(id,selectedPrinter)
                 : null;
             var source = new Source(print,false,selectedPrinter);
-            return automaticSamtecAmountCorrection
+            bool recoveredDispatch = false;
+            bool retryRecoveredSubmission = false;
+            if (HasStaleDirectPumpDispatchCandidate(id))
+            {
+                using (var lease = sql.Value.EnterInvoice(id))
+                {
+                    var status = ReadStatus(id);
+                    recoveredDispatch = RecoverStaleDirectPumpDispatchDate(id,lease,status);
+                    retryRecoveredSubmission = recoveredDispatch &&
+                        status.State("Submission") == "Rejected";
+                }
+            }
+            return automaticSamtecAmountCorrection && !retryRecoveredSubmission
                 ? workflow.Value.ProcessAutomaticSamtecAmountCorrection(id,source,print,reason,destination)
-                : workflow.Value.Process(id,source,print,reason,false,false,destination);
+                : workflow.Value.Process(id,source,print,reason,recoveredDispatch,false,destination);
         }
         internal static InvoiceWorkflowResult SubmitPrintedInvoice(Guid id)
         {
@@ -432,15 +444,40 @@ namespace ASFuelControl.Windows.Threads
                 return workflow.Value.Process(id,new Source(false,true),false);
             }
         }
+        internal static void PrintHistoricalCopy(Guid id, string selectedPrinter = null)
+        {
+            // Pre-shared-workflow invoices have no frozen snapshot or print job.
+            // A copy must therefore use the stored host invoice, but must never
+            // adopt it into the issuance workflow or repeat fiscal side effects.
+            using (var lease = sql.Value.EnterInvoice(id))
+            {
+                if (new SqlFiscalOwnershipStore(sql.Value).Owns(lease))
+                    throw new InvalidOperationException(
+                        "Το παραστατικό έχει ήδη κοινό φορολογικό ιστορικό. Χρησιμοποιήστε την αποθηκευμένη ροή επανεκτύπωσης.");
+                using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                {
+                    var invoice = db.Invoices.SingleOrDefault(value => value.InvoiceId == id);
+                    if (invoice == null)
+                        throw new InvalidOperationException("Το παραστατικό δεν βρέθηκε.");
+                    if (invoice.Number <= 0 || invoice.IsPrinted != true)
+                        throw new InvalidOperationException(
+                            "Μόνο ήδη εκτυπωμένο ιστορικό παραστατικό με αποθηκευμένο αριθμό μπορεί να επανεκτυπωθεί.");
+                    PrintAgent.PrintHistoricalInvoiceCopy(invoice,selectedPrinter);
+                }
+            }
+        }
         private sealed class Source : IInvoiceWorkflowSource
         {
             private readonly bool printRequested, historicalPrinted;
             private readonly string selectedPrinter;
-            internal Source(bool printRequested, bool historicalPrinted = false, string selectedPrinter = null)
+            private readonly int? paymentTypeOverride;
+            internal Source(bool printRequested, bool historicalPrinted = false, string selectedPrinter = null,
+                int? paymentTypeOverride = null)
             {
                 this.printRequested = printRequested;
                 this.historicalPrinted = historicalPrinted;
                 this.selectedPrinter = string.IsNullOrWhiteSpace(selectedPrinter) ? null : selectedPrinter.Trim();
+                this.paymentTypeOverride = paymentTypeOverride;
             }
             public InvoiceWorkflowSnapshot Prepare(IFiscalDocumentLease lease)
             {
@@ -473,7 +510,7 @@ namespace ASFuelControl.Windows.Threads
                     // workflow snapshot freezes the print/provider/signing payloads.
                     // Existing snapshots are reused by retries and reprints, while a
                     // historical printed invoice must retain its originally issued data.
-                    if (!historicalPrinted)
+                    if (!historicalPrinted && !paymentTypeOverride.HasValue)
                     {
                         invoice.RecalculateInvoice();
                         db.SaveChanges();
@@ -510,6 +547,11 @@ namespace ASFuelControl.Windows.Threads
                             relation.IsExternalFiscalCorrelation))
                             mapping.Parents[parent.ParentInvoiceId] = provider.LoadParentEvidence(parent.ParentInvoiceId);
                         value.Invoice = new HostInvoiceMapper().Map(invoice, mapping);
+                        // If a direct-pump invoice-delivery could not be issued on
+                        // its transaction day, its first electronic dispatch uses
+                        // the actual recovery time. The host invoice date and the
+                        // balance-linked sale remain unchanged.
+                        ApplyStaleDirectPumpDispatchDate(invoice,value,DateTime.Now);
                     }
                     if (route.Signing != null)
                     {
@@ -611,6 +653,8 @@ namespace ASFuelControl.Windows.Threads
             private Data.Invoice Check(Data.DatabaseModel db, Guid id, SharedInvoiceConfiguration config)
             {
                 var invoice = db.Invoices.Single(i => i.InvoiceId == id);
+                if (paymentTypeOverride.HasValue)
+                    invoice.PaymentType = paymentTypeOverride.Value;
                 bool hasLegacy = db.MyDataInvoices.Any(i => i.InvoiceId == id);
                 // Older InvoiceFormEx/InvoiceSimpleForm builds saved a newly created
                 // invoice as printed before assigning its number. Recover that exact

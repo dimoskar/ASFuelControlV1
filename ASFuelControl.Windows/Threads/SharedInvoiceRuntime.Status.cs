@@ -2,8 +2,10 @@ using System;
 using System.Linq;
 using System.Text;
 using ASFuelControl.Invoicing;
+using ASFuelControl.Invoicing.Mapping;
 using ASFuelControl.Invoicing.Persistence;
 using Exedron.Invoicing.Core;
+using Exedron.Invoicing.Adapters;
 using Exedron.Invoicing.Adapters.Samtec;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -17,6 +19,7 @@ namespace ASFuelControl.Windows.Threads
         internal FiscalAttemptEvidence[] Revisions;
         internal string PendingSummary;
         internal bool CanSubmitPrinted;
+        internal bool CanPrintHistorical;
         internal bool AlreadyPrinted;
         internal ProviderRoute ConfiguredProvider;
         internal string ConnectionProblem;
@@ -32,6 +35,8 @@ namespace ASFuelControl.Windows.Threads
         internal bool CanRecoverRefund;
         internal bool IsRefundPayment;
         internal ProviderResendAssessment ProviderResend;
+        internal bool CanChangePaymentMethod;
+        internal int PaymentType;
         internal string State(string family) => Attempts.LastOrDefault(a => a.Family == family)?.State ?? "Δεν ξεκίνησε";
     }
     internal static partial class SharedInvoiceRuntime
@@ -48,7 +53,10 @@ namespace ASFuelControl.Windows.Threads
                     Revisions = entries.SelectMany(a => history.LoadHistory(lease,(FiscalJournalFamily)Enum.Parse(typeof(FiscalJournalFamily),a.Family),a.AttemptId)).OrderBy(a => a.UpdatedUtc).ToArray() };
                 status.InvoiceSignature = ReadInvoiceSignature(entries);
                 var paymentEntry = entries.LastOrDefault(a => a.Family == "Payment" && a.Operation == "Payment");
-                if (status.Snapshot?.Payment != null && paymentEntry?.PayloadFormat == "provider-payment.v2.json")
+                bool paymentWasSuperseded = status.Snapshot?.PaymentMethodChanges?.Count > 0 &&
+                    (paymentEntry?.State == "Declined" || paymentEntry?.State == "Failed");
+                if (status.Snapshot?.Payment != null && paymentEntry?.PayloadFormat == "provider-payment.v2.json" &&
+                    !paymentWasSuperseded)
                 {
                     var paymentRequest = JsonConvert.DeserializeObject<ProviderPaymentAttemptRequest>(Encoding.UTF8.GetString(paymentEntry.RequestPayload));
                     var effectiveRoute = Newtonsoft.Json.Linq.JObject.Parse(paymentRequest.WorkflowContext)["Route"].ToObject<PaymentRoute>();
@@ -66,6 +74,11 @@ namespace ASFuelControl.Windows.Threads
                 {
                     var invoice = db.Invoices.SingleOrDefault(i => i.InvoiceId == id);
                     status.AlreadyPrinted = invoice?.IsPrinted == true;
+                    status.CanPrintHistorical = status.Snapshot == null && entries.Length == 0 &&
+                        invoice?.IsPrinted == true && invoice.Number > 0;
+                    status.PaymentType = invoice?.PaymentType ??
+                        (int)Common.Enumerators.PaymentTypeEnum.Cash;
+                    status.CanChangePaymentMethod = PaymentMethodCanChange(db,invoice,status,entries);
                     if (status.Snapshot == null && entries.Length == 0)
                     {
                         bool hasLegacy = db.MyDataInvoices.Any(i => i.InvoiceId == id);
@@ -81,6 +94,99 @@ namespace ASFuelControl.Windows.Threads
                 catch { status.ProviderResend = null; }
             }
             return status;
+        }
+        internal static string ChangePaymentMethod(Guid id, int paymentType)
+        {
+            if (!Enum.IsDefined(typeof(Common.Enumerators.PaymentTypeEnum),paymentType))
+                throw new ArgumentOutOfRangeException(nameof(paymentType));
+            using (var lease = sql.Value.EnterInvoice(id))
+            {
+                int previous;
+                using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                {
+                    var invoice = db.Invoices.SingleOrDefault(value => value.InvoiceId == id);
+                    if (invoice == null) throw new InvalidOperationException("Το παραστατικό δεν βρέθηκε.");
+                    previous = invoice.PaymentType ?? (int)Common.Enumerators.PaymentTypeEnum.Cash;
+                }
+                if (previous == paymentType) return "Ο τρόπος πληρωμής δεν άλλαξε.";
+
+                var store = new SqlInvoiceWorkflowStore(sql.Value);
+                var originalBytes = store.Load(lease);
+                byte[] replacementBytes = null;
+                if (originalBytes != null)
+                {
+                    var saved = JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(
+                        Encoding.UTF8.GetString(originalBytes));
+                    var replacement = new Source(false,false,null,paymentType).Prepare(lease);
+                    RequireSamePaymentChangeScope(saved,replacement);
+
+                    // The provider account and selected printer remain frozen. POS
+                    // routing is regenerated only when the new method requires it.
+                    replacement.Provider = saved.Provider;
+                    if (replacement.Payment != null)
+                    {
+                        var provider = saved.Provider ?? throw new InvalidOperationException(
+                            "Η νέα πληρωμή POS απαιτεί τον αποθηκευμένο πάροχο του παραστατικού.");
+                        replacement.Payment = new PaymentRoute(provider,replacement.Payment.Endpoint,
+                            replacement.Payment.TerminalId,replacement.Payment.ITimologiaSignatureFormat,
+                            replacement.Payment.IlydaProtocol,replacement.Payment.PosMode);
+                    }
+                    replacement.PrintDestination = saved.PrintDestination;
+                    replacement.PrintFormat = saved.PrintFormat;
+                    replacement.Version = Math.Max(saved.Version,replacement.Version);
+                    replacement.PaymentMethodChanges = saved.PaymentMethodChanges == null
+                        ? new System.Collections.Generic.List<InvoicePaymentMethodChange>()
+                        : new System.Collections.Generic.List<InvoicePaymentMethodChange>(saved.PaymentMethodChanges);
+                    replacement.PaymentMethodChanges.Add(new InvoicePaymentMethodChange {
+                        PreviousPaymentType = previous, PaymentType = paymentType,
+                        ChangedBy = Program.CurrentUserName, ChangedUtc = DateTime.UtcNow
+                    });
+                    replacementBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(replacement));
+                }
+                store.ChangePaymentMethod(lease,originalBytes,replacementBytes,previous,paymentType);
+                return "Ο τρόπος πληρωμής ενημερώθηκε. Το προηγούμενο αίτημα ακυρώθηκε τοπικά και η επόμενη έκδοση θα χρησιμοποιήσει νέο payload.";
+            }
+        }
+        private static void RequireSamePaymentChangeScope(InvoiceWorkflowSnapshot saved,
+            InvoiceWorkflowSnapshot replacement)
+        {
+            if (saved == null || replacement == null || saved.InvoiceId != replacement.InvoiceId ||
+                saved.LocalOnly != replacement.LocalOnly ||
+                !SameProviderIdentity(saved.Provider,replacement.Provider) ||
+                (saved.Signing == null) != (replacement.Signing == null) ||
+                saved.Signing != null && !FiscalSigningCoordinator.SameIssuerScope(
+                    saved.Signing.Scope,replacement.Signing.Scope) ||
+                saved.MyDieselCouponCaseId != replacement.MyDieselCouponCaseId ||
+                JsonConvert.SerializeObject(saved.MyDieselScope) !=
+                    JsonConvert.SerializeObject(replacement.MyDieselScope))
+                throw new InvalidOperationException(
+                    "Η αλλαγή πληρωμής πρέπει να διατηρεί διαδρομή, εκδότη και δεσμευμένο myDiesel του παραστατικού.");
+        }
+        private static bool SameProviderIdentity(ProviderRoute left, ProviderRoute right)
+        {
+            if (left == null || right == null) return left == null && right == null;
+            return left.ProviderKey == right.ProviderKey && left.TestMode == right.TestMode &&
+                left.IssuerVat == right.IssuerVat && left.IssuerBranch == right.IssuerBranch;
+        }
+        private static bool PaymentMethodCanChange(Data.DatabaseModel db, Data.Invoice invoice,
+            SharedInvoiceStatus status, FiscalAttemptEvidence[] entries)
+        {
+            if (invoice == null || invoice.Number <= 0 || invoice.IsPrinted == true ||
+                !string.IsNullOrWhiteSpace(invoice.InvoiceSignature) ||
+                !string.IsNullOrWhiteSpace(invoice.QRCodeData) ||
+                db.MyDataInvoices.Any(value => value.InvoiceId == invoice.InvoiceId && value.Mark > 0))
+                return false;
+            if (!Enum.IsDefined(typeof(Common.Enumerators.PaymentTypeEnum),status.PaymentType))
+                return false;
+            if (status.Snapshot == null) return entries.Length == 0;
+            return entries.All(entry =>
+                entry.Family == "Signing" && entry.Operation == "Sign" &&
+                    (entry.State == "Prepared" || entry.State == "Rejected" || entry.State == "FailedBeforeDispatch") ||
+                entry.Family == "Submission" && entry.Operation == "Issue" && entry.State == "Rejected" ||
+                entry.Family == "ProviderSession" && entry.Operation == "SignPayment" &&
+                    (entry.State == "Rejected" || entry.State == "Cancelled" || entry.State == "Expired") ||
+                entry.Family == "Payment" && entry.Operation == "Payment" &&
+                    (entry.State == "Declined" || entry.State == "Failed"));
         }
         private static void ReadPaymentCompensationStatus(Guid id, SharedInvoiceStatus status)
         {
@@ -180,6 +286,90 @@ namespace ASFuelControl.Windows.Threads
         private static FiscalSigningService SigningService() => new FiscalSigningService(sql.Value,scope =>
             new SamtecFiscalSigner((settings.Value.Devices ?? new SamtecDeviceProfile[0]).Single(p => FiscalSigningCoordinator.SameScope(p.Scope,scope))));
 
+        private static bool ApplyStaleDirectPumpDispatchDate(Data.Invoice invoice,
+            InvoiceWorkflowSnapshot snapshot, DateTime currentDispatch)
+        {
+            if (invoice == null || snapshot?.Provider == null || snapshot.LocalOnly ||
+                snapshot.Invoice?.Delivery == null ||
+                invoice.Number <= 0 || invoice.IsPrinted == true ||
+                !HostInvoiceMapper.IsInvoiceWithDelivery(invoice.InvoiceType) ||
+                !invoice.InvoiceLines.Any(line => line.SaleTransactionId.HasValue &&
+                    line.SaleTransactionId.Value != Guid.Empty))
+                return false;
+
+            var previous = snapshot.Invoice.Delivery.Departure;
+            if (previous == default(DateTime) || previous.Date >= currentDispatch.Date)
+                return false;
+            if (currentDispatch.Kind == DateTimeKind.Utc)
+                throw new InvalidOperationException(
+                    "Η ημερομηνία διακίνησης πρέπει να είναι τοπική φορολογική ώρα.");
+
+            snapshot.Invoice.Delivery.Departure = currentDispatch;
+            snapshot.DispatchDateChanges = snapshot.DispatchDateChanges == null
+                ? new System.Collections.Generic.List<InvoiceDispatchDateChange>()
+                : new System.Collections.Generic.List<InvoiceDispatchDateChange>(
+                    snapshot.DispatchDateChanges);
+            snapshot.DispatchDateChanges.Add(new InvoiceDispatchDateChange {
+                PreviousDispatchDate = previous,
+                DispatchDate = currentDispatch,
+                ChangedBy = Program.CurrentUserName ?? Environment.UserName,
+                ChangedUtc = DateTime.UtcNow
+            });
+            return true;
+        }
+
+        private static bool HasStaleDirectPumpDispatchCandidate(Guid id)
+        {
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var invoice = db.Invoices.SingleOrDefault(value => value.InvoiceId == id);
+                return invoice != null && invoice.Number > 0 && invoice.IsPrinted != true &&
+                    invoice.TransactionDate.Date < DateTime.Today &&
+                    HostInvoiceMapper.IsInvoiceWithDelivery(invoice.InvoiceType) &&
+                    invoice.InvoiceLines.Any(line => line.SaleTransactionId.HasValue &&
+                        line.SaleTransactionId.Value != Guid.Empty);
+            }
+        }
+
+        private static bool RecoverStaleDirectPumpDispatchDate(Guid id,
+            IFiscalDocumentLease lease, SharedInvoiceStatus status)
+        {
+            if (status?.Snapshot == null ||
+                status.Attempts.Any(attempt => attempt.Family == "ProviderSession" ||
+                    attempt.Family == "Payment" || attempt.Family == "MyDiesel") ||
+                status.Attempts.Any(attempt => attempt.Family == "Submission" &&
+                    attempt.State != "Rejected"))
+                return false;
+            var signing = status.Attempts.LastOrDefault(attempt => attempt.Family == "Signing");
+            if (signing != null && signing.State != "Signed" && signing.State != "Rejected" &&
+                signing.State != "FailedBeforeDispatch")
+                return false;
+
+            var store = new SqlInvoiceWorkflowStore(sql.Value);
+            var original = store.Load(lease);
+            if (original == null) return false;
+            var snapshot = JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(
+                Encoding.UTF8.GetString(original));
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var invoice = db.Invoices.SingleOrDefault(value => value.InvoiceId == id);
+                if (invoice == null || db.MyDataInvoices.Any(value =>
+                    value.InvoiceId == id && value.Mark > 0) ||
+                    !ApplyStaleDirectPumpDispatchDate(invoice,snapshot,DateTime.Now))
+                    return false;
+            }
+
+            // Validate the changed provider payload before replacing the durable
+            // snapshot. The issued identity and printable document remain frozen.
+            var model = new InvoiceBuilder(new InvoiceTypeResolver()).Build(snapshot.Invoice);
+            new InvoiceAdapterFactory(new InvoiceTypeResolver())
+                .CreatePayloadMapper(snapshot.Provider.ProviderKey).Serialize(model,id);
+            var replacement = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(snapshot));
+            store.ReplaceDeliveryDispatchForRecovery(lease,original,replacement);
+            status.Snapshot = snapshot;
+            return true;
+        }
+
         internal static string RecoverStatus(Guid id)
         {
             using (var lease = sql.Value.EnterInvoice(id))
@@ -218,13 +408,16 @@ namespace ASFuelControl.Windows.Threads
                 {
                     if (status.Attempts.Any(a => a.Family != "Signing")) throw new InvalidOperationException("Υπάρχει άλλη εξωτερική προσπάθεια. Απαιτείται έλεγχος.");
                     SigningService().ResumePrepared(new FiscalDocumentReference(FiscalDocumentKind.Invoice,id));
+                    status = ReadStatus(id);
                 }
-                bool rejectedSigning = status.State("Signing") == "Rejected";
+                RecoverStaleDirectPumpDispatchDate(id,lease,status);
+                bool retryableSigning = status.State("Signing") == "Rejected" ||
+                    status.State("Signing") == "FailedBeforeDispatch";
                 // A definitive device rejection may be corrected from the current
                 // invoice calculation. Source.Prepare recalculates and remaps the
                 // full workflow before a new Samtec request is persisted.
-                IInvoiceWorkflowSource correctionSource = rejectedSigning ? new Source(false) : null;
-                return workflow.Value.Process(id,correctionSource,false,retryRejected: rejectedSigning ||
+                IInvoiceWorkflowSource correctionSource = retryableSigning ? new Source(false) : null;
+                return workflow.Value.Process(id,correctionSource,false,retryRejected: retryableSigning ||
                     status.State("Submission") == "Rejected" || status.State("Submission") == "RetryAuthorized",
                     retryDeclinedPayment: status.State("Payment") == "Declined" || status.State("Payment") == "Failed");
             }

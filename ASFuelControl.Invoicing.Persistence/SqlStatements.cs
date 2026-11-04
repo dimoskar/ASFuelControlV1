@@ -26,6 +26,73 @@ BEGIN RAISERROR('Another fiscal operation already uses the saved workflow.',16,1
 UPDATE dbo.FiscalInvoiceWorkflow SET Payload=@payload,PayloadSha256=@hash,FencingToken=@token
 WHERE InvoiceId=@id AND PayloadSha256=@expectedHash AND Payload=@expected;
 IF @@ROWCOUNT<>1 BEGIN RAISERROR('The saved workflow changed. Reload before continuing.',16,1); RETURN; END;";
+        internal const string ReplaceWorkflowForDispatchRecovery = @"
+IF NOT EXISTS(
+    SELECT 1
+    FROM dbo.Invoice i WITH (UPDLOCK,HOLDLOCK)
+    JOIN dbo.InvoiceType t ON t.InvoiceTypeId=i.InvoiceTypeId
+    WHERE i.InvoiceId=@id AND i.Number>0 AND ISNULL(i.IsPrinted,0)=0
+        AND t.OfficialEnumerator=222
+        AND EXISTS(SELECT 1 FROM dbo.InvoiceLine l WHERE l.InvoiceId=i.InvoiceId AND l.SaleTransactionId IS NOT NULL))
+BEGIN RAISERROR('Only an unprinted numbered direct-pump invoice-delivery can recover its dispatch date.',16,1); RETURN; END;
+IF EXISTS(SELECT 1 FROM dbo.MyDataInvoice WHERE InvoiceId=@id AND ISNULL(Mark,0)>0)
+BEGIN RAISERROR('An invoice with a MARK cannot change its dispatch date.',16,1); RETURN; END;
+IF EXISTS(
+    SELECT 1 FROM dbo.FiscalAttempt a
+    JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+    WHERE a.DocumentKind=1 AND a.DocumentId=@id AND (
+        (a.Family='Signing' AND r.State NOT IN ('Signed','Rejected','FailedBeforeDispatch')) OR
+        (a.Family='Submission' AND r.State<>'Rejected') OR
+        a.Family NOT IN ('Signing','Submission')))
+BEGIN RAISERROR('A completed or unresolved fiscal operation prevents dispatch-date recovery.',16,1); RETURN; END;
+UPDATE dbo.FiscalInvoiceWorkflow SET Payload=@payload,PayloadSha256=@hash,FencingToken=@token
+WHERE InvoiceId=@id AND PayloadSha256=@expectedHash AND Payload=@expected;
+IF @@ROWCOUNT<>1 BEGIN RAISERROR('The saved workflow changed. Reload before continuing.',16,1); RETURN; END;";
+        internal const string ChangePaymentWithoutWorkflow = @"
+IF EXISTS(SELECT 1 FROM dbo.FiscalInvoiceWorkflow WITH (UPDLOCK,HOLDLOCK) WHERE InvoiceId=@id)
+BEGIN RAISERROR('The invoice workflow was created. Reload before changing payment.',16,1); RETURN; END;
+IF EXISTS(SELECT 1 FROM dbo.FiscalAttempt WITH (UPDLOCK,HOLDLOCK) WHERE DocumentKind=1 AND DocumentId=@id)
+BEGIN RAISERROR('Fiscal history without a saved workflow requires reconciliation.',16,1); RETURN; END;
+IF NOT EXISTS(SELECT 1 FROM dbo.Invoice WITH (UPDLOCK,HOLDLOCK) WHERE InvoiceId=@id AND Number>0
+    AND ISNULL(IsPrinted,0)=0 AND NULLIF(InvoiceSignature,'') IS NULL AND NULLIF(QRCodeData,'') IS NULL
+    AND ISNULL(PaymentType,1)=@oldPayment)
+BEGIN RAISERROR('The numbered invoice is no longer eligible for a payment-method change.',16,1); RETURN; END;
+IF EXISTS(SELECT 1 FROM dbo.MyDataInvoice WHERE InvoiceId=@id AND ISNULL(Mark,0)>0)
+BEGIN RAISERROR('An invoice with a MARK cannot change payment method.',16,1); RETURN; END;
+UPDATE dbo.Invoice SET PaymentType=@newPayment WHERE InvoiceId=@id AND ISNULL(PaymentType,1)=@oldPayment;
+IF @@ROWCOUNT<>1 BEGIN RAISERROR('The invoice payment method changed. Reload before continuing.',16,1); RETURN; END;";
+        internal const string ReplaceWorkflowForPaymentChange = @"
+IF NOT EXISTS(SELECT 1 FROM dbo.Invoice WITH (UPDLOCK,HOLDLOCK) WHERE InvoiceId=@id AND Number>0
+    AND ISNULL(IsPrinted,0)=0 AND NULLIF(InvoiceSignature,'') IS NULL AND NULLIF(QRCodeData,'') IS NULL
+    AND ISNULL(PaymentType,1)=@oldPayment)
+BEGIN RAISERROR('The numbered invoice is no longer eligible for a payment-method change.',16,1); RETURN; END;
+IF EXISTS(SELECT 1 FROM dbo.MyDataInvoice WHERE InvoiceId=@id AND ISNULL(Mark,0)>0)
+BEGIN RAISERROR('An invoice with a MARK cannot change payment method.',16,1); RETURN; END;
+IF EXISTS(
+    SELECT 1 FROM dbo.FiscalAttempt a
+    JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+    WHERE a.DocumentKind=1 AND a.DocumentId=@id AND (
+        (a.Family='Signing' AND r.State NOT IN ('Prepared','Rejected','FailedBeforeDispatch')) OR
+        (a.Family='Submission' AND r.State<>'Rejected') OR
+        (a.Family='ProviderSession' AND r.State NOT IN ('Rejected','Cancelled','Expired')) OR
+        (a.Family='Payment' AND r.State NOT IN ('Declined','Failed')) OR
+        a.Family NOT IN ('Signing','Submission','ProviderSession','Payment')))
+BEGIN RAISERROR('A completed or unresolved fiscal operation prevents changing payment method.',16,1); RETURN; END;
+INSERT dbo.FiscalAttemptRevision(AttemptId,Revision,State,RecordedUtc,SnapshotJson,FencingToken)
+SELECT a.AttemptId,a.CurrentRevision+1,'FailedBeforeDispatch',@now,
+    N'{""Diagnostic"":""Superseded by payment-method change before dispatch.""}',@token
+FROM dbo.FiscalAttempt a
+JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+WHERE a.DocumentKind=1 AND a.DocumentId=@id AND a.Family='Signing' AND r.State='Prepared';
+UPDATE a SET CurrentRevision=a.CurrentRevision+1,BlocksNewAttempt=0
+FROM dbo.FiscalAttempt a
+JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+WHERE a.DocumentKind=1 AND a.DocumentId=@id AND a.Family='Signing' AND r.State='Prepared';
+UPDATE dbo.FiscalInvoiceWorkflow SET Payload=@payload,PayloadSha256=@hash,FencingToken=@token
+WHERE InvoiceId=@id AND PayloadSha256=@expectedHash AND Payload=@expected;
+IF @@ROWCOUNT<>1 BEGIN RAISERROR('The saved workflow changed. Reload before continuing.',16,1); RETURN; END;
+UPDATE dbo.Invoice SET PaymentType=@newPayment WHERE InvoiceId=@id AND ISNULL(PaymentType,1)=@oldPayment;
+IF @@ROWCOUNT<>1 BEGIN RAISERROR('The invoice payment method changed. Reload before continuing.',16,1); RETURN; END;";
         internal const string ReadDocumentWorkflow = "SELECT Payload,PayloadSha256 FROM dbo.FiscalDocumentWorkflow WHERE DocumentKind=@kind AND DocumentId=@id;";
         internal const string InsertDocumentWorkflow = "INSERT dbo.FiscalDocumentWorkflow(DocumentKind,DocumentId,Payload,PayloadSha256,CreatedUtc,FencingToken) VALUES(@kind,@id,@payload,@hash,@now,@token);";
         // Lock the counter before selecting unnumbered rows. Earlier rows of this type
