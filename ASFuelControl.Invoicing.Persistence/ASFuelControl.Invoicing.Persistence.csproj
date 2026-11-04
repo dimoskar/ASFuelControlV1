@@ -15,6 +15,7 @@
     <!-- Explicit source items are required for reliable classic Visual Studio project tracking. -->
     <Compile Include="SqlEvidenceLogger.cs" />
     <Compile Include="SqlHeatingCorrectionStore.cs" />
+    <Compile Include="SqlInvoiceTypeCorrectionStore.cs" />
     <Compile Include="SqlFiscalCatalogStore.cs" />
     <Compile Include="SqlFiscalConfigurationStore.cs" />
     <Compile Include="SqlFiscalDatabase.cs" />
@@ -36,6 +37,7 @@
     <EmbeddedResource Include="..\ASFuelControl.Windows\DBScripts\UpdateDatabase59.sql"><LogicalName>FiscalConfigurationSchema.sql</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="..\ASFuelControl.Windows\DBScripts\UpdateDatabase61.sql"><LogicalName>HeatingCorrectionSchema.sql</LogicalName></EmbeddedResource>
     <EmbeddedResource Include="..\ASFuelControl.Windows\DBScripts\UpdateDatabase62.sql"><LogicalName>MyDieselSchema.sql</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="..\ASFuelControl.Windows\DBScripts\UpdateDatabase66.sql"><LogicalName>InvoiceTypeCorrectionSchema.sql</LogicalName></EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

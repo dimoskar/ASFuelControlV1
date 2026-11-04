@@ -214,7 +214,7 @@
             this.radButton10.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
             this.radButton10.Image = global::ASFuelControl.Windows.Properties.Resources.Invoice_128;
             this.radButton10.ImageAlignment = System.Drawing.ContentAlignment.MiddleCenter;
-            this.radButton10.Location = new System.Drawing.Point(360, 185);
+            this.radButton10.Location = new System.Drawing.Point(185, 185);
             this.radButton10.Margin = new System.Windows.Forms.Padding(10);
             this.radButton10.Name = "radButton10";
             this.radButton10.Size = new System.Drawing.Size(172, 155);
@@ -418,7 +418,7 @@
             this.radButton4.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
             this.radButton4.Image = global::ASFuelControl.Windows.Properties.Resources.LogFile;
             this.radButton4.ImageAlignment = System.Drawing.ContentAlignment.MiddleCenter;
-            this.radButton4.Location = new System.Drawing.Point(710, 185);
+            this.radButton4.Location = new System.Drawing.Point(535, 185);
             this.radButton4.Margin = new System.Windows.Forms.Padding(10);
             this.radButton4.Name = "radButton4";
             this.radButton4.Size = new System.Drawing.Size(155, 155);
@@ -434,7 +434,7 @@
             this.radButton6.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
             this.radButton6.Image = global::ASFuelControl.Windows.Properties.Resources.LogFile;
             this.radButton6.ImageAlignment = System.Drawing.ContentAlignment.MiddleCenter;
-            this.radButton6.Location = new System.Drawing.Point(885, 185);
+            this.radButton6.Location = new System.Drawing.Point(710, 185);
             this.radButton6.Margin = new System.Windows.Forms.Padding(10);
             this.radButton6.Name = "radButton6";
             this.radButton6.Size = new System.Drawing.Size(155, 155);
@@ -444,25 +444,25 @@
             this.radButton6.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
             this.radButton6.TextWrap = true;
             this.radButton6.Click += new System.EventHandler(this.radButton6_Click_1);
-            // 
+            //
             // btnOutboundAudit
             //
             this.btnOutboundAudit.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
             this.btnOutboundAudit.Image = global::ASFuelControl.Windows.Properties.Resources.Message;
             this.btnOutboundAudit.ImageAlignment = System.Drawing.ContentAlignment.MiddleCenter;
-            this.btnOutboundAudit.Location = new System.Drawing.Point(10, 360);
+            this.btnOutboundAudit.Location = new System.Drawing.Point(885, 185);
             this.btnOutboundAudit.Margin = new System.Windows.Forms.Padding(10);
             this.btnOutboundAudit.Name = "btnOutboundAudit";
             this.btnOutboundAudit.Size = new System.Drawing.Size(155, 155);
             this.btnOutboundAudit.TabIndex = 23;
-            this.btnOutboundAudit.Text = "Έλεγχος Αποστολών";
+            this.btnOutboundAudit.Text = "Έλεγχος Αποστολ.";
             this.btnOutboundAudit.TextAlignment = System.Drawing.ContentAlignment.TopCenter;
             this.btnOutboundAudit.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
             this.btnOutboundAudit.TextWrap = true;
             this.btnOutboundAudit.Click += new System.EventHandler(this.btnOutboundAudit_Click);
             //
             // radButton7
-            // 
+            //
             this.radButton7.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
             this.radButton7.Image = global::ASFuelControl.Windows.Properties.Resources.Barcode;
             this.radButton7.ImageAlignment = System.Drawing.ContentAlignment.MiddleCenter;

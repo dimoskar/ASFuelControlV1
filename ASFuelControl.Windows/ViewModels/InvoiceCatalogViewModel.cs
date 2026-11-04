@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ASFuelControl.Invoicing.Mapping;
 
 namespace ASFuelControl.Windows.ViewModels
 {
@@ -15,6 +16,7 @@ namespace ASFuelControl.Windows.ViewModels
         private Data.InvoiceCatalogView[] invoices = new Data.InvoiceCatalogView[0];
         private readonly InvoiceCatalogLoadCoordinator loader = new InvoiceCatalogLoadCoordinator();
         private InvoiceCatalogTotals totals = new InvoiceCatalogTotals(new Data.InvoiceCatalogView[0], new Dictionary<Guid, int>());
+        private IDictionary<Guid,string> fiscalFailures = new Dictionary<Guid,string>();
         private bool isAdmin;
         private string filter = "";
         private bool selectCustomer = true;
@@ -98,6 +100,7 @@ namespace ASFuelControl.Windows.ViewModels
             this.invoices = snapshot.Invoices;
             this.totals = snapshot.Totals;
             this.isAdmin = snapshot.IsAdmin;
+            this.fiscalFailures = snapshot.FiscalFailures ?? new Dictionary<Guid,string>();
             this.OnPropertyChanged("Invoices");
             this.OnPropertyChanged("IsAdmin");
         }
@@ -105,6 +108,11 @@ namespace ASFuelControl.Windows.ViewModels
         internal void CancelPendingLoads() { loader.Invalidate(); }
 
         public decimal GetSummary(int row, string column) { return totals.Get(row, column); }
+        internal string FiscalFailure(Guid invoiceId)
+        {
+            string value;
+            return fiscalFailures.TryGetValue(invoiceId,out value) ? value : null;
+        }
 
         public void RefreshIsAdmin()
         {
@@ -168,7 +176,6 @@ namespace ASFuelControl.Windows.ViewModels
         //            invLine.VatPercentage = invoice.InvoiceLines.First().VatPercentage;
         //            invLine.Volume = invoice.InvoiceLines.First().Volume;
         //            invLine.VolumeNormalized = invoice.InvoiceLines.First().VolumeNormalized;
-        //            invLine.SaleTransactionId = invoice.InvoiceLines.First().SaleTransactionId;
         //            invLine.TankFillingId = invoice.InvoiceLines.First().TankFillingId;
         //            replacementInvoice.InvoiceLines.Add(invLine);
         //            replacementInvoice.NettoAmount = replacementInvoice.NettoAmount.Value + invLine.TotalPrice - invLine.VatAmount - invLine.DiscountAmount;
@@ -198,6 +205,7 @@ namespace ASFuelControl.Windows.ViewModels
 
         public Guid CancelInvoices(Guid[] invoiceIds, Guid invoiceType, Guid traderId, Guid vehicleId)
         {
+            Threads.SharedInvoiceRuntime.ValidateCancellationTransformation(invoiceIds, invoiceType);
             Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
             try
             { 
@@ -219,6 +227,7 @@ namespace ASFuelControl.Windows.ViewModels
                 replacementInvoice.VatAmount = 0;
                 replacementInvoice.DiscountAmount = 0;
                 replacementInvoice.TotalAmount = 0;
+                replacementInvoice.PaymentType = (int)Common.Enumerators.PaymentTypeEnum.Cash;
                 replacementInvoice.Notes = "Ακύρωση των:";
                 foreach (var id in invoiceIds)
                 {
@@ -229,6 +238,9 @@ namespace ASFuelControl.Windows.ViewModels
                         continue;
                     if (invoice.InvoiceLines.Count != 1)
                         continue;
+                    if (invoice.PaymentType.HasValue &&
+                        Enum.IsDefined(typeof(Common.Enumerators.PaymentTypeEnum), invoice.PaymentType.Value))
+                        replacementInvoice.PaymentType = invoice.PaymentType.Value;
                     Data.InvoiceRelation relation = new Data.InvoiceRelation();
                     relation.InvoiceRelationId = Guid.NewGuid();
                     relation.ParentInvoiceId = invoice.InvoiceId;
@@ -251,7 +263,8 @@ namespace ASFuelControl.Windows.ViewModels
                     invLine.VatPercentage = invoice.InvoiceLines.First().VatPercentage;
                     invLine.Volume = invoice.InvoiceLines.First().Volume;
                     invLine.VolumeNormalized = invoice.InvoiceLines.First().VolumeNormalized;
-                    invLine.SaleTransactionId = invoice.InvoiceLines.First().SaleTransactionId;
+                    // A replacement line is related to its source invoice/line; it
+                    // does not become another owner of the physical pump sale.
                     invLine.TankFillingId = invoice.InvoiceLines.First().TankFillingId;
                     replacementInvoice.NettoAmount = replacementInvoice.NettoAmount.Value + invLine.TotalPrice - invLine.VatAmount - invLine.DiscountAmount;
                     replacementInvoice.VatAmount = replacementInvoice.VatAmount + invLine.VatAmount;
@@ -307,6 +320,10 @@ namespace ASFuelControl.Windows.ViewModels
                 newInvoice.VatAmount = 0;
                 newInvoice.DiscountAmount = 0;
                 newInvoice.TotalAmount = 0;
+                newInvoice.PaymentType = invoice.PaymentType.HasValue &&
+                    Enum.IsDefined(typeof(Common.Enumerators.PaymentTypeEnum), invoice.PaymentType.Value)
+                    ? invoice.PaymentType.Value
+                    : (int)Common.Enumerators.PaymentTypeEnum.Cash;
                 newInvoice.Notes = transformationType.NotesAddition;
 
                 var lines = db.InvoiceLines.Where(i => i.InvoiceId == invoiceIds[0]);
@@ -365,7 +382,6 @@ namespace ASFuelControl.Windows.ViewModels
                             invLine.VatPercentage = line.VatPercentage;
                             invLine.Volume = vd.Volume > vd.MaxAllowedVolume ? vd.MaxAllowedVolume : vd.Volume;
                             invLine.VolumeNormalized = vd.Volume;
-                            invLine.SaleTransactionId = line.SaleTransactionId;
                             invLine.TankFillingId = line.TankFillingId;
                             newInvoice.InvoiceLines.Add(invLine);
                             lineRelations.Add(line.InvoiceLineId, invLine.InvoiceLineId);
@@ -391,7 +407,6 @@ namespace ASFuelControl.Windows.ViewModels
                         invLine.VatPercentage = line.VatPercentage;
                         invLine.Volume = line.Volume;
                         invLine.VolumeNormalized = line.VolumeNormalized;
-                        invLine.SaleTransactionId = line.SaleTransactionId;
                         invLine.TankFillingId = line.TankFillingId;
                         newInvoice.InvoiceLines.Add(invLine);
                         lineRelations.Add(line.InvoiceLineId, invLine.InvoiceLineId);
@@ -446,12 +461,59 @@ namespace ASFuelControl.Windows.ViewModels
         private Guid vehicleId;
         private string traderName;
         private string plateNumber;
+        private bool allowUnitPriceEdit;
+        private bool requireUnitPrice;
+        private bool sourceHasFinancialData;
+        private bool guideOnlyTarget;
+        private bool unitPriceEditPolicyConfigured;
+        private string supplierVat;
+        private string counterpartVat;
 
         public bool AllowVolumeEdit { set; get; }
 
-        public bool AllowUnitPriceEdit { set; get; }
+        public bool AllowUnitPriceEdit
+        {
+            private set
+            {
+                if (this.allowUnitPriceEdit == value)
+                    return;
+                this.allowUnitPriceEdit = value;
+                this.OnPropertyChanged("AllowUnitPriceEdit");
+            }
+            get { return this.allowUnitPriceEdit; }
+        }
 
-        public bool RequireUnitPrice { set; get; }
+        public bool RequireUnitPrice
+        {
+            private set
+            {
+                if (this.requireUnitPrice == value)
+                    return;
+                this.requireUnitPrice = value;
+                this.OnPropertyChanged("RequireUnitPrice");
+            }
+            get { return this.requireUnitPrice; }
+        }
+
+        public void ConfigureUnitPriceEditPolicy(bool sourceHasFinancialData,
+            bool guideOnlyTarget, string supplierVat)
+        {
+            this.sourceHasFinancialData = sourceHasFinancialData;
+            this.guideOnlyTarget = guideOnlyTarget;
+            this.supplierVat = supplierVat;
+            this.unitPriceEditPolicyConfigured = true;
+            this.RefreshUnitPriceEditPolicy();
+        }
+
+        private void RefreshUnitPriceEditPolicy()
+        {
+            if (!this.unitPriceEditPolicyConfigured)
+                return;
+            this.AllowUnitPriceEdit = TransformationEditPolicy.AllowUnitPriceEdit(
+                this.sourceHasFinancialData, this.guideOnlyTarget,
+                this.supplierVat, this.counterpartVat);
+            this.RequireUnitPrice = this.AllowUnitPriceEdit;
+        }
 
         public VolumeData[] Volumes
         {
@@ -487,15 +549,18 @@ namespace ASFuelControl.Windows.ViewModels
                     {
                         this.traderName = "";
                         this.vehicleId = Guid.Empty;
+                        this.counterpartVat = null;
                     }
                     else
                     {
                         this.traderName = trader.Name;
                         this.vehicleId = Guid.Empty;
+                        this.counterpartVat = trader.TaxRegistrationNumber;
                     }
                     this.OnPropertyChanged("TraderName");
                     this.OnPropertyChanged("PlateNumber");
                 }
+                this.RefreshUnitPriceEditPolicy();
                 this.OnPropertyChanged("TraderId");
             }
             get

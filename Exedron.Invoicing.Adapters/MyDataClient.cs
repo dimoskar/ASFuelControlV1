@@ -45,7 +45,7 @@ namespace Exedron.Invoicing.Adapters
                 if (previous != null && previous.State != "Rejected")
                 {
                     if (previous.State == "Accepted" && previous.RequestXml == xml)
-                        return ParseInvoiceResponse(previous.ResponseXml);
+                        return MapResponse(previous.ResponseXml);
                     return Error("The previous myDATA submission must be reconciled before sending again. No new invoice was sent.");
                 }
                 var attempt = new MyDataSubmission
@@ -60,7 +60,7 @@ namespace Exedron.Invoicing.Adapters
                     var reply = Send(HttpMethod.Post, "SendInvoices", xml, invoiceId);
                     attempt.HttpStatus = reply.HttpStatus;
                     attempt.ResponseXml = reply.Xml;
-                    result = ParseInvoiceResponse(reply.Xml);
+                    result = MapResponse(reply.Xml);
                     var rows = XDocument.Parse(reply.Xml).Descendants().Where(e => e.Name.LocalName == "response").ToArray();
                     var row = rows.Length == 1 ? rows[0] : null;
                     string status = Value(row, "statusCode");
@@ -87,7 +87,7 @@ namespace Exedron.Invoicing.Adapters
             using (options.Store.Acquire(scope, invoiceId))
             {
                 var saved = options.Store.Load(scope, invoiceId);
-                if (saved?.State == "Accepted") return ParseInvoiceResponse(saved.ResponseXml);
+                if (saved?.State == "Accepted") return MapResponse(saved.ResponseXml);
                 if (saved == null || saved.State == "Rejected") return Error("There is no uncertain myDATA submission to reconcile.");
                 return Reconcile(saved, invoiceId);
             }
@@ -119,7 +119,7 @@ namespace Exedron.Invoicing.Adapters
                     return new MyDataApiResponse { HttpStatus = (int)reply.StatusCode, Xml = reply.Content == null ? "" : reply.Content.ReadAsStringAsync().GetAwaiter().GetResult() };
             }
         }
-        private static InvoiceResponse ParseInvoiceResponse(string xml)
+        public static InvoiceResponse MapResponse(string xml)
         {
             var rows = XDocument.Parse(xml).Descendants().Where(e => e.Name.LocalName == "response").ToArray();
             if (rows.Length != 1) return Error("myDATA returned an unexpected response count for one invoice.");

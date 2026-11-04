@@ -43,7 +43,7 @@ namespace Exedron.Invoicing.Adapters
                 E("issueDate", h.IssueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
                 E("invoiceType", h.InvoiceType),
                 h.VATPaymentSuspension ? E("vatPaymentSuspension", true) : null,
-                E("currency", h.Currency));
+                !movementOnly && !string.IsNullOrWhiteSpace(h.Currency) ? E("currency", h.Currency) : null);
             if (h.CorrelatedInvoices != null) foreach (var mark in h.CorrelatedInvoices) header.Add(E("correlatedInvoices", mark));
             if (h.InvoiceType != "10.1" && h.DispatchDateTime != default(DateTime))
             {

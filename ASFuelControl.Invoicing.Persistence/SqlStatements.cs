@@ -12,6 +12,20 @@ BEGIN RAISERROR('The provider connection is fixed once fiscal processing has sta
 UPDATE dbo.FiscalInvoiceWorkflow SET Payload=@payload,PayloadSha256=@hash,FencingToken=@token
 WHERE InvoiceId=@id AND PayloadSha256=@expectedHash AND Payload=@expected;
 IF @@ROWCOUNT<>1 BEGIN RAISERROR('The saved workflow changed. Reload before continuing.',16,1); RETURN; END;";
+        internal const string ReplaceWorkflowAfterRejectedSigning = @"
+DECLARE @state nvarchar(32);
+SELECT TOP (1) @state=r.State
+FROM dbo.FiscalAttempt a
+JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+WHERE a.DocumentKind=1 AND a.DocumentId=@id AND a.Family='Signing'
+ORDER BY a.AttemptSequence DESC;
+IF ISNULL(@state,'')<>N'Rejected'
+BEGIN RAISERROR('Only a definitively rejected signing request can be regenerated.',16,1); RETURN; END;
+IF EXISTS(SELECT 1 FROM dbo.FiscalAttempt WHERE DocumentKind=1 AND DocumentId=@id AND Family<>'Signing')
+BEGIN RAISERROR('Another fiscal operation already uses the saved workflow.',16,1); RETURN; END;
+UPDATE dbo.FiscalInvoiceWorkflow SET Payload=@payload,PayloadSha256=@hash,FencingToken=@token
+WHERE InvoiceId=@id AND PayloadSha256=@expectedHash AND Payload=@expected;
+IF @@ROWCOUNT<>1 BEGIN RAISERROR('The saved workflow changed. Reload before continuing.',16,1); RETURN; END;";
         internal const string ReadDocumentWorkflow = "SELECT Payload,PayloadSha256 FROM dbo.FiscalDocumentWorkflow WHERE DocumentKind=@kind AND DocumentId=@id;";
         internal const string InsertDocumentWorkflow = "INSERT dbo.FiscalDocumentWorkflow(DocumentKind,DocumentId,Payload,PayloadSha256,CreatedUtc,FencingToken) VALUES(@kind,@id,@payload,@hash,@now,@token);";
         // Lock the counter before selecting unnumbered rows. Earlier rows of this type
@@ -22,7 +36,17 @@ SELECT @type=InvoiceTypeId,@date=TransactionDate FROM dbo.Invoice WHERE InvoiceI
 IF @type IS NULL BEGIN RAISERROR('Invoice/type not found.',16,1); RETURN; END;
 SELECT @last=LastNumber,@series=ISNULL(DefaultSeries,'') FROM dbo.InvoiceType WITH (UPDLOCK,HOLDLOCK) WHERE InvoiceTypeId=@type;
 IF @last IS NULL BEGIN RAISERROR('Invoice counter not found.',16,1); RETURN; END;
-IF EXISTS(SELECT 1 FROM dbo.Invoice WHERE InvoiceTypeId=@type AND ISNULL(Series,'')=@series AND Number>@last)
+-- Number allocation is serialized by the invoice-type counter lock. Validate the
+-- rolling edge of the sequence instead of allowing old imported history to block
+-- current issuance. Number is the secondary order for invoices on the same date.
+IF EXISTS(
+    SELECT 1 FROM (
+        SELECT TOP (10) Number
+        FROM dbo.Invoice
+        WHERE InvoiceTypeId=@type AND ISNULL(Series,'')=@series AND Number>0
+        ORDER BY TransactionDate DESC,Number DESC,InvoiceId DESC
+    ) recent WHERE recent.Number>@last
+)
 BEGIN RAISERROR('Invoice counter is behind issued history.',16,1); RETURN; END;
 DECLARE pending CURSOR LOCAL STATIC READ_ONLY FOR
 SELECT InvoiceId FROM dbo.Invoice WITH (UPDLOCK,HOLDLOCK)

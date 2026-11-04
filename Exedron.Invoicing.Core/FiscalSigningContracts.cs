@@ -139,12 +139,31 @@ namespace Exedron.Invoicing.Core
         // An exception after dispatch is uncertain; it is never proof of rejection.
         FiscalSigningResult Sign(FiscalSigningRequest request);
     }
+    // Optional policy for devices which make an idempotent retry safe by binding
+    // every Sign operation to the stable document identifier contained in the
+    // already-persisted request. The coordinator always resends Request.Payload;
+    // it never asks the host to rebuild the invoice on this path.
+    public interface IFiscalSignerAutomaticRetryPolicy
+    {
+        // Total dispatches, including the first call. Keep this bounded so an
+        // unavailable device eventually becomes an operator-visible outcome.
+        int MaximumAutomaticDispatches { get; }
+        bool CanRetry(FiscalSigningRequest originalRequest, FiscalSigningResult result);
+    }
     // Optional capability. Implement only when the device can identify the original request.
     public interface IFiscalSignerRecovery
     {
         // Read-only lookup using the original scope/payload. Never dispatch Sign from here.
         // An empty/not-found response MUST return Unknown, not Rejected.
         FiscalSigningResult Recover(FiscalSigningRequest originalRequest);
+    }
+    // Optional local recovery for an exact response that was retained as Unknown
+    // by an older adapter. It must only reinterpret the saved response and must
+    // never perform device or network I/O.
+    public interface IFiscalSignerRecordedResponseRecovery
+    {
+        FiscalSigningResult RecoverRecorded(FiscalSigningRequest originalRequest, string recordedResponse,
+            string recordedDiagnostic);
     }
 
     public sealed class FiscalSigningAttempt

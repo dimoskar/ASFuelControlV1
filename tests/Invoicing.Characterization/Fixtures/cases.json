@@ -3,7 +3,7 @@
   {"Id":"wholesale-credit","Payment":0,"ExpectedDirectPayment":5,"ExpectedProviderPayment":5},
   {"Id":"card","Payment":2,"ExpectedDirectPayment":3,"ExpectedProviderPayment":7},
   {"Id":"iris","Payment":4,"ExpectedDirectPayment":3,"ExpectedProviderPayment":8},
-  {"Id":"fleet-card","Payment":3,"ExpectedDirectPayment":3,"ExpectedProviderPayment":3},
+  {"Id":"fleet-card","Payment":3,"ExpectedDirectPayment":5,"ExpectedProviderPayment":5},
   {"Id":"discounted-fuel","Gross":111.60,"Vat":21.60,"ExpectedNet":90},
   {"Id":"vat-exempt-domestic","Gross":100,"Vat":0,"Rate":0,"VatExemption":true,"ExpectedNet":100,"ExpectedExemption":"Article27"},
   {"Id":"eu-export","Country":"DE","Gross":100,"Vat":0,"Rate":0,"ExpectedNet":100,"ExpectedDirectType":"1.2","ExpectedProviderType":"1.2","ExpectedExemption":"Article28","ExpectedClassification":"E3_561_005"},

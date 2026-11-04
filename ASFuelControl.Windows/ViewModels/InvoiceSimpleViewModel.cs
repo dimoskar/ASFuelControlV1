@@ -112,11 +112,12 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 if (salesValueChanging)
                 {
-                    this.SalesTransaction.UnitPrice = value;
+                    this.SalesTransaction.DiscountPercentage = value;
                     this.OnPropertyChanged("DiscountPercentage");
                     return;
                 }
                 salesValueChanging = true;
+                this.SalesTransaction.DiscountPercentage = value;
                 var price = this.UnitPrice * this.Volume;
                 this.TotalPrice = decimal.Round(price * ((100 - value) / 100), 2);
                 salesValueChanging = false;
@@ -138,6 +139,7 @@ namespace ASFuelControl.Windows.ViewModels
                     if (dispenser != null && dispenser.Nozzles != null && dispenser.Nozzles.Length > 0)
                         this.CurrentNozzleId = dispenser.Nozzles.First().NozzleId;
                 }
+                this.OnPropertyChanged("CurrentDispenserId");
             }
             get { return this.currentDispenserId; }
         }
@@ -216,6 +218,10 @@ namespace ASFuelControl.Windows.ViewModels
             DatabaseModel db = new DatabaseModel(Properties.Settings.Default.DBConnection);
             try
             {
+                int paymentType = this.PaymentType.HasValue &&
+                    Enum.IsDefined(typeof(Common.Enumerators.PaymentTypeEnum), this.PaymentType.Value)
+                    ? this.PaymentType.Value
+                    : (int)Common.Enumerators.PaymentTypeEnum.Cash;
                 decimal vatValue = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", (decimal)23);
                 Nozzle lastNozzle = db.Nozzles.Where(n => n.NozzleId == this.currentNozzleId).FirstOrDefault();
                 if (lastNozzle == null)
@@ -341,6 +347,7 @@ namespace ASFuelControl.Windows.ViewModels
                 sale.UsagePeriodId = up.UsagePeriodId;
                 sale.UsagePeriod = up;
 
+                sale.DiscountPercentage = this.DiscountPercentage;
                 sale.TotalPrice = decimal.Round(this.TotalPrice, 2);
                 sale.CRC = Common.Helpers.CalculateCRC32(sale);
 
@@ -376,14 +383,19 @@ namespace ASFuelControl.Windows.ViewModels
                     invoice.InvoiceType = invType;
                     //invoice.Number = invType.LastNumber + 1;
                     //invType.LastNumber = invoice.Number;
-                    if (this.VehicleId != Guid.Empty)
+                    // Trader-only pump sales are valid. Do not make persistence
+                    // of the customer conditional on also selecting a vehicle.
+                    if (this.TraderId.HasValue && this.TraderId.Value != Guid.Empty)
+                        invoice.TraderId = this.TraderId;
+                    if (this.VehicleId.HasValue && this.VehicleId.Value != Guid.Empty)
                     {
                         invoice.VehicleId = this.VehicleId;
-                        invoice.TraderId = this.TraderId;
                         invoice.VehiclePlateNumber = this.PlateNumber;
-                        invoice.PaymentType = this.PaymentType;
                     }
                 }
+                // Payment belongs to the invoice, not to its optional trader or
+                // vehicle. Anonymous retail pump sales must persist it as well.
+                invoice.PaymentType = paymentType;
                 invoice.InvoiceFormId = invoice.InvoiceType.InvoiceFormId;
                 if (lastNozzle.Dispenser.InvoicePrints.Count > 0)
                     invoice.Printer = lastNozzle.Dispenser.InvoicePrints.First().Printer;
@@ -446,17 +458,10 @@ namespace ASFuelControl.Windows.ViewModels
                 }
                 invoice.InvoiceLines.Add(invLine);
 
-                if (this.DiscountPercentage > 0)
-                {
-                    decimal discount = Math.Round(invoice.TotalAmount.Value * this.DiscountPercentage / 100, 2);
-                    sale.TotalPrice = invoice.TotalAmount.Value - discount;
-                    invoice.DiscountAmount = discount;
-                    invLine.DiscountAmount = discount;
-                    invoice.TotalAmount = invoice.TotalAmount - discount;
-                    invLine.TotalPrice = invLine.TotalPrice - discount;
-                    invoice.VatAmount = invoice.TotalAmount.Value - decimal.Round(invoice.TotalAmount.Value / vatMult, 2);
-                    invLine.VatAmount = invoice.VatAmount.Value;
-                }
+                invLine.DiscountPercentage = this.DiscountPercentage;
+                // TotalPrice is already the payable amount after discount.
+                // Normalize all gross/net/discount fields without subtracting it again.
+                invoice.RecalculateInvoice();
                 // A newly saved invoice is pending issuance. Printing is projected only
                 // after the common workflow completes its printer handoff.
                 invoice.IsPrinted = false;
@@ -475,10 +480,31 @@ namespace ASFuelControl.Windows.ViewModels
 
         public override void Load(DatabaseModel db, Guid id)
         {
+            var persistedInvoice = db.Invoices.SingleOrDefault(i => i.InvoiceId == id);
+            var persistedPaymentType = persistedInvoice == null
+                ? (int?)null
+                : persistedInvoice.PaymentType;
             base.Load(db, id);
-            var inv = db.Invoices.SingleOrDefault(i => i.InvoiceId == this.InvoiceId);
+            var inv = persistedInvoice;
             if (inv == null)
                 return;
+            // Restore the physical sale point without passing through the editable
+            // setters. Those setters intentionally choose the first nozzle when a
+            // dispenser changes and would overwrite a loaded sale during binding.
+            var sale = this.InvoiceLine == null ? null : this.InvoiceLine.SalesTransaction;
+            if (sale != null)
+            {
+                var dispenser = (this.Dispensers ?? new DispenserViewModel[0])
+                    .FirstOrDefault(item => item.Nozzles != null &&
+                        item.Nozzles.Any(nozzle => nozzle.NozzleId == sale.NozzleId));
+                if (dispenser != null)
+                {
+                    this.currentDispenserId = dispenser.DispenserId;
+                    this.currentNozzleId = sale.NozzleId;
+                    this.OnPropertyChanged("CurrentDispenserId", false);
+                    this.OnPropertyChanged("CurrentNozzleId", false);
+                }
+            }
             if(inv.Trader != null)
                 this.TraderName = inv.Trader.Name;
             if (inv.VehicleId.HasValue)
@@ -487,6 +513,11 @@ namespace ASFuelControl.Windows.ViewModels
                 if (veh != null)
                     this.PlateNumber = veh.PlateNumber;
             }
+            if (this.PaymentType != persistedPaymentType)
+                this.PaymentType = persistedPaymentType;
+            this.OnPropertyChanged("PaymentType", true);
+            this.EntityState = EntityStateEnum.Unchanged;
+            this.HasChanges = false;
         }
 
         protected override void LoadArrayProperty(Data.DatabaseModel db, Data.Invoice entity, string propName)

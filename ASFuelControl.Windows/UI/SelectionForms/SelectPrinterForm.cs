@@ -14,7 +14,11 @@ namespace ASFuelControl.Windows.UI.SelectionForms
     {
         public string SelectedPrinter { set; get; }
 
-        public SelectPrinterForm()
+        public SelectPrinterForm() : this(null)
+        {
+        }
+
+        public SelectPrinterForm(string selectedPrinter)
         {
             InitializeComponent();
             List<string> printers = new List<string>();
@@ -25,6 +29,10 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             this.radListControl1.DataSource = printers.OrderBy(p => p).Select(p => new { Name = p, Description = p });
             this.radListControl1.DisplayMember = "Description";
             this.radListControl1.ValueMember = "Name";
+            if (!string.IsNullOrWhiteSpace(selectedPrinter) && printers.Any(p =>
+                string.Equals(p,selectedPrinter,StringComparison.OrdinalIgnoreCase)))
+                this.radListControl1.SelectedValue = printers.First(p =>
+                    string.Equals(p,selectedPrinter,StringComparison.OrdinalIgnoreCase));
         }
 
         private void SelectPrinterForm_Load(object sender, EventArgs e)
@@ -34,8 +42,10 @@ namespace ASFuelControl.Windows.UI.SelectionForms
 
         private void radButton1_Click(object sender, EventArgs e)
         {
-            this.SelectedPrinter = this.radListControl1.SelectedValue.ToString();
-            if(this.SelectedPrinter == null || SelectedPrinter.Length == 0)
+            this.SelectedPrinter = this.radListControl1.SelectedValue == null
+                ? null
+                : this.radListControl1.SelectedValue.ToString();
+            if(string.IsNullOrWhiteSpace(this.SelectedPrinter))
                 this.DialogResult = System.Windows.Forms.DialogResult.Cancel;
             else
                 this.DialogResult = System.Windows.Forms.DialogResult.OK;

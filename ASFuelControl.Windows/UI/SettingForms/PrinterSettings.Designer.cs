@@ -615,7 +615,7 @@
             // 
             this.RootElement.ApplyShapeToControl = true;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Επιλογές Φορολογικού Μηχανισμού";
+            this.Text = "Ρυθμίσεις Σήμανσης και Εκτύπωσης";
             this.Load += new System.EventHandler(this.PrinterSettings_Load);
             ((System.ComponentModel.ISupportInitialize)(this.radLabel11)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.radLabel1)).EndInit();

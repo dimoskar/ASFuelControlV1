@@ -50,9 +50,11 @@ namespace ASFuelControl.Windows.Threads
         }
 
         /// <summary>
-        /// Binds the staged coupon to the real pump-sale invoice.  The remote query
-        /// supplies the authoritative fuel and litre entitlement; an incompatible
-        /// sale is released before normal invoice processing can continue.
+        /// Binds the staged coupon to the real pump-sale invoice. After the remote
+        /// reservation, recheck the local sale before applying the EFK discount.
+        /// Coupon issued litres are not a blocking limit: they cap the litres that
+        /// receive the discount, while myDiesel verifies the actual invoice litres
+        /// asynchronously through myDATA.
         /// </summary>
         internal static void AttachToInvoice(Guid dispenserId, Guid invoiceId)
         {
@@ -61,6 +63,14 @@ namespace ASFuelControl.Windows.Threads
 
             try
             {
+                string eligibilityProblem = SharedMyDieselRuntime.InvoiceEligibilityProblem(invoiceId);
+                if (eligibilityProblem != null)
+                {
+                    Logging.Logger.Instance.LogToFile("myDiesel next sale",
+                        eligibilityProblem + " Το κουπόνι δεν δεσμεύτηκε και το παραστατικό συνεχίζει κανονικά.");
+                    return;
+                }
+
                 using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
                     var invoice = db.Invoices.Single(value => value.InvoiceId == invoiceId);
@@ -89,14 +99,21 @@ namespace ASFuelControl.Windows.Threads
                     return;
 
                 string problem;
-                if (!SaleMatchesCoupon(invoiceId, reserved, out problem))
+                if (!SaleRemainsEligible(invoiceId, out problem))
                 {
                     Logging.Logger.Instance.LogToFile("myDiesel next sale", problem + " Το κουπόνι αποδεσμεύεται.");
                     service.Release(reserved.CouponCaseId);
                     return;
                 }
+                if (!reserved.IssuedLitres.HasValue || reserved.IssuedLitres.Value <= 0)
+                {
+                    Logging.Logger.Instance.LogToFile("myDiesel next sale",
+                        "Δεν επιστράφηκαν έγκυρα λίτρα κουπονιού. Το κουπόνι αποδεσμεύεται.");
+                    service.Release(reserved.CouponCaseId);
+                    return;
+                }
 
-                ApplyExciseDiscount(invoiceId, reserved.ExciseDiscountPerLitre);
+                ApplyExciseDiscount(invoiceId, reserved.IssuedLitres.Value, reserved.ExciseDiscountPerLitre);
             }
             finally
             {
@@ -106,26 +123,27 @@ namespace ASFuelControl.Windows.Threads
             }
         }
 
-        private static bool SaleMatchesCoupon(Guid invoiceId, Invoicing.Persistence.MyDieselCouponCaseRecord coupon, out string problem)
+        internal static bool SaleRemainsEligible(Guid invoiceId, out string problem)
         {
             using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
                 var invoice = db.Invoices.Single(value => value.InvoiceId == invoiceId);
-                decimal litres = invoice.InvoiceLines.Sum(value => Math.Abs(value.Volume));
-                if (litres <= 0)
+                if (invoice.InvoiceLines.Any(value => value.Volume <= 0))
                 {
                     problem = "Το παραστατικό δεν περιέχει θετική ποσότητα σε λίτρα.";
                     return false;
                 }
-                if (coupon.IssuedLitres.HasValue && litres > coupon.IssuedLitres.Value)
+                var fuelCodes = invoice.InvoiceLines.Select(value => value.FuelType == null
+                    ? (int?)null
+                    : value.FuelType.EnumeratorValue).ToArray();
+                if (fuelCodes.Any(value => !value.HasValue || !MyDieselFuelRules.IsEligible(value.Value)))
                 {
-                    problem = "Τα λίτρα της πώλησης υπερβαίνουν το όριο του κουπονιού.";
+                    problem = "Το επιλεγμένο καύσιμο δεν είναι επιλέξιμο για myDiesel.";
                     return false;
                 }
-                if (!coupon.FuelCode.HasValue || invoice.InvoiceLines.Any(value =>
-                    value.FuelType == null || value.FuelType.EnumeratorValue != coupon.FuelCode.Value))
+                if (fuelCodes.Select(value => value.Value).Distinct().Count() != 1)
                 {
-                    problem = "Το καύσιμο της πώλησης δεν συμφωνεί με το επιλέξιμο καύσιμο του κουπονιού.";
+                    problem = "Το παραστατικό πρέπει να περιέχει ένα μόνο επιλέξιμο καύσιμο myDiesel.";
                     return false;
                 }
             }
@@ -133,39 +151,207 @@ namespace ASFuelControl.Windows.Threads
             return true;
         }
 
-        private static void ApplyExciseDiscount(Guid invoiceId, decimal rate)
+        internal static void ApplyExciseDiscount(Guid invoiceId, decimal voucherLitres, decimal rate)
         {
+            if (voucherLitres <= 0) throw new ArgumentOutOfRangeException(nameof(voucherLitres));
             rate = MyDieselTaxRules.NormalizeExciseDiscountPerLitre(rate);
             using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
                 var invoice = db.Invoices.Single(value => value.InvoiceId == invoiceId);
+                var lines = invoice.InvoiceLines.ToArray();
+                decimal invoiceLitres = lines.Sum(value => Math.Abs(value.Volume));
+                decimal discountedLitres = Math.Min(voucherLitres, invoiceLitres);
+                decimal remainingLitres = discountedLitres;
                 decimal retailDiscount = 0;
                 decimal wholesaleDiscount = 0;
                 decimal vatAmount = 0;
+                decimal totalAmount = 0;
 
-                foreach (var line in invoice.InvoiceLines)
+                foreach (var line in lines)
                 {
-                    decimal lineRetail = Math.Min(Math.Round(Math.Abs(line.Volume) * rate, 2), Math.Abs(line.TotalPrice));
+                    decimal originalTotal = Math.Abs(line.TotalPrice);
+                    decimal applicableLitres = Math.Min(Math.Abs(line.Volume), remainingLitres);
+                    decimal lineRetail = applicableLitres <= 0
+                        ? 0
+                        : MyDieselTaxRules.CalculateVatInclusiveExciseDiscount(
+                            applicableLitres, applicableLitres, rate, line.VatPercentage);
+                    decimal lineWholesale = MyDieselTaxRules.CalculateNetDiscountFromGross(
+                        lineRetail, line.VatPercentage);
+                    if (lineRetail > originalTotal)
+                    {
+                        lineRetail = originalTotal;
+                        lineWholesale = MyDieselTaxRules.CalculateNetDiscountFromGross(
+                            lineRetail, line.VatPercentage);
+                    }
+                    remainingLitres -= applicableLitres;
                     decimal vatMultiplier = 1 + line.VatPercentage / 100;
-                    decimal lineWholesale = Math.Round(lineRetail / vatMultiplier, 2);
+                    decimal discountPercentage = originalTotal == 0 ? 0 : Math.Round(100 * lineRetail / originalTotal, 4);
                     line.DiscountAmountRetail = lineRetail;
                     line.DiscountAmountWhole = lineWholesale;
-                    line.DiscountAmount = lineWholesale;
+                    line.DiscountAmount = lineRetail;
+                    line.DiscountPercentage = discountPercentage;
                     line.TotalPrice = Math.Round(line.TotalPrice - lineRetail, 2);
                     line.VatAmount = Math.Round(line.TotalPrice - line.TotalPrice / vatMultiplier, 2);
                     retailDiscount += lineRetail;
                     wholesaleDiscount += lineWholesale;
                     vatAmount += line.VatAmount;
+                    totalAmount += line.TotalPrice;
                     if (line.SalesTransaction != null)
+                    {
                         line.SalesTransaction.TotalPrice = line.TotalPrice;
+                        line.SalesTransaction.DiscountPercentage = discountPercentage;
+                    }
                 }
 
                 invoice.DiscountAmountRetail = retailDiscount;
                 invoice.DiscountAmountWhole = wholesaleDiscount;
-                invoice.DiscountAmount = wholesaleDiscount;
-                invoice.TotalAmount = Math.Round(invoice.TotalAmount.GetValueOrDefault() - retailDiscount, 2);
+                invoice.DiscountAmount = retailDiscount;
+                invoice.TotalAmount = Math.Round(totalAmount, 2);
                 invoice.VatAmount = vatAmount;
                 invoice.NettoAfterDiscount = invoice.TotalAmount.GetValueOrDefault() - vatAmount;
+                db.SaveChanges();
+            }
+        }
+
+        /// <summary>
+        /// Makes the reserved coupon the source of truth immediately before fiscal
+        /// mapping. Invoice editors and legacy RecalculateInvoice implementations can
+        /// rebuild the percentage fields after reservation; restore the authoritative
+        /// net EFK amount and its corresponding VAT without subtracting either twice.
+        /// </summary>
+        internal static void ReconcileExciseDiscount(Guid invoiceId, decimal voucherLitres, decimal rate)
+        {
+            if (voucherLitres <= 0) throw new ArgumentOutOfRangeException(nameof(voucherLitres));
+            rate = MyDieselTaxRules.NormalizeExciseDiscountPerLitre(rate);
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var invoice = db.Invoices.Single(value => value.InvoiceId == invoiceId);
+                var lines = invoice.InvoiceLines.ToArray();
+                decimal invoiceLitres = lines.Sum(line => Math.Abs(line.Volume));
+                decimal remainingLitres = Math.Min(voucherLitres, invoiceLitres);
+                decimal retailDiscount = 0;
+                decimal wholesaleDiscount = 0;
+                decimal totalAmount = 0;
+                decimal vatAmount = 0;
+                decimal netBeforeDiscount = 0;
+                decimal netAfterDiscount = 0;
+
+                foreach (var line in lines)
+                {
+                    decimal unitPrice = line.UnitPriceRetail != 0
+                        ? Math.Abs(line.UnitPriceRetail)
+                        : Math.Abs(line.UnitPrice);
+                    decimal originalTotal = Math.Round(Math.Abs(line.Volume) * unitPrice, 2);
+                    if (originalTotal <= 0)
+                        originalTotal = Math.Round(Math.Abs(line.TotalPrice) +
+                            Math.Abs(line.DiscountAmountRetail), 2);
+
+                    decimal applicableLitres = Math.Min(Math.Abs(line.Volume), remainingLitres);
+                    decimal lineRetail = applicableLitres <= 0
+                        ? 0
+                        : MyDieselTaxRules.CalculateVatInclusiveExciseDiscount(
+                            applicableLitres, applicableLitres, rate, line.VatPercentage);
+                    decimal lineWholesale = MyDieselTaxRules.CalculateNetDiscountFromGross(
+                        lineRetail, line.VatPercentage);
+                    if (lineRetail > originalTotal)
+                    {
+                        lineRetail = originalTotal;
+                        lineWholesale = MyDieselTaxRules.CalculateNetDiscountFromGross(
+                            lineRetail, line.VatPercentage);
+                    }
+                    remainingLitres -= applicableLitres;
+
+                    decimal vatMultiplier = 1 + line.VatPercentage / 100;
+                    decimal discountedTotal = Math.Round(originalTotal - lineRetail, 2);
+                    decimal lineVat = Math.Round(discountedTotal - discountedTotal / vatMultiplier, 2,
+                        MidpointRounding.ToEven);
+                    decimal discountPercentage = originalTotal == 0
+                        ? 0
+                        : Math.Round(100 * lineRetail / originalTotal, 4);
+
+                    line.DiscountAmountRetail = lineRetail;
+                    line.DiscountAmountWhole = lineWholesale;
+                    line.DiscountAmount = lineRetail;
+                    line.DiscountPercentage = discountPercentage;
+                    line.TotalPrice = discountedTotal;
+                    line.VatAmount = lineVat;
+                    if (line.SalesTransaction != null)
+                    {
+                        line.SalesTransaction.TotalPrice = discountedTotal;
+                        line.SalesTransaction.DiscountPercentage = discountPercentage;
+                    }
+
+                    retailDiscount += lineRetail;
+                    wholesaleDiscount += lineWholesale;
+                    totalAmount += discountedTotal;
+                    vatAmount += lineVat;
+                    netBeforeDiscount += discountedTotal - lineVat + lineWholesale;
+                    netAfterDiscount += discountedTotal - lineVat;
+                }
+
+                invoice.DiscountAmountRetail = Math.Round(retailDiscount, 2);
+                invoice.DiscountAmountWhole = Math.Round(wholesaleDiscount, 2);
+                invoice.DiscountAmount = Math.Round(retailDiscount, 2);
+                invoice.TotalAmount = Math.Round(totalAmount, 2);
+                invoice.VatAmount = Math.Round(vatAmount, 2);
+                invoice.NettoAmount = Math.Round(netBeforeDiscount, 2);
+                invoice.NettoAfterDiscount = Math.Round(netAfterDiscount, 2);
+                db.SaveChanges();
+            }
+        }
+
+        internal static void ClearExciseDiscount(Guid invoiceId)
+        {
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var invoice = db.Invoices.Single(value => value.InvoiceId == invoiceId);
+                decimal totalAmount = 0;
+                decimal vatAmount = 0;
+                decimal netAmount = 0;
+
+                foreach (var line in invoice.InvoiceLines)
+                {
+                    decimal discountRetail = Math.Abs(line.DiscountAmountRetail);
+                    decimal restoredTotal = Math.Round(line.TotalPrice + discountRetail, 2);
+                    decimal retailUnitPrice = line.UnitPriceRetail != 0 ? line.UnitPriceRetail : line.UnitPrice;
+                    decimal expectedTotal = Math.Round(Math.Abs(line.Volume) * Math.Abs(retailUnitPrice), 2);
+
+                    // A build with the old invoice recalculation could persist the undiscounted
+                    // line total while retaining the coupon discount. Prefer the independently
+                    // calculated gross total when adding the discount back would overstate it.
+                    if (expectedTotal > 0 && Math.Abs(restoredTotal - expectedTotal) > 0.01m)
+                        restoredTotal = expectedTotal;
+
+                    decimal vatMultiplier = 1 + line.VatPercentage / 100;
+                    decimal lineVat = vatMultiplier == 0
+                        ? 0
+                        : Math.Round(restoredTotal - restoredTotal / vatMultiplier, 2);
+
+                    line.DiscountAmountRetail = 0;
+                    line.DiscountAmountWhole = 0;
+                    line.DiscountAmount = 0;
+                    line.DiscountPercentage = 0;
+                    line.TotalPrice = restoredTotal;
+                    line.VatAmount = lineVat;
+
+                    totalAmount += restoredTotal;
+                    vatAmount += lineVat;
+                    netAmount += restoredTotal - lineVat;
+
+                    if (line.SalesTransaction != null)
+                    {
+                        line.SalesTransaction.TotalPrice = restoredTotal;
+                        line.SalesTransaction.DiscountPercentage = 0;
+                    }
+                }
+
+                invoice.DiscountAmountRetail = 0;
+                invoice.DiscountAmountWhole = 0;
+                invoice.DiscountAmount = 0;
+                invoice.TotalAmount = Math.Round(totalAmount, 2);
+                invoice.VatAmount = Math.Round(vatAmount, 2);
+                invoice.NettoAmount = Math.Round(netAmount, 2);
+                invoice.NettoAfterDiscount = Math.Round(netAmount, 2);
                 db.SaveChanges();
             }
         }

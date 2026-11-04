@@ -15,6 +15,10 @@ namespace ASFuelControl.Windows.Threads
     internal sealed class SharedPrinterProfile
     {
         public string PrinterName { get; set; }
+        // PrinterName is the effective/requested destination of one job. The
+        // installation keeps a separate fallback for thermal invoices so it does
+        // not accidentally reuse the configured laser printer.
+        public string ThermalPrinterName { get; set; }
         // Historical shared pages used the configurable narrow dimensions. Keep
         // that as the deserialization default; new routes set this explicitly
         // from InvoiceType.IsLaserPrint.
@@ -23,7 +27,15 @@ namespace ASFuelControl.Windows.Threads
         public int WidthHundredths { get; set; } = 315;
         public int HeightHundredths { get; set; } = 1100;
         public short Copies { get; set; } = 1;
+        // Copies is the effective value frozen into a print operation. Keep a
+        // separate installation value so laser copies do not affect thermal jobs.
+        public short LaserCopies { get; set; }
         public float FontSize { get; set; } = 8;
+
+        internal static short NormalizeLaserCopies(int copies)
+        {
+            return (short)(copies < 1 || copies > 10 ? 2 : copies);
+        }
     }
     internal sealed class SharedInvoicePrinting : IFiscalPrintTransport
     {
@@ -59,7 +71,7 @@ namespace ASFuelControl.Windows.Threads
             var profile = JsonConvert.DeserializeObject<SharedPrinterProfile>(JsonConvert.SerializeObject(requested ?? installationDefault ?? new SharedPrinterProfile()));
             CheckProfile(profile);
             profile.PrinterName = ResolvePrinterName(profile.PrinterName,
-                profile.Thermal ? null : installationDefault?.PrinterName,
+                profile.Thermal ? installationDefault?.ThermalPrinterName : installationDefault?.PrinterName,
                 installedPrinters,windowsDefault);
             if (profile.PrinterName == null) throw new InvalidOperationException(MissingPrinterMessage);
             return profile;
@@ -86,12 +98,16 @@ namespace ASFuelControl.Windows.Threads
             return Render(snapshot,response,null);
         }
         internal static byte[] Render(InvoiceWorkflowSnapshot snapshot, Exedron.Invoicing.Core.Models.InvoiceResponse response,
-            Func<InvoiceWorkflowSnapshot,Exedron.Invoicing.Core.Models.InvoiceResponse,SharedPrinterProfile,byte[]> laserRenderer)
+            Func<InvoiceWorkflowSnapshot,Exedron.Invoicing.Core.Models.InvoiceResponse,SharedPrinterProfile,byte[]> reportRenderer)
         {
             var profile = JsonConvert.DeserializeObject<SharedPrinterProfile>(snapshot.PrintDestination);
             CheckProfile(profile);
-            if (!profile.Thermal && laserRenderer != null)
-                return laserRenderer(snapshot,response,profile);
+            // The common workflow must use the same established invoice reports as
+            // legacy printing. Previously the renderer was used only for laser
+            // profiles, so every thermal invoice silently fell back to the generic
+            // monospaced text receipt regardless of its configured report.
+            if (reportRenderer != null)
+                return reportRenderer(snapshot,response,profile);
             var text = Encoding.UTF8.GetString(snapshot.PrintContent) + "\r\n" + Footer(snapshot,response);
             const int dpi = 150;
             int pageWidth, pageHeight;
@@ -227,6 +243,17 @@ namespace ASFuelControl.Windows.Threads
             // silently replace a custom A5 request with their A4 default.
             return new PaperSize(selected.PaperName,selected.Width,selected.Height) { RawKind = selected.RawKind };
         }
+        internal static PaperSize ResolveRenderedThermalPaperSize(SharedPrinterProfile profile, byte[] page)
+        {
+            if (profile == null || !profile.Thermal) throw new ArgumentException("A thermal profile is required.");
+            if (page == null || page.Length == 0) throw new InvalidOperationException("No saved thermal page.");
+            using (var stream = new MemoryStream(page))
+            using (var image = Image.FromStream(stream))
+            {
+                if (image.Width <= 0 || image.Height <= 0) throw new InvalidOperationException("Invalid saved thermal page.");
+                return new PaperSize("Thermal",profile.WidthHundredths,profile.HeightHundredths);
+            }
+        }
         private static void ApplyPageSettings(PageSettings settings, PaperSize paper, bool landscape)
         {
             settings.PaperSize = paper;
@@ -257,11 +284,18 @@ namespace ASFuelControl.Windows.Threads
             var p = ResolveProfile(JsonConvert.DeserializeObject<SharedPrinterProfile>(destination),installationDefault());
             var printer = new PrinterSettings { PrinterName = p.PrinterName };
             if (!printer.IsValid) throw new InvalidOperationException(MissingPrinterMessage);
-            ResolvePaperSize(p,printer.PaperSizes.Cast<PaperSize>());
             var pages = JsonConvert.DeserializeObject<byte[][]>(Encoding.UTF8.GetString(document));
             if (pages == null || pages.Length == 0) throw new InvalidOperationException("No saved pages.");
-            foreach (var bytes in pages) using (var stream = new MemoryStream(bytes)) using (var image = Image.FromStream(stream))
-                if (image.Width <= 0) throw new InvalidOperationException("Invalid saved page.");
+            if (p.Thermal)
+            {
+                foreach (var bytes in pages) ResolveRenderedThermalPaperSize(p,bytes);
+            }
+            else
+            {
+                ResolvePaperSize(p,printer.PaperSizes.Cast<PaperSize>());
+                foreach (var bytes in pages) using (var stream = new MemoryStream(bytes)) using (var image = Image.FromStream(stream))
+                    if (image.Width <= 0) throw new InvalidOperationException("Invalid saved page.");
+            }
         }
         public string Dispatch(string destination, string format, byte[] document, Guid jobId)
         {
@@ -272,12 +306,13 @@ namespace ASFuelControl.Windows.Threads
             {
                 job.DocumentName = "Fiscal-" + jobId.ToString("N");
                 job.PrinterSettings.PrinterName = p.PrinterName; job.PrinterSettings.Copies = p.Copies;
-                int pageWidth, pageHeight;
-                bool landscape;
-                PageGeometry(p,out pageWidth,out pageHeight,out landscape);
-                var paper = ResolvePaperSize(p,job.PrinterSettings.PaperSizes.Cast<PaperSize>());
-                ApplyPageSettings(job.DefaultPageSettings,paper,landscape);
-                job.QueryPageSettings += (sender,args) => ApplyPageSettings(args.PageSettings,paper,landscape);
+                bool landscape = !p.Thermal && p.NonThermalPaperSize == "A5";
+                var papers = p.Thermal
+                    ? pages.Select(page => ResolveRenderedThermalPaperSize(p,page)).ToArray()
+                    : Enumerable.Repeat(ResolvePaperSize(p,job.PrinterSettings.PaperSizes.Cast<PaperSize>()),pages.Length).ToArray();
+                ApplyPageSettings(job.DefaultPageSettings,papers[0],landscape);
+                job.QueryPageSettings += (sender,args) => ApplyPageSettings(args.PageSettings,
+                    papers[Math.Min(index,papers.Length - 1)],landscape);
                 job.PrintController = new StandardPrintController();
                 job.PrintPage += (sender, args) => {
                     using (var stream = new MemoryStream(pages[index++]))
@@ -299,7 +334,8 @@ namespace ASFuelControl.Windows.Threads
                 };
                 job.Print();
                 return "Windows spool handoff: " + job.DocumentName + "; printer: " + p.PrinterName +
-                    "; paper: " + paper.PaperName + "; landscape: " + landscape;
+                    "; paper: " + papers[0].PaperName + " " + papers[0].Width + "x" + papers[0].Height +
+                    "; landscape: " + landscape;
             }
         }
     }

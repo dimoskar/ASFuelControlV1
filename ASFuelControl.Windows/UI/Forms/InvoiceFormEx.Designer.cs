@@ -570,7 +570,7 @@
             this.radDropDownList5.AutoCompleteDisplayMember = "Description";
             this.radDropDownList5.AutoCompleteValueMember = "Value";
             this.radDropDownList5.AutoSize = false;
-            this.radDropDownList5.DataBindings.Add(new System.Windows.Forms.Binding("SelectedValue", this.invoiceViewModelBindingSource, "PaymentType", true));
+            this.radDropDownList5.DataBindings.Add(new System.Windows.Forms.Binding("SelectedValue", this.invoiceViewModelBindingSource, "PaymentType", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
             this.radDropDownList5.DataSource = this.paymentTypesBindingSource;
             this.radDropDownList5.DisplayMember = "Description";
             this.radDropDownList5.DropDownStyle = Telerik.WinControls.RadDropDownStyle.DropDownList;
@@ -896,7 +896,7 @@
             this.radDropDownList4.AutoCompleteDisplayMember = "Description";
             this.radDropDownList4.AutoCompleteValueMember = "Value";
             this.radDropDownList4.AutoSize = false;
-            this.radDropDownList4.DataBindings.Add(new System.Windows.Forms.Binding("SelectedValue", this.invoiceViewModelBindingSource, "PaymentType", true));
+            this.radDropDownList4.DataBindings.Add(new System.Windows.Forms.Binding("SelectedValue", this.invoiceViewModelBindingSource, "PaymentType", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
             this.radDropDownList4.DataSource = this.paymentTypesBindingSource;
             this.radDropDownList4.DisplayMember = "Description";
             this.radDropDownList4.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1008,7 +1008,7 @@
             this.radLabel12.Name = "radLabel12";
             this.radLabel12.Size = new System.Drawing.Size(95, 30);
             this.radLabel12.TabIndex = 13;
-            this.radLabel12.Text = "Εκτυπωμένο";
+            this.radLabel12.Text = "Σήμανση";
             this.radLabel12.TextAlignment = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // tableLayoutPanel5
@@ -1124,7 +1124,7 @@
             // radGridView1
             // 
             this.radGridView1.AutoScroll = true;
-            this.radGridView1.DataBindings.Add(new System.Windows.Forms.Binding("AllowEditRow", this.invoiceViewModelBindingSource, "EditEnabled", true));
+            this.radGridView1.DataBindings.Add(new System.Windows.Forms.Binding("AllowEditRow", this.invoiceViewModelBindingSource, "LineEditEnabled", true));
             this.radGridView1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.radGridView1.Location = new System.Drawing.Point(0, 40);
             // 
@@ -1279,7 +1279,7 @@
             this.tableLayoutPanel2.Controls.Add(this.tableLayoutPanel10, 1, 3);
             this.tableLayoutPanel2.Controls.Add(this.tableLayoutPanel11, 3, 4);
             this.tableLayoutPanel2.Controls.Add(this.radLabel28, 2, 4);
-            this.tableLayoutPanel2.DataBindings.Add(new System.Windows.Forms.Binding("Enabled", this.invoiceViewModelBindingSource, "DetailsEditEnabled", true));
+            this.tableLayoutPanel2.DataBindings.Add(new System.Windows.Forms.Binding("Enabled", this.invoiceViewModelBindingSource, "LineEditEnabled", true));
             this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel2.Location = new System.Drawing.Point(496, 0);
             this.tableLayoutPanel2.Margin = new System.Windows.Forms.Padding(0);
@@ -1322,7 +1322,7 @@
             // discount
             // 
             this.discount.AutoSize = false;
-            this.discount.DataBindings.Add(new System.Windows.Forms.Binding("Value", this.invoiceLinesBindingSource, "DiscountPercentage", true));
+            this.discount.DataBindings.Add(new System.Windows.Forms.Binding("Value", this.invoiceLinesBindingSource, "DiscountPercentageView", true));
             this.discount.DecimalPlaces = 2;
             this.discount.Dock = System.Windows.Forms.DockStyle.Fill;
             this.discount.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(161)));
@@ -1471,7 +1471,7 @@
             this.paymentTypeDropDownList.AutoCompleteDisplayMember = "Description";
             this.paymentTypeDropDownList.AutoCompleteValueMember = "Value";
             this.paymentTypeDropDownList.AutoSize = false;
-            this.paymentTypeDropDownList.DataBindings.Add(new System.Windows.Forms.Binding("SelectedValue", this.invoiceViewModelBindingSource, "PaymentType", true));
+            this.paymentTypeDropDownList.DataBindings.Add(new System.Windows.Forms.Binding("SelectedValue", this.invoiceViewModelBindingSource, "PaymentType", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
             this.paymentTypeDropDownList.DataSource = this.paymentTypesBindingSource;
             this.paymentTypeDropDownList.DisplayMember = "Description";
             this.paymentTypeDropDownList.Dock = System.Windows.Forms.DockStyle.Fill;

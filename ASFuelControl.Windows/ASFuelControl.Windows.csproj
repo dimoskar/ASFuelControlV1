@@ -61,6 +61,18 @@
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="AForge">
+      <HintPath>..\packages\AForge.2.2.5\lib\AForge.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="AForge.Video">
+      <HintPath>..\packages\AForge.Video.2.2.5\lib\AForge.Video.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="AForge.Video.DirectShow">
+      <HintPath>..\packages\AForge.Video.DirectShow.2.2.5\lib\AForge.Video.DirectShow.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="ASFuel.AutoPay.Common">
       <HintPath>..\..\ASFuel.AutoPay\ASFuel.AutoPay\ASFuel.AutoPay.Common\bin\x86\Debug\ASFuel.AutoPay.Common.dll</HintPath>
     </Reference>
@@ -142,6 +154,10 @@
     <Reference Include="Telerik.WinControls.Themes.Windows8, Version=2014.1.226.40, Culture=neutral, PublicKeyToken=5bb2a467cbec794e, processorArchitecture=MSIL">
       <HintPath>..\..\..\..\TELERIK DLLS dimos\Telerik.WinControls.Themes.Windows8.dll</HintPath>
       <SpecificVersion>False</SpecificVersion>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="zxing">
+      <HintPath>..\packages\ZXing.Net.0.16.11\lib\net45\zxing.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Telerik.WinControls.UI, Version=2014.1.226.40, Culture=neutral, PublicKeyToken=5bb2a467cbec794e, processorArchitecture=MSIL">
@@ -408,7 +424,13 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\Forms\InvoiceEditorFormFactory.cs" />
+    <Compile Include="UI\Forms\InvoicePrintConfirmationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\Forms\RetailReceiptForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\CompactWholesaleInvoiceForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\Forms\RetailInvoiceForm.cs">
@@ -508,6 +530,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\Forms\MyDieselCouponCaptureDialog.cs" />
+    <Compile Include="UI\Forms\MyDieselQrImageDecoder.cs" />
     <Compile Include="UI\Forms\UserVerificationForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -752,6 +775,7 @@
     <Compile Include="ViewModels\InvoiceLineViewModel.cs" />
     <Compile Include="ViewModels\InvoiceEditorScenario.cs" />
     <Compile Include="ViewModels\RetailReceiptViewModel.cs" />
+    <Compile Include="ViewModels\CompactWholesaleInvoiceViewModel.cs" />
     <Compile Include="ViewModels\RetailInvoiceViewModel.cs" />
     <Compile Include="ViewModels\SupplierInvoiceViewModel.cs" />
     <Compile Include="ViewModels\WholesaleInvoiceViewModel.cs" />
@@ -1688,6 +1712,8 @@
     <Content Include="DBScripts\UpdateDatabase62.sql" />
     <Content Include="DBScripts\UpdateDatabase63.sql" />
     <Content Include="DBScripts\UpdateDatabase64.sql" />
+    <Content Include="DBScripts\UpdateDatabase65.sql" />
+    <Content Include="DBScripts\UpdateDatabase66.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />
@@ -1824,7 +1850,11 @@
     <Compile Include="Threads\MyDieselPollingWorker.cs" />
     <Compile Include="Threads\PendingMyDieselSelectionStore.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.HeatingBatch.cs" />
+    <Compile Include="Threads\SharedInvoiceRuntime.InvoiceTypeCorrection.cs" />
     <Compile Include="UI\Forms\HeatingCorrectionBatchForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\InvoiceTypeCorrectionBatchForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\Forms\GBridgeDiagnosticsForm.cs">

@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using Telerik.WinControls.UI;
 
@@ -12,33 +13,38 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void InitializeFixedLayout(ViewModels.InvoiceEditorLayout layout)
         {
+            bool supplier = layout == ViewModels.InvoiceEditorLayout.SupplierPurchase;
             components = new Container();
             InitializeFixedBindingSources();
 
             SuspendLayout();
             AutoScaleMode = AutoScaleMode.Font;
             Font = EditorFont;
-            MinimumSize = new Size(1050, 760);
-            ClientSize = new Size(1180, 590);
-            StartPosition = FormStartPosition.CenterParent;
+            MinimumSize = new Size(1050, supplier ? 620 : 760);
+            ClientSize = new Size(1180, supplier ? 650 : 590);
+            StartPosition = FormStartPosition.CenterScreen;
 
             var root = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 3,
+                RowCount = supplier ? 3 : 4,
                 Padding = new Padding(6),
                 BackColor = Color.White
             };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, layout == ViewModels.InvoiceEditorLayout.SupplierPurchase ? 132F : 126F));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, supplier ? 132F : 126F));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            if (!supplier)
+                root.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
 
             root.Controls.Add(BuildFixedActionBar(layout), 0, 0);
             root.Controls.Add(BuildFixedHeader(layout), 0, 1);
             root.Controls.Add(layout == ViewModels.InvoiceEditorLayout.RetailReceipt
                 ? BuildRetailReceiptBody()
                 : BuildDetailedBody(layout), 0, 2);
+            if (!supplier)
+                root.Controls.Add(BuildFixedSignaturePanel(), 0, 3);
             Controls.Add(root);
             ResumeLayout(false);
         }
@@ -87,14 +93,31 @@ namespace ASFuelControl.Windows.UI.Forms
                 RowCount = 3,
                 Margin = new Padding(0)
             };
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 135F));
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 135F));
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 105F));
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16F));
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90F));
-            tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16F));
+            if (supplier)
+            {
+                // Supplier captions are considerably longer than the sales
+                // captions. Give them dedicated space so labels never paint on
+                // top of the adjacent editors at the minimum supported width.
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 135F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 175F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16F));
+            }
+            else
+            {
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 135F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 135F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 105F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90F));
+                tableLayoutPanel1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16F));
+            }
             for (int i = 0; i < 3; i++)
                 tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
 
@@ -103,7 +126,7 @@ namespace ASFuelControl.Windows.UI.Forms
             radDropDownList1.DataBindings.Add("SelectedValue", invoiceViewModelBindingSource,
                 "InvoiceTypeId", true, DataSourceUpdateMode.OnPropertyChanged);
             radTextBox1 = NewTextBox("Series");
-            radSpinEditor1 = NewSpin("Number", 0, 0);
+            radSpinEditor1 = NewSpin("Number", 0, 999999999);
             radTextBox3 = NewTextBox("TraderName", true);
             radTextBox4 = NewTextBox("PlateNumber", true);
             radTextBox7 = NewTextBox("DeliveryAddress");
@@ -205,29 +228,40 @@ namespace ASFuelControl.Windows.UI.Forms
             tableLayoutPanel2.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             tableLayoutPanel2.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
 
-            radDropDownList3 = NewDropDown(dispensersBindingSource, "Description", "DispenserId");
+            // Keep the three line lookups independent from the invoice and line
+            // BindingSource currency. A parent ResetBindings must not empty a
+            // lookup or move its selection to the first item.
+            var dispenserItems = (ivm.Dispensers ?? new ViewModels.DispenserViewModel[0]);
+            var nozzleItems = dispenserItems
+                .Where(dispenser => dispenser.Nozzles != null)
+                .SelectMany(dispenser => dispenser.Nozzles)
+                .ToArray();
+            var fuelItems = (ivm.FuelTypes ?? new ViewModels.FuelTypeViewModel[0]).ToArray();
+
+            radDropDownList3 = NewDropDown(dispenserItems.ToArray(), "Description", "DispenserId");
             radDropDownList3.DataBindings.Add("SelectedValue", invoiceLinesBindingSource,
                 "CurrentDispenserId", true, DataSourceUpdateMode.OnPropertyChanged);
-            radDropDownList2 = NewDropDown(nozzlesBindingSource, "Description", "NozzleId");
+            radDropDownList2 = NewDropDown(nozzleItems, "Description", "NozzleId");
             radDropDownList2.DataBindings.Add("SelectedValue", invoiceLinesBindingSource,
                 "CurrentNozzleId", true, DataSourceUpdateMode.OnPropertyChanged);
-            var fuel = NewDropDown(fuelTypesBindingSource, "Name", "FuelTypeId");
+            var fuel = NewDropDown(fuelItems, "Name", "FuelTypeId");
             fuel.DataBindings.Add("SelectedValue", invoiceLinesBindingSource,
                 "FuelTypeId", true, DataSourceUpdateMode.Never);
             fuel.Enabled = false;
             volume1 = NewSpin("Volume", 3, 999999999);
             unitPrice1 = NewSpin("UnitPriceView", 5, 999999999);
-            discount = NewSpin("DiscountPercentage", 2, 100);
+            discount = NewSpin("DiscountPercentageView", 2, 100);
             priceTotal1 = NewSpin("TotalAmount", 2, 999999999);
 
-            string[] captions = { "Αντλία", "Ακροσωλήνιο", "Καύσιμο", "Όγκος", "Τιμή με ΦΠΑ", "Έκπτωση %", "Σύνολο" };
+            string[] captions = { "Αντλία", "Ακροσωλήνιο", "Καύσιμο", "Όγκος",
+                ivm.PricesIncludeVat ? "Τιμή με ΦΠΑ" : "Τιμή χωρίς ΦΠΑ", "Έκπτωση %", "Σύνολο" };
             Control[] editors = { radDropDownList3, radDropDownList2, fuel, volume1, unitPrice1, discount, priceTotal1 };
             for (int i = 0; i < captions.Length; i++)
             {
                 tableLayoutPanel2.Controls.Add(NewLabel(captions[i]), i, 0);
                 tableLayoutPanel2.Controls.Add(editors[i], i, 1);
             }
-            tableLayoutPanel2.DataBindings.Add("Enabled", invoiceViewModelBindingSource, "DetailsEditEnabled", true);
+            tableLayoutPanel2.DataBindings.Add("Enabled", invoiceViewModelBindingSource, "LineEditEnabled", true);
 
             body.Controls.Add(tableLayoutPanel2, 0, 0);
             body.Controls.Add(BuildNotesAndSummaryPanel("Παρατηρήσεις Τεχνικού", "Γεν. Σύνολο"), 0, 1);
@@ -246,16 +280,17 @@ namespace ASFuelControl.Windows.UI.Forms
             };
             body.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
             body.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            body.RowStyles.Add(new RowStyle(SizeType.Absolute, 210F));
+            body.RowStyles.Add(new RowStyle(SizeType.Absolute, supplier ? 190F : 210F));
 
             panel2 = new Panel { Dock = DockStyle.Fill };
-            btnAddVehicle = NewButton("+  Προσθήκη γραμμής", btnAddVehicle_Click);
-            btnDeleteVehicle = NewButton("−  Διαγραφή γραμμής", btnDeleteVehicle_Click);
+            btnAddVehicle = NewToolbarButton(Properties.Resources.Add, btnAddVehicle_Click,
+                "Προσθήκη γραμμής");
+            btnDeleteVehicle = NewToolbarButton(Properties.Resources.Delete, btnDeleteVehicle_Click,
+                "Διαγραφή γραμμής");
             btnAddVehicle.Dock = DockStyle.Left;
             btnDeleteVehicle.Dock = DockStyle.Left;
-            btnAddVehicle.Width = 180;
-            btnDeleteVehicle.Width = 180;
             btnAddVehicle.DataBindings.Add("Enabled", invoiceViewModelBindingSource, "CanAdd", true);
+            panel2.DataBindings.Add("Enabled", invoiceViewModelBindingSource, "EditEnabled", true);
             panel2.Controls.Add(btnDeleteVehicle);
             panel2.Controls.Add(btnAddVehicle);
 
@@ -283,14 +318,20 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private RadGridView BuildDetailedGrid(bool supplier)
         {
-            var grid = new RadGridView { Dock = DockStyle.Fill, AutoScroll = true };
+            var grid = new RadGridView
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                MinimumSize = new Size(0, supplier ? 160 : 0)
+            };
             grid.MasterTemplate.AllowAddNewRow = false;
             grid.MasterTemplate.AllowDeleteRow = false;
             grid.MasterTemplate.AutoGenerateColumns = false;
-            grid.MasterTemplate.AutoSizeColumnsMode = GridViewAutoSizeColumnsMode.Fill;
+            grid.MasterTemplate.AutoSizeColumnsMode = GridViewAutoSizeColumnsMode.None;
             grid.MasterTemplate.EnableGrouping = false;
             grid.MasterTemplate.ShowRowHeaderColumn = false;
-            grid.DataBindings.Add("AllowEditRow", invoiceViewModelBindingSource, "EditEnabled", true);
+            grid.TableElement.TableHeaderHeight = 42;
+            grid.DataBindings.Add("AllowEditRow", invoiceViewModelBindingSource, "LineEditEnabled", true);
 
             var fuel = new GridViewComboBoxColumn("FuelType")
             {
@@ -298,7 +339,9 @@ namespace ASFuelControl.Windows.UI.Forms
                 FieldName = "FuelTypeId",
                 DataSource = fuelTypesBindingSource,
                 DisplayMember = "Name",
-                ValueMember = "FuelTypeId"
+                ValueMember = "FuelTypeId",
+                Width = 110,
+                WrapText = true
             };
             var tank = new GridViewComboBoxColumn("TankId")
             {
@@ -306,29 +349,38 @@ namespace ASFuelControl.Windows.UI.Forms
                 FieldName = "TankId",
                 DataSource = tanksBindingSource,
                 DisplayMember = "Description",
-                ValueMember = "TankId"
+                ValueMember = "TankId",
+                Width = 155,
+                WrapText = true
             };
             grid.MasterTemplate.Columns.Add(fuel);
-            grid.MasterTemplate.Columns.Add(NewDecimalColumn("Volume", supplier ? "Παραδοθείς Όγκος" : "Όγκος", 3));
-            grid.MasterTemplate.Columns.Add(NewDecimalColumn("VolumeNormalized", "Όγκος 15", 3));
-            grid.MasterTemplate.Columns.Add(NewDecimalColumn("Temperature", "Θερμοκρασία", 2));
-            grid.MasterTemplate.Columns.Add(NewDecimalColumn("FuelDensity", "Πυκνότητα", 2));
+            grid.MasterTemplate.Columns.Add(NewDecimalColumn("Volume", supplier ? "Παραδοθείς Όγκος" : "Όγκος", 3, false, supplier ? 130 : 95));
+            grid.MasterTemplate.Columns.Add(NewDecimalColumn("VolumeNormalized", "Όγκος 15", 3, false, 80));
+            grid.MasterTemplate.Columns.Add(NewDecimalColumn("Temperature", "Θερμοκρασία", 2, false, 95));
+            grid.MasterTemplate.Columns.Add(NewDecimalColumn("FuelDensity", "Πυκνότητα", 2, false, 85));
             var price = NewDecimalColumn("UnitPrice", supplier ? "Καθαρή Τιμή Μονάδας" :
-                (ivm.PricesIncludeVat ? "Τιμή με ΦΠΑ" : "Τιμή χωρίς ΦΠΑ"), 5);
-            price.FieldName = ivm.PricesIncludeVat ? "UnitPriceRetail" : "UnitPriceWhole";
+                (ivm.PricesIncludeVat ? "Τιμή με ΦΠΑ" : "Τιμή χωρίς ΦΠΑ"), 5, false, supplier ? 150 : 115);
+            // Bind the editor to the unified property when the column is created.
+            // Telerik caches the property descriptor after the grid is bound, so
+            // changing FieldName later from UnitPriceRetail/Whole to UnitPriceView
+            // can leave the transformation price cell without a writable editor.
+            // UnitPriceView already selects gross/net according to PricesIncludeVat
+            // and applies the transformation-specific recalculation policy.
+            price.FieldName = "UnitPriceView";
             grid.MasterTemplate.Columns.Add(price);
-            grid.MasterTemplate.Columns.Add(NewDecimalColumn("DiscountAmountView", "Έκπτωση", 2));
-            grid.MasterTemplate.Columns.Add(NewDecimalColumn("NettoPrice", "Καθαρή Αξία", 2, true));
-            grid.MasterTemplate.Columns.Add(NewDecimalColumn("VatPercentageView", "ΦΠΑ %", 2, true));
-            grid.MasterTemplate.Columns.Add(NewDecimalColumn("VatAmount", "Ποσό ΦΠΑ", 2, true));
-            grid.MasterTemplate.Columns.Add(NewDecimalColumn("TotalPrice", "Συνολική Αξία", 2, true));
+            grid.MasterTemplate.Columns.Add(NewDecimalColumn("DiscountAmountView", "Έκπτωση", 2, false, 80));
+            grid.MasterTemplate.Columns.Add(NewDecimalColumn("NettoPrice", "Καθαρή Αξία", 2, true, 100));
+            grid.MasterTemplate.Columns.Add(NewDecimalColumn("VatPercentageView", "ΦΠΑ %", 2, true, 70));
+            grid.MasterTemplate.Columns.Add(NewDecimalColumn("VatAmount", "Ποσό ΦΠΑ", 2, true, 90));
+            grid.MasterTemplate.Columns.Add(NewDecimalColumn("TotalPrice", "Συνολική Αξία", 2, true, 105));
             grid.MasterTemplate.Columns.Add(tank);
             grid.MasterTemplate.DataSource = invoiceLinesBindingSource;
             grid.CellBeginEdit += radGridView1_CellBeginEdit;
             return grid;
         }
 
-        private GridViewDecimalColumn NewDecimalColumn(string name, string header, int decimals, bool readOnly = false)
+        private GridViewDecimalColumn NewDecimalColumn(string name, string header, int decimals,
+            bool readOnly = false, int width = 90)
         {
             return new GridViewDecimalColumn(name)
             {
@@ -336,7 +388,9 @@ namespace ASFuelControl.Windows.UI.Forms
                 FieldName = name,
                 DecimalPlaces = decimals,
                 FormatString = "{0:N" + decimals + "}",
-                ReadOnly = readOnly
+                ReadOnly = readOnly,
+                Width = width,
+                WrapText = true
             };
         }
 
@@ -396,6 +450,29 @@ namespace ASFuelControl.Windows.UI.Forms
             return tableLayoutPanel3;
         }
 
+        private Control BuildFixedSignaturePanel()
+        {
+            var signature = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = new Padding(0),
+                Padding = new Padding(3, 0, 3, 0)
+            };
+            signature.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 135F));
+            signature.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            signature.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            radLabel12 = NewLabel("Σήμανση");
+            radLabel13 = NewLabel("");
+            radLabel13.DataBindings.Add("Text", invoiceViewModelBindingSource,
+                "InvoiceSignature", true, DataSourceUpdateMode.Never);
+            signature.Controls.Add(radLabel12, 0, 0);
+            signature.Controls.Add(radLabel13, 1, 0);
+            return signature;
+        }
+
         private RadLabel NewLabel(string text)
         {
             return new RadLabel
@@ -435,7 +512,8 @@ namespace ASFuelControl.Windows.UI.Forms
                 Minimum = -maximum,
                 TextAlignment = HorizontalAlignment.Right
             };
-            control.DataBindings.Add("Value", property == "Volume" || property == "UnitPriceView" || property == "DiscountPercentage"
+            control.DataBindings.Add("Value", property == "Volume" || property == "UnitPriceView" ||
+                    property == "DiscountPercentage" || property == "DiscountPercentageView"
                     ? invoiceLinesBindingSource : invoiceViewModelBindingSource,
                 property, true, DataSourceUpdateMode.OnPropertyChanged);
             return control;
@@ -465,14 +543,7 @@ namespace ASFuelControl.Windows.UI.Forms
             return control;
         }
 
-        private RadButton NewButton(string text, EventHandler handler)
-        {
-            var button = new RadButton { Text = text, Font = EditorFont, Margin = new Padding(3) };
-            button.Click += handler;
-            return button;
-        }
-
-        private RadButton NewToolbarButton(Image image, EventHandler handler)
+        private RadButton NewToolbarButton(Image image, EventHandler handler, string accessibleText = null)
         {
             var button = new RadButton
             {
@@ -483,6 +554,11 @@ namespace ASFuelControl.Windows.UI.Forms
                 Size = new Size(40, 40)
             };
             button.RootElement.UseDefaultDisabledPaint = true;
+            if (!string.IsNullOrEmpty(accessibleText))
+            {
+                button.AccessibleName = accessibleText;
+                button.ButtonElement.ToolTipText = accessibleText;
+            }
             button.Click += handler;
             return button;
         }

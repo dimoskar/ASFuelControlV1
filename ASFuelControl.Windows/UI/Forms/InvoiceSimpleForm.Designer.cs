@@ -128,7 +128,7 @@
             this.paymentTypeDropDownList.AutoCompleteDisplayMember = "Description";
             this.paymentTypeDropDownList.AutoCompleteValueMember = "Value";
             this.paymentTypeDropDownList.AutoSize = false;
-            this.paymentTypeDropDownList.DataBindings.Add(new System.Windows.Forms.Binding("SelectedValue", this.invoiceSimpleViewModelBindingSource, "PaymentType", true));
+            this.paymentTypeDropDownList.DataBindings.Add(new System.Windows.Forms.Binding("SelectedValue", this.invoiceSimpleViewModelBindingSource, "PaymentType", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
             this.paymentTypeDropDownList.DataSource = this.paymentTypesBindingSource;
             this.paymentTypeDropDownList.DisplayMember = "Description";
             this.paymentTypeDropDownList.Dock = System.Windows.Forms.DockStyle.Fill;

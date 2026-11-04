@@ -42,6 +42,7 @@ namespace ASFuelControl.Invoicing
             if (invoiceId == Guid.Empty) throw new ArgumentException("Invoice ID is required.", nameof(invoiceId));
             if (identity == null) throw new ArgumentNullException(nameof(identity));
             if (scope == null) throw new ArgumentNullException(nameof(scope));
+            if (scope.StationAmdika == null) throw new ArgumentException("The selected station AMDIKA is required.", nameof(scope));
             if (validUntilUtc.HasValue && validUntilUtc.Value.Kind != DateTimeKind.Utc) throw new ArgumentException("Coupon validity must be UTC.", nameof(validUntilUtc));
             if (issuedLitres <= 0) throw new ArgumentException("Issued litres must be positive when present.", nameof(issuedLitres));
             exciseDiscountPerLitre = MyDieselTaxRules.NormalizeExciseDiscountPerLitre(exciseDiscountPerLitre);
@@ -52,6 +53,7 @@ namespace ASFuelControl.Invoicing
                     CouponCaseId = Guid.NewGuid(), InvoiceId = invoiceId, CouponCode = identity.CouponCode,
                     BeneficiaryVat = identity.BeneficiaryVat, CompanyVat = scope.CompanyVat, Environment = scope.Environment,
                     CredentialProfileId = scope.CredentialProfileId, ReservedBranchNum = scope.BranchNum,
+                    ReservedStationAmdika = scope.StationAmdika,
                     ExciseDiscountPerLitre = exciseDiscountPerLitre,
                     LocalStage = MyDieselCaseStage.Captured, ValidUntilUtc = validUntilUtc, IssuedLitres = issuedLitres,
                     BlocksInvoice = true, BlocksCouponReuse = true, CreatedUtc = now, UpdatedUtc = now
@@ -75,7 +77,7 @@ namespace ASFuelControl.Invoicing
                 var value = Required(store.Load(lease));
                 if (value.LocalStage != MyDieselCaseStage.Captured && value.LocalStage != MyDieselCaseStage.ReserveUnknown)
                     throw new InvalidOperationException("Only a captured or reservation-unknown coupon can be reserved.");
-                var request = new MyDieselLookupRequest(value.CouponCode, value.CompanyVat, value.ReservedBranchNum);
+                var request = new MyDieselLookupRequest(value.CouponCode, value.CompanyVat, value.ReservedBranchNum, value.ReservedStationAmdika);
                 MyDieselAttemptRecord retry = null;
                 if (value.LocalStage == MyDieselCaseStage.ReserveUnknown)
                 {
@@ -93,7 +95,7 @@ namespace ASFuelControl.Invoicing
                 var value = Required(store.Load(lease));
                 if (value.LocalStage != MyDieselCaseStage.Reserved || MyDieselCouponStates.Parse(value.RemoteStatus) != MyDieselCouponStatus.Reserved)
                     throw new InvalidOperationException("Only an authoritatively reserved coupon can be released.");
-                var request = new MyDieselLookupRequest(value.CouponCode, value.CompanyVat, value.ReservedBranchNum);
+                var request = new MyDieselLookupRequest(value.CouponCode, value.CompanyVat, value.ReservedBranchNum, value.ReservedStationAmdika);
                 return Execute(lease, value, MyDieselOperation.Release, LookupJson(request), client => client.Release(request), ApplyRelease);
             }
         }
@@ -135,7 +137,7 @@ namespace ASFuelControl.Invoicing
                 }
                 else if (value.InvoiceMark != mark || value.MarkSourceInvoiceId != invoiceId)
                     throw new InvalidOperationException("The accepted invoice MARK differs from the frozen redemption request.");
-                var request = new MyDieselRedeemRequest(value.CouponCode, value.CompanyVat, value.ReservedBranchNum, mark);
+                var request = new MyDieselRedeemRequest(value.CouponCode, value.CompanyVat, value.ReservedBranchNum, value.ReservedStationAmdika, mark);
                 return Execute(lease, value, MyDieselOperation.Redeem, RedeemJson(request), client => client.Redeem(request), ApplyRedeem);
             }
         }
@@ -166,7 +168,8 @@ namespace ASFuelControl.Invoicing
                 bool unknown = value.LocalStage == MyDieselCaseStage.RedeemUnknown || value.LocalStage == MyDieselCaseStage.InterventionRequired;
                 if (!MyDieselCouponStates.SafeForBackgroundQuery(status) && !(explicitUnknownReconciliation && unknown))
                     throw new InvalidOperationException("Query could reserve this coupon; unattended refresh is not safe in its current state.");
-                var request = new MyDieselLookupRequest(value.CouponCode, value.CompanyVat, value.CurrentBranchNum ?? value.ReservedBranchNum);
+                var request = new MyDieselLookupRequest(value.CouponCode, value.CompanyVat,
+                    value.CurrentBranchNum ?? value.ReservedBranchNum, value.CurrentStationAmdika ?? value.ReservedStationAmdika);
                 return Execute(lease, value, MyDieselOperation.Query, LookupJson(request), client => client.Query(request), ApplyRefresh);
             }
         }
@@ -178,9 +181,9 @@ namespace ASFuelControl.Invoicing
             {
                 var value = Required(store.Load(lease)); var status = MyDieselCouponStates.Parse(value.RemoteStatus);
                 if (!MyDieselCouponStates.CanChangeBranch(status)) throw new InvalidOperationException("Station correction is not allowed for this coupon state.");
-                var request = new MyDieselLookupRequest(value.CouponCode, value.CompanyVat, newBranchNum);
+                var request = new MyDieselLookupRequest(value.CouponCode, value.CompanyVat, newBranchNum, value.ReservedStationAmdika);
                 return Execute(lease, value, MyDieselOperation.ChangeBranch, LookupJson(request), client => client.ChangeBranch(request),
-                    (row, result) => { ApplyRedeem(row, result); if (result.Succeeded) row.CurrentBranchNum = newBranchNum; },null,null,operatorReason);
+                    (row, result) => { ApplyRedeem(row, result); if (result.Succeeded) { row.CurrentBranchNum = newBranchNum; row.CurrentStationAmdika = row.ReservedStationAmdika; } },null,null,operatorReason);
             }
         }
 
@@ -198,7 +201,8 @@ namespace ASFuelControl.Invoicing
                     throw new InvalidOperationException("MARK correction is not allowed for this coupon state.");
                 var original = store.LoadAttempts(lease).LastOrDefault(a => a.Operation == MyDieselOperation.Redeem);
                 if (original == null) throw new InvalidOperationException("The original redemption attempt is missing.");
-                var request = new MyDieselRedeemRequest(value.CouponCode,value.CompanyVat,value.CurrentBranchNum ?? value.ReservedBranchNum,mark);
+                var request = new MyDieselRedeemRequest(value.CouponCode,value.CompanyVat,
+                    value.CurrentBranchNum ?? value.ReservedBranchNum,value.CurrentStationAmdika ?? value.ReservedStationAmdika,mark);
                 return Execute(lease,value,MyDieselOperation.Redeem,RedeemJson(request),client => client.Redeem(request),
                     (row,result) => {
                         if (result.State != MyDieselOperationState.FailedBeforeDispatch)
@@ -206,6 +210,57 @@ namespace ASFuelControl.Invoicing
                         ApplyRedeem(row,result);
                     },null,original.AttemptId,operatorReason);
             }
+        }
+
+        // A type-correction batch may resume after the replacement invoice was
+        // accepted or after the myDiesel call lost its response.  Never submit a
+        // second MARK correction when the first request may already have reached
+        // myDiesel; reconcile it with the existing safe status query instead.
+        public MyDieselServiceResult CorrectMarkOrRecover(Guid couponCaseId, Guid invoiceId,
+            string mark, string operatorReason)
+        {
+            if (invoiceId == Guid.Empty) throw new ArgumentException("Source invoice ID is required.", nameof(invoiceId));
+            if (string.IsNullOrWhiteSpace(operatorReason)) throw new ArgumentException("A MARK-correction reason is required.", nameof(operatorReason));
+            mark = MyDieselRedeemRequest.NormalizeMark(mark);
+
+            MyDieselCouponCaseRecord value;
+            MyDieselAttemptRecord correction = null;
+            bool reconciled = false;
+            using (var lease = store.Acquire(couponCaseId))
+            {
+                value = Required(store.Load(lease));
+                if (value.InvoiceId != invoiceId)
+                    throw new ArgumentException("The accepted invoice does not own this coupon case.", nameof(invoiceId));
+                if (value.InvoiceMark == mark)
+                {
+                    var attempts = store.LoadAttempts(lease);
+                    correction = attempts.LastOrDefault(attempt => attempt.Operation == MyDieselOperation.Redeem &&
+                        AttemptMark(attempt) == mark && !string.IsNullOrWhiteSpace(attempt.OperatorReason));
+                    if (correction == null)
+                        throw new InvalidOperationException("The saved myDiesel MARK changed without a correction attempt.");
+                    reconciled = attempts.Any(attempt => attempt.Operation == MyDieselOperation.Query &&
+                        attempt.State == MyDieselOperationState.Succeeded && attempt.CreatedUtc >= correction.UpdatedUtc) &&
+                        (value.LocalStage == MyDieselCaseStage.Redeemed ||
+                         value.LocalStage == MyDieselCaseStage.VerificationPending ||
+                         value.LocalStage == MyDieselCaseStage.Final);
+                }
+            }
+
+            if (value.InvoiceMark != mark)
+                return CorrectMark(couponCaseId, invoiceId, mark, operatorReason);
+            if (correction.State == MyDieselOperationState.Succeeded || reconciled)
+                return new MyDieselServiceResult { CouponCase = value, AttemptId = correction.AttemptId,
+                    OperationState = MyDieselOperationState.Succeeded };
+            if (correction.State == MyDieselOperationState.Rejected)
+                return new MyDieselServiceResult { CouponCase = value, AttemptId = correction.AttemptId,
+                    OperationState = MyDieselOperationState.Rejected, ErrorCode = correction.ErrorCode };
+            if (correction.State == MyDieselOperationState.Unknown ||
+                correction.State == MyDieselOperationState.Prepared ||
+                correction.State == MyDieselOperationState.Sending)
+                return RefreshStatus(couponCaseId, true);
+            if (correction.State == MyDieselOperationState.FailedBeforeDispatch)
+                return CorrectMark(couponCaseId, invoiceId, mark, operatorReason);
+            throw new InvalidOperationException("The saved myDiesel MARK correction has an invalid state.");
         }
 
         private MyDieselServiceResult Execute(IFiscalDocumentLease lease, MyDieselCouponCaseRecord value, MyDieselOperation operation,
@@ -286,7 +341,8 @@ namespace ASFuelControl.Invoicing
             ApplyInfo(value, result.Data);
             var status = result.Data.KnownStatus;
             if (status == MyDieselCouponStatus.Reserved && result.Data.Redeemable)
-            { value.LocalStage = MyDieselCaseStage.Reserved; value.CurrentBranchNum = value.ReservedBranchNum; value.BlocksInvoice = value.BlocksCouponReuse = true; }
+            { value.LocalStage = MyDieselCaseStage.Reserved; value.CurrentBranchNum = value.ReservedBranchNum;
+                value.CurrentStationAmdika = value.ReservedStationAmdika; value.BlocksInvoice = value.BlocksCouponReuse = true; }
             else if (status == MyDieselCouponStatus.Active)
             { value.LocalStage = MyDieselCaseStage.Released; value.BlocksInvoice = value.BlocksCouponReuse = false; }
             else if (status == MyDieselCouponStatus.Expired || status == MyDieselCouponStatus.Cancelled)
@@ -354,17 +410,27 @@ namespace ASFuelControl.Invoicing
         }
 
         private static MyDieselScope Scope(MyDieselCouponCaseRecord value)
-        { return new MyDieselScope(value.Environment, value.CompanyVat, value.ReservedBranchNum, value.CredentialProfileId); }
+        { return new MyDieselScope(value.Environment, value.CompanyVat, value.ReservedBranchNum,
+            value.CredentialProfileId, value.ReservedStationAmdika); }
 
         private static MyDieselCouponCaseRecord Required(MyDieselCouponCaseRecord value)
         { return value ?? throw new InvalidOperationException("The myDiesel coupon case does not exist."); }
 
         private static string LookupJson(MyDieselLookupRequest value)
-        { return new JObject { ["couponCode"] = value.CouponCode, ["companyVat"] = value.CompanyVat, ["branchNum"] = value.BranchNum }.ToString(Formatting.None); }
+        { return new JObject { ["couponCode"] = value.CouponCode, ["companyVat"] = value.CompanyVat,
+            ["branchNum"] = value.BranchNum, ["amdika"] = value.Amdika }.ToString(Formatting.None); }
 
         private static string RedeemJson(MyDieselRedeemRequest value)
-        { return new JObject { ["couponCode"] = value.CouponCode, ["companyVat"] = value.CompanyVat, ["branchNum"] = value.BranchNum,
+        { return new JObject { ["couponCode"] = value.CouponCode, ["companyVat"] = value.CompanyVat,
+            ["branchNum"] = value.BranchNum, ["amdika"] = value.Amdika,
             ["invoiceType"] = value.InvoiceType, ["mark"] = value.Mark }.ToString(Formatting.None); }
+
+        private static string AttemptMark(MyDieselAttemptRecord attempt)
+        {
+            if (attempt == null || string.IsNullOrWhiteSpace(attempt.RequestJson)) return null;
+            try { return (string)JObject.Parse(attempt.RequestJson)["mark"]; }
+            catch (JsonException) { return null; }
+        }
 
         private static MyDieselCallResult<MyDieselCouponInfo> Failure(MyDieselOperation operation, MyDieselOperationState state, Exception error)
         { return new MyDieselCallResult<MyDieselCouponInfo> { Operation = operation, State = state, CommunicationError = error.GetType().FullName }; }

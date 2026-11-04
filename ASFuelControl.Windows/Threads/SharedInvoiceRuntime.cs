@@ -15,14 +15,18 @@ namespace ASFuelControl.Windows.Threads
     internal static partial class SharedInvoiceRuntime
     {
         internal const string OperatorRequestedCopyReason = "Operator requested an invoice copy.";
-        private const string ReprintRequestPrefix = "ASFC-REPRINT-V1:";
 
         // Routing/device settings are stable for this process. Unused provider
         // connections read the latest saved account and credential profile.
         internal static bool Enabled => settings.Value.Enabled;
         internal static bool ProtectsInvoices => Enabled || settings.Value.ProtectedKinds.Contains(FiscalDocumentKind.Invoice);
         internal static bool SupportsIris => settings.Value.Pos?.Provider.ProviderKey == InvoiceProviderCatalog.ITimologiaKey && settings.Value.Pos.PosMode == "MELLON";
-        private static readonly Lazy<SqlFiscalDatabase> sql = new Lazy<SqlFiscalDatabase>(() => new SqlFiscalDatabase(Properties.Settings.Default.DBConnection));
+        // The PrintAgent and an administrator action can briefly meet on the
+        // same invoice.  Keep the SQL application lock exclusive, but wait for
+        // the current worker instead of turning a transient overlap into an
+        // immediate "owned by another worker" failure in correction batches.
+        private static readonly Lazy<SqlFiscalDatabase> sql = new Lazy<SqlFiscalDatabase>(() =>
+            new SqlFiscalDatabase(Properties.Settings.Default.DBConnection, 15000));
         private static readonly Lazy<SharedInvoiceConfiguration> settings = new Lazy<SharedInvoiceConfiguration>(() => SharedInvoicingSettings.LoadRuntime());
         private static SharedInvoiceConfiguration CurrentSettings()
         {
@@ -108,17 +112,314 @@ namespace ASFuelControl.Windows.Threads
             internal readonly List<IDisposable> Leases = new List<IDisposable>();
             public void Dispose() { for (int i = Leases.Count - 1; i >= 0; i--) Leases[i].Dispose(); }
         }
-        internal static InvoiceWorkflowResult Process(Guid id, bool print = true, string reason = null)
+        internal static void ValidateCancellationTransformation(IEnumerable<Guid> invoiceIds,
+            Guid targetInvoiceTypeId)
+        {
+            var ids = (invoiceIds ?? Enumerable.Empty<Guid>()).Where(id => id != Guid.Empty)
+                .Distinct().ToArray();
+            if (ids.Length == 0)
+                return;
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var target = db.InvoiceTypes.SingleOrDefault(type =>
+                    type.InvoiceTypeId == targetInvoiceTypeId);
+                if (!HostInvoiceMapper.IsCancellationDocument(target))
+                    return;
+                var originals = db.Invoices.Where(invoice => ids.Contains(invoice.InvoiceId)).ToArray();
+                foreach (var original in originals)
+                {
+                    if (!IsCancellationOrCreditType(db, original.InvoiceType) ||
+                        !HasExternalTransmissionEvidence(db, original))
+                        continue;
+                    throw new InvalidOperationException(
+                        "Το πιστωτικό " + original.InvoiceType.Abbreviation + " " + original.Number +
+                        " έχει ήδη σημανθεί ή διαβιβαστεί. Δεν επιτρέπεται δεύτερο πιστωτικό 5.1 ή 11.4 " +
+                        "πάνω στο πιστωτικό. Αν εκδόθηκε απευθείας μέσω myDATA ακυρώνεται το MARK του· " +
+                        "αν εκδόθηκε μέσω παρόχου απαιτείται θετικό διορθωτικό παραστατικό. " +
+                        "Δεν δημιουργήθηκε ακυρωτικό παραστατικό.");
+                }
+            }
+        }
+        internal static bool TryCancelCancellationInvoiceMark(Guid invoiceId,
+            out long cancellationMark)
+        {
+            cancellationMark = 0;
+            Data.MyDataInvoice legacyEvidence;
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var invoice = db.Invoices.SingleOrDefault(item => item.InvoiceId == invoiceId);
+                if (invoice == null)
+                    throw new InvalidOperationException("Το παραστατικό δεν βρέθηκε.");
+                // Old databases do not set IsCancelation consistently on credit
+                // types. A type configured as the child of a cancellation
+                // transformation is also a cancellation/credit document.
+                if (!IsCancellationOrCreditType(db, invoice.InvoiceType))
+                    return false;
+                legacyEvidence = db.MyDataInvoices.FirstOrDefault(item =>
+                    item.InvoiceId == invoiceId);
+                if (legacyEvidence?.CanceledByMark.GetValueOrDefault() > 0)
+                {
+                    cancellationMark = legacyEvidence.CanceledByMark.Value;
+                    return true;
+                }
+            }
+
+            if (!Owns(invoiceId))
+            {
+                using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                {
+                    var evidence = db.MyDataInvoices.FirstOrDefault(item =>
+                        item.InvoiceId == invoiceId);
+                    // A local/unissued credit has no MARK to cancel. Let the caller
+                    // continue with the configured local cancellation
+                    // transformation instead of dereferencing a missing legacy row.
+                    if (evidence == null || evidence.Mark.GetValueOrDefault() <= 0)
+                        return false;
+                    if (!string.IsNullOrWhiteSpace(evidence.ProviderUrl))
+                        throw new InvalidOperationException(
+                            "Το παραστατικό έχει εκδοθεί μέσω παρόχου. Η ΑΑΔΕ δεν επιτρέπει " +
+                            "την ακύρωση MARK οικονομικού παραστατικού παρόχου (σφάλμα 249) " +
+                            "και το API παρόχων διαθέτει ακύρωση μόνο για δελτία διακίνησης. " +
+                            "Δεν στάλθηκε αίτηση ακύρωσης και το παραστατικό παραμένει ενεργό. " +
+                            "Απαιτείται το κατάλληλο διορθωτικό παραστατικό.");
+                    PrintAgent.CancelInvoice(db, evidence);
+                    if (evidence.CanceledByMark.GetValueOrDefault() <= 0)
+                        throw new InvalidOperationException(
+                            "Η ΑΑΔΕ δεν επιβεβαίωσε την ακύρωση του MARK.");
+                    cancellationMark = evidence.CanceledByMark.Value;
+                    return true;
+                }
+            }
+
+            long sourceMark;
+            long acceptedCancellationMark = 0;
+            using (var lease = sql.Value.EnterInvoice(invoiceId))
+            {
+                var history = new SqlFiscalHistoryStore(sql.Value);
+                var acceptedSubmission = history.Load(lease, FiscalJournalFamily.Submission)
+                    .LastOrDefault(item => item.State == FiscalTransmissionState.Accepted.ToString());
+                if (acceptedSubmission == null)
+                    return false;
+                var acceptedRoute = ProviderSubmissionService.ReadAcceptedRoute(acceptedSubmission);
+                var acceptedResponse = ProviderSubmissionService.ReadAcceptedResponse(acceptedSubmission);
+                if (acceptedResponse == null || !long.TryParse(acceptedResponse.Mark,
+                    System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out sourceMark) || sourceMark <= 0)
+                    throw new InvalidOperationException(
+                        "Η επιβεβαιωμένη διαβίβαση δεν περιέχει έγκυρο MARK.");
+
+                var operations = new SqlFiscalOperationStore(sql.Value);
+                var previous = operations.Load(lease, false).LastOrDefault();
+                if (previous != null)
+                {
+                    if (previous.State == FiscalTransmissionState.Accepted.ToString())
+                    {
+                        acceptedCancellationMark = ReadCancellationMark(previous.Evidence);
+                        if (acceptedCancellationMark <= 0)
+                            throw new InvalidOperationException(
+                                "Η ακύρωση έχει καταγραφεί ως επιτυχής χωρίς έγκυρο cancellation MARK. Απαιτείται συμφωνία ιστορικού.");
+                    }
+                    else if (previous.State == FiscalTransmissionState.Prepared.ToString() ||
+                             previous.State == FiscalTransmissionState.Sending.ToString() ||
+                             previous.State == FiscalTransmissionState.Unknown.ToString())
+                        throw new InvalidOperationException(
+                            "Υπάρχει ήδη ακύρωση MARK σε εκκρεμή ή άγνωστη κατάσταση. Δεν έγινε δεύτερη αποστολή.");
+                }
+
+                if (acceptedCancellationMark <= 0)
+                {
+                    // Cancellation must use the same fiscal channel that issued the
+                    // MARK. AADE rejects an ERP CancelInvoice for provider-issued
+                    // financial documents with validation error 249.
+                    var cancellation = ResolveMarkCancellationConnection(acceptedRoute);
+                    var attempt = operations.BeginCancellation(lease,
+                        acceptedSubmission.AttemptId, "application/xml",
+                        Encoding.UTF8.GetBytes("<CancelInvoice><mark>" +
+                            sourceMark.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                            "</mark></CancelInvoice>"));
+                    operations.SaveCancellation(lease, attempt,
+                        FiscalTransmissionState.Sending,
+                        "Αποστολή ακύρωσης MARK " + sourceMark.ToString(
+                            System.Globalization.CultureInfo.InvariantCulture));
+
+                    Exedron.MyData.Models.Responses.ResponseDoc response;
+                    try
+                    {
+                        response = Exedron.MyData.InvoiceCancelation.MakeRequest(
+                            cancellation.Url, sourceMark, cancellation.User,
+                            cancellation.SubscriptionKey, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        operations.SaveCancellation(lease, attempt,
+                            FiscalTransmissionState.Unknown,
+                            "Μη επιβεβαιωμένη έκβαση ακύρωσης: " + ex.GetType().Name + " - " + ex.Message);
+                        throw new InvalidOperationException(
+                            "Η έκβαση της ακύρωσης MARK δεν επιβεβαιώθηκε. Δεν επιτρέπεται νέα προσπάθεια πριν από συμφωνία με την ΑΑΔΕ.", ex);
+                    }
+
+                    acceptedCancellationMark = response?.response?.cancellationMark.HasValue == true
+                        ? (long)response.response.cancellationMark.Value
+                        : 0;
+                    string responseEvidence = response?.response?.responseData;
+                    if (string.IsNullOrWhiteSpace(responseEvidence))
+                        responseEvidence = JsonConvert.SerializeObject(new {
+                            Status = response?.response?.statusCode,
+                            CancellationMark = acceptedCancellationMark,
+                            Errors = response?.response?.errors
+                        });
+                    if (acceptedCancellationMark <= 0)
+                    {
+                        operations.SaveCancellation(lease, attempt,
+                            FiscalTransmissionState.Rejected, responseEvidence);
+                        string errors = response?.response?.errors == null
+                            ? "Η ΑΑΔΕ δεν επέστρεψε cancellation MARK."
+                            : string.Join("\r\n", response.response.errors.Select(error =>
+                                error.code + " - " + error.message));
+                        throw new InvalidOperationException(errors);
+                    }
+                    operations.SaveCancellation(lease, attempt,
+                        FiscalTransmissionState.Accepted, responseEvidence);
+                }
+            }
+
+            SaveLegacyCancellationEvidence(invoiceId, sourceMark,
+                acceptedCancellationMark);
+            cancellationMark = acceptedCancellationMark;
+            return true;
+        }
+        private sealed class MarkCancellationConnection
+        {
+            internal string Url;
+            internal string User;
+            internal string SubscriptionKey;
+        }
+        private static MarkCancellationConnection ResolveMarkCancellationConnection(
+            ProviderRoute acceptedRoute)
+        {
+            if (acceptedRoute == null)
+                throw new InvalidOperationException(
+                    "Δεν είναι διαθέσιμη η αρχική διαδρομή διαβίβασης του MARK.");
+
+            var provider = InvoiceProviderCatalog.Get(acceptedRoute.ProviderKey);
+            if (!provider.SupportsInvoiceMarkCancellation)
+                throw new InvalidOperationException(
+                    "Το παραστατικό έχει εκδοθεί μέσω " + provider.DisplayName + ". Η ΑΑΔΕ " +
+                    "απορρίπτει την ακύρωση MARK οικονομικών παραστατικών παρόχου (σφάλμα 249) " +
+                    "και το επίσημο API παρόχων δεν διαθέτει CancelInvoice — μόνο " +
+                    "CancelDeliveryNote για δελτία διακίνησης. Δεν στάλθηκε νέα αίτηση, " +
+                    "το πιστωτικό παραμένει ενεργό και το αρχικό παραστατικό δεν " +
+                    "αποδεσμεύτηκε. Απαιτείται το κατάλληλο διορθωτικό παραστατικό.");
+
+            var secret = new CurrentCredentials().Resolve(acceptedRoute);
+            if (secret == null || string.IsNullOrWhiteSpace(secret.SubscriptionKey) ||
+                string.IsNullOrWhiteSpace(acceptedRoute.Account) ||
+                string.IsNullOrWhiteSpace(acceptedRoute.MyDataBaseUrl))
+                throw new InvalidOperationException(
+                    "Δεν είναι διαθέσιμα τα αποθηκευμένα διαπιστευτήρια myDATA για την ακύρωση του MARK.");
+            return new MarkCancellationConnection {
+                Url = acceptedRoute.MyDataBaseUrl.TrimEnd('/'),
+                User = acceptedRoute.Account.Trim(),
+                SubscriptionKey = secret.SubscriptionKey.Trim()
+            };
+        }
+        private static long ReadCancellationMark(string evidence)
+        {
+            if (string.IsNullOrWhiteSpace(evidence))
+                return 0;
+            try
+            {
+                var response = Exedron.MyData.Models.Responses.ResponseDoc.Deserialize(evidence);
+                if (response?.response?.cancellationMark.HasValue == true)
+                    return (long)response.response.cancellationMark.Value;
+            }
+            catch { }
+            try
+            {
+                return (long?)Newtonsoft.Json.Linq.JObject.Parse(evidence)["CancellationMark"] ?? 0;
+            }
+            catch { return 0; }
+        }
+        private static void SaveLegacyCancellationEvidence(Guid invoiceId,
+            long sourceMark, long cancellationMark)
+        {
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var evidence = db.MyDataInvoices.FirstOrDefault(item =>
+                    item.InvoiceId == invoiceId);
+                if (evidence == null)
+                {
+                    evidence = new Data.MyDataInvoice {
+                        MyDataInvoiceId = Guid.NewGuid(),
+                        InvoiceId = invoiceId,
+                        Mark = sourceMark,
+                        Status = 3
+                    };
+                    db.Add(evidence);
+                }
+                // The journal can contain the accepted source MARK even when an
+                // older/partial legacy projection row was left with MARK 0.
+                evidence.Mark = sourceMark;
+                if (evidence.Status <= 0) evidence.Status = 3;
+                evidence.CanceledByMark = cancellationMark;
+                db.SaveChanges();
+            }
+        }
+        private static bool IsCancellationOrCreditType(Data.DatabaseModel db,
+            Data.InvoiceType type)
+        {
+            if (type == null)
+                return false;
+            if (type.IsCancelation == true || type.OfficialEnumerator == 215)
+                return true;
+            int cancellation = (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation;
+            return db.InvoiceTypeTransforms.Any(transform =>
+                transform.ChildInvoiceTypeId == type.InvoiceTypeId &&
+                transform.TransformationMode == cancellation);
+        }
+        private static bool HasExternalTransmissionEvidence(Data.DatabaseModel db,
+            Data.Invoice original)
+        {
+            // A device signature proves local fiscal signing, not transmission.
+            // Signed-only invoices are cancelled by the configured local
+            // cancellation transformation. Only durable myDATA/provider evidence
+            // makes the original an externally issued document.
+            if (db.MyDataInvoices.Any(item => item.InvoiceId == original.InvoiceId &&
+                (item.Status == 3 || item.Mark.GetValueOrDefault() > 0 ||
+                 item.CanceledByMark.GetValueOrDefault() > 0 || item.CancelationMark.GetValueOrDefault() > 0)))
+                return true;
+            using (var parentLease = sql.Value.EnterInvoice(original.InvoiceId))
+            {
+                var history = new SqlFiscalHistoryStore(sql.Value);
+                return history.Load(parentLease,FiscalJournalFamily.Submission).Any(item =>
+                    item.State == "Sending" || item.State == "Unknown" ||
+                    item.State == "Queued" || item.State == "Accepted");
+            }
+        }
+        private static bool HasUnresolvedSigningAttempt(Guid invoiceId)
+        {
+            using (var lease = sql.Value.EnterInvoice(invoiceId))
+            {
+                var signing = new SqlFiscalHistoryStore(sql.Value)
+                    .Load(lease,FiscalJournalFamily.Signing).LastOrDefault();
+                return signing != null && (signing.State == "Prepared" ||
+                    signing.State == "Signing" || signing.State == "Unknown");
+            }
+        }
+        internal static InvoiceWorkflowResult Process(Guid id, bool print = true, string reason = null,
+            string selectedPrinter = null, bool automaticSamtecAmountCorrection = false)
         {
             if (new SqlHeatingCorrectionStore(sql.Value).IsChild(id,true))
                 throw new InvalidOperationException("Το παραστατικό ελέγχεται από την παρτίδα διόρθωσης επιδόματος θέρμανσης. Συνεχίστε την παρτίδα από τις Ενέργειες του καταλόγου.");
-            var routedReason = reason;
-            if (!string.IsNullOrWhiteSpace(reason))
-                routedReason = ReprintRequestPrefix + JsonConvert.SerializeObject(new {
-                    Reason = reason,
-                    PrintDestination = CurrentPrintDestination(id)
-                });
-            return workflow.Value.Process(id, new Source(print), print, routedReason);
+            if (new SqlInvoiceTypeCorrectionStore(sql.Value).IsChild(id,true))
+                throw new InvalidOperationException("Το παραστατικό ελέγχεται από την παρτίδα διόρθωσης τύπου myDATA. Συνεχίστε την παρτίδα από τις Ενέργειες του καταλόγου.");
+            string destination = !string.IsNullOrWhiteSpace(reason) || !string.IsNullOrWhiteSpace(selectedPrinter)
+                ? CurrentPrintDestination(id,selectedPrinter)
+                : null;
+            var source = new Source(print,false,selectedPrinter);
+            return automaticSamtecAmountCorrection
+                ? workflow.Value.ProcessAutomaticSamtecAmountCorrection(id,source,print,reason,destination)
+                : workflow.Value.Process(id,source,print,reason,false,false,destination);
         }
         internal static InvoiceWorkflowResult SubmitPrintedInvoice(Guid id)
         {
@@ -134,8 +435,13 @@ namespace ASFuelControl.Windows.Threads
         private sealed class Source : IInvoiceWorkflowSource
         {
             private readonly bool printRequested, historicalPrinted;
-            internal Source(bool printRequested, bool historicalPrinted = false)
-            { this.printRequested = printRequested; this.historicalPrinted = historicalPrinted; }
+            private readonly string selectedPrinter;
+            internal Source(bool printRequested, bool historicalPrinted = false, string selectedPrinter = null)
+            {
+                this.printRequested = printRequested;
+                this.historicalPrinted = historicalPrinted;
+                this.selectedPrinter = string.IsNullOrWhiteSpace(selectedPrinter) ? null : selectedPrinter.Trim();
+            }
             public InvoiceWorkflowSnapshot Prepare(IFiscalDocumentLease lease)
             {
                 if (!Enabled) throw new InvalidOperationException("First issuance through the shared workflow is disabled.");
@@ -144,18 +450,38 @@ namespace ASFuelControl.Windows.Threads
                 // Check route/history before touching the counter. Open a new context after
                 // SQL numbering; an old OpenAccess identity map must never render number 0.
                 bool needsNumber;
+                MyDieselCouponCaseRecord pendingCoupon;
                 using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
                     var pending = Check(db,id,config);
-                    ValidateMyDiesel(pending,config.Route(pending),config);
+                    pendingCoupon = ValidateMyDiesel(pending,config.Route(pending),config);
                     needsNumber = pending.Number == 0;
+                }
+                if (pendingCoupon != null)
+                {
+                    if (!pendingCoupon.IssuedLitres.HasValue || pendingCoupon.IssuedLitres.Value <= 0)
+                        throw new InvalidOperationException(
+                            "Το δεσμευμένο κουπόνι myDiesel δεν περιέχει έγκυρη ποσότητα λίτρων.");
+                    PendingMyDieselSelectionStore.ReconcileExciseDiscount(id,
+                        pendingCoupon.IssuedLitres.Value,pendingCoupon.ExciseDiscountPerLitre);
                 }
                 if (needsNumber) new SqlInvoiceWorkflowStore(sql.Value).AllocateNumbers(lease,config.FirstInvoiceDate);
                 using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
                     var invoice = Check(db, id, config);
-                    var route = config.Route(invoice);
+                    // Normalize the host totals exactly once, before the first shared
+                    // workflow snapshot freezes the print/provider/signing payloads.
+                    // Existing snapshots are reused by retries and reprints, while a
+                    // historical printed invoice must retain its originally issued data.
+                    if (!historicalPrinted)
+                    {
+                        invoice.RecalculateInvoice();
+                        db.SaveChanges();
+                    }
+                    var route = CancellationRoute(db, invoice, config.Route(invoice));
                     var coupon = ValidateMyDiesel(invoice,route,config);
+                    if (selectedPrinter != null)
+                        route.Printer.PrinterName = selectedPrinter;
                     var printer = printRequested ? SharedInvoicePrinting.ResolveProfile(route.Printer,config.DefaultPrinter) :
                         route.Printer ?? config.DefaultPrinter ?? new SharedPrinterProfile();
                     var content = PrintAgent.RenderSharedInvoiceContent(db, invoice);
@@ -166,7 +492,8 @@ namespace ASFuelControl.Windows.Threads
                     if (coupon != null)
                     {
                         value.Version = 2; value.MyDieselCouponCaseId = coupon.CouponCaseId;
-                        value.MyDieselScope = new MyDieselScope(coupon.Environment,coupon.CompanyVat,coupon.ReservedBranchNum,coupon.CredentialProfileId);
+                        value.MyDieselScope = new MyDieselScope(coupon.Environment,coupon.CompanyVat,coupon.ReservedBranchNum,
+                            coupon.CredentialProfileId,coupon.ReservedStationAmdika);
                         value.MyDieselExciseDiscountPerLitre = coupon.ExciseDiscountPerLitre;
                     }
                     if (route.Provider != null)
@@ -184,9 +511,66 @@ namespace ASFuelControl.Windows.Threads
                             mapping.Parents[parent.ParentInvoiceId] = provider.LoadParentEvidence(parent.ParentInvoiceId);
                         value.Invoice = new HostInvoiceMapper().Map(invoice, mapping);
                     }
-                    if (route.Signing != null) value.Signing = HostFiscalSigningMapper.Invoice(invoice, route.Signing, content, false);
+                    if (route.Signing != null)
+                    {
+                        var device = config.SamtecDevice(route.Signing);
+                        value.Signing = HostFiscalSigningMapper.Invoice(invoice, route.Signing, content, false,
+                            device?.EftPosTID);
+                    }
                     return value;
                 }
+            }
+            private SharedInvoiceRoute CancellationRoute(Data.DatabaseModel db, Data.Invoice invoice,
+                SharedInvoiceRoute configured)
+            {
+                if (!HostInvoiceMapper.IsCancellationDocument(invoice.InvoiceType))
+                    return configured;
+                var relations = invoice.ParentInvoiceRelations.Where(relation =>
+                    relation.RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.Cancel).ToArray();
+                if (relations.Length != 1 || relations[0].ParentInvoice == null)
+                    throw new InvalidOperationException(
+                        "Το ειδικό ακυρωτικό πρέπει να συνδέεται με ακριβώς ένα αρχικό παραστατικό.");
+
+                var original = relations[0].ParentInvoice;
+                bool externallyIssued = HasExternalTransmissionEvidence(db, original);
+                if (!externallyIssued)
+                {
+                    if (HasUnresolvedSigningAttempt(original.InvoiceId))
+                        throw new InvalidOperationException(
+                            "Η σήμανση του αρχικού παραστατικού είναι σε εκκρεμή ή άγνωστη κατάσταση. " +
+                            "Ολοκληρώστε πρώτα την ανάκτηση της σήμανσης.");
+                    // There is nothing external to reverse. Keep the cancellation
+                    // local even when type 215 normally has a provider policy.
+                    // A completed device signature on its own is intentionally a
+                    // local case and does not require MARK/provider cancellation.
+                    return new SharedInvoiceRoute {
+                        LocalOnly = true,
+                        Printer = configured.Printer
+                    };
+                }
+                if (IsCancellationOrCreditType(db, relations[0].ParentInvoice.InvoiceType))
+                    throw new InvalidOperationException(
+                        "Το αρχικό πιστωτικό έχει ήδη σημανθεί ή διαβιβαστεί και δεν επιτρέπεται " +
+                        "δεύτερο πιστωτικό 5.1 ή 11.4 πάνω του. Αν εκδόθηκε απευθείας μέσω myDATA " +
+                        "ακυρώνεται το MARK του· αν εκδόθηκε μέσω παρόχου απαιτείται θετικό " +
+                        "διορθωτικό παραστατικό.");
+                if (configured.LocalOnly)
+                    throw new InvalidOperationException(
+                        "Το αρχικό παραστατικό έχει ήδη σημανθεί ή διαβιβαστεί. Το ακυρωτικό δεν μπορεί να παραμείνει μόνο τοπικό.");
+                if (configured.Signing != null)
+                    throw new InvalidOperationException(
+                        "Το αρχικό παραστατικό έχει φορολογικό ιστορικό. Η ακύρωση μέσω φορολογικού μηχανισμού απαιτεί επιβεβαιωμένα στοιχεία του αρχικού μηχανισμού και δεν είναι διαθέσιμη από αυτή τη ροή.");
+                if (configured.Provider == null)
+                    throw new InvalidOperationException(
+                        "Το αρχικό παραστατικό έχει ήδη διαβιβαστεί. Ορίστε διαβίβαση του ακυρωτικού σε πάροχο ή απευθείας myDATA.");
+                // A provider cancellation is a new financial document. It must not
+                // start a new POS payment; the mapper emits an on-credit method.
+                return new SharedInvoiceRoute {
+                    Provider = configured.Provider,
+                    Payment = null,
+                    Printer = configured.Printer,
+                    LocalOnly = false
+                };
             }
             private MyDieselCouponCaseRecord ValidateMyDiesel(Data.Invoice invoice, SharedInvoiceRoute route, SharedInvoiceConfiguration config)
             {
@@ -198,15 +582,27 @@ namespace ASFuelControl.Windows.Threads
                     throw new InvalidOperationException("Το ΑΦΜ του πελάτη δεν συμφωνεί με το ΑΦΜ δικαιούχου του κουπονιού myDiesel.");
                 if (route.LocalOnly || route.Provider == null)
                     throw new InvalidOperationException("Το myDiesel απαιτεί ηλεκτρονική διαβίβαση που επιστρέφει οριστικό MARK.");
-                if ((route.Provider.TestMode ? FiscalEnvironment.Test : FiscalEnvironment.Production) != coupon.Environment || route.Provider.IssuerVat != coupon.CompanyVat)
-                    throw new InvalidOperationException("Το περιβάλλον ή το ΑΦΜ εκδότη του παραστατικού διαφέρει από τη δεσμευμένη κλήση myDiesel.");
+                bool couponIsTest = coupon.Environment == FiscalEnvironment.Test;
+                if (route.Provider.TestMode != couponIsTest)
+                {
+                    string transmission = route.Provider.ProviderKey == InvoiceProviderCatalog.MyDataKey
+                        ? "η απευθείας διαβίβαση myDATA"
+                        : "ο πάροχος τιμολόγησης";
+                    throw new InvalidOperationException("Το περιβάλλον myDiesel πρέπει να συμφωνεί με το περιβάλλον που χρησιμοποιεί " + transmission + ".");
+                }
+                // UAT uses AADE-provided demo coupon/company data which need not match
+                // the issuer VAT configured on the test invoice provider route.
+                if (!couponIsTest && route.Provider.IssuerVat != coupon.CompanyVat)
+                    throw new InvalidOperationException("Το ΑΦΜ εκδότη του παραστατικού διαφέρει από τη δεσμευμένη κλήση myDiesel.");
                 decimal litres = invoice.InvoiceLines.Sum(line => Math.Abs(line.Volume));
                 if (litres <= 0) throw new InvalidOperationException("Το παραστατικό myDiesel πρέπει να περιέχει θετική ποσότητα καυσίμου σε λίτρα.");
-                if (!coupon.FuelCode.HasValue || invoice.InvoiceLines.Any(line =>
-                    line.FuelType == null || line.FuelType.EnumeratorValue != coupon.FuelCode.Value))
-                    throw new InvalidOperationException("Το καύσιμο του παραστατικού δεν συμφωνεί με το επιλέξιμο καύσιμο του κουπονιού myDiesel.");
-                if (coupon.IssuedLitres.HasValue && litres > coupon.IssuedLitres.Value)
-                    throw new InvalidOperationException("Τα λίτρα του παραστατικού υπερβαίνουν τα διαθέσιμα λίτρα του κουπονιού myDiesel. Διαχωρίστε την επιπλέον ποσότητα.");
+                var fuelCodes = invoice.InvoiceLines.Select(line => line.FuelType == null
+                    ? (int?)null
+                    : line.FuelType.EnumeratorValue).ToArray();
+                if (fuelCodes.Any(code => !code.HasValue || !MyDieselFuelRules.IsEligible(code.Value)))
+                    throw new InvalidOperationException("Το επιλεγμένο καύσιμο του παραστατικού δεν είναι επιλέξιμο για myDiesel.");
+                if (fuelCodes.Select(code => code.Value).Distinct().Count() != 1)
+                    throw new InvalidOperationException("Το παραστατικό πρέπει να περιέχει ένα μόνο επιλέξιμο καύσιμο myDiesel.");
                 var profile = config.MyDiesel;
                 if (profile == null || profile.CompanyVat != coupon.CompanyVat || profile.Environment != coupon.Environment)
                     throw new InvalidOperationException("Οι τρέχουσες ρυθμίσεις myDiesel δεν συμφωνούν με τη δεσμευμένη υπόθεση.");

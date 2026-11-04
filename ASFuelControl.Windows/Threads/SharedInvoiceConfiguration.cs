@@ -69,6 +69,8 @@ namespace ASFuelControl.Windows.Threads
     }
     internal sealed class SharedInvoiceConfiguration : IProviderCredentialsResolver
     {
+        private static readonly int[] DefaultWholesaleCodes = { 161, 165, 221, 222, 178 };
+
         public int Version { get; set; }
         public DateTime FirstInvoiceDate { get; set; }
         public MappingContext Mapping { get; set; }
@@ -88,6 +90,16 @@ namespace ASFuelControl.Windows.Threads
         public SharedPrinterProfile DefaultPrinter { get; set; }
         [JsonIgnore] public Dictionary<Guid, InvoiceTypePolicy> Policies { get; set; }
         [JsonIgnore] public HashSet<FiscalDocumentKind> ProtectedKinds { get; set; } = new HashSet<FiscalDocumentKind>();
+
+        internal bool EnsureWholesaleCodes()
+        {
+            if (Mapping == null)
+                Mapping = new MappingContext();
+            if (Mapping.WholesaleCodes != null && Mapping.WholesaleCodes.Count != 0)
+                return false;
+            Mapping.WholesaleCodes = new HashSet<int>(DefaultWholesaleCodes);
+            return true;
+        }
 
         internal SharedInvoiceRoute Route(Guid typeId, string printerName, bool laserPrint = false)
         {
@@ -111,9 +123,17 @@ namespace ASFuelControl.Windows.Threads
                 throw new InvalidOperationException("Το προφίλ δεν συμφωνεί με το κοινό περιβάλλον.");
             var printer = JsonConvert.DeserializeObject<SharedPrinterProfile>(JsonConvert.SerializeObject(DefaultPrinter ?? new SharedPrinterProfile()));
             printer.Thermal = !laserPrint;
+            // Thermal documents are single-copy. Laser documents use the
+            // installation setting, defaulting old/missing profiles to two.
+            printer.Copies = laserPrint
+                ? SharedPrinterProfile.NormalizeLaserCopies(printer.LaserCopies)
+                : (short)1;
             // The configured common printer belongs to laser/full-page invoices.
             // A compact invoice uses only its related dispenser printer and then
             // the Windows default; it must not inherit the configured laser device.
+            // For thermal invoices keep only the pump/type destination here.
+            // ResolveProfile applies ThermalPrinterName when that destination is
+            // empty or no longer installed, followed by the Windows default.
             printer.PrinterName = laserPrint ? printer.PrinterName :
                 (string.IsNullOrWhiteSpace(printerName) ? null : printerName.Trim());
             return new SharedInvoiceRoute { Provider = provider, Payment = policy.Transmission == InvoiceTransmissionMode.Provider ? Pos : null,
@@ -130,6 +150,23 @@ namespace ASFuelControl.Windows.Threads
             if (type == null)
                 throw new InvalidOperationException("Απαιτείται τύπος παραστατικού.");
             return Route(type.InvoiceTypeId,null,type.IsLaserPrint == true);
+        }
+        internal SamtecDeviceProfile SamtecDevice(FiscalSigningScope scope)
+        {
+            if (scope == null || scope.SignerKey != SamtecFiscalSigner.Key) return null;
+            return (Devices ?? new SamtecDeviceProfile[0]).SingleOrDefault(device =>
+                FiscalSigningCoordinator.SameScope(device.Scope,scope));
+        }
+        private bool UsesIntegratedSamtecPos(SharedInvoiceRoute route)
+        {
+            if (route == null || route.Payment != null || route.Signing == null) return false;
+            // Direct myDATA is only the fiscal-submission destination. Samtec still
+            // owns the card/IRIS transaction as part of signing, after which the
+            // workflow submits the signed invoice to AADE. Invoice-provider routes
+            // continue to own their POS flow and must not use the Samtec terminal.
+            if (route.Provider != null && route.Provider.ProviderKey != InvoiceProviderCatalog.MyDataKey) return false;
+            var device = SamtecDevice(route.Signing);
+            return device != null && !string.IsNullOrWhiteSpace(device.EftPosTID);
         }
         internal static string PrinterName(Data.Invoice invoice)
         {
@@ -163,8 +200,6 @@ namespace ASFuelControl.Windows.Threads
         }
         internal static string SpecialWorkflowProblem(Data.InvoiceType type)
         {
-            if (HostInvoiceMapper.IsCancellationDocument(type))
-                return "Ο τύπος είναι ειδικός ακυρωτικός (215). Απαιτείται η ειδική ροή ακύρωσης του αρχικού παραστατικού.";
             if (type?.ForcesDelivery == true)
                 return "Ο τύπος απαιτεί την ειδική ροή ελέγχου δεξαμενής.";
             return null;
@@ -189,8 +224,10 @@ namespace ASFuelControl.Windows.Threads
                 throw new InvalidOperationException("The invoice requires electronic submission.");
             if (!route.LocalOnly && route.Provider == null && route.Signing == null)
                 throw new InvalidOperationException("An explicit fiscal or local-only policy is required.");
-            if (pos && route.Payment == null)
-                throw new InvalidOperationException("Η πληρωμή κάρτας / IRIS απαιτεί διαδρομή POS μέσω παρόχου.");
+            if (pos && route.Payment == null && !UsesIntegratedSamtecPos(route))
+                throw new InvalidOperationException(route.Signing?.SignerKey == SamtecFiscalSigner.Key
+                    ? "Η σήμανση Samtec με κάρτα / IRIS απαιτεί την επιλογή εφαρμογής EftPosTID."
+                    : "Η πληρωμή κάρτας / IRIS απαιτεί διαδρομή POS μέσω παρόχου ή σήμανση Samtec με EftPosTID.");
             if (invoice.PaymentType == 4 && route.Provider?.ProviderKey == InvoiceProviderCatalog.DirectIlydaKey)
                 throw new InvalidOperationException("Η πληρωμή IRIS μέσω Ilyda δεν υποστηρίζεται.");
             return route;
@@ -226,8 +263,8 @@ namespace ASFuelControl.Windows.Threads
                 }
                 lines.Add("Σήμανση: " + (route.Provider != null && route.Provider.ProviderKey != InvoiceProviderCatalog.MyDataKey ?
                     "Από τον πάροχο" : route.Signing != null ? "Φορολογικός μηχανισμός" : "Δεν απαιτείται"));
-                if ((invoice.PaymentType == 2 || invoice.PaymentType == 4) && route.Payment == null)
-                    lines.Add("Έλεγχος: Η πληρωμή κάρτας / IRIS απαιτεί διαδρομή POS μέσω παρόχου.");
+                if ((invoice.PaymentType == 2 || invoice.PaymentType == 4) && route.Payment == null && !UsesIntegratedSamtecPos(route))
+                    lines.Add("Έλεγχος: Η πληρωμή κάρτας / IRIS απαιτεί διαδρομή POS μέσω παρόχου ή σήμανση Samtec με EftPosTID.");
                 if (invoice.PaymentType == 4 && route.Provider?.ProviderKey == InvoiceProviderCatalog.DirectIlydaKey)
                     lines.Add("Έλεγχος: Η πληρωμή IRIS μέσω Ilyda δεν υποστηρίζεται.");
                 if (route.Printer == null || string.IsNullOrWhiteSpace(route.Printer.PrinterName))

@@ -114,22 +114,34 @@ namespace ASFuelControl.Windows.UI.Forms
 
         public void AddNewInvoice()
         {
-            this.currentInvoice = new Data.Invoice();
-            this.currentInvoice.InvoiceId = Guid.NewGuid();
-            this.database.Add(currentInvoice);
-            this.currentInvoice.TransactionDate = DateTime.Now;
-            this.currentInvoice.NettoAmount = 0;
-            this.currentInvoice.ApplicationUserId = Data.DatabaseModel.CurrentUserId;
-            this.currentInvoice.TotalAmount = 0;
-            this.currentInvoice.VatAmount = 0;
-            this.currentInvoice.Number = 1;
-            this.invoiceBindingSource.DataSource = this.currentInvoice;
+            ExecuteWithInvoiceTypeBindingReadOnly(() =>
+            {
+                this.currentInvoice = new Data.Invoice();
+                this.currentInvoice.InvoiceId = Guid.NewGuid();
+                this.database.Add(currentInvoice);
+                this.currentInvoice.TransactionDate = DateTime.Now;
+                this.currentInvoice.NettoAmount = 0;
+                this.currentInvoice.ApplicationUserId = Data.DatabaseModel.CurrentUserId;
+                this.currentInvoice.PaymentType = (int)Common.Enumerators.PaymentTypeEnum.Cash;
+                this.currentInvoice.TotalAmount = 0;
+                this.currentInvoice.VatAmount = 0;
+                this.currentInvoice.Number = 1;
+                this.invoiceBindingSource.DataSource = this.currentInvoice;
+                SynchronizeInvoiceTypeSelection();
+            });
         }
 
         public void LoadInvoice(Guid invoiceId)
         {
-            this.currentInvoice = this.database.Invoices.Where(invoiceGrid => invoiceGrid.InvoiceId == invoiceId).FirstOrDefault();
-            this.invoiceBindingSource.DataSource = this.currentInvoice;
+            ExecuteWithInvoiceTypeBindingReadOnly(() =>
+            {
+                this.currentInvoice = this.database.Invoices.Where(
+                    invoiceGrid => invoiceGrid.InvoiceId == invoiceId).FirstOrDefault();
+                this.invoiceBindingSource.DataSource = this.currentInvoice;
+                SynchronizeInvoiceTypeSelection();
+            });
+            if (this.currentInvoice == null)
+                return;
             if (this.currentInvoice.IsPrinted.HasValue && this.currentInvoice.IsPrinted.Value)
             {
                 this.panel1.Enabled = false;
@@ -157,8 +169,7 @@ namespace ASFuelControl.Windows.UI.Forms
             invLine.InvoiceId = this.currentInvoice.InvoiceId;
             invLine.Invoice = this.currentInvoice;
             this.currentInvoice.InvoiceLines.Add(invLine);
-            this.invoiceBindingSource.ResetBindings(false);
-            this.invoiceLinesBindingSource.ResetBindings(false);
+            ResetBindingsPreservingInvoiceType();
         }
 
         private void radButton1_Click(object sender, EventArgs e)
@@ -187,6 +198,8 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void radButton2_Click(object sender, EventArgs e)
         {
+            if (!ValidateLookupSelections(true))
+                return;
             this.database.SaveChanges();
 
         }
@@ -200,6 +213,11 @@ namespace ASFuelControl.Windows.UI.Forms
                 return;
             else if (res == System.Windows.Forms.DialogResult.Yes)
             {
+                if (!ValidateLookupSelections(true))
+                {
+                    e.Cancel = true;
+                    return;
+                }
                 this.database.SaveChanges();
                 return;
             }
@@ -266,8 +284,98 @@ namespace ASFuelControl.Windows.UI.Forms
             
             il.Invoice.InvoiceLines.Remove(il);
             this.database.Delete(il);
-            this.invoiceBindingSource.ResetBindings(false);
-            this.invoiceLinesBindingSource.ResetBindings(false);
+            ResetBindingsPreservingInvoiceType();
+        }
+
+        private void ExecuteWithInvoiceTypeBindingReadOnly(Action action)
+        {
+            var binding = this.invoiceTypeDropDownList.DataBindings["SelectedValue"];
+            var mode = binding == null ? DataSourceUpdateMode.Never :
+                binding.DataSourceUpdateMode;
+            try
+            {
+                if (binding != null)
+                    binding.DataSourceUpdateMode = DataSourceUpdateMode.Never;
+                action();
+            }
+            finally
+            {
+                if (binding != null)
+                    binding.DataSourceUpdateMode = mode;
+            }
+        }
+
+        private void ResetBindingsPreservingInvoiceType()
+        {
+            var invoiceTypeId = this.currentInvoice == null ? Guid.Empty :
+                this.currentInvoice.InvoiceTypeId;
+            ExecuteWithInvoiceTypeBindingReadOnly(() =>
+            {
+                this.invoiceBindingSource.ResetBindings(false);
+                this.invoiceLinesBindingSource.ResetBindings(false);
+                if (this.currentInvoice != null &&
+                    this.currentInvoice.InvoiceTypeId != invoiceTypeId)
+                    this.currentInvoice.InvoiceTypeId = invoiceTypeId;
+                SynchronizeInvoiceTypeSelection();
+            });
+        }
+
+        private void SynchronizeInvoiceTypeSelection()
+        {
+            if (this.currentInvoice == null ||
+                this.currentInvoice.InvoiceTypeId == Guid.Empty)
+                this.invoiceTypeDropDownList.SelectedIndex = -1;
+            else
+                this.invoiceTypeDropDownList.SelectedValue =
+                    this.currentInvoice.InvoiceTypeId;
+        }
+
+        private bool ValidateLookupSelections(bool showMessage)
+        {
+            if (this.currentInvoice == null)
+                return false;
+            var errors = new List<string>();
+            if (this.currentInvoice.InvoiceTypeId == Guid.Empty ||
+                !this.database.InvoiceTypes.Any(item =>
+                    item.InvoiceTypeId == this.currentInvoice.InvoiceTypeId) ||
+                !object.Equals(this.invoiceTypeDropDownList.SelectedValue,
+                    this.currentInvoice.InvoiceTypeId))
+                errors.Add("Δεν έχει επιλεγεί έγκυρος τύπος παραστατικού.");
+            if (!this.currentInvoice.PaymentType.HasValue ||
+                !Enum.IsDefined(typeof(Common.Enumerators.PaymentTypeEnum),
+                    this.currentInvoice.PaymentType.Value))
+                errors.Add("Δεν έχει επιλεγεί έγκυρος τρόπος πληρωμής.");
+
+            int index = 0;
+            foreach (var line in this.currentInvoice.InvoiceLines)
+            {
+                index++;
+                string prefix = "Γραμμή " + index.ToString() + ": ";
+                var fuelType = this.database.FuelTypes.FirstOrDefault(
+                    item => item.FuelTypeId == line.FuelTypeId);
+                if (line.FuelTypeId == Guid.Empty || fuelType == null)
+                    errors.Add(prefix + "δεν έχει επιλεγεί έγκυρο καύσιμο.");
+                if (line.TankId.HasValue && line.TankId.Value != Guid.Empty)
+                {
+                    var tank = this.database.Tanks.FirstOrDefault(
+                        item => item.TankId == line.TankId.Value);
+                    if (tank == null)
+                        errors.Add(prefix + "δεν έχει επιλεγεί έγκυρη δεξαμενή.");
+                    else if (tank.FuelTypeId != line.FuelTypeId)
+                        errors.Add(prefix + "η δεξαμενή δεν αντιστοιχεί στο καύσιμο.");
+                }
+            }
+
+            var distinctErrors = errors.Distinct().ToArray();
+            if (distinctErrors.Length == 0)
+                return true;
+            if (showMessage)
+                RadMessageBox.Show(
+                    "Η αποθήκευση ακυρώθηκε επειδή υπάρχουν ασυνεπείς επιλογές:\r\n\r\n" +
+                    string.Join("\r\n", distinctErrors.Select(error => "• " + error)),
+                    "Έλεγχος επιλογών παραστατικού", MessageBoxButtons.OK,
+                    RadMessageIcon.Error);
+            return false;
         }
     }
 }

@@ -265,7 +265,7 @@ Add a single validator used by the invoice form and workflow preparation. For an
 - company VAT and fiscal environment equal to the frozen coupon scope; and
 - exactly one blocking coupon case for the invoice.
 
-Recommended first-version quantity policy: block issuance when eligible litres exceed `IssuedLitres`, and direct the operator to split excess litres into a non-exempt transaction. This is safer than silently consuming a future-year entitlement. Make this policy a documented acceptance decision before coding; do not add an unrestricted override.
+Accepted quantity policy: do not block, release, or require an override when the eligible invoice litres differ from `IssuedLitres`. Apply the configured EFK discount to `min(IssuedLitres, eligible invoice litres)`. The invoice and myDATA continue to report the actual sold quantity; show the coupon litres, actual invoice litres, and `lowBalanceMessage.el` so the operator can see the effect on the beneficiary's entitlement.
 
 `lowBalanceMessage.el` must be shown prominently before the operator continues. It is a warning in the AADE API and is stored as evidence even if the operator proceeds.
 

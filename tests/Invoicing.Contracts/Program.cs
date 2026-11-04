@@ -23,6 +23,7 @@ internal static partial class Program
         Transitions();
         MyDieselContracts();
         MyDieselAdapterTests();
+        MyDieselCameraTests();
         ITimologiaTokenCache();
         foreach (var culture in new[] { "en-US", "el-GR" })
         {

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using ASFuelControl.Data;
+using ASFuelControl.Invoicing.Mapping;
 
 namespace ASFuelControl.Windows.ViewModels
 {
@@ -16,7 +17,14 @@ namespace ASFuelControl.Windows.ViewModels
         public bool SuspendRecalculation = false;
         private ObservableCollection<InvoiceLineViewModel> lines = new ObservableCollection<InvoiceLineViewModel>();
         private List<InvoiceRelationViewModel> invRelations = new List<InvoiceRelationViewModel>();
-        private readonly Dictionary<Guid, decimal> oneToManyVolumeSelections = new Dictionary<Guid, decimal>();
+        private readonly Dictionary<Guid, Guid> oneToManyLineSelections = new Dictionary<Guid, Guid>();
+        private bool isEditLocked;
+        private bool isTransformationPricePolicy;
+        private bool guideOnlyTransformationFinancialEditEnabled;
+        private bool transformationVolumeEditEnabled;
+        private bool transformationSourceHasFinancialData = true;
+        private bool transformationGuideOnlyTarget;
+        private string transformationCounterpartVat;
         private bool vatExemption { set; get; }
         private string vatExemptionReason = "";
         private const decimal DefaultVatPercentage = 24m;
@@ -46,6 +54,15 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 if (this.vatExemption == value)
                     return;
+                if (this.lines.Count > 0 && this.lines.All(line => line.PreserveFiscalAmounts))
+                {
+                    // The exemption has already been applied to a saved fiscal
+                    // transformation. Loading its trader must not apply VAT
+                    // removal a second time.
+                    this.vatExemption = value;
+                    this.OnPropertyChanged("VatExemption");
+                    return;
+                }
                 decimal configuredVatPercentage = GetConfiguredVatPercentage();
                 if (value)
                 {
@@ -160,20 +177,118 @@ namespace ASFuelControl.Windows.ViewModels
             // When the customer is selected before the transformed lines are
             // created, the VatExemption setter cannot adjust those new lines.
             // Apply the same conversion here as for a nozzle-selected line.
+            // A transformation can be created after the configured VAT rate has
+            // changed. Use the VAT stored on the source line, rather than today's
+            // configured rate, to recover the transaction's real net unit price.
             decimal effectiveUnitPrice = sourcePriceIncludesVat && sourceVatPercentage > 0
-                ? this.GetUnitPriceFromRetailPrice(targetLine, sourceUnitPrice)
+                ? RemoveVat(sourceUnitPrice, sourceVatPercentage, 5)
                 : sourceUnitPrice;
 
             targetLine.VatPercentage = 0;
-            targetLine.UnitPriceRetail = effectiveUnitPrice;
-            targetLine.UnitPriceWhole = effectiveUnitPrice;
-            targetLine.UnitPrice = effectiveUnitPrice;
+            var prices = TransformationUnitPrice.FromRetail(effectiveUnitPrice, 0);
+            targetLine.SetTransformationUnitPrices(prices.Retail, prices.Net);
         }
 
         private static bool SourcePriceIncludesVat(Data.Invoice invoice)
         {
             return invoice != null && invoice.InvoiceType != null &&
-                (invoice.InvoiceType.RetailInvoice == true || invoice.InvoiceType.DispenserType == true);
+                invoice.InvoiceType.TransactionType ==
+                    (int)Common.Enumerators.TransactionTypeEnum.Extraction &&
+                (invoice.InvoiceType.RetailInvoice == true ||
+                 invoice.InvoiceType.DispenserType == true ||
+                 HostInvoiceMapper.IsDeliveryDocument(invoice.InvoiceType));
+        }
+
+        private bool TargetPriceIncludesVat(Data.InvoiceType invoiceType)
+        {
+            if (this.EditorScenario == InvoiceEditorScenario.Retail)
+                return true;
+            if (this.EditorScenario == InvoiceEditorScenario.Wholesale ||
+                this.EditorScenario == InvoiceEditorScenario.Supplier)
+                return false;
+            return invoiceType != null &&
+                (invoiceType.RetailInvoice == true || invoiceType.DispenserType == true);
+        }
+
+        private static decimal SourceRetailUnitPrice(Data.InvoiceLine line)
+        {
+            if (line == null)
+                return 0;
+            // The physical transaction is the authoritative price provenance for
+            // a pump-created source invoice. Read it while building the derived
+            // line, but do not copy its FK to that derived line.
+            if (line.SalesTransaction != null)
+                return line.SalesTransaction.UnitPrice;
+            if (line.UnitPriceRetail != 0)
+                return line.UnitPriceRetail;
+            return line.UnitPrice;
+        }
+
+        private static decimal SourceNetUnitPrice(Data.InvoiceLine line)
+        {
+            if (line == null)
+                return 0;
+            if (line.UnitPriceWhole != 0)
+                return line.UnitPriceWhole;
+            return line.UnitPrice;
+        }
+
+        private static void ApplyAuthoritativeSourcePricing(InvoiceLineViewModel targetLine,
+            Data.InvoiceLine sourceLine, bool sourcePriceIncludesVat)
+        {
+            if (targetLine == null || sourceLine == null)
+                return;
+
+            bool retailAuthority = sourcePriceIncludesVat ||
+                sourceLine.SalesTransaction != null;
+            // Retail, dispenser and sales-delivery sources own the VAT-inclusive
+            // price. Purchase and wholesale sources own the VAT-exclusive price.
+            // Derive the secondary representation once and then assign both fields
+            // atomically so their editor setters cannot round-trip the source value.
+            var prices = retailAuthority
+                ? TransformationUnitPrice.FromRetail(
+                    SourceRetailUnitPrice(sourceLine), sourceLine.VatPercentage)
+                : TransformationUnitPrice.FromNet(
+                    SourceNetUnitPrice(sourceLine), sourceLine.VatPercentage);
+            targetLine.SetTransformationUnitPrices(prices.Retail, prices.Net);
+        }
+
+        private static void ApplyEnteredTransformationPrice(
+            InvoiceLineViewModel targetLine, decimal enteredPrice,
+            decimal vatPercentage, bool enteredPriceIncludesVat)
+        {
+            var prices = enteredPriceIncludesVat
+                ? TransformationUnitPrice.FromRetail(enteredPrice, vatPercentage)
+                : TransformationUnitPrice.FromNet(enteredPrice, vatPercentage);
+            targetLine.SetTransformationUnitPrices(prices.Retail, prices.Net);
+        }
+
+        private static void ApplyEnteredTransformationDiscount(
+            InvoiceLineViewModel targetLine, decimal enteredDiscount,
+            decimal vatPercentage, bool enteredDiscountIncludesVat)
+        {
+            decimal multiplier = (100m + vatPercentage) / 100m;
+            decimal retailDiscount;
+            decimal netDiscount;
+            if (enteredDiscountIncludesVat)
+            {
+                retailDiscount = decimal.Round(enteredDiscount, 2);
+                netDiscount = vatPercentage == 0
+                    ? retailDiscount
+                    : decimal.Round(retailDiscount / multiplier, 2);
+            }
+            else
+            {
+                netDiscount = decimal.Round(enteredDiscount, 2);
+                retailDiscount = vatPercentage == 0
+                    ? netDiscount
+                    : decimal.Round(netDiscount * multiplier, 2);
+            }
+            targetLine.DiscountAmountRetail = retailDiscount;
+            targetLine.DiscountAmountWhole = netDiscount;
+            targetLine.DiscountAmount = enteredDiscountIncludesVat
+                ? retailDiscount
+                : netDiscount;
         }
 
         private static decimal GetConsumedTransformationVolume(Data.InvoiceLine line)
@@ -261,11 +376,55 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 if (this.AllowEdit.HasValue && !this.AllowEdit.Value)
                     return false;
-                if (!this.IsPrinted.HasValue)
-                    return true;
                 if (this.IsEditLocked)
                     return false;
+                if (!this.IsPrinted.HasValue)
+                    return true;
                 return !this.IsPrinted.Value;
+            }
+        }
+
+        public bool TransformationUnitPriceEditEnabled
+        {
+            get
+            {
+                if (!this.isTransformationPricePolicy)
+                    return false;
+                if (this.guideOnlyTransformationFinancialEditEnabled &&
+                    this.Number == 0 &&
+                    (!this.IsPrinted.HasValue || !this.IsPrinted.Value))
+                    return true;
+                if (this.AllowEdit.HasValue && !this.AllowEdit.Value)
+                    return false;
+                if (this.IsPrinted.HasValue && this.IsPrinted.Value)
+                    return false;
+                return TransformationEditPolicy.AllowUnitPriceEdit(
+                    this.transformationSourceHasFinancialData,
+                    this.transformationGuideOnlyTarget,
+                    Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN"),
+                    this.transformationCounterpartVat);
+            }
+        }
+
+        public bool TransformationVolumeEditEnabled
+        {
+            get
+            {
+                if (!this.isTransformationPricePolicy ||
+                    !this.transformationVolumeEditEnabled)
+                    return false;
+                if (this.AllowEdit.HasValue && !this.AllowEdit.Value)
+                    return false;
+                return !this.IsPrinted.HasValue || !this.IsPrinted.Value;
+            }
+        }
+
+        public bool LineEditEnabled
+        {
+            get
+            {
+                return this.EditEnabled || this.TransformationUnitPriceEditEnabled ||
+                    this.TransformationVolumeEditEnabled;
             }
         }
 
@@ -273,10 +432,12 @@ namespace ASFuelControl.Windows.ViewModels
         {
             get
             {
+                if (this.AllowEdit.HasValue && !this.AllowEdit.Value)
+                    return false;
+                if (this.IsEditLocked && !this.isTransformationPricePolicy)
+                    return false;
                 if (!this.IsPrinted.HasValue)
                     return true;
-                if (this.IsEditLocked)
-                    return false;
                 return !this.IsPrinted.Value;
             }
         }
@@ -437,7 +598,57 @@ namespace ASFuelControl.Windows.ViewModels
             }
         }
 
-        public bool IsEditLocked { set; get; }
+        public bool IsEditLocked
+        {
+            set
+            {
+                if (this.isEditLocked == value)
+                    return;
+                this.isEditLocked = value;
+                base.OnPropertyChanged("IsEditLocked", true);
+                NotifyLineEditPolicyChanged();
+            }
+            get { return this.isEditLocked; }
+        }
+
+        private void ConfigureTransformationPriceEditPolicy(bool isTransformation,
+            bool sourceHasFinancialData, bool guideOnlyTarget, string counterpartVat,
+            bool allowVolumeEdit = false)
+        {
+            this.isTransformationPricePolicy = isTransformation;
+            this.transformationSourceHasFinancialData = sourceHasFinancialData;
+            this.transformationGuideOnlyTarget = guideOnlyTarget;
+            this.transformationCounterpartVat = counterpartVat;
+            this.transformationVolumeEditEnabled = isTransformation && allowVolumeEdit;
+            if (!isTransformation)
+                this.guideOnlyTransformationFinancialEditEnabled = false;
+            NotifyLineEditPolicyChanged();
+        }
+
+        internal void EnableGuideOnlyTransformationFinancialEditing()
+        {
+            // The final document of a replacement-with-credit is a new, unsaved
+            // invoice. Its source is only a guide, so price and discount editing
+            // must not depend on an earlier WinForms binding value or on which
+            // duplicate transform row was returned first.
+            this.isTransformationPricePolicy = true;
+            this.transformationGuideOnlyTarget = true;
+            this.guideOnlyTransformationFinancialEditEnabled = true;
+            this.AllowEdit = true;
+            this.IsPrinted = false;
+            NotifyLineEditPolicyChanged();
+        }
+
+        private void NotifyLineEditPolicyChanged()
+        {
+            base.OnPropertyChanged("EditEnabled", true);
+            base.OnPropertyChanged("DetailsEditEnabled", true);
+            base.OnPropertyChanged("SelectCustomerEnabled", true);
+            base.OnPropertyChanged("CanAdd", true);
+            base.OnPropertyChanged("TransformationUnitPriceEditEnabled", true);
+            base.OnPropertyChanged("TransformationVolumeEditEnabled", true);
+            base.OnPropertyChanged("LineEditEnabled", true);
+        }
 
         public decimal TotalRetailAmount
         {
@@ -569,6 +780,48 @@ namespace ASFuelControl.Windows.ViewModels
                 this.AddError("Σφάλμα παραστατικού", "Δεν υπάρχει επιλεγμένη γραμμή παραστατικού.");
                 return false;
             }
+            if (!this.PaymentType.HasValue || !Enum.IsDefined(typeof(Common.Enumerators.PaymentTypeEnum), this.PaymentType.Value))
+            {
+                this.AddError("Σφάλμα παραστατικού", "Δεν έχει επιλεγεί έγκυρος τρόπος πληρωμής.");
+                return false;
+            }
+            if (!this.PaymentTypes.Any(item =>
+                Convert.ToInt32(item.Value) == this.PaymentType.Value))
+            {
+                this.AddError("Σφάλμα παραστατικού", "Ο τρόπος πληρωμής δεν ανήκει στη διαθέσιμη λίστα.");
+                return false;
+            }
+            if (this.InvoiceTypeId == Guid.Empty ||
+                !this.InvoiceTypes.Any(item => item.InvoiceTypeId == this.InvoiceTypeId))
+            {
+                this.AddError("Σφάλμα παραστατικού", "Ο τύπος παραστατικού δεν ανήκει στη διαθέσιμη λίστα.");
+                return false;
+            }
+            var selectedDispenser = this.Dispensers.FirstOrDefault(
+                item => item.DispenserId == this.CurrentLine.CurrentDispenserId);
+            var selectedNozzle = selectedDispenser == null || selectedDispenser.Nozzles == null
+                ? null
+                : selectedDispenser.Nozzles.FirstOrDefault(
+                    item => item.NozzleId == this.CurrentLine.CurrentNozzleId);
+            if (selectedDispenser == null || selectedNozzle == null)
+            {
+                this.AddError("Σφάλμα παραστατικού",
+                    "Η αντλία ή το ακροσωλήνιο δεν ανήκει στη διαθέσιμη λίστα.");
+                return false;
+            }
+            if (selectedNozzle.FuelTypeId != this.CurrentLine.FuelTypeId ||
+                !this.FuelTypes.Any(item => item.FuelTypeId == this.CurrentLine.FuelTypeId))
+            {
+                this.AddError("Σφάλμα παραστατικού",
+                    "Το καύσιμο της γραμμής δεν συμφωνεί με το καύσιμο του ακροσωληνίου.");
+                return false;
+            }
+            if (this.CurrentLine.Volume <= 0)
+            {
+                this.AddError("Σφάλμα παραστατικού",
+                    "Ο όγκος της γραμμής πρέπει να είναι μεγαλύτερος από μηδέν.");
+                return false;
+            }
             if (this.CurrentLine.SaleTransactionId.HasValue)
             {
                 try
@@ -576,10 +829,50 @@ namespace ASFuelControl.Windows.ViewModels
                     using (DatabaseModel db = new DatabaseModel(Properties.Settings.Default.DBConnection))
                     {
                         var invoice = db.Invoices.FirstOrDefault(i => i.InvoiceId == this.InvoiceId);
-                        if (invoice == null || !this.PaymentType.HasValue)
+                        if (invoice == null)
                             throw new InvalidOperationException("Δεν βρέθηκε αποθηκευμένο παραστατικό ή τρόπος πληρωμής.");
+                        var invoiceLine = invoice.InvoiceLines
+                            .FirstOrDefault(line => line.InvoiceLineId == this.CurrentLine.InvoiceLineId) ??
+                            invoice.InvoiceLines.FirstOrDefault(line =>
+                                line.SaleTransactionId == this.CurrentLine.SaleTransactionId);
+                        if (invoiceLine == null || invoiceLine.SalesTransaction == null)
+                            throw new InvalidOperationException("Δεν βρέθηκε η συνδεδεμένη κίνηση πώλησης του παραστατικού.");
+                        var sale = invoiceLine.SalesTransaction;
+                        if (sale.Nozzle == null)
+                            throw new InvalidOperationException("Η συνδεδεμένη κίνηση πώλησης δεν έχει ακροσωλήνιο.");
+                        if (this.CurrentLine.CurrentNozzleId != sale.NozzleId ||
+                            this.CurrentLine.CurrentDispenserId != sale.Nozzle.DispenserId)
+                            throw new InvalidOperationException(
+                                "Η αντλία ή το ακροσωλήνιο της γραμμής δεν συμφωνεί με τη φυσική κίνηση πώλησης. " +
+                                "Η αποθήκευση και η έκδοση ακυρώθηκαν.");
+                        if (this.CurrentLine.FuelTypeId != sale.Nozzle.FuelTypeId)
+                            throw new InvalidOperationException(
+                                "Το καύσιμο της γραμμής δεν συμφωνεί με το καύσιμο της φυσικής κίνησης πώλησης.");
+
                         bool hasDifferentPaymentType = invoice.PaymentType != this.PaymentType.Value;
+                        // This is an existing pump invoice. Header data may be
+                        // completed before issuance, but the physical sale and the
+                        // line values created from it are immutable.
+                        invoice.TransactionDate = this.TransactionDate;
                         invoice.PaymentType = this.PaymentType.Value;
+                        // A direct pump sale already owns its persisted invoice and
+                        // SaleTransaction. Saving the editor must still persist the
+                        // customer selected immediately before a myDiesel capture;
+                        // otherwise the subsequent reservation reloads an anonymous
+                        // invoice and rejects the beneficiary VAT.
+                        invoice.TraderId = this.TraderId.HasValue && this.TraderId.Value != Guid.Empty
+                            ? this.TraderId
+                            : null;
+                        invoice.VehicleId = this.VehicleId.HasValue && this.VehicleId.Value != Guid.Empty
+                            ? this.VehicleId
+                            : null;
+                        invoice.VehiclePlateNumber = invoice.VehicleId.HasValue ? this.PlateNumber : null;
+
+                        // Do not write Volume, UnitPrice, DiscountPercentage,
+                        // TotalPrice, normalized volume or CRC back to the physical
+                        // SalesTransaction. Do not rewrite its persisted InvoiceLine
+                        // from editor values either. RecalculateInvoice reads the
+                        // linked transaction and preserves its authoritative gross.
                         invoice.RecalculateInvoice();
                         if(hasDifferentPaymentType)
                         {
@@ -613,6 +906,10 @@ namespace ASFuelControl.Windows.ViewModels
                     Nozzle lastNozzle = db.Nozzles.Where(n => n.NozzleId == this.CurrentLine.CurrentNozzleId).FirstOrDefault();
                     if (lastNozzle == null)
                         throw new InvalidOperationException("Δεν βρέθηκε το επιλεγμένο ακροσωλήνιο.");
+                    if (lastNozzle.DispenserId != this.CurrentLine.CurrentDispenserId)
+                        throw new InvalidOperationException("Το επιλεγμένο ακροσωλήνιο δεν ανήκει στην επιλεγμένη αντλία.");
+                    if (lastNozzle.FuelTypeId != this.CurrentLine.FuelTypeId)
+                        throw new InvalidOperationException("Το επιλεγμένο καύσιμο δεν συμφωνεί με το καύσιμο του ακροσωληνίου.");
                     SalesTransaction sale = new SalesTransaction();
                     sale.SalesTransactionId = Guid.NewGuid();
 
@@ -734,6 +1031,7 @@ namespace ASFuelControl.Windows.ViewModels
                     sale.UsagePeriodId = up.UsagePeriodId;
                     sale.UsagePeriod = up;
 
+                    sale.DiscountPercentage = this.CurrentLine.DiscountPercentage;
                     sale.TotalPrice = decimal.Round(this.CurrentLine.TotalPrice, 2);
                     sale.CRC = Common.Helpers.CalculateCRC32(sale);
 
@@ -769,14 +1067,21 @@ namespace ASFuelControl.Windows.ViewModels
                         invoice.InvoiceType = invType;
                         //invoice.Number = invType.LastNumber + 1;
                         //invType.LastNumber = invoice.Number;
-                        if (this.VehicleId != Guid.Empty)
+                        // A trader may be selected without a vehicle (notably the
+                        // myDiesel pump-sale flow). Persist the two selections
+                        // independently; previously TraderId was silently dropped
+                        // unless VehicleId was also present.
+                        if (this.TraderId.HasValue && this.TraderId.Value != Guid.Empty)
+                            invoice.TraderId = this.TraderId;
+                        if (this.VehicleId.HasValue && this.VehicleId.Value != Guid.Empty)
                         {
                             invoice.VehicleId = this.VehicleId;
-                            invoice.TraderId = this.TraderId;
                             invoice.VehiclePlateNumber = this.PlateNumber;
-                            invoice.PaymentType = this.PaymentType;
                         }
                     }
+                    // Payment belongs to the invoice, not to its optional trader or
+                    // vehicle. Anonymous retail pump sales must persist it as well.
+                    invoice.PaymentType = this.PaymentType.Value;
                     invoice.InvoiceFormId = invoice.InvoiceType.InvoiceFormId;
                     if (lastNozzle.Dispenser.InvoicePrints.Count > 0)
                         invoice.Printer = lastNozzle.Dispenser.InvoicePrints.First().Printer;
@@ -852,22 +1157,11 @@ namespace ASFuelControl.Windows.ViewModels
                     }
                     invoice.InvoiceLines.Add(invLine);
 
-                    if (this.CurrentLine.DiscountPercentage > 0)
-                    {
-                        decimal discount = Math.Round(invoice.NettoAmount.Value * this.CurrentLine.DiscountPercentage / 100, 2);
-                        decimal disountRetail = Math.Round(invoice.TotalAmount.Value * this.CurrentLine.DiscountPercentage / 100, 2);
-                        sale.TotalPrice = invoice.TotalAmount.Value - discount;
-                        invoice.DiscountAmount = discount;
-                        invLine.DiscountAmount = discount;
-                        invLine.DiscountPercentage = this.CurrentLine.DiscountPercentage;
-                        invoice.TotalAmount = invoice.TotalAmount - discount;
-                        invLine.TotalPrice = invLine.TotalPrice - discount;
-                        invoice.VatAmount = invoice.TotalAmount.Value - decimal.Round(invoice.TotalAmount.Value / vatMult, 2);
-                        invoice.NettoAfterDiscount = invoice.NettoAmount.Value - invoice.DiscountAmount;
-                        invoice.DiscountAmountWhole = discount;
-                        invoice.DiscountAmountRetail = disountRetail;
-                        invLine.VatAmount = invoice.VatAmount.Value;
-                    }
+                    invLine.DiscountPercentage = this.CurrentLine.DiscountPercentage;
+                    // CurrentLine.TotalPrice and sale.TotalPrice are already after
+                    // discount. Recalculate once from that payable gross; the former
+                    // code subtracted a second discount while saving the pump sale.
+                    invoice.RecalculateInvoice();
                     // Creation only persists the sale and invoice. The shared workflow
                     // assigns the fiscal number, submits it and marks it printed after
                     // the printer handoff succeeds.
@@ -889,6 +1183,8 @@ namespace ASFuelControl.Windows.ViewModels
         {
             if (SuspendRecalculation)
                 return;
+            if (this.lines.Count > 0 && this.InvoiceLines.All(line => line.PreserveFiscalAmounts))
+                return;
 
             if (this.VatExemption)
             {
@@ -908,6 +1204,7 @@ namespace ASFuelControl.Windows.ViewModels
             }
 
             decimal net = 0;
+            decimal netBeforeDiscount = 0;
             decimal tot = 0;
             decimal vat = 0;
             decimal disc = 0;
@@ -927,16 +1224,16 @@ namespace ASFuelControl.Windows.ViewModels
                     volume = line.VolumeNormalized;
                 if (line.SalesTransactionView != null && (this.SelectedInvoiceType == null || this.SelectedInvoiceType.OfficialEnumerator != 178))
                 {
-                    totalDiscounted = decimal.Round(volume * line.UnitPrice, 2);
+                    totalPreDiscount = decimal.Round(volume * line.UnitPrice, 2);
                     discPercentage = line.SalesTransactionView.DiscountPercentage.HasValue ? line.SalesTransactionView.DiscountPercentage.Value : 0;
-                    discountRetail = decimal.Round((discPercentage * decimal.Round(volume * line.UnitPrice, 2)) / 100, 2);
-                    if (line.VatPercentage == 0)
-                    {
-                        totalPreDiscount = totalDiscounted;
-                        totalDiscounted = totalPreDiscount - discountRetail;
-                    }
-                    else
-                        totalPreDiscount = totalDiscounted + discountRetail;
+                    discountRetail = decimal.Round((discPercentage * totalPreDiscount) / 100, 2);
+                    // The physical sale is immutable and its saved dispenser total
+                    // is authoritative. Independently rounded volume and unit price
+                    // can multiply one cent away from that total.
+                    totalDiscounted = line.UsesAuthoritativeDispenserTotal
+                        ? decimal.Round(line.SalesTransactionView.TotalPrice, 2)
+                        : totalPreDiscount - discountRetail;
+                    totalPreDiscount = totalDiscounted + discountRetail;
                 }
                 else
                 {
@@ -961,9 +1258,11 @@ namespace ASFuelControl.Windows.ViewModels
 
                 line.TotalPrice = totalDiscounted;
                 line.DiscountAmount = discountRetail;
+                line.DiscountAmountRetail = discountRetail;
                 line.DiscountAmountWhole = discountWhole;
                 line.VatAmount = lineVat;
 
+                netBeforeDiscount = netBeforeDiscount + netPreDiscount;
                 net = net + netDiscounted;// line.TotalPrice - line.VatAmount + line.DiscountAmountWhole;
                 tot = tot + line.TotalPrice;
                 vat = vat + line.VatAmount;
@@ -972,20 +1271,27 @@ namespace ASFuelControl.Windows.ViewModels
             }
             // decimal.Round(tot, 2);
             net = decimal.Round(net, 2);
+            netBeforeDiscount = decimal.Round(netBeforeDiscount, 2);
             vat = decimal.Round(vat, 2);
             disc = decimal.Round(disc, 2);
             //tot = net + vat - disc;
+            // Fiscal totals are composed from the independently rounded payable
+            // net and net discount. Dividing the pre-discount gross can differ by
+            // one cent and produces a value the provider cannot reconcile.
             this.NettoAmount = net + discWhole;
             this.NettoAfterDiscount = net;
             this.TotalAmount = decimal.Round(tot, 2);
             this.DiscountAmountWhole = discWhole;
             this.DiscountAmount = disc;
+            this.DiscountAmountRetail = disc;
             //this.DiscountAmountView = disc;
             this.VatAmount = vat;
         }
 
         public void CreateNew()
         {
+            this.IsEditLocked = false;
+            ConfigureTransformationPriceEditPolicy(false, true, false, null);
             this.InvoiceId = Guid.NewGuid();
             this.TransactionDate = DateTime.Now;
             this.PaymentType = this.PaymentTypes.First().Value;
@@ -1005,9 +1311,7 @@ namespace ASFuelControl.Windows.ViewModels
         public Guid TransformInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId,
             int mode, bool createFiscalRelations)
         {
-            if (mode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation &&
-                (Threads.SharedInvoiceRuntime.ProtectsInvoices || invoiceIds.Any(Threads.SharedInvoiceRuntime.Owns)))
-                throw new InvalidOperationException("Η ακύρωση κοινής έκδοσης απαιτεί ειδική ροή ακύρωσης / συμφωνίας ιστορικού.");
+            Threads.SharedInvoiceRuntime.ValidateCancellationTransformation(invoiceIds, invoiceType);
             Common.Enumerators.InvoiceTransformationTypeEnum transMode = (Common.Enumerators.InvoiceTransformationTypeEnum)mode;
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
@@ -1021,14 +1325,42 @@ namespace ASFuelControl.Windows.ViewModels
 
                 Guid fromType = db.Invoices.Where(i => invoiceIds.Contains(i.InvoiceId)).Select(i => i.InvoiceTypeId).FirstOrDefault();
                 string prName = db.Invoices.OrderBy(i => i.TransactionDate).Last().Printer;
-                var transformationType = db.InvoiceTypeTransforms.Where(i => i.ParentInvoiceTypeId == fromType && i.ChildInvoiceTypeId == invoiceType).FirstOrDefault();
+                var transformationType = db.InvoiceTypeTransforms.Where(i =>
+                    i.ParentInvoiceTypeId == fromType &&
+                    i.ChildInvoiceTypeId == invoiceType &&
+                    i.TransformationMode == mode)
+                    .OrderByDescending(i => i.CreationInvoiceTypeId.HasValue)
+                    .FirstOrDefault();
                 if (transformationType == null)
                     return Guid.Empty;
                 bool sourceHasFinancialData = invoice.InvoiceType != null && invoice.InvoiceType.ShowFinancialData == true;
                 bool sourcePriceIncludesVat = SourcePriceIncludesVat(invoice);
-                bool requiresLineSelection = transMode == Common.Enumerators.InvoiceTransformationTypeEnum.OneToMany ||
-                    (transMode == Common.Enumerators.InvoiceTransformationTypeEnum.OneToOne && !sourceHasFinancialData);
+                bool targetPriceIncludesVat = TargetPriceIncludesVat(invType);
+                bool guideOnlyTarget = !createFiscalRelations ||
+                    transformationType.CreationInvoiceTypeId.HasValue;
+                bool oneToMany = transMode == Common.Enumerators.InvoiceTransformationTypeEnum.OneToMany;
+                bool oneToOne = transMode == Common.Enumerators.InvoiceTransformationTypeEnum.OneToOne;
+                string supplierVat = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN");
+                Guid? initialTraderId = traderId;
+                if (!initialTraderId.HasValue && vehicleId.HasValue)
+                {
+                    var initialVehicle = db.Vehicles.SingleOrDefault(v => v.VehicleId == vehicleId.Value);
+                    if (initialVehicle != null)
+                        initialTraderId = initialVehicle.TraderId;
+                }
+                string initialCounterpartVat = initialTraderId.HasValue
+                    ? db.Traders.Where(t => t.TraderId == initialTraderId.Value)
+                        .Select(t => t.TaxRegistrationNumber).FirstOrDefault()
+                    : null;
+                bool sameVat = TransformationEditPolicy.VatNumbersEqual(
+                    supplierVat, initialCounterpartVat);
+                bool intrinsicLineSelection = oneToMany || (oneToOne && !sourceHasFinancialData);
+                bool priceOverrideSelection = this.QueryInvoiceData != null &&
+                    (guideOnlyTarget || sameVat);
+                bool requiresLineSelection = intrinsicLineSelection || priceOverrideSelection;
                 this.EntityState = EntityStateEnum.Added;
+                this.AllowEdit = true;
+                this.IsPrinted = false;
                 this.InvoiceId = Guid.NewGuid();
                 this.TraderId = traderId;
                 this.VehicleId = vehicleId;
@@ -1044,7 +1376,7 @@ namespace ASFuelControl.Windows.ViewModels
 
                 this.PaymentType = invoice.PaymentType;
                 this.lines.Clear();
-                this.oneToManyVolumeSelections.Clear();
+                this.oneToManyLineSelections.Clear();
                 var lines = db.InvoiceLines.Where(i => invoiceIds.Contains(i.InvoiceId)).ToArray().
                     OrderBy(i=>i.InvoiceDate.Date).ThenBy(i=>i.InvoiceId).ToArray();
                 var desc = db.Invoices.Where(i => invoiceIds.Contains(i.InvoiceId)).ToArray().Select(i => i.Description).ToArray();
@@ -1054,7 +1386,7 @@ namespace ASFuelControl.Windows.ViewModels
                 Dictionary<Guid, Guid> lineRelations = new Dictionary<Guid, Guid>();
                 if (requiresLineSelection)
                 {
-                    if (invoiceIds.Length != 1)
+                    if (oneToMany && invoiceIds.Length != 1)
                         return Guid.Empty;
                     if (this.QueryInvoiceData != null)
                     {
@@ -1074,19 +1406,31 @@ namespace ASFuelControl.Windows.ViewModels
                             vd.InvoiceLineId = line.InvoiceLineId;
                             vd.TaxValue = line.VatAmount;
                             vd.VatPercentage = line.VatPercentage;
-                            vd.UnitPrice = this.PricesIncludeVat ? line.UnitPriceRetail : line.UnitPriceWhole;
+                            bool linePriceIncludesVat = sourcePriceIncludesVat ||
+                                line.SalesTransaction != null;
+                            var sourcePrices = linePriceIncludesVat
+                                ? TransformationUnitPrice.FromRetail(
+                                    SourceRetailUnitPrice(line), line.VatPercentage)
+                                : TransformationUnitPrice.FromNet(
+                                    SourceNetUnitPrice(line), line.VatPercentage);
+                            vd.UnitPrice = targetPriceIncludesVat
+                                ? sourcePrices.Retail
+                                : sourcePrices.Net;
                             vd.MaxAllowedVolume = remainingVolume;
                             vd.Volume = transMode == Common.Enumerators.InvoiceTransformationTypeEnum.OneToMany
                                 ? remainingVolume
                                 : line.Volume;
-                            vd.DiscountAmount = line.DiscountAmount;
+                            vd.DiscountAmount = targetPriceIncludesVat
+                                ? line.DiscountAmountRetail
+                                : line.DiscountAmountWhole;
                             volumeData.Add(vd);
                         }
                         QueryInvoiceDataArgs args = new QueryInvoiceDataArgs();
                         args.Volumes = volumeData.ToArray();
-                        args.AllowVolumeEdit = transMode == Common.Enumerators.InvoiceTransformationTypeEnum.OneToMany;
-                        args.AllowUnitPriceEdit = !sourceHasFinancialData;
-                        args.RequireUnitPrice = !sourceHasFinancialData;
+                        args.AllowVolumeEdit = TransformationEditPolicy.AllowVolumeEdit(
+                            oneToMany, guideOnlyTarget);
+                        args.ConfigureUnitPriceEditPolicy(sourceHasFinancialData,
+                            guideOnlyTarget, supplierVat);
                         if (traderId.HasValue)
                             args.TraderId = traderId.Value;
                         if (vehicleId.HasValue)
@@ -1101,7 +1445,7 @@ namespace ASFuelControl.Windows.ViewModels
 
                         foreach (var vd in args.Volumes)
                         {
-                            var line = invoice.InvoiceLines.Where(i => i.InvoiceLineId == vd.InvoiceLineId).SingleOrDefault();
+                            var line = lines.SingleOrDefault(i => i.InvoiceLineId == vd.InvoiceLineId);
                             if (line == null)
                                 continue;
                             InvoiceLineViewModel invLine = new InvoiceLineViewModel();
@@ -1119,9 +1463,6 @@ namespace ASFuelControl.Windows.ViewModels
                             invLine.TankId = line.TankId;
                             invLine.Temperature = line.Temperature;
                             invLine.TotalPrice = line.TotalPrice;
-                            invLine.UnitPriceRetail = line.UnitPriceRetail;
-                            invLine.UnitPriceWhole = line.UnitPriceWhole;
-                            invLine.UnitPrice = line.UnitPrice;
                             invLine.VatAmount = line.VatAmount;
                             invLine.VatPercentage = line.VatPercentage;
                             invLine.Volume = vd.Volume > vd.MaxAllowedVolume ? vd.MaxAllowedVolume : vd.Volume;
@@ -1129,24 +1470,41 @@ namespace ASFuelControl.Windows.ViewModels
                             invLine.VolumeNormalized = line.Volume == 0
                                 ? invLine.Volume
                                 : decimal.Round(line.VolumeNormalized * volumeRatio, 3);
-                            invLine.DiscountAmount = decimal.Round(line.DiscountAmount * volumeRatio, 2);
-                            invLine.DiscountAmountRetail = decimal.Round(line.DiscountAmountRetail * volumeRatio, 2);
-                            invLine.DiscountAmountWhole = decimal.Round(line.DiscountAmountWhole * volumeRatio, 2);
-                            invLine.SaleTransactionId = line.SaleTransactionId;
-                            invLine.TankFillingId = line.TankFillingId;
                             if (args.AllowUnitPriceEdit)
-                                invLine.UnitPriceView = vd.UnitPrice;
+                            {
+                                ApplyEnteredTransformationDiscount(invLine,
+                                    vd.DiscountAmount, line.VatPercentage,
+                                    targetPriceIncludesVat);
+                            }
+                            else
+                            {
+                                invLine.DiscountAmount = decimal.Round(line.DiscountAmount * volumeRatio, 2);
+                                invLine.DiscountAmountRetail = decimal.Round(line.DiscountAmountRetail * volumeRatio, 2);
+                                invLine.DiscountAmountWhole = decimal.Round(line.DiscountAmountWhole * volumeRatio, 2);
+                            }
+                            // Transformation provenance is represented by the invoice
+                            // and line relations created below. The physical pump sale
+                            // remains owned only by its directly-created invoice line.
+                            invLine.TankFillingId = line.TankFillingId;
+                            invLine.SetSourceNozzleContext(line);
+                            if (args.AllowUnitPriceEdit)
+                                ApplyEnteredTransformationPrice(invLine, vd.UnitPrice,
+                                    line.VatPercentage, targetPriceIncludesVat);
+                            else
+                                ApplyAuthoritativeSourcePricing(invLine, line, sourcePriceIncludesVat);
+                            bool linePriceIncludesVat = sourcePriceIncludesVat ||
+                                line.SalesTransaction != null;
                             this.ApplyVatExemptionToTransformedLine(invLine,
                                 args.AllowUnitPriceEdit ? vd.UnitPrice :
-                                    (sourcePriceIncludesVat ? line.UnitPriceRetail : line.UnitPriceWhole),
+                                    (linePriceIncludesVat ? SourceRetailUnitPrice(line) : SourceNetUnitPrice(line)),
                                 line.VatPercentage,
-                                args.AllowUnitPriceEdit ? this.PricesIncludeVat : sourcePriceIncludesVat);
+                                args.AllowUnitPriceEdit ? targetPriceIncludesVat : linePriceIncludesVat);
                             invLine.PropertyChanged += Ilvm_PropertyChanged;
                             this.lines.Add(invLine);
                             invLine.SetComputedColumns(false, false);
                             lineRelations.Add(line.InvoiceLineId, invLine.InvoiceLineId);
                             if (transMode == Common.Enumerators.InvoiceTransformationTypeEnum.OneToMany)
-                                this.oneToManyVolumeSelections[line.InvoiceLineId] = invLine.Volume;
+                                this.oneToManyLineSelections[line.InvoiceLineId] = invLine.InvoiceLineId;
                         }
                     }
                 }
@@ -1175,23 +1533,16 @@ namespace ASFuelControl.Windows.ViewModels
                         invLine.VatPercentage = line.VatPercentage;
                         invLine.VatAmount = line.VatAmount;
                         invLine.TotalPrice = line.TotalPrice;
-                        invLine.UnitPriceRetail = line.UnitPriceRetail;
-                        invLine.UnitPriceWhole = line.UnitPriceWhole;
-                        invLine.UnitPrice = line.UnitPrice;
+                        ApplyAuthoritativeSourcePricing(invLine, line, sourcePriceIncludesVat);
                         invLine.Volume = line.Volume;
                         invLine.VolumeNormalized = line.VolumeNormalized;
-                        invLine.SaleTransactionId = line.SaleTransactionId;
                         invLine.TankFillingId = line.TankFillingId;
                         invLine.PropertyChanged += Ilvm_PropertyChanged;
 
-                        if (transformationType.TransformationMode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation && invoiceIds.Length == 1)
-                        {
-                            if (line.SalesTransaction != null)
-                            {
-                                invLine.CurrentDispenserId = line.SalesTransaction.Nozzle.DispenserId;
-                                invLine.CurrentNozzleId = line.SalesTransaction.NozzleId;
-                            }
-                        }
+                        // Display the physical source pump/nozzle for every
+                        // transformed fuel line, including ordinary credit notes.
+                        // Do not copy SaleTransactionId to the derived document.
+                        invLine.SetSourceNozzleContext(line);
 
                         // Setting volume/nozzle raises the ordinary invoice-line
                         // calculations. Restore the fiscal source values after all
@@ -1200,15 +1551,15 @@ namespace ASFuelControl.Windows.ViewModels
                         invLine.DiscountAmountRetail = line.DiscountAmountRetail;
                         invLine.DiscountAmountWhole = line.DiscountAmountWhole;
                         invLine.DiscountPercentage = line.DiscountPercentage;
-                        invLine.UnitPriceRetail = line.UnitPriceRetail;
-                        invLine.UnitPriceWhole = line.UnitPriceWhole;
-                        invLine.UnitPrice = line.UnitPrice;
+                        ApplyAuthoritativeSourcePricing(invLine, line, sourcePriceIncludesVat);
                         invLine.VatPercentage = line.VatPercentage;
                         invLine.VatAmount = line.VatAmount;
                         invLine.TotalPrice = line.TotalPrice;
+                        bool linePriceIncludesVat = sourcePriceIncludesVat ||
+                            line.SalesTransaction != null;
                         this.ApplyVatExemptionToTransformedLine(invLine,
-                            sourcePriceIncludesVat ? line.UnitPriceRetail : line.UnitPriceWhole,
-                            line.VatPercentage, sourcePriceIncludesVat);
+                            linePriceIncludesVat ? SourceRetailUnitPrice(line) : SourceNetUnitPrice(line),
+                            line.VatPercentage, linePriceIncludesVat);
 
                         this.lines.Add(invLine);
                         lineRelations.Add(line.InvoiceLineId, invLine.InvoiceLineId);
@@ -1223,14 +1574,20 @@ namespace ASFuelControl.Windows.ViewModels
                     relation.InvoiceRelationId = Guid.NewGuid();
                     relation.ParentInvoiceId = id;
                     relation.ChildInvoiceId = this.InvoiceId;
-                    relation.RelationType = createFiscalRelations
+                    var invPar = db.Invoices.SingleOrDefault(i => i.InvoiceId == id);
+                    bool localDeliveryToSale = invPar != null &&
+                        Invoicing.Mapping.HostInvoiceMapper.IsDeliveryDocument(invPar.InvoiceType) &&
+                        !Invoicing.Mapping.HostInvoiceMapper.IsDeliveryDocument(invType) &&
+                        invType.HasFinancialTransactions != false &&
+                        invType.IsCancelation != true;
+                    bool fiscalRelation = createFiscalRelations && !localDeliveryToSale;
+                    relation.RelationType = fiscalRelation
                         ? (int)Common.Enumerators.InvoiceRelationTypeEnum.Replace
                         : (int)Common.Enumerators.InvoiceRelationTypeEnum.LocalCopy;
-                    if (createFiscalRelations &&
+                    if (fiscalRelation &&
                         (transformationType.TransformationMode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation ||
                          (this.SelectedInvoiceType != null && this.SelectedInvoiceType.IsCancelation == true)))
                         relation.RelationType = (int)Common.Enumerators.InvoiceRelationTypeEnum.Cancel;
-                    var invPar = db.Invoices.SingleOrDefault(i => i.InvoiceId == id);
                     this.invRelations.Add(relation);
                     foreach (Guid plid in lineRelations.Keys)
                     {
@@ -1247,7 +1604,8 @@ namespace ASFuelControl.Windows.ViewModels
                     }
                 }
                 if (requiresLineSelection ||
-                    (this.VatExemption && sourcePriceIncludesVat &&
+                    (this.VatExemption &&
+                     (sourcePriceIncludesVat || lines.Any(line => line.SalesTransaction != null)) &&
                      transMode != Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation))
                 {
                     this.SuspendRecalculation = false;
@@ -1256,7 +1614,11 @@ namespace ASFuelControl.Windows.ViewModels
                 }
                 else
                     this.SetInvoiceSums(db, invoiceIds, mode);
-                
+
+                ConfigureTransformationPriceEditPolicy(true,
+                    sourceHasFinancialData, guideOnlyTarget,
+                    ResolveCounterpartVat(db, this.TraderId, this.VehicleId),
+                    TransformationEditPolicy.AllowVolumeEdit(oneToMany,guideOnlyTarget));
 
                 this.ApplicationUserId = Data.DatabaseModel.CurrentUserId;
 
@@ -1272,9 +1634,7 @@ namespace ASFuelControl.Windows.ViewModels
 
         public void CreateInvoices(Guid[] invoiceIds, Guid invoiceType, Guid? traderId, Guid? vehicleId, int mode)
         {
-            if (mode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation &&
-                (Threads.SharedInvoiceRuntime.ProtectsInvoices || invoiceIds.Any(Threads.SharedInvoiceRuntime.Owns)))
-                throw new InvalidOperationException("Η ακύρωση κοινής έκδοσης απαιτεί ειδική ροή ακύρωσης / συμφωνίας ιστορικού.");
+            Threads.SharedInvoiceRuntime.ValidateCancellationTransformation(invoiceIds, invoiceType);
             Common.Enumerators.InvoiceTransformationTypeEnum transMode = (Common.Enumerators.InvoiceTransformationTypeEnum)mode;
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
@@ -1290,6 +1650,8 @@ namespace ASFuelControl.Windows.ViewModels
                 var transformationType = db.InvoiceTypeTransforms.Where(i => i.ParentInvoiceTypeId == fromType && i.ChildInvoiceTypeId == invoiceType).FirstOrDefault();
                 if (transformationType == null)
                     return;
+                bool sourcePriceIncludesVat = SourcePriceIncludesVat(invoice);
+                bool targetPriceIncludesVat = TargetPriceIncludesVat(invType);
                 this.EntityState = EntityStateEnum.Added;
                 this.InvoiceId = Guid.NewGuid();
                 this.TraderId = traderId;
@@ -1330,7 +1692,16 @@ namespace ASFuelControl.Windows.ViewModels
                             vd.InvoiceLineId = line.InvoiceLineId;
                             vd.TaxValue = line.VatAmount;
                             vd.VatPercentage = line.VatPercentage;
-                            vd.UnitPrice = line.UnitPrice;
+                            bool linePriceIncludesVat = sourcePriceIncludesVat ||
+                                line.SalesTransaction != null;
+                            var sourcePrices = linePriceIncludesVat
+                                ? TransformationUnitPrice.FromRetail(
+                                    SourceRetailUnitPrice(line), line.VatPercentage)
+                                : TransformationUnitPrice.FromNet(
+                                    SourceNetUnitPrice(line), line.VatPercentage);
+                            vd.UnitPrice = targetPriceIncludesVat
+                                ? sourcePrices.Retail
+                                : sourcePrices.Net;
                             vd.MaxAllowedVolume = line.Volume - sumVolume;
                             vd.Volume = line.Volume > vd.MaxAllowedVolume ? vd.MaxAllowedVolume : line.Volume;
                             vd.DiscountAmount = line.DiscountAmount;
@@ -1363,16 +1734,19 @@ namespace ASFuelControl.Windows.ViewModels
                             invLine.TankId = line.TankId;
                             invLine.Temperature = line.Temperature;
                             invLine.TotalPrice = line.TotalPrice;
-                            invLine.UnitPriceView = vd.UnitPrice;
+                            ApplyEnteredTransformationPrice(invLine, vd.UnitPrice,
+                                line.VatPercentage, targetPriceIncludesVat);
                             invLine.VatAmount = line.VatAmount;
                             invLine.VatPercentage = line.VatPercentage;
                             invLine.Volume = vd.Volume > vd.MaxAllowedVolume ? vd.MaxAllowedVolume : vd.Volume;
                             invLine.VolumeNormalized = vd.Volume;
-                            invLine.SaleTransactionId = line.SaleTransactionId;
                             invLine.TankFillingId = line.TankFillingId;
+                            invLine.SetSourceNozzleContext(line);
+                            bool linePriceIncludesVat = sourcePriceIncludesVat ||
+                                line.SalesTransaction != null;
                             this.ApplyVatExemptionToTransformedLine(invLine,
-                                line.UnitPriceRetail != 0 ? line.UnitPriceRetail : vd.UnitPrice,
-                                line.VatPercentage, SourcePriceIncludesVat(invoice));
+                                linePriceIncludesVat ? SourceRetailUnitPrice(line) : SourceNetUnitPrice(line),
+                                line.VatPercentage, linePriceIncludesVat);
                             invLine.PropertyChanged += Ilvm_PropertyChanged;
                             this.lines.Add(invLine);
                             lineRelations.Add(line.InvoiceLineId, invLine.InvoiceLineId);
@@ -1401,30 +1775,19 @@ namespace ASFuelControl.Windows.ViewModels
                         invLine.VatPercentage = line.VatPercentage;
                         invLine.VatAmount = line.VatAmount;
                         invLine.TotalPrice = line.TotalPrice;
-                        decimal pr1 = line.UnitPriceWhole;
-                        decimal pr2 = line.UnitPriceRetail;
-                        decimal pr3 = line.UnitPrice;
-
-                        invLine.UnitPriceWhole = line.UnitPriceWhole;
-                        invLine.UnitPriceRetail = line.UnitPriceRetail;
-                        invLine.UnitPrice = line.UnitPrice;
+                        ApplyAuthoritativeSourcePricing(invLine, line,
+                            sourcePriceIncludesVat);
                         invLine.Volume = line.Volume;
                         invLine.VolumeNormalized = line.VolumeNormalized;
-                        invLine.SaleTransactionId = line.SaleTransactionId;
                         invLine.TankFillingId = line.TankFillingId;
+                        bool linePriceIncludesVat = sourcePriceIncludesVat ||
+                            line.SalesTransaction != null;
                         this.ApplyVatExemptionToTransformedLine(invLine,
-                            line.UnitPriceRetail != 0 ? line.UnitPriceRetail : line.UnitPrice,
-                            line.VatPercentage, SourcePriceIncludesVat(invoice));
+                            linePriceIncludesVat ? SourceRetailUnitPrice(line) : SourceNetUnitPrice(line),
+                            line.VatPercentage, linePriceIncludesVat);
                         invLine.PropertyChanged += Ilvm_PropertyChanged;
 
-                        if (transformationType.TransformationMode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation && invoiceIds.Length == 1)
-                        {
-                            if (line.SalesTransaction != null)
-                            {
-                                invLine.CurrentDispenserId = line.SalesTransaction.Nozzle.DispenserId;
-                                invLine.CurrentNozzleId = line.SalesTransaction.NozzleId;
-                            }
-                        }
+                        invLine.SetSourceNozzleContext(line);
 
                         this.lines.Add(invLine);
                         lineRelations.Add(line.InvoiceLineId, invLine.InvoiceLineId);
@@ -1506,7 +1869,6 @@ namespace ASFuelControl.Windows.ViewModels
         //                invLine.UnitPrice = line.UnitPrice;
         //                invLine.Volume = line.Volume;
         //                invLine.VolumeNormalized = line.VolumeNormalized;
-        //                invLine.SaleTransactionId = line.SaleTransactionId;
         //                invLine.TankFillingId = line.TankFillingId;
         //                invLine.PropertyChanged += Ilvm_PropertyChanged;
 
@@ -1540,13 +1902,17 @@ namespace ASFuelControl.Windows.ViewModels
 
         public override void Load(DatabaseModel db, Guid id)
         {
+            var persistedInvoice = db.Invoices.SingleOrDefault(i => i.InvoiceId == id);
             // Make the persisted type available before BaseViewModel raises the
             // InvoiceTypeId notification. Otherwise a bound Telerik dropdown whose
             // active list omits a hidden/invalidated historical type selects its
             // first item and writes that unrelated value back into this view model.
-            var persistedTypeId = db.Invoices.Where(i => i.InvoiceId == id)
-                .Select(i => i.InvoiceTypeId)
-                .SingleOrDefault();
+            var persistedTypeId = persistedInvoice == null
+                ? Guid.Empty
+                : persistedInvoice.InvoiceTypeId;
+            var persistedPaymentType = persistedInvoice == null
+                ? (int?)null
+                : persistedInvoice.PaymentType;
             var persistedType = LoadPersistedInvoiceType(db,persistedTypeId);
             if (persistedType != null)
                 this.InvoiceTypes = ReplaceInvoiceType(this.InvoiceTypes,persistedType);
@@ -1581,9 +1947,10 @@ namespace ASFuelControl.Windows.ViewModels
                 this.HasChanges = false;
             }
 
-            var inv = db.Invoices.SingleOrDefault(i => i.InvoiceId == this.InvoiceId);
+            var inv = persistedInvoice;
             if (inv == null)
                 return;
+            ConfigureLoadedTransformationPriceEditPolicy(db, inv);
             if (inv.Trader != null)
             {
                 this.TraderName = inv.Trader.Name;
@@ -1600,6 +1967,65 @@ namespace ASFuelControl.Windows.ViewModels
                 }
             }
             this.CurrentLine = this.InvoiceLines.FirstOrDefault();
+            // Trader/vehicle notifications and Telerik lookup initialization may
+            // temporarily select their defaults while Base.Load is running. Apply
+            // the saved invoice value last so it remains authoritative.
+            if (this.PaymentType != persistedPaymentType)
+                this.PaymentType = persistedPaymentType;
+            this.OnPropertyChanged("PaymentType", true);
+            this.EntityState = EntityStateEnum.Unchanged;
+            this.HasChanges = false;
+        }
+
+        private void ConfigureLoadedTransformationPriceEditPolicy(DatabaseModel db,
+            Data.Invoice invoice)
+        {
+            var parentRelations = db.InvoiceRelations
+                .Where(relation => relation.ChildInvoiceId == invoice.InvoiceId)
+                .ToArray();
+            if (parentRelations.Length == 0)
+            {
+                this.IsEditLocked = false;
+                ConfigureTransformationPriceEditPolicy(false, true, false, null);
+                return;
+            }
+
+            var parentIds = parentRelations.Select(relation => relation.ParentInvoiceId)
+                .Distinct().ToArray();
+            var parents = db.Invoices.Where(parent => parentIds.Contains(parent.InvoiceId))
+                .ToArray();
+            bool sourceHasFinancialData = parents.Any(parent =>
+                parent.InvoiceType == null || parent.InvoiceType.ShowFinancialData == true);
+
+            var guideTransforms = db.InvoiceTypeTransforms.Where(transform =>
+                transform.ChildInvoiceTypeId == invoice.InvoiceTypeId &&
+                transform.CreationInvoiceTypeId.HasValue).ToArray();
+            bool guideOnlyTarget = parentRelations.Any(relation =>
+                relation.RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.LocalCopy &&
+                parents.Any(parent => parent.InvoiceId == relation.ParentInvoiceId &&
+                    guideTransforms.Any(transform =>
+                        transform.ParentInvoiceTypeId == parent.InvoiceTypeId)));
+
+            this.IsEditLocked = true;
+            ConfigureTransformationPriceEditPolicy(true, sourceHasFinancialData,
+                guideOnlyTarget, ResolveCounterpartVat(db, invoice.TraderId, invoice.VehicleId));
+        }
+
+        private static string ResolveCounterpartVat(DatabaseModel db, Guid? traderId,
+            Guid? vehicleId)
+        {
+            Guid? resolvedTraderId = traderId;
+            if ((!resolvedTraderId.HasValue || resolvedTraderId.Value == Guid.Empty) &&
+                vehicleId.HasValue && vehicleId.Value != Guid.Empty)
+            {
+                resolvedTraderId = db.Vehicles.Where(vehicle =>
+                    vehicle.VehicleId == vehicleId.Value)
+                    .Select(vehicle => (Guid?)vehicle.TraderId).FirstOrDefault();
+            }
+            if (!resolvedTraderId.HasValue || resolvedTraderId.Value == Guid.Empty)
+                return null;
+            return db.Traders.Where(trader => trader.TraderId == resolvedTraderId.Value)
+                .Select(trader => trader.TaxRegistrationNumber).FirstOrDefault();
         }
 
         private static InvoiceTypeViewModel LoadPersistedInvoiceType(DatabaseModel db,Guid invoiceTypeId)
@@ -1636,7 +2062,12 @@ namespace ASFuelControl.Windows.ViewModels
                 this.AddError("Σφάλμα παραστατικού","Το παραστατικό έχει κοινό ιστορικό έκδοσης και δεν επιτρέπεται αλλαγή ή διαγραφή.");
                 return false;
             }
-            if (this.SelectedInvoiceType != null && this.SelectedInvoiceType.DispenserType.HasValue && this.SelectedInvoiceType.DispenserType.Value && this.EditEnabled && !this.IsEditLocked)
+            bool dispenserInvoice = this.SelectedInvoiceType != null &&
+                this.SelectedInvoiceType.DispenserType == true;
+            bool requiresPumpSalePersistence = dispenserInvoice && this.EditEnabled &&
+                !this.IsEditLocked && (this.EntityState == EntityStateEnum.Added ||
+                    this.CurrentLine != null && this.CurrentLine.SaleTransactionId.HasValue);
+            if (requiresPumpSalePersistence)
             {
                 this.Errors = new ValidationError[] { };
                 if (!this.CreateNewSale(false))
@@ -1649,22 +2080,49 @@ namespace ASFuelControl.Windows.ViewModels
             else
             {
                 this.Errors = new ValidationError[] { };
+                if (!this.PaymentType.HasValue || !Enum.IsDefined(typeof(Common.Enumerators.PaymentTypeEnum), this.PaymentType.Value))
+                    this.AddError("Σφάλμα παραστατικού", "Δεν έχει επιλεγεί έγκυρος τρόπος πληρωμής.");
                 if (this.InvoiceLines.Length == 0)
                     this.AddError("Σφάλμα παραστατικού", "Δεν έχετε εισάγει γραμμές στο παραστατικό");
+                else if (dispenserInvoice && this.InvoiceLines.Any(line => line.Volume <= 0))
+                    this.AddError("Σφάλμα παραστατικού",
+                        "Ο όγκος της γραμμής πρέπει να είναι μεγαλύτερος από μηδέν.");
 
                 if (this.InvoiceTypeId == Guid.Empty || this.SelectedInvoiceType == null)
                     this.AddError("Σφάλμα παραστατικού", "Δεν έχετε επιλέξει τύπο παραστατικού");
 
+                foreach (var line in this.InvoiceLines)
+                {
+                    if (line.FuelTypeId == Guid.Empty ||
+                        !this.FuelTypes.Any(item => item.FuelTypeId == line.FuelTypeId))
+                        this.AddError("Σφάλμα παραστατικού",
+                            "Το καύσιμο γραμμής δεν ανήκει στη διαθέσιμη λίστα.");
+                    if (line.TankId.HasValue && line.TankId.Value != Guid.Empty)
+                    {
+                        var tank = this.Tanks.FirstOrDefault(
+                            item => item.TankId == line.TankId.Value);
+                        if (tank == null)
+                            this.AddError("Σφάλμα παραστατικού",
+                                "Η δεξαμενή γραμμής δεν ανήκει στη διαθέσιμη λίστα.");
+                        else if (tank.FuelTypeId != line.FuelTypeId)
+                            this.AddError("Σφάλμα παραστατικού",
+                                "Η δεξαμενή γραμμής δεν αντιστοιχεί στο επιλεγμένο καύσιμο.");
+                    }
+                }
+
                 if (this.Errors.Length > 0)
                     return false;
 
-                foreach (var selection in this.oneToManyVolumeSelections)
+                foreach (var selection in this.oneToManyLineSelections)
                 {
                     var sourceLine = db.InvoiceLines.SingleOrDefault(line => line.InvoiceLineId == selection.Key);
+                    var selectedLine = this.InvoiceLines.SingleOrDefault(line =>
+                        line.InvoiceLineId == selection.Value);
+                    decimal selectedVolume = selectedLine == null ? 0 : selectedLine.Volume;
                     decimal remainingVolume = sourceLine == null
                         ? 0
                         : sourceLine.Volume - GetConsumedTransformationVolume(sourceLine);
-                    if (selection.Value <= 0 || selection.Value > remainingVolume)
+                    if (selectedVolume <= 0 || selectedVolume > remainingVolume)
                     {
                         this.AddError("Σφάλμα μετασχηματισμού",
                             "Ο διαθέσιμος όγκος του αρχικού παραστατικού έχει αλλάξει. Ανοίξτε ξανά τον μετασχηματισμό.");
@@ -1735,6 +2193,13 @@ namespace ASFuelControl.Windows.ViewModels
                 this.HasChanges = true;
             if (e.PropertyName == "FuelTypeId")
             {
+                if (ilv.TankId.HasValue)
+                {
+                    var selectedTank = (this.Tanks ?? new TankViewModel[0])
+                        .SingleOrDefault(tank => tank.TankId == ilv.TankId.Value);
+                    if (selectedTank == null || selectedTank.FuelTypeId != ilv.FuelTypeId)
+                        ilv.TankId = null;
+                }
                 this.OnPropertyChanged("SupportsSupplyNumber");
             }
         }
@@ -1768,17 +2233,24 @@ namespace ASFuelControl.Windows.ViewModels
         {
             if (propName == "InvoiceLines")
             {
+                bool preserveTransformation = entity.ParentInvoiceRelations != null &&
+                    entity.ParentInvoiceRelations.Count > 0;
+                if (preserveTransformation)
+                    this.SuspendRecalculation = true;
                 this.lines.Clear();
                 foreach (var line in entity.InvoiceLines)
                 {
                     InvoiceLineViewModel ilvm = new InvoiceLineViewModel();
                     ilvm.Load(db, line.InvoiceLineId);
                     ilvm.InitDiscount(this);
+                    ilvm.IsTransformation = preserveTransformation;
+                    ilvm.PreserveFiscalAmounts = preserveTransformation;
                     ilvm.PropertyChanged += Ilvm_PropertyChanged;
                     ilvm.ParentInvoice = this;
                     this.lines.Add(ilvm);
                 }
-                this.RecalculateSums();
+                if (!preserveTransformation)
+                    this.RecalculateSums();
             }
         }
 
@@ -1820,6 +2292,10 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 DatabaseModel db = new DatabaseModel(Properties.Settings.Default.DBConnection);
                 var trader = db.Traders.SingleOrDefault(i => i.TraderId == this.TraderId);
+                this.transformationCounterpartVat = trader == null
+                    ? null
+                    : trader.TaxRegistrationNumber;
+                NotifyLineEditPolicyChanged();
                 if (trader == null)
                 {
                     db.Dispose();
@@ -1864,6 +2340,10 @@ namespace ASFuelControl.Windows.ViewModels
                 if (this.TraderId != vehicle.TraderId)
                 {
                     this.SetTrader(vehicle.TraderId);
+                    this.transformationCounterpartVat = vehicle.Trader == null
+                        ? null
+                        : vehicle.Trader.TaxRegistrationNumber;
+                    NotifyLineEditPolicyChanged();
                     if (vehicle.Trader.VatExemption.HasValue)
                     {
                         this.VatExemption = vehicle.Trader.VatExemption.Value;
@@ -1899,6 +2379,8 @@ namespace ASFuelControl.Windows.ViewModels
                 this.OnPropertyChanged("SimplePrint");
                 this.OnPropertyChanged("CanAdd");
             }
+            if (propertyName == "IsPrinted" || propertyName == "AllowEdit")
+                NotifyLineEditPolicyChanged();
         }
     }
 

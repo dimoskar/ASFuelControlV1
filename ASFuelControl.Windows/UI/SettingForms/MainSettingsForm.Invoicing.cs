@@ -122,12 +122,12 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 IsChecked = Data.Implementation.OptionHandler.Instance.MyDieselEnabled });
             myDieselEnvironment = diesel.Row("Περιβάλλον",InvoicingFields.Choice("Δοκιμαστικό","Παραγωγή"));
             myDieselEnvironment.SelectedIndex = sharedEnvironment.SelectedIndex;
-            myDieselExciseRate = diesel.Row("Έκπτωση ΕΦΚ",new RadSpinEditor { Minimum = 0.0001m, Maximum = MyDieselTaxRules.MaximumExciseDiscountPerLitre,
+            myDieselExciseRate = diesel.Row("Έκπτωση ΕΦΚ (χωρίς ΦΠΑ)",new RadSpinEditor { Minimum = 0.0001m, Maximum = MyDieselTaxRules.MaximumExciseDiscountPerLitre,
                 DecimalPlaces = 4, Value = dieselProfile?.ExciseDiscountPerLitre > 0 ? dieselProfile.ExciseDiscountPerLitre : MyDieselTaxRules.DefaultExciseDiscountPerLitre });
-            diesel.Row("",new RadLabel { Text = "€ ανά λίτρο — η τιμή αποθηκεύεται με κάθε νέο κουπόνι" });
+            diesel.Row("",new RadLabel { Text = "0,4100 €/L χωρίς ΦΠΑ = 0,5084 €/L με ΦΠΑ 24%" });
             myDieselCompany = diesel.Row("ΑΦΜ εταιρείας",InvoicingFields.Choice());
             LoadMyDieselCompanyChoices(dieselProfile?.CompanyVat ?? tinCompanyTextBox.Text.Trim());
-            myDieselAadeUser = diesel.Row("Χρήστης ΑΑΔΕ",InvoicingFields.Text(CurrentMyDieselCredential()?.AadeUserId));
+            myDieselAadeUser = diesel.Row("Χρήστης ΑΑΔΕ",InvoicingFields.Text(Data.Implementation.OptionHandler.Instance.GetOption("MyDataUserName","")));
             myDieselSecret = diesel.Row("Κλειδί πρόσβασης",InvoicingFields.Text("",true));
             myDieselStation = diesel.Row("Καταχωρημένο πρατήριο",InvoicingFields.Choice());
             if (dieselProfile != null && !string.IsNullOrWhiteSpace(dieselProfile.StationName))
@@ -472,7 +472,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 invoicing = value;
                 if (!string.IsNullOrWhiteSpace(sharedMyDataKey.Text)) originalMyDataKey = sharedMyDataKey.Text.Trim();
                 string message = transitionPaused
-                    ? "Το περιβάλλον αποθηκεύτηκε με την κοινή τιμολόγηση και το myDiesel προσωρινά σε παύση. Ρυθμίστε τον Samtec για το νέο περιβάλλον από τις Επιλογές Φορολογικού Μηχανισμού και μετά ενεργοποιήστε ξανά την κοινή τιμολόγηση."
+                    ? "Το περιβάλλον αποθηκεύτηκε με την κοινή τιμολόγηση και το myDiesel προσωρινά σε παύση. Ρυθμίστε τον Samtec για το νέο περιβάλλον από τις Ρυθμίσεις Σήμανσης και Εκτύπωσης και μετά ενεργοποιήστε ξανά την κοινή τιμολόγηση."
                     : "Οι ρυθμίσεις τιμολόγησης αποθηκεύτηκαν. Ο λογαριασμός και τα κλειδιά ισχύουν πριν από την πρώτη προσπάθεια έκδοσης. Οι υπόλοιπες αλλαγές απαιτούν επανεκκίνηση της εφαρμογής.";
                 RadMessageBox.Show(message,"Τιμολόγηση");
                 return true;

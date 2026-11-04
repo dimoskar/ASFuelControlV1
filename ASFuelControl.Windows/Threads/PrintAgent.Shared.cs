@@ -22,9 +22,9 @@ namespace ASFuelControl.Windows.Threads
             finally { agent.signWatcher.Dispose(); }
         }
 
-        public static void ReprintSharedInvoice(Guid invoiceId, string reason)
+        public static void ReprintSharedInvoice(Guid invoiceId, string reason = null)
         {
-            if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A reprint reason is required.");
+            if (string.IsNullOrWhiteSpace(reason)) reason = SharedInvoiceRuntime.OperatorRequestedCopyReason;
             if (!SharedInvoiceRuntime.Handles(invoiceId)) throw new InvalidOperationException("Reconcile the legacy document before using shared reprinting.");
             SharedInvoiceRuntime.Process(invoiceId, true, reason);
         }

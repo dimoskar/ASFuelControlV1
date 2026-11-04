@@ -8,6 +8,7 @@ using ASFuelControl.Invoicing;
 using ASFuelControl.Invoicing.Persistence;
 using ASFuelControl.Windows.Threads;
 using Exedron.Invoicing.Core;
+using Exedron.Invoicing.Adapters.Samtec;
 using Newtonsoft.Json;
 
 internal static partial class Program
@@ -46,8 +47,44 @@ internal static partial class Program
     sealed class Signer : IFiscalSigner
     {
         public int Calls;
-        public FiscalSignerCapabilities Capabilities { get; } = new FiscalSignerCapabilities("fake",new[] { FiscalDocumentKind.Invoice,FiscalDocumentKind.Balance,FiscalDocumentKind.TankFilling });
+        public Signer(string signerKey = "fake")
+        {
+            Capabilities = new FiscalSignerCapabilities(signerKey,
+                new[] { FiscalDocumentKind.Invoice,FiscalDocumentKind.Balance,FiscalDocumentKind.TankFilling });
+        }
+        public FiscalSignerCapabilities Capabilities { get; }
         public FiscalSigningResult Sign(FiscalSigningRequest request) { Calls++; return FiscalSigningResult.Signed(request.AttemptId,"real-signature","https://example.invalid/device-qr",null,"accepted"); }
+    }
+    sealed class RejectThenSign : IFiscalSigner
+    {
+        public int Calls; public readonly List<byte[]> Payloads = new List<byte[]>();
+        public FiscalSignerCapabilities Capabilities { get; } = new FiscalSignerCapabilities(
+            SamtecFiscalSigner.Key,new[] { FiscalDocumentKind.Invoice });
+        public FiscalSigningResult Sign(FiscalSigningRequest request)
+        {
+            Calls++; Payloads.Add(request.Payload);
+            return Calls == 1
+                ? FiscalSigningResult.Rejected(request.AttemptId,"synthetic rejection","calculation rejected")
+                : FiscalSigningResult.Signed(request.AttemptId,"corrected-signature",null,null,"accepted corrected request");
+        }
+    }
+    sealed class AmountMismatchSigner : IFiscalSigner
+    {
+        public int Calls; public bool AlwaysReject;
+        public readonly List<byte[]> Payloads = new List<byte[]>();
+        public FiscalSignerCapabilities Capabilities { get; } = new FiscalSignerCapabilities(
+            SamtecFiscalSigner.Key,new[] { FiscalDocumentKind.Invoice });
+        public FiscalSigningResult Sign(FiscalSigningRequest request)
+        {
+            Calls++; Payloads.Add(request.Payload);
+            if (AlwaysReject || Calls == 1)
+                return FiscalSigningResult.Rejected(request.AttemptId,
+                    "{\"JobType\":\"Sign\",\"InvoiceUID\":\"" + request.Document.DocumentId +
+                    "\",\"ResultCode\":\"Error019,ReplyCodeError,137,89,Amounts of JSON transaction line does not match,89/D0/02\"}",
+                    "The device explicitly rejected the matching signing request: Error019");
+            return FiscalSigningResult.Signed(request.AttemptId,"corrected-signature",null,null,
+                "accepted corrected request");
+        }
     }
     sealed class Gateway : System.Net.Http.HttpMessageHandler
     {
@@ -65,7 +102,7 @@ internal static partial class Program
         }
     }
     static InvoiceWorkflowService Workflow(Http http, Printer printer, Action<Guid,InvoiceWorkflowResult> project = null,
-        Func<InvoiceWorkflowSnapshot,Exedron.Invoicing.Core.Models.InvoiceResponse,byte[]> render = null, Signer signer = null,
+        Func<InvoiceWorkflowSnapshot,Exedron.Invoicing.Core.Models.InvoiceResponse,byte[]> render = null, IFiscalSigner signer = null,
         Func<ProviderRoute,ProviderRoute> currentConnection = null, Credentials credentials = null, IMyDieselRedemptionCoordinator myDiesel = null) =>
         new InvoiceWorkflowService(database, Service(http,credentials), new ProviderPaymentService(database,credentials ?? new Credentials(), r => http),
             new FiscalSigningService(database,s => signer), new FiscalPrintService(database,printer),
@@ -265,6 +302,10 @@ internal static partial class Program
             Equal((int?)34,tim.AadeProviderId); Equal("034",tim.AadeProviderCode); Equal(tim.AadeProviderId,tim.GBridgeProviderId);
             Check(ilyda.SoftwareLicence.Contains("108ILYDA") && tim.SoftwareLicence.Contains("134TECHNORAN"),"wrong licence identity");
             Equal(null,InvoiceProviderCatalog.Get("myDATA").AadeProviderId); Equal(null,InvoiceProviderCatalog.Get("myDATA").SoftwareLicence);
+            Check(InvoiceProviderCatalog.Get("myDATA").SupportsInvoiceMarkCancellation,
+                "direct myDATA must expose ERP CancelInvoice");
+            Check(!ilyda.SupportsInvoiceMarkCancellation && !tim.SupportsInvoiceMarkCancellation,
+                "provider-issued financial MARKs must not be routed to ERP CancelInvoice");
         });
         Test("Ilyda TF2 prints QR and warning while remaining queued; reprint never submits", () => {
             var source = new WorkflowSource();
@@ -348,6 +389,21 @@ internal static partial class Program
             Equal(1,calls);
             Check(actual.SequenceEqual(expected),"The thermal text renderer replaced the laser invoice report");
         });
+        Test("thermal profiles delegate to the configured narrow invoice report renderer", () => {
+            var snapshot = new InvoiceWorkflowSnapshot { InvoiceId = Guid.NewGuid(),
+                PrintDestination = JsonConvert.SerializeObject(new SharedPrinterProfile { PrinterName = "test-only",Thermal = true }),
+                PrintContent = Encoding.UTF8.GetBytes("generic thermal text must not be rendered") };
+            int calls = 0;
+            var expected = Encoding.UTF8.GetBytes("narrow invoice report pages");
+            var actual = SharedInvoicePrinting.Render(snapshot,new Exedron.Invoicing.Core.Models.InvoiceResponse(),(saved,response,profile) => {
+                calls++;
+                Equal(snapshot.InvoiceId,saved.InvoiceId);
+                Check(profile.Thermal,"The narrow report renderer did not receive the thermal profile");
+                return expected;
+            });
+            Equal(1,calls);
+            Check(actual.SequenceEqual(expected),"The generic text receipt replaced the configured narrow invoice report");
+        });
         Test("laser printing selects the driver A5 paper and rejects silent A4 fallback", () => {
             var a4 = new System.Drawing.Printing.PaperSize("A4 driver paper",827,1169) {
                 RawKind = (int)System.Drawing.Printing.PaperKind.A4 };
@@ -370,6 +426,19 @@ internal static partial class Program
             Equal(8f,safeThermal.X); Equal(299f,safeThermal.Width); Equal(1100f,safeThermal.Height);
             Equal(portrait,SharedInvoicePrinting.ApplyThermalSafetyInset(portrait,false));
         });
+        Test("thermal spool paper uses the fixed configured height", () => {
+            byte[] bytes;
+            using (var bitmap = new System.Drawing.Bitmap(300,600))
+            using (var stream = new System.IO.MemoryStream())
+            {
+                bitmap.Save(stream,System.Drawing.Imaging.ImageFormat.Png);
+                bytes = stream.ToArray();
+            }
+            var paper = SharedInvoicePrinting.ResolveRenderedThermalPaperSize(
+                new SharedPrinterProfile { Thermal = true,WidthHundredths = 315,HeightHundredths = 1100 },bytes);
+            Equal(315,paper.Width);
+            Equal(1100,paper.Height);
+        });
         Test("issuance, acceptance projection and independent print handoff", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer();
             int projections = 0; var workflow = Workflow(http,printer,(id,r) => { projections++; Check(r.Accepted,"projected unaccepted result"); if (r.Print == null) Equal(0,printer.Calls); });
@@ -390,6 +459,13 @@ internal static partial class Program
             workflow.Process(source.Source.Id,source,true,request);
             Check(original.SequenceEqual(printer.Bytes),"rendered current data"); Equal("corrected-printer",printer.Destination); Equal(2,printer.Calls); Equal(calls,http.Calls); Equal(1,source.Loads);
             Equal("Customer requested copy",Prints(source.Source.Id).Last().Reason);
+        });
+        Test("an unfinished first print can use an operator-selected printer without becoming a reprint", () => {
+            var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer(); var workflow = Workflow(http,printer);
+            workflow.Process(source.Source.Id,source,false);
+            workflow.Process(source.Source.Id,null,true,null,false,false,"operator-selected-printer");
+            Equal("operator-selected-printer",printer.Destination);
+            Equal(null,Prints(source.Source.Id).Last().Reason);
         });
         Test("unknown printer handoff blocks automatic and explicit reprint", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer { Uncertain = true }; var workflow = Workflow(http,printer);
@@ -485,6 +561,192 @@ internal static partial class Program
             Check(result.Accepted,"composed acceptance missing"); Equal("https://example.invalid/device-qr",result.Response.QrCodeUrl);
             workflow.Process(source.Source.Id,null); Equal(1,signer.Calls); Equal(1,http.Posts); Equal(1,printer.Calls);
         });
+        Test("signed direct myDATA rejection can explicitly retry submission without signing again", () => {
+            var source = new WorkflowSource(); using(var lease = database.EnterInvoice(source.Source.Id)) source.Prepare(lease);
+            source.Snapshot.Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                new FiscalDocumentReference(FiscalDocumentKind.Invoice,source.Source.Id),
+                new FiscalSigningScope("fake","device-v1",FiscalEnvironment.Test,"000000000",0),
+                "fake/v1",Encoding.UTF8.GetBytes("signed bytes"));
+            var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey) {
+                InvoicePost = body => Reply("<ResponseDoc><response><statusCode>ValidationError</statusCode><errors><error><code>1</code><message>synthetic</message></error></errors></response></ResponseDoc>")
+            };
+            var signer = new Signer(); var workflow = Workflow(http,new Printer(),signer:signer);
+            Equal("Rejected",workflow.Process(source.Source.Id,source,false).FiscalState);
+            http.InvoicePost = body => Reply(MyDataReply);
+            var result = workflow.Process(source.Source.Id,null,false,retryRejected:true);
+            Check(result.Accepted,"the signed direct-myDATA submission retry was not accepted");
+            Equal(1,signer.Calls); Equal(2,http.Posts);
+        });
+        Test("definitive Samtec rejection regenerates a recalculated workflow before retry", () => {
+            var source = new WorkflowSource(); var id = source.Source.Id;
+            var scope = new FiscalSigningScope(SamtecFiscalSigner.Key,"device-v1",FiscalEnvironment.Test,"000000000",0);
+            source.Snapshot = new InvoiceWorkflowSnapshot { InvoiceId = id,
+                Signing = new FiscalSigningRequest(Guid.NewGuid(),new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),
+                    scope,"synthetic/v1",Encoding.UTF8.GetBytes("incorrect calculated request")),
+                PrintDestination = "saved printer",PrintFormat = "test/v1",
+                PrintContent = Encoding.UTF8.GetBytes("incorrect calculated print") };
+            var signer = new RejectThenSign(); var workflow = Workflow(new Http(id,InvoiceProviderCatalog.MyDataKey),
+                new Printer(),signer:signer);
+            Equal("Rejected",workflow.Process(id,source,false).FiscalState);
+
+            source.Snapshot.Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),scope,"synthetic/v1",
+                Encoding.UTF8.GetBytes("recalculated request"));
+            source.Snapshot.PrintContent = Encoding.UTF8.GetBytes("recalculated print");
+            var result = workflow.Process(id,source,false,retryRejected:true);
+            Check(result.Accepted,"the regenerated signing request was not accepted");
+            Equal(2,source.Loads); Equal(2,signer.Calls);
+            Equal("incorrect calculated request",Encoding.UTF8.GetString(signer.Payloads[0]));
+            Equal("recalculated request",Encoding.UTF8.GetString(signer.Payloads[1]));
+            using (var lease = database.EnterInvoice(id))
+            {
+                var saved = JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(Encoding.UTF8.GetString(
+                    new SqlInvoiceWorkflowStore(database).Load(lease)));
+                Equal("recalculated request",Encoding.UTF8.GetString(saved.Signing.Payload));
+                Equal("recalculated print",Encoding.UTF8.GetString(saved.PrintContent));
+            }
+        });
+        Test("definitive Samtec rejection permits a re-saved device profile for the same issuer", () => {
+            var source = new WorkflowSource(); var id = source.Source.Id;
+            var oldScope = new FiscalSigningScope(SamtecFiscalSigner.Key,"device-v1",
+                FiscalEnvironment.Test,"000000000",0);
+            source.Snapshot = new InvoiceWorkflowSnapshot { InvoiceId = id,
+                Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                    new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),oldScope,"synthetic/v1",
+                    Encoding.UTF8.GetBytes("request with old payment")),
+                PrintDestination = "saved printer",PrintFormat = "test/v1",
+                PrintContent = Encoding.UTF8.GetBytes("old print") };
+            var signer = new RejectThenSign(); var workflow = Workflow(
+                new Http(id,InvoiceProviderCatalog.MyDataKey),new Printer(),signer:signer);
+            Equal("Rejected",workflow.Process(id,source,false).FiscalState);
+
+            var reSavedScope = new FiscalSigningScope(SamtecFiscalSigner.Key,"device-v2",
+                FiscalEnvironment.Test,"000000000",0);
+            source.Snapshot.Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),reSavedScope,"synthetic/v1",
+                Encoding.UTF8.GetBytes("request with corrected payment"));
+            source.Snapshot.PrintContent = Encoding.UTF8.GetBytes("corrected print");
+            var result = workflow.Process(id,source,false,retryRejected:true);
+            Check(result.Accepted,"the corrected request did not use the re-saved device profile");
+            Equal(2,signer.Calls);
+            using (var lease = database.EnterInvoice(id))
+            {
+                var saved = JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(Encoding.UTF8.GetString(
+                    new SqlInvoiceWorkflowStore(database).Load(lease)));
+                Equal("device-v2",saved.Signing.Scope.DeviceId);
+                Equal("request with corrected payment",Encoding.UTF8.GetString(saved.Signing.Payload));
+            }
+        });
+        Test("worker automatically regenerates a changed Samtec amount-mismatch request", () => {
+            var source = new WorkflowSource(); var id = source.Source.Id;
+            var scope = new FiscalSigningScope(SamtecFiscalSigner.Key,"device-v1",
+                FiscalEnvironment.Test,"000000000",0);
+            source.Snapshot = new InvoiceWorkflowSnapshot { InvoiceId = id,
+                Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                    new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),scope,"synthetic/v1",
+                    Encoding.UTF8.GetBytes("{\"Doc\":{\"Payments\":[{\"Type\":0}]},\"Version\":\"old\"}")),
+                PrintDestination = "saved printer",PrintFormat = "test/v1",
+                PrintContent = Encoding.UTF8.GetBytes("incorrect calculated print") };
+            var signer = new AmountMismatchSigner();
+            var workflow = Workflow(new Http(id,InvoiceProviderCatalog.MyDataKey),new Printer(),signer:signer);
+            Equal("Rejected",workflow.Process(id,source,false).FiscalState);
+
+            source.Snapshot.Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),scope,"synthetic/v1",
+                Encoding.UTF8.GetBytes("{\"Doc\":{\"Payments\":[{\"Type\":0}]},\"Version\":\"corrected\"}"));
+            source.Snapshot.PrintContent = Encoding.UTF8.GetBytes("corrected print");
+            // Recreate the service to prove the persisted rejection is resumed by
+            // the worker after an application restart.
+            workflow = Workflow(new Http(id,InvoiceProviderCatalog.MyDataKey),new Printer(),signer:signer);
+            var result = workflow.ProcessAutomaticSamtecAmountCorrection(id,source,false);
+            Check(result.Accepted,"the worker did not sign the regenerated amount request");
+            Equal(2,signer.Calls);
+            Equal("{\"Doc\":{\"Payments\":[{\"Type\":0}]},\"Version\":\"corrected\"}",
+                Encoding.UTF8.GetString(signer.Payloads[1]));
+        });
+        Test("worker stops after the corrected Samtec amount request is rejected again", () => {
+            var source = new WorkflowSource(); var id = source.Source.Id;
+            var scope = new FiscalSigningScope(SamtecFiscalSigner.Key,"device-v1",
+                FiscalEnvironment.Test,"000000000",0);
+            source.Snapshot = new InvoiceWorkflowSnapshot { InvoiceId = id,
+                Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                    new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),scope,"synthetic/v1",
+                    Encoding.UTF8.GetBytes("{\"Doc\":{\"Payments\":[{\"Type\":0}]},\"Version\":\"old\"}")),
+                PrintDestination = "saved printer",PrintFormat = "test/v1",
+                PrintContent = Encoding.UTF8.GetBytes("old print") };
+            var signer = new AmountMismatchSigner { AlwaysReject = true };
+            var workflow = Workflow(new Http(id,InvoiceProviderCatalog.MyDataKey),new Printer(),signer:signer);
+            Equal("Rejected",workflow.Process(id,source,false).FiscalState);
+
+            source.Snapshot.Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),scope,"synthetic/v1",
+                Encoding.UTF8.GetBytes("{\"Doc\":{\"Payments\":[{\"Type\":0}]},\"Version\":\"corrected\"}"));
+            Equal("Rejected",workflow.ProcessAutomaticSamtecAmountCorrection(id,source,false).FiscalState);
+            Equal(2,signer.Calls);
+            Equal("Rejected",workflow.ProcessAutomaticSamtecAmountCorrection(id,source,false).FiscalState);
+            Equal(2,signer.Calls);
+        });
+        Test("worker does not automatically retry a Samtec amount mismatch with integrated EFTPOS", () => {
+            var source = new WorkflowSource(); var id = source.Source.Id;
+            var scope = new FiscalSigningScope(SamtecFiscalSigner.Key,"device-v1",
+                FiscalEnvironment.Test,"000000000",0);
+            source.Snapshot = new InvoiceWorkflowSnapshot { InvoiceId = id,
+                Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                    new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),scope,"synthetic/v1",
+                    Encoding.UTF8.GetBytes("{\"Doc\":{\"Payments\":[{\"Type\":1}]},\"Version\":\"old\"}")),
+                PrintDestination = "saved printer",PrintFormat = "test/v1",
+                PrintContent = Encoding.UTF8.GetBytes("old print") };
+            var signer = new AmountMismatchSigner();
+            var workflow = Workflow(new Http(id,InvoiceProviderCatalog.MyDataKey),new Printer(),signer:signer);
+            Equal("Rejected",workflow.Process(id,source,false).FiscalState);
+
+            source.Snapshot.Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),scope,"synthetic/v1",
+                Encoding.UTF8.GetBytes("{\"Doc\":{\"Payments\":[{\"Type\":1}]},\"Version\":\"corrected\"}"));
+            Equal("Rejected",workflow.ProcessAutomaticSamtecAmountCorrection(id,source,false).FiscalState);
+            Equal(1,signer.Calls);
+        });
+        Test("worker does not automatically retry other definitive Samtec rejections", () => {
+            var source = new WorkflowSource(); var id = source.Source.Id;
+            var scope = new FiscalSigningScope(SamtecFiscalSigner.Key,"device-v1",
+                FiscalEnvironment.Test,"000000000",0);
+            source.Snapshot = new InvoiceWorkflowSnapshot { InvoiceId = id,
+                Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                    new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),scope,"synthetic/v1",
+                    Encoding.UTF8.GetBytes("{\"Doc\":{\"Payments\":[{\"Type\":0}]},\"Version\":\"old\"}")),
+                PrintDestination = "saved printer",PrintFormat = "test/v1",
+                PrintContent = Encoding.UTF8.GetBytes("old print") };
+            var signer = new RejectThenSign();
+            var workflow = Workflow(new Http(id,InvoiceProviderCatalog.MyDataKey),new Printer(),signer:signer);
+            Equal("Rejected",workflow.Process(id,source,false).FiscalState);
+
+            source.Snapshot.Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                new FiscalDocumentReference(FiscalDocumentKind.Invoice,id),scope,"synthetic/v1",
+                Encoding.UTF8.GetBytes("{\"Doc\":{\"Payments\":[{\"Type\":0}]},\"Version\":\"corrected\"}"));
+            Equal("Rejected",workflow.ProcessAutomaticSamtecAmountCorrection(id,source,false).FiscalState);
+            Equal(1,signer.Calls);
+        });
+        foreach (int payment in new[] { 2,4 })
+            Test("direct myDATA accepts Samtec integrated POS payment " + payment, () => {
+                var source = new WorkflowSource(); source.Source.Invoice.PaymentType = payment;
+                using(var lease = database.EnterInvoice(source.Source.Id)) source.Prepare(lease);
+                var scope = new FiscalSigningScope(SamtecFiscalSigner.Key,"samtec-pos",FiscalEnvironment.Test,"000000000",0);
+                source.Snapshot.Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                    new FiscalDocumentReference(FiscalDocumentKind.Invoice,source.Source.Id),scope,
+                    "samtec-test/v1",Encoding.UTF8.GetBytes("signed card/IRIS bytes"));
+                Equal(null,source.Snapshot.Payment);
+                var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey);
+                var printer = new Printer(); var signer = new Signer(SamtecFiscalSigner.Key);
+                var result = Workflow(http,printer,signer:signer).Process(source.Source.Id,source,false);
+                Check(result.Accepted,"integrated Samtec POS did not reach direct myDATA");
+                Equal(1,signer.Calls); Equal(1,http.Posts); Equal(0,printer.Calls);
+            });
+        Test("direct myDATA card without a POS owner remains rejected", () => {
+            var source = new WorkflowSource(); source.Source.Invoice.PaymentType = 2;
+            var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer();
+            Throws(() => Workflow(http,printer).Process(source.Source.Id,source,false));
+            Equal(0,http.Calls); Equal(0,printer.Calls);
+        });
         Test("snapshot fingerprint detects mutation before dispatch", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer(); var workflow = Workflow(http,printer);
             workflow.Process(source.Source.Id,source,false); Execute(connection,"UPDATE dbo.FiscalInvoiceWorkflow SET Payload=0x01 WHERE InvoiceId='" + source.Source.Id + "';");
@@ -564,6 +826,22 @@ internal static partial class Program
             finally { Execute(connection,"DROP TRIGGER RejectCounter;"); }
             using(var lease = database.EnterInvoice(id)) Equal(4,new SqlInvoiceWorkflowStore(database).AllocateNumbers(lease));
         });
+        Test("counter validation ignores inconsistencies older than its ten-invoice rolling window", () => {
+            var type = Guid.NewGuid(); var target = Guid.NewGuid();
+            var recent = Enumerable.Range(1,10).Select(i => new { Id = Guid.NewGuid(),Number = 10 + i,Day = i }).ToArray();
+            Execute(connection,"INSERT dbo.InvoiceType VALUES('" + type + "',20,'WINDOW');" +
+                "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate) VALUES('" + Guid.NewGuid() + "','" + type + "',150,'WINDOW','20260101');" +
+                string.Join("",recent.Select(item => "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate) VALUES('" + item.Id + "','" + type + "'," + item.Number + ",'WINDOW','202610" + item.Day.ToString("00") + "');")) +
+                "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate) VALUES('" + target + "','" + type + "',0,NULL,'20261015');");
+            using(var lease = database.EnterInvoice(target)) Equal(21,new SqlInvoiceWorkflowStore(database).AllocateNumbers(lease));
+        });
+        Test("counter validation still rejects an inconsistency in the ten most recent invoices", () => {
+            var type = Guid.NewGuid(); var target = Guid.NewGuid();
+            Execute(connection,"INSERT dbo.InvoiceType VALUES('" + type + "',20,'RECENT');" +
+                "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate) VALUES('" + Guid.NewGuid() + "','" + type + "',150,'RECENT','20261014');" +
+                "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate) VALUES('" + target + "','" + type + "',0,NULL,'20261015');");
+            using(var lease = database.EnterInvoice(target)) Throws(() => new SqlInvoiceWorkflowStore(database).AllocateNumbers(lease));
+        });
         Test("cutover numbering excludes earlier and legacy-issued records", () => {
             var type = Guid.NewGuid(); var old = Guid.NewGuid(); var signed = Guid.NewGuid(); var submitted = Guid.NewGuid(); var current = Guid.NewGuid();
             Execute(connection,"INSERT dbo.InvoiceType VALUES('" + type + "',0,'CUT');" + string.Join("",new[] { old,signed,submitted,current }.Select(id =>
@@ -579,17 +857,18 @@ internal static partial class Program
     }
     static void PrinterFallbackTests()
     {
-        var installed = new[] { "Type thermal","Installation default","Windows default" };
-        var defaultProfile = new SharedPrinterProfile { PrinterName = "Installation default" };
+        var installed = new[] { "Type thermal","Thermal fallback","Installation default","Windows default" };
+        var defaultProfile = new SharedPrinterProfile { PrinterName = "Installation default",
+            ThermalPrinterName = "Thermal fallback" };
         Test("installed invoice printer takes precedence over installation and Windows defaults", () => {
             var profile = SharedInvoicePrinting.ResolveProfile(new SharedPrinterProfile { PrinterName = " type THERMAL " },defaultProfile,installed,"Windows default");
             Equal("Type thermal",profile.PrinterName);
         });
-        Test("blank missing and legacy folder printers fall back to the installation default", () => {
+        Test("blank missing and legacy folder thermal printers use the configured thermal fallback", () => {
             foreach (var name in new[] { null,"","80 Printer",@"C:\ASFuelControl\Sign" })
             {
                 var profile = SharedInvoicePrinting.ResolveProfile(new SharedPrinterProfile { PrinterName = name },defaultProfile,installed,"Windows default");
-                Equal("Installation default",profile.PrinterName);
+                Equal("Thermal fallback",profile.PrinterName);
             }
         });
         Test("unavailable installation printer falls back to Windows default", () => {
@@ -610,10 +889,11 @@ internal static partial class Program
             Equal((short)2,profile.Copies); Equal(10f,profile.FontSize);
             Equal(original,JsonConvert.SerializeObject(saved)); Equal(defaults,JsonConvert.SerializeObject(defaultProfile));
         });
-        Test("thermal printer removal falls back to Windows rather than the configured laser printer", () => {
+        Test("thermal printer removal uses the thermal fallback rather than the configured laser printer", () => {
             var saved = new SharedPrinterProfile { PrinterName = "Removed dispenser",Thermal = true };
-            var profile = SharedInvoicePrinting.ResolveProfile(saved,defaultProfile,new[] { "Installation default","Windows default" },"Windows default");
-            Equal("Windows default",profile.PrinterName);
+            var profile = SharedInvoicePrinting.ResolveProfile(saved,defaultProfile,
+                new[] { "Thermal fallback","Installation default","Windows default" },"Windows default");
+            Equal("Thermal fallback",profile.PrinterName);
         });
         Test("printer fallback requires a valid selection or default instead of choosing an arbitrary printer", () => {
             Equal(null,SharedInvoicePrinting.ResolvePrinterName("old","missing",new[] { "unrelated printer" },null));

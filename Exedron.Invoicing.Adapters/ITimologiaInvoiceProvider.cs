@@ -793,7 +793,7 @@ namespace Exedron.Invoicing.Adapters
                 IssueDate = source.IssueDate.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
                 InvoiceType = source.InvoiceType,
                 VatPaymentSuspension = source.VATPaymentSuspension,
-                Currency = EmptyToNull(source.Currency),
+                Currency = IsStandaloneDeliveryNote(source.InvoiceType) ? null : EmptyToNull(source.Currency),
                 ExchangeRate = source.ExchangeRate == 0m ? null : DecimalText(source.ExchangeRate),
                 CorrelatedInvoices = source.CorrelatedInvoices == null
                     ? null

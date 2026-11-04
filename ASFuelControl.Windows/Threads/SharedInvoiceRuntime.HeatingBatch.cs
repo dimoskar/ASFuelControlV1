@@ -192,7 +192,8 @@ namespace ASFuelControl.Windows.Threads
                     (credit?"Πλήρης πίστωση":"Επανέκδοση")+" του "+plan.OriginalDescription+" — διόρθωση ένδειξης επιδόματος θέρμανσης. Συμψηφισμός χωρίς νέα είσπραξη.",DateTime.Now);
                 // Preserve the original provider/account/environment; new global settings must not redirect this batch.
                 var engine=new InvoiceWorkflowService(sql.Value,new ProviderSubmissionService(sql.Value,new CurrentCredentials()),null,null,
-                    new FiscalPrintService(sql.Value,new SharedInvoicePrinting(()=>settings.Value.DefaultPrinter)),SharedInvoicePrinting.Render,
+                    new FiscalPrintService(sql.Value,new SharedInvoicePrinting(()=>settings.Value.DefaultPrinter)),
+                    (snapshot,response)=>SharedInvoicePrinting.Render(snapshot,response,SharedInvoiceLaserReportRenderer.Render),
                     (invoiceId,result)=>{if(result.Accepted)Project(invoiceId,result);});
                 return engine.Process(id,new HeatingSource(plan,credit),false,retryRejected:true);
             }

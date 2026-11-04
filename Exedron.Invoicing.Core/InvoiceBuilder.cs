@@ -74,8 +74,12 @@ namespace Exedron.Invoicing.Core
             var customerAddress = MapAddress(customer.Address, customer.City, customer.PostalCode);
             if (dispatch != null)
             {
-                Require(Clean(dispatch.Vehicle) != null && dispatch.Departure != default(DateTime),
-                    "The delivery vehicle or dispatch date is missing.");
+                // A selected host vehicle may legitimately have no registration
+                // number (for example, movement without a registered transport
+                // means). The host enforces the selected VehicleId; the fiscal
+                // payload keeps the dispatch data and simply omits vehicleNumber.
+                Require(dispatch.Departure != default(DateTime),
+                    "The delivery dispatch date is missing.");
                 issuerAddress = dispatch.LoadingAddress;
                 customerAddress = dispatch.DeliveryAddress;
             }
@@ -113,7 +117,8 @@ namespace Exedron.Invoicing.Core
                 },
                 InvoiceHeader = new InvoiceHeader
                 {
-                    AA = invoice.Number.ToString(CultureInfo.InvariantCulture), Currency = "EUR",
+                    AA = invoice.Number.ToString(CultureInfo.InvariantCulture),
+                    Currency = movementOnly ? null : "EUR",
                     IssueDate = invoice.PrintedDateTime, InvoiceType = invoiceType,
                     Series = Clean(invoice.Series) ?? Clean(invoice.InvoiceSeries.Series) ?? "0",
                     // isDeliveryNote denotes an invoice with delivery, not a standalone 9.3.
@@ -150,7 +155,7 @@ namespace Exedron.Invoicing.Core
             }
             if (dispatch != null)
             {
-                model.InvoiceHeader.VehicleNumber = dispatch.Vehicle.Trim();
+                model.InvoiceHeader.VehicleNumber = Clean(dispatch.Vehicle);
                 model.InvoiceHeader.DispatchDateTime = dispatch.Departure;
             }
             if (invoiceType == "5.1")
@@ -171,9 +176,14 @@ namespace Exedron.Invoicing.Core
             }
             if (delivery)
             {
+                var issuerVat = Clean(company.CompanyTaxId);
+                var counterpartVat = Clean(customer.TaxRegistrationId);
+                bool sameVat = issuerVat != null && counterpartVat != null &&
+                    string.Equals(issuerVat, counterpartVat, StringComparison.OrdinalIgnoreCase);
                 // Quantitative receipts do not declare a new movement purpose.
                 model.InvoiceHeader.MovePurpose = invoiceType == "10.1" ? (MovePurposeEnum)0 :
-                    type.InvoiceTypeMode == InvoiceMode.Credit ? (MovePurposeEnum)5 : MovePurposeEnum.Sales;
+                    type.InvoiceTypeMode == InvoiceMode.Credit ? MovePurposeEnum.Return :
+                    sameVat ? MovePurposeEnum.Internal : MovePurposeEnum.Sales;
                 if (invoiceType != "10.1")
                     model.InvoiceHeader.OtherDeliveryNoteHeader = new OtherDeliveryNoteHeader
                     {

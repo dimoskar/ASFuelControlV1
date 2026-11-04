@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ASFuelControl.Invoicing.Mapping;
 
 namespace ASFuelControl.Windows.ViewModels
 {
@@ -13,6 +14,9 @@ namespace ASFuelControl.Windows.ViewModels
         private bool salesValueChanging = false;
         private Guid currentNozzleId { set; get; }
         private Guid currentDispenserId { set; get; }
+        private Guid sourceNozzleId;
+        private Guid sourceDispenserId;
+        private bool sourceSalePointLocked;
 
         public SalesTransactionViewModel SalesTransactionView { set; get; }
 
@@ -32,10 +36,20 @@ namespace ASFuelControl.Windows.ViewModels
         {
             set
             {
-                if (this.currentNozzleId == value)
+                var selectedValue = this.sourceSalePointLocked
+                    ? this.sourceNozzleId
+                    : value;
+                if (this.currentNozzleId == selectedValue)
+                {
+                    // A lookup can temporarily select its first row while Telerik
+                    // rebuilds the binding. Notify it to read the physical sale's
+                    // value back instead of accepting that presentation value.
+                    if (value != selectedValue)
+                        base.OnPropertyChanged("CurrentNozzleId", true);
                     return;
-                this.currentNozzleId = value;
-                if (this.EditEnabled)
+                }
+                this.currentNozzleId = selectedValue;
+                if (this.EditEnabled && !this.sourceSalePointLocked)
                 {
                     if (this.ParentInvoice.SelectedInvoiceType != null &&
                         this.ParentInvoice.SelectedInvoiceType.DispenserType == true)
@@ -66,10 +80,17 @@ namespace ASFuelControl.Windows.ViewModels
         {
             set
             {
-                if (this.currentDispenserId == value)
+                var selectedValue = this.sourceSalePointLocked
+                    ? this.sourceDispenserId
+                    : value;
+                if (this.currentDispenserId == selectedValue)
+                {
+                    if (value != selectedValue)
+                        base.OnPropertyChanged("CurrentDispenserId", true);
                     return;
-                this.currentDispenserId = value;
-                if (this.EditEnabled)
+                }
+                this.currentDispenserId = selectedValue;
+                if (this.EditEnabled && !this.sourceSalePointLocked)
                 {
                     if (this.ParentInvoice.SelectedInvoiceType != null &&
                         this.ParentInvoice.SelectedInvoiceType.DispenserType == true)
@@ -82,6 +103,56 @@ namespace ASFuelControl.Windows.ViewModels
                 this.OnPropertyChanged("CurrentDispenserId");
             }
             get { return this.currentDispenserId; }
+        }
+
+        public bool CanSelectSalePoint
+        {
+            get { return !this.sourceSalePointLocked && this.EditEnabled; }
+        }
+
+        /// <summary>
+        /// Carries the physical pump/nozzle identity into a transformed line
+        /// without transferring ownership of the original SalesTransaction and
+        /// without running the ordinary editable-line price/fuel setters.
+        /// </summary>
+        internal bool SetSourceNozzleContext(InvoiceLine sourceLine)
+        {
+            var sale = FindSourceSale(sourceLine, new HashSet<Guid>());
+            if (sale == null || sale.Nozzle == null)
+                return false;
+
+            this.sourceSalePointLocked = true;
+            this.sourceDispenserId = sale.Nozzle.DispenserId;
+            this.sourceNozzleId = sale.NozzleId;
+            bool dispenserChanged = this.currentDispenserId != sale.Nozzle.DispenserId;
+            bool nozzleChanged = this.currentNozzleId != sale.NozzleId;
+            this.currentDispenserId = sale.Nozzle.DispenserId;
+            this.currentNozzleId = sale.NozzleId;
+            if (dispenserChanged)
+                base.OnPropertyChanged("CurrentDispenserId", true);
+            if (nozzleChanged)
+                base.OnPropertyChanged("CurrentNozzleId", true);
+            base.OnPropertyChanged("CanSelectSalePoint", true);
+            return true;
+        }
+
+        private static SalesTransaction FindSourceSale(InvoiceLine line, HashSet<Guid> visited)
+        {
+            if (line == null || !visited.Add(line.InvoiceLineId))
+                return null;
+            if (line.SalesTransaction != null && line.SalesTransaction.Nozzle != null)
+                return line.SalesTransaction;
+
+            // A saved transformation intentionally has no SaleTransactionId of
+            // its own. Follow its line provenance so reopening it still shows
+            // the pump/nozzle of the physical source sale.
+            foreach (var link in line.InvoiceLineRelations_ChildRelationId)
+            {
+                var sale = FindSourceSale(link.InvoiceLine_ParentLineId, visited);
+                if (sale != null)
+                    return sale;
+            }
+            return null;
         }
 
         public bool CanDelete
@@ -134,7 +205,44 @@ namespace ASFuelControl.Windows.ViewModels
             }
         }
 
+        public bool CanEditTransformationFinancials
+        {
+            get
+            {
+                return this.IsTransformation && this.ParentInvoice != null &&
+                    this.ParentInvoice.TransformationUnitPriceEditEnabled;
+            }
+        }
+
+        public bool CanEditTransformationVolume
+        {
+            get
+            {
+                return this.IsTransformation && this.ParentInvoice != null &&
+                    this.ParentInvoice.TransformationVolumeEditEnabled;
+            }
+        }
+
         public bool IsTransformation { set; get; }
+
+        // A saved transformation already contains the fiscal values selected or
+        // copied when it was created. Reopening it must not rebuild those values
+        // from rounded quantity/unit-price columns.
+        internal bool PreserveFiscalAmounts { set; get; }
+
+        // UnitPriceRetail and UnitPriceWhole are coupled editor properties: setting
+        // either one recalculates the other. A transformation already knows which
+        // side is authoritative, so assign the prepared five-decimal pair together
+        // and never round-trip the authoritative value through VAT.
+        internal void SetTransformationUnitPrices(decimal retailPrice,
+            decimal netPrice)
+        {
+            this.unitPriceRetail = retailPrice;
+            this.unitPriceWhole = netPrice;
+            // Existing totals, Samtec and report code use UnitPrice as gross.
+            this.unitprice = retailPrice;
+            base.OnPropertyChanged("UnitPriceView");
+        }
 
         private decimal volumeCalc = 0;
         public decimal VolumeCalc
@@ -163,6 +271,11 @@ namespace ASFuelControl.Windows.ViewModels
         {
             set
             {
+                if (this.CanEditTransformationFinancials)
+                {
+                    ApplyEditableTransformationUnitPrice(value);
+                    return;
+                }
                 if (this.parentInvoice == null)
                 {
                     if (this.UnitPriceRetail == value)
@@ -199,6 +312,38 @@ namespace ASFuelControl.Windows.ViewModels
                 else
                     return this.UnitPriceWhole;
             }
+        }
+
+        private void ApplyEditableTransformationUnitPrice(decimal enteredPrice)
+        {
+            if (!this.CanEditTransformationFinancials)
+                return;
+            var prices = this.ParentInvoice.PricesIncludeVat
+                ? TransformationUnitPrice.FromRetail(enteredPrice, this.VatPercentage)
+                : TransformationUnitPrice.FromNet(enteredPrice, this.VatPercentage);
+            if (this.UnitPriceRetail == prices.Retail &&
+                this.UnitPriceWhole == prices.Net)
+                return;
+
+            EnableTransformationRecalculation();
+            this.SetTransformationUnitPrices(prices.Retail, prices.Net);
+            RecalculateEditedTransformationLine(false);
+        }
+
+        private void EnableTransformationRecalculation()
+        {
+            // Loading a saved transformation preserves its exact fiscal amounts.
+            // A policy-authorized price or discount edit explicitly changes those
+            // amounts, while quantity and source identity remain locked.
+            this.PreserveFiscalAmounts = false;
+        }
+
+        private void RecalculateEditedTransformationLine(bool discountPercentageSet)
+        {
+            bool suspended = this.ParentInvoice.SuspendRecalculation;
+            this.ParentInvoice.SuspendRecalculation = false;
+            this.SetComputedColumns(discountPercentageSet, !discountPercentageSet);
+            this.ParentInvoice.SuspendRecalculation = suspended;
         }
         //public decimal UnitPriceWhole
         //{
@@ -243,10 +388,33 @@ namespace ASFuelControl.Windows.ViewModels
         //    }
         //}
         private decimal discountAmountView = 0;
+
+        public decimal DiscountPercentageView
+        {
+            set
+            {
+                if (this.DiscountPercentage == value)
+                    return;
+                if (this.CanEditTransformationFinancials)
+                    EnableTransformationRecalculation();
+                this.DiscountPercentage = value;
+            }
+            get { return this.DiscountPercentage; }
+        }
+
         public decimal DiscountAmountView
         {
             set
             {
+                if (this.CanEditTransformationFinancials)
+                {
+                    decimal currentValue = this.ParentInvoice.PricesIncludeVat
+                        ? this.DiscountAmountRetail
+                        : this.DiscountAmountWhole;
+                    if (currentValue == value)
+                        return;
+                    EnableTransformationRecalculation();
+                }
                 if (this.parentInvoice == null)
                 {
                     if (this.DiscountAmountRetail == value)
@@ -450,6 +618,14 @@ namespace ASFuelControl.Windows.ViewModels
 
         private void ParentInvoice_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
+            if (e.PropertyName == "TransformationUnitPriceEditEnabled" ||
+                e.PropertyName == "TransformationVolumeEditEnabled" ||
+                e.PropertyName == "LineEditEnabled" ||
+                e.PropertyName == "IsPrinted" || e.PropertyName == "AllowEdit")
+            {
+                base.OnPropertyChanged("CanEditTransformationFinancials", true);
+                base.OnPropertyChanged("CanEditTransformationVolume", true);
+            }
             if(e.PropertyName == "InvoiceTypeId")
             {
                 if (this.ParentInvoice.SelectedInvoiceType != null)
@@ -469,6 +645,7 @@ namespace ASFuelControl.Windows.ViewModels
         public override void Load(DatabaseModel db, InvoiceLine entity)
         {
             base.Load(db, entity);
+            this.SetSourceNozzleContext(entity);
             
             if (this.ParentInvoice == null)
                 return;
@@ -486,9 +663,42 @@ namespace ASFuelControl.Windows.ViewModels
             else
                 this.VolumeCalc = this.Volume;
 
+            if (this.PreserveFiscalAmounts)
+                return;
+
             if (IsTransformation)
             {
-                this.TotalPrice = decimal.Round((this.VolumeCalc * this.UnitPriceRetail) - this.DiscountAmount, 2);
+                decimal preDiscountTotal = this.VolumeCalc * this.UnitPriceRetail;
+                if (discountPercentageSet)
+                {
+                    decimal retailDiscount = decimal.Round(
+                        preDiscountTotal * this.DiscountPercentage / 100m, 2);
+                    decimal vatMultiplier = (100m + this.GetVatPercentage()) / 100m;
+                    decimal netDiscount = this.GetVatPercentage() == 0
+                        ? retailDiscount
+                        : decimal.Round(retailDiscount / vatMultiplier, 2);
+                    this.DiscountAmountRetail = retailDiscount;
+                    this.DiscountAmountWhole = netDiscount;
+                    this.DiscountAmount = this.ParentInvoice.PricesIncludeVat
+                        ? retailDiscount
+                        : netDiscount;
+                }
+                else
+                {
+                    decimal percentage = preDiscountTotal == 0
+                        ? 0
+                        : decimal.Round(100m * this.DiscountAmountRetail /
+                            preDiscountTotal, 5);
+                    if (this.DiscountPercentage != percentage)
+                    {
+                        bool wasSuspended = this.suspendChange;
+                        this.suspendChange = true;
+                        this.DiscountPercentage = percentage;
+                        this.suspendChange = wasSuspended;
+                    }
+                }
+                this.TotalPrice = decimal.Round(
+                    preDiscountTotal - this.DiscountAmountRetail, 2);
                 this.VatAmount = decimal.Round(this.TotalPrice - (this.TotalPrice / ((100 + this.GetVatPercentage()) / 100)), 2);
                 if (this.ParentInvoice != null)
                     this.ParentInvoice.RecalculateSums();
@@ -554,11 +764,31 @@ namespace ASFuelControl.Windows.ViewModels
                 this.DiscountPercentage = totalPrice == 0 ? 0 : 100 * this.DiscountAmountRetail / totalPrice;
             }
 
-            this.TotalPrice = decimal.Round((this.VolumeCalc * this.UnitPriceRetail) - this.DiscountAmountRetail, 2);
+            decimal calculatedTotal = decimal.Round(
+                (this.VolumeCalc * this.UnitPriceRetail) - this.DiscountAmountRetail, 2);
+            // A dispenser owns the payable gross. Its separately rounded volume
+            // and unit price can multiply to one cent less or more. An invoice
+            // linked to that physical sale must always use its persisted total.
+            this.TotalPrice = UsesAuthoritativeDispenserTotal
+                ? decimal.Round(this.SalesTransactionView.TotalPrice, 2)
+                : calculatedTotal;
             this.VatAmount = decimal.Round(this.TotalPrice - (this.TotalPrice / ((100 + this.GetVatPercentage()) / 100)), 2);
             //this.NettoPrice = this.TotalPrice - this.VatAmount;
             if (this.ParentInvoice != null)
                 this.ParentInvoice.RecalculateSums();
+        }
+
+        internal bool UsesAuthoritativeDispenserTotal
+        {
+            get
+            {
+                return this.SaleTransactionId.HasValue &&
+                    this.SalesTransactionView != null &&
+                    this.ParentInvoice != null &&
+                    !this.ParentInvoice.VatExemption &&
+                    (this.ParentInvoice.SelectedInvoiceType == null ||
+                     this.ParentInvoice.SelectedInvoiceType.OfficialEnumerator != 178);
+            }
         }
 
         public void InitDiscount(InvoiceDetailsViewModel inv)
@@ -639,8 +869,14 @@ namespace ASFuelControl.Windows.ViewModels
                 var dispenser = this.ParentInvoice.Dispensers.Where(d => d.Nozzles.Select(n => n.NozzleId).Contains(this.SalesTransactionView.NozzleId)).FirstOrDefault();
                 if (dispenser != null)
                 {
+                    this.sourceSalePointLocked = true;
+                    this.sourceDispenserId = dispenser.DispenserId;
+                    this.sourceNozzleId = this.SalesTransactionView.NozzleId;
                     this.currentDispenserId = dispenser.DispenserId;
                     this.currentNozzleId = this.SalesTransactionView.NozzleId;
+                    base.OnPropertyChanged("CurrentDispenserId", true);
+                    base.OnPropertyChanged("CurrentNozzleId", true);
+                    base.OnPropertyChanged("CanSelectSalePoint", true);
                 }
             }
         }

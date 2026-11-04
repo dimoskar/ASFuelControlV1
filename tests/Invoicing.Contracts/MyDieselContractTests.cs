@@ -16,25 +16,43 @@ internal static partial class Program
             Throws<ArgumentException>(() => MyDieselCouponIdentity.NormalizeCouponCode("ACYY-1022-8625-7956-7356"));
             Throws<ArgumentException>(() => MyDieselCouponIdentity.NormalizeCouponCode("AYNY-1022-8625-7956-735"));
             Throws<ArgumentException>(() => new MyDieselCouponIdentity("AYNY-1022-8625-7956-7356", "12345678A"));
-            Throws<ArgumentOutOfRangeException>(() => new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "123456789", -1));
-            Throws<ArgumentException>(() => new MyDieselRedeemRequest("AYNY-1022-8625-7956-7356", "123456789", 1, "40000123456789"));
-            Equal("400001234567890", new MyDieselRedeemRequest("AYNY-1022-8625-7956-7356", "123456789", 1, " 400001234567890 ").Mark);
+            Throws<ArgumentOutOfRangeException>(() => new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "123456789", -1, "AMD-1"));
+            Throws<ArgumentException>(() => new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "123456789", 1, ""));
+            Throws<ArgumentException>(() => new MyDieselRedeemRequest("AYNY-1022-8625-7956-7356", "123456789", 1, "AMD-1", "40000123456789"));
+            Equal("400001234567890", new MyDieselRedeemRequest("AYNY-1022-8625-7956-7356", "123456789", 1, "AMD-1", " 400001234567890 ").Mark);
         });
-        Test("myDiesel scope freezes environment, company, branch and credential profile", () => {
-            var scope = new MyDieselScope(FiscalEnvironment.Test, "998877665", 0, " uat-1 ");
+        Test("myDiesel scope freezes environment, company, branch, AMDIKA and credential profile", () => {
+            var scope = new MyDieselScope(FiscalEnvironment.Test, "998877665", 0, " uat-1 ", " AMD-1 ");
             Equal(FiscalEnvironment.Test, scope.Environment);
             Equal("998877665", scope.CompanyVat);
             Equal(0, scope.BranchNum);
             Equal("uat-1", scope.CredentialProfileId);
+            Equal("AMD-1", scope.StationAmdika);
             Throws<ArgumentException>(() => new MyDieselScope(FiscalEnvironment.Unspecified, "998877665", 0, "uat-1"));
             Throws<ArgumentOutOfRangeException>(() => new MyDieselScope(FiscalEnvironment.Test, "998877665", -1, "uat-1"));
         });
         Test("myDiesel excise discount defaults to 0.41 euros per litre and validates configured rates", () => {
             Equal(0.41m, MyDieselTaxRules.DefaultExciseDiscountPerLitre);
             Equal(0.375m, MyDieselTaxRules.NormalizeExciseDiscountPerLitre(0.375m));
+            Equal(6.15m, MyDieselTaxRules.CalculateExciseDiscount(15m, 100m, 0.41m));
+            Equal(6.15m, MyDieselTaxRules.CalculateExciseDiscount(100m, 15m, 0.41m));
+            Equal(41m, MyDieselTaxRules.CalculateExciseDiscount(100m, 100m, 0.41m));
+            Equal(50.84m, MyDieselTaxRules.CalculateVatInclusiveExciseDiscount(100m, 100m, 0.41m, 24m));
+            Equal(47.97m, MyDieselTaxRules.CalculateVatInclusiveExciseDiscount(100m, 100m, 0.41m, 17m));
+            Equal(5.09m, MyDieselTaxRules.CalculateVatInclusiveExciseDiscount(10.002m, 10.002m, 0.41m, 24m));
+            Equal(4.10m, MyDieselTaxRules.CalculateNetDiscountFromGross(5.09m, 24m));
             Throws<ArgumentOutOfRangeException>(() => MyDieselTaxRules.NormalizeExciseDiscountPerLitre(0m));
             Throws<ArgumentOutOfRangeException>(() => MyDieselTaxRules.NormalizeExciseDiscountPerLitre(10.0001m));
             Throws<ArgumentOutOfRangeException>(() => MyDieselTaxRules.NormalizeExciseDiscountPerLitre(0.41001m));
+            Throws<ArgumentOutOfRangeException>(() => MyDieselTaxRules.CalculateExciseDiscount(0m, 100m, 0.41m));
+            Throws<ArgumentOutOfRangeException>(() => MyDieselTaxRules.CalculateExciseDiscount(100m, -1m, 0.41m));
+        });
+        Test("myDiesel accepts only the documented eligible AADE fuel codes", () => {
+            Check(MyDieselFuelRules.IsEligible(20), "AADE fuel code 20 was rejected.");
+            Check(MyDieselFuelRules.IsEligible(21), "AADE fuel code 21 was rejected.");
+            Check(!MyDieselFuelRules.IsEligible(19), "An unrelated AADE fuel code was accepted.");
+            Check(!MyDieselFuelRules.IsEligible(22), "An unknown AADE fuel code was accepted.");
+            Equal("20,21", string.Join(",", MyDieselFuelRules.GetEligibleCodes()));
         });
         Test("myDiesel retains future remote status text without treating it as a known state", () => {
             var info = new MyDieselCouponInfo { CouponStatus = "FUTURE_AADE_STATE", CreatedAt = 1792648800, ValidUntil = 1792666800 };

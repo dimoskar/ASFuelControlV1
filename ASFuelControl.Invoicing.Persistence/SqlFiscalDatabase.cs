@@ -31,7 +31,7 @@ namespace ASFuelControl.Invoicing.Persistence
         }
         public void InstallSchema()
         {
-            foreach (var resource in new[] { "FiscalSchema.sql", "FiscalWorkflowSchema.sql", "FiscalConfigurationSchema.sql", "HeatingCorrectionSchema.sql", "MyDieselSchema.sql" })
+            foreach (var resource in new[] { "FiscalSchema.sql", "FiscalWorkflowSchema.sql", "FiscalConfigurationSchema.sql", "HeatingCorrectionSchema.sql", "MyDieselSchema.sql", "InvoiceTypeCorrectionSchema.sql" })
             using (var stream = typeof(SqlFiscalDatabase).Assembly.GetManifestResourceStream(resource))
             using (var reader = new StreamReader(stream))
             using (var connection = Open())
@@ -64,7 +64,10 @@ namespace ASFuelControl.Invoicing.Persistence
                     "@resource", resource, "@timeout", lockTimeoutMilliseconds))
                 {
                     command.CommandTimeout = 65;
-                    if (Convert.ToInt32(command.ExecuteScalar()) < 0) throw new InvalidOperationException("This fiscal document is owned by another worker.");
+                    if (Convert.ToInt32(command.ExecuteScalar()) < 0)
+                        throw new InvalidOperationException(
+                            "Το παραστατικό επεξεργάζεται ήδη από άλλη εργασία. " +
+                            "Περιμένετε να ολοκληρωθεί και δοκιμάστε ξανά ή επιλέξτε Συνέχιση εκκρεμοτήτων.");
                 }
                 long token;
                 using (var transaction = connection.BeginTransaction())

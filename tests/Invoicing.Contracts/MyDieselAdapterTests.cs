@@ -49,11 +49,12 @@ internal static partial class Program
                 Equal("AYNY-1022-8625-7956-7356", (string)body["couponCode"]);
                 Equal("998877665", (string)body["companyVat"]);
                 Equal(1, (int)body["branchNum"]);
+                Equal("AMD-1", (string)body["amdika"]);
                 return Json(HttpStatusCode.OK, CouponEnvelope("RESERVED", true, omitOptional: true));
             });
             using (var client = UatClient(logger, handler))
             {
-                var result = client.Query(new MyDieselLookupRequest("ayny1022862579567356", "998877665", 1));
+                var result = client.Query(new MyDieselLookupRequest("ayny1022862579567356", "998877665", 1, "AMD-1"));
                 Equal(MyDieselOperationState.Succeeded, result.State);
                 Equal(MyDieselCouponStatus.Reserved, result.Data.KnownStatus);
                 Check(result.Data.FuelCode == null && result.Data.LowBalanceMessage == null, "Omitted optional values were not accepted.");
@@ -74,7 +75,7 @@ internal static partial class Program
                 Check(!request.Headers.Contains("X-myDiesel-PRV-API-Key"), "Production sent private UAT header.");
                 return Json(HttpStatusCode.OK, "{\"success\":true,\"data\":{\"vatNumber\":\"998877665\",\"companyName\":\"TEST FUEL\",\"active\":true,\"gasStations\":[{\"name\":\"Station\",\"branchNum\":1,\"amdika\":\"A1\"}]}}");
             });
-            var options = new MyDieselClientOptions { Scope = new MyDieselScope(FiscalEnvironment.Production, "998877665", 1, "prd"),
+            var options = new MyDieselClientOptions { Scope = new MyDieselScope(FiscalEnvironment.Production, "998877665", 1, "prd", "AMD-1"),
                 AadeUserId = "prod-user", ProductionSubscriptionKey = "prod-secret", Logger = logger };
             using (var client = new MyDieselClient(options, handler))
             {
@@ -94,6 +95,7 @@ internal static partial class Program
                 if (expected == "coupon/redeem")
                 {
                     var body = JObject.Parse(request.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+                    Equal("AMD-1", (string)body["amdika"]);
                     Equal("INVOICE", (string)body["invoiceType"]); Equal("400001234567890", (string)body["mark"]);
                     return Json(HttpStatusCode.OK, CouponEnvelope("REDEEMED", false, explicitNulls: true));
                 }
@@ -102,8 +104,8 @@ internal static partial class Program
             using (var client = UatClient(new MyDieselTestLogger(), handler))
             {
                 Equal(2, client.GetFuelTypes().Data.Length);
-                var lookup = new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "998877665", 1);
-                Equal(MyDieselCouponStatus.Redeemed, client.Redeem(new MyDieselRedeemRequest(lookup.CouponCode, lookup.CompanyVat, 1, "400001234567890")).Data.KnownStatus);
+                var lookup = new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "998877665", 1, "AMD-1");
+                Equal(MyDieselCouponStatus.Redeemed, client.Redeem(new MyDieselRedeemRequest(lookup.CouponCode, lookup.CompanyVat, 1, "AMD-1", "400001234567890")).Data.KnownStatus);
                 Equal(MyDieselCouponStatus.Active, client.Release(lookup).Data.KnownStatus);
                 Equal(MyDieselCouponStatus.Redeemed, client.ChangeBranch(lookup).Data.KnownStatus);
             }
@@ -119,10 +121,10 @@ internal static partial class Program
             var handler = new MyDieselTestHandler(request => replies.Dequeue()(request));
             using (var client = UatClient(new MyDieselTestLogger(), handler))
             {
-                var lookup = new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "998877665", 1);
+                var lookup = new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "998877665", 1, "AMD-1");
                 var conflict = client.Query(lookup);
                 Equal(MyDieselOperationState.Rejected, conflict.State); Equal("COUPON_RESERVED_BY_OTHER_BRANCH", conflict.Error.Code);
-                var timeout = client.Redeem(new MyDieselRedeemRequest(lookup.CouponCode, lookup.CompanyVat, 1, "400001234567890"));
+                var timeout = client.Redeem(new MyDieselRedeemRequest(lookup.CouponCode, lookup.CompanyVat, 1, "AMD-1", "400001234567890"));
                 Equal(MyDieselOperationState.Unknown, timeout.State); Equal(504, timeout.HttpStatus.Value);
                 var malformed = client.Query(lookup);
                 Equal(MyDieselOperationState.Unknown, malformed.State); Equal("MALFORMED_SUCCESS_RESPONSE", malformed.Error.Code);
@@ -134,17 +136,17 @@ internal static partial class Program
         Test("myDiesel rejects a request whose company differs from its frozen scope", () => {
             var handler = new MyDieselTestHandler(_ => throw new Exception("Transport must not run."));
             using (var client = UatClient(new MyDieselTestLogger(), handler))
-                Throws<ArgumentException>(() => client.Query(new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "997766554", 1)));
+                Throws<ArgumentException>(() => client.Query(new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "997766554", 1, "AMD-1")));
             Equal(0, handler.Calls);
         });
         Test("myDiesel correlates evidence and classifies logger failure before dispatch", () => {
             var caseId = Guid.NewGuid(); var invoiceId = Guid.NewGuid();
             var logger = new MyDieselTestLogger();
             var handler = new MyDieselTestHandler(_ => Json(HttpStatusCode.OK, CouponEnvelope("RESERVED", true)));
-            var options = new MyDieselClientOptions { Scope = new MyDieselScope(FiscalEnvironment.Test, "998877665", 1, "uat"),
+            var options = new MyDieselClientOptions { Scope = new MyDieselScope(FiscalEnvironment.Test, "998877665", 1, "uat", "AMD-1"),
                 UatApiKey = "uat-secret", Logger = logger, CouponCaseId = caseId, InvoiceId = invoiceId };
             using (var client = new MyDieselClient(options, handler))
-                Equal(MyDieselOperationState.Succeeded, client.Query(new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "998877665", 1)).State);
+                Equal(MyDieselOperationState.Succeeded, client.Query(new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "998877665", 1, "AMD-1")).State);
             Equal(FiscalDocumentKind.MyDieselCoupon, logger.Requests.Single().DocumentKind.Value);
             Equal(caseId, logger.Requests.Single().DocumentId.Value); Equal(invoiceId, logger.Requests.Single().InvoiceId.Value);
 
@@ -152,7 +154,7 @@ internal static partial class Program
             var blocked = new MyDieselTestHandler(_ => throw new Exception("Transport must not run."));
             using (var client = UatClient(failing, blocked))
             {
-                var result = client.Query(new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "998877665", 1));
+                var result = client.Query(new MyDieselLookupRequest("AYNY-1022-8625-7956-7356", "998877665", 1, "AMD-1"));
                 Equal(MyDieselOperationState.FailedBeforeDispatch, result.State);
                 Equal(typeof(InvalidOperationException).FullName, result.CommunicationError);
             }
@@ -162,7 +164,7 @@ internal static partial class Program
 
     private static MyDieselClient UatClient(MyDieselTestLogger logger, HttpMessageHandler handler)
     {
-        return new MyDieselClient(new MyDieselClientOptions { Scope = new MyDieselScope(FiscalEnvironment.Test, "998877665", 1, "uat"), UatApiKey = "uat-secret", Logger = logger }, handler);
+        return new MyDieselClient(new MyDieselClientOptions { Scope = new MyDieselScope(FiscalEnvironment.Test, "998877665", 1, "uat", "AMD-1"), UatApiKey = "uat-secret", Logger = logger }, handler);
     }
 
     private static HttpResponseMessage Json(HttpStatusCode status, string json)

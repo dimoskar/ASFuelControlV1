@@ -184,7 +184,7 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBox17.CanGrow = true;
             this.textBox17.Format = "{0:dd/MM/yyyy HH:mm:ss}";
-            this.textBox17.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.6002001762390137D), Telerik.Reporting.Drawing.Unit.Cm(2.1938409805297852D));
+            this.textBox17.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.6002001762390137D), Telerik.Reporting.Drawing.Unit.Cm(2.1335382461547852D));
             this.textBox17.Name = "textBox17";
             this.textBox17.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(1.6707912683486939D), Telerik.Reporting.Drawing.Unit.Cm(0.39979994297027588D));
             this.textBox17.Style.Font.Bold = false;
@@ -220,9 +220,9 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.transactionDateDataTextBox.CanGrow = true;
             this.transactionDateDataTextBox.Format = "{0:dd/MM/yyyy HH:mm:ss}";
-            this.transactionDateDataTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.299999862909317D), Telerik.Reporting.Drawing.Unit.Cm(2.6999998092651367D));
+            this.transactionDateDataTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.299999862909317D), Telerik.Reporting.Drawing.Unit.Cm(2.7000000476837158D));
             this.transactionDateDataTextBox.Name = "transactionDateDataTextBox";
-            this.transactionDateDataTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(6.9706869125366211D), Telerik.Reporting.Drawing.Unit.Cm(0.5997999906539917D));
+            this.transactionDateDataTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(6.9706869125366211D), Telerik.Reporting.Drawing.Unit.Cm(0.499799907207489D));
             this.transactionDateDataTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(8D);
             this.transactionDateDataTextBox.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Center;
             this.transactionDateDataTextBox.Style.VerticalAlign = Telerik.Reporting.Drawing.VerticalAlign.Middle;
@@ -234,11 +234,12 @@ namespace ASFuelControl.Reports.Invoices
             this.descriptionDataTextBox.CanGrow = true;
             this.descriptionDataTextBox.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(0.2999994158744812D), Telerik.Reporting.Drawing.Unit.Cm(2.1006004810333252D));
             this.descriptionDataTextBox.Name = "descriptionDataTextBox";
-            this.descriptionDataTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(4.71399450302124D), Telerik.Reporting.Drawing.Unit.Cm(0.599399209022522D));
+            this.descriptionDataTextBox.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(4.71399450302124D), Telerik.Reporting.Drawing.Unit.Cm(0.49304023385047913D));
             this.descriptionDataTextBox.Style.Font.Bold = false;
             this.descriptionDataTextBox.Style.Font.Name = "Bahnschrift SemiBold Condensed";
             this.descriptionDataTextBox.Style.Font.Size = Telerik.Reporting.Drawing.Unit.Point(9D);
             this.descriptionDataTextBox.Style.TextAlign = Telerik.Reporting.Drawing.HorizontalAlign.Left;
+            this.descriptionDataTextBox.Style.VerticalAlign = Telerik.Reporting.Drawing.VerticalAlign.Middle;
             this.descriptionDataTextBox.StyleName = "Data";
             this.descriptionDataTextBox.TextWrap = false;
             this.descriptionDataTextBox.Value = "=Fields.Description";
@@ -426,7 +427,7 @@ namespace ASFuelControl.Reports.Invoices
             // 
             this.textBox20.CanGrow = true;
             this.textBox20.Format = "{0:dd/MM/yyyy HH:mm:ss}";
-            this.textBox20.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.1006054878234863D), Telerik.Reporting.Drawing.Unit.Cm(2.1938407421112061D));
+            this.textBox20.Location = new Telerik.Reporting.Drawing.PointU(Telerik.Reporting.Drawing.Unit.Cm(5.1006054878234863D), Telerik.Reporting.Drawing.Unit.Cm(2.133537769317627D));
             this.textBox20.Name = "textBox20";
             this.textBox20.Size = new Telerik.Reporting.Drawing.SizeU(Telerik.Reporting.Drawing.Unit.Cm(0.49939417839050293D), Telerik.Reporting.Drawing.Unit.Cm(0.39979994297027588D));
             this.textBox20.Style.Font.Bold = false;

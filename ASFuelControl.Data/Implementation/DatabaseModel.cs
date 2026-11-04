@@ -1708,6 +1708,10 @@ namespace ASFuelControl.Data
                 invoice.InvoiceId = Guid.NewGuid();
                 db.Add(invoice);
                 invoice.TransactionDate = DateTime.Now;
+                // Every generated invoice carries an explicit payment method.
+                // A vehicle/trader may override it below, but anonymous pump sales
+                // must not reach fiscal mapping with a nullable PaymentType.
+                invoice.PaymentType = (int)Common.Enumerators.PaymentTypeEnum.Cash;
                 // Dispenser sales are persisted as pending. PrintAgent hands them to
                 // SharedInvoiceRuntime, which numbers, submits and finally marks them
                 // printed after the printer handoff succeeds.
@@ -1742,7 +1746,9 @@ namespace ASFuelControl.Data
                         invoice.TraderId = invoice.Vehicle.TraderId;
                         invoice.Trader = invoice.Vehicle.Trader;
                         invoice.VehiclePlateNumber = invoice.Vehicle.PlateNumber;
-                        invoice.PaymentType = invoice.Vehicle.Trader.PaymentType;
+                        if (invoice.Vehicle.Trader.PaymentType.HasValue &&
+                            Enum.IsDefined(typeof(Common.Enumerators.PaymentTypeEnum), invoice.Vehicle.Trader.PaymentType.Value))
+                            invoice.PaymentType = invoice.Vehicle.Trader.PaymentType.Value;
                         //if (invoice.Trader.InvoiceTypeId.HasValue && invoice.Trader.InvoiceTypeId.Value != invoice.InvoiceTypeId)
                         //{
                         //    invoice.InvoiceTypeId = invoice.Trader.InvoiceTypeId.Value;
@@ -1820,22 +1826,21 @@ namespace ASFuelControl.Data
                 if (sale.DiscountPercentage.HasValue && sale.DiscountPercentage.Value > 0)
                 {
                     decimal discount = Math.Round(invoice.TotalAmount.Value * sale.DiscountPercentage.Value / 100, 2);
+                    decimal discountWhole = Math.Round(discount / vatMult, 2);
                     sale.TotalPrice = decimal.Round(invoice.TotalAmount.Value, 2) - discount;
-                    invoice.DiscountAmount = discount;
-                    
-
                     invLine.DiscountAmountRetail = discount;
-                    invLine.DiscountAmountWhole = discount / vatMult;
+                    invLine.DiscountAmountWhole = discountWhole;
 
                     invoice.TotalAmount = decimal.Round(invoice.TotalAmount.Value, 2) - discount;
                     invLine.TotalPrice = decimal.Round(invLine.TotalPrice, 2) - discount;
                     invoice.VatAmount = decimal.Round(invoice.TotalAmount.Value, 2) - decimal.Round(invoice.TotalAmount.Value / vatMult, 2);
                     invLine.VatAmount = invoice.VatAmount.Value;
-                    invoice.DiscountAmount = decimal.Round(discount / vatMult, 2);
-                    invLine.DiscountAmount = decimal.Round(discount / vatMult, 2);
+                    invoice.DiscountAmount = discount;
+                    invLine.DiscountAmount = discount;
                     invoice.DiscountAmountRetail = discount;
-                    invoice.DiscountAmountWhole = discount / vatMult;
-                    invoice.NettoAfterDiscount = invoice.NettoAmount.Value - invoice.DiscountAmount;
+                    invoice.DiscountAmountWhole = discountWhole;
+                    invoice.NettoAfterDiscount = invoice.TotalAmount.Value - invoice.VatAmount.Value;
+                    invoice.NettoAmount = invoice.NettoAfterDiscount + discountWhole;
                     invLine.DiscountPercentage = sale.DiscountPercentage.Value;
                 }
 
@@ -2005,6 +2010,7 @@ namespace ASFuelControl.Data
             invoice.InvoiceId = Guid.NewGuid();
             db.Add(invoice);
             invoice.TransactionDate = DateTime.Now;
+            invoice.PaymentType = (int)Common.Enumerators.PaymentTypeEnum.Cash;
             // Keep recovered/manual dispenser sales on the same pending lifecycle as
             // sales created directly by the dispenser controller.
             invoice.IsPrinted = false;
@@ -3279,9 +3285,9 @@ ELSE SELECT COUNT(*) FROM dbo.FiscalHeatingCorrection WHERE CreditInvoiceId=@id"
             if (this.ParentInvoiceRelations != null && this.ParentInvoiceRelations.Count > 0)
                 return;
 
-            var vatInitial = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", 23);
             if (this.Trader != null && this.Trader.VatExemption.HasValue && this.Trader.VatExemption.Value)
             {
+                var vatInitial = Data.Implementation.OptionHandler.Instance.GetDecimalOption("VATValue", 23);
                 foreach (var invLine in this.InvoiceLines)
                 {
                     if(invLine.SalesTransaction != null)
@@ -3332,8 +3338,18 @@ ELSE SELECT COUNT(*) FROM dbo.FiscalHeatingCorrection WHERE CreditInvoiceId=@id"
                 }
                 else
                 {
-                    discountRetail = decimal.Round((discPercentage * decimal.Round(line.Volume * line.UnitPrice, 2)) / 100, 2);
-                    totalDiscounted = decimal.Round(line.Volume * line.UnitPrice, 2) - discountRetail;
+                    decimal grossBeforeDiscount = decimal.Round(line.Volume * line.UnitPrice, 2);
+                    discPercentage = line.DiscountPercentage;
+                    if (discPercentage != 0)
+                        discountRetail = decimal.Round((discPercentage * grossBeforeDiscount) / 100, 2);
+                    else if (line.DiscountAmountRetail != 0)
+                        discountRetail = decimal.Round(line.DiscountAmountRetail, 2);
+                    else if (line.DiscountAmount != 0 && line.DiscountAmount != line.DiscountAmountWhole)
+                        discountRetail = decimal.Round(line.DiscountAmount, 2);
+                    else if (line.DiscountAmountWhole != 0)
+                        discountRetail = decimal.Round(line.DiscountAmountWhole *
+                            (100 + line.VatPercentage) / 100, 2);
+                    totalDiscounted = grossBeforeDiscount - discountRetail;
                     totalPreDiscount = totalDiscounted + discountRetail;
                 }
                 discountWhole = decimal.Round((100 * discountRetail) / (100 + line.VatPercentage), 2);
@@ -3343,6 +3359,7 @@ ELSE SELECT COUNT(*) FROM dbo.FiscalHeatingCorrection WHERE CreditInvoiceId=@id"
 
                 line.TotalPrice = totalDiscounted;
                 line.DiscountAmount = discountRetail;
+                line.DiscountAmountRetail = discountRetail;
                 line.DiscountAmountWhole = discountWhole;
                 line.VatAmount = lineVat;
 
@@ -3362,6 +3379,7 @@ ELSE SELECT COUNT(*) FROM dbo.FiscalHeatingCorrection WHERE CreditInvoiceId=@id"
             this.TotalAmount = decimal.Round(tot, 2);
             this.DiscountAmountWhole = discWhole;
             this.DiscountAmount = disc;
+            this.DiscountAmountRetail = disc;
             this.VatAmount = vat;
         }
 
@@ -4696,6 +4714,7 @@ ELSE SELECT COUNT(*) FROM dbo.FiscalHeatingCorrection WHERE CreditInvoiceId=@id"
             invoice.TransactionDate = DateTime.Now;
             invoice.Printer = invType.Printer;
             invoice.ApplicationUserId = DatabaseModel.CurrentUserId;
+            invoice.PaymentType = (int)Common.Enumerators.PaymentTypeEnum.Cash;
             invoice.IsPrinted = false;
             invoice.NettoAmount = 0;
             invoice.TotalAmount = 0;

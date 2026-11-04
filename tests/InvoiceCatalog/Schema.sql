@@ -12,11 +12,18 @@ CREATE TABLE dbo.Invoice
  InvoiceId uniqueidentifier NOT NULL PRIMARY KEY, InvoiceTypeId uniqueidentifier NOT NULL, TransactionDate datetime NOT NULL,
  DiscountAmount decimal(18,2), NettoAmount decimal(18,2), Number int NOT NULL, PaymentType int, TotalAmount decimal(18,2),
  TraderId uniqueidentifier, VehicleId uniqueidentifier, VatAmount decimal(18,2), IsPrinted bit, SupplyNumber nvarchar(100),
- VehicleOdometer int, DeliveryAddress nvarchar(150), Series nvarchar(10)
+ VehicleOdometer int, DeliveryAddress nvarchar(150), Series nvarchar(10), InvoiceSignature nvarchar(1500)
 );
 CREATE TABLE dbo.InvoiceLine (InvoiceLineId uniqueidentifier NOT NULL PRIMARY KEY, InvoiceId uniqueidentifier, FuelTypeId uniqueidentifier, Volume decimal(18,3));
 CREATE TABLE dbo.InvoiceRelation (ParentInvoiceId uniqueidentifier, ChildInvoiceId uniqueidentifier, RelationType int);
 CREATE TABLE dbo.FinTransaction (InvoiceId uniqueidentifier, DebitAmount decimal(18,2), CreditAmount decimal(18,2));
+CREATE TABLE dbo.MyDataInvoice
+(
+ MyDataInvoiceId uniqueidentifier NOT NULL PRIMARY KEY,
+ InvoiceId uniqueidentifier NOT NULL,
+ CanceledByMark bigint NULL,
+ Mark bigint NULL
+);
 -- Simulate existing indexes under different names: the migration must reuse these.
 CREATE INDEX Existing_Date ON dbo.Invoice(TransactionDate) INCLUDE(InvoiceId, InvoiceTypeId);
 CREATE INDEX Existing_Line ON dbo.InvoiceLine(InvoiceId) INCLUDE(FuelTypeId, Volume);
@@ -44,7 +51,7 @@ BEGIN
    CASE WHEN @n % 11 = 0 THEN NULL ELSE @n % 6 END, CASE WHEN @n % 13 = 0 THEN NULL ELSE @n * 1.37 END,
    CASE WHEN @n % 11 = 0 THEN NULL WHEN @n % 19 = 0 THEN NEWID() ELSE @trader END,
    CASE WHEN @n % 4 = 0 THEN NULL ELSE @vehicle END, @n * 0.24, CASE WHEN @n % 5 = 0 THEN NULL ELSE 1 END,
-   CASE WHEN @n % 8 = 0 THEN NULL ELSE N'SUP-' + CAST(@n AS nvarchar(12)) END, NULL, NULL, N'A');
+   CASE WHEN @n % 8 = 0 THEN NULL ELSE N'SUP-' + CAST(@n AS nvarchar(12)) END, NULL, NULL, N'A', NULL);
  IF @n % 9 <> 0
  BEGIN
    INSERT dbo.InvoiceLine VALUES (NEWID(), @id, @fuel, @n * 0.123), (NEWID(), @id, @fuel, NULL), (NEWID(), @id, @fuel2, 1.234);

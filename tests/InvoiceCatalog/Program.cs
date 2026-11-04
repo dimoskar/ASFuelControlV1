@@ -51,6 +51,12 @@ internal static class Program
             Check(indexes == 3 && indexes == Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.indexes WHERE name LIKE 'IX_InvoiceCatalog_%'")), "migration is repeatable and reuses existing date/line indexes");
             string heatingMigration=File.ReadAllText(Path.Combine(repo,"ASFuelControl.Windows/DBScripts/UpdateDatabase61.sql"));
             Script(heatingMigration);Script(heatingMigration);
+            string fiscalMigration=File.ReadAllText(Path.Combine(repo,"ASFuelControl.Windows/DBScripts/UpdateDatabase57.sql"));
+            Script(fiscalMigration);Script(fiscalMigration);
+            string workflowMigration=File.ReadAllText(Path.Combine(repo,"ASFuelControl.Windows/DBScripts/UpdateDatabase58.sql"));
+            Script(workflowMigration);Script(workflowMigration);
+            string configurationMigration=File.ReadAllText(Path.Combine(repo,"ASFuelControl.Windows/DBScripts/UpdateDatabase59.sql"));
+            Script(configurationMigration);Script(configurationMigration);
             Check(Convert.ToInt32(Scalar("SELECT compatibility_level FROM sys.databases WHERE name = DB_NAME()")) == 100, "database compatibility level 100");
             Check(Convert.ToInt32(Scalar("SELECT COUNT(*) FROM (SELECT * FROM dbo.LegacyInvoiceCatalogView EXCEPT SELECT * FROM dbo.InvoiceCatalogView) d")) == 0 &&
                   Convert.ToInt32(Scalar("SELECT COUNT(*) FROM (SELECT * FROM dbo.InvoiceCatalogView EXCEPT SELECT * FROM dbo.LegacyInvoiceCatalogView) d")) == 0,
@@ -59,6 +65,7 @@ internal static class Program
             if (args.Length < 4 || args[3] != "--native-only")
             {
                 Filters();
+                CancellationPairTotals();
                 SnapshotAndTotals();
                 AsyncLoads().GetAwaiter().GetResult();
                 Benchmark();
@@ -132,6 +139,37 @@ internal static class Program
         }
     }
 
+    private static void CancellationPairTotals()
+    {
+        var rows = new[]
+        {
+            new InvoiceCatalogView
+            {
+                InvoiceId = Guid.NewGuid(), InvoiceTypeId = type, PaymentType = 0,
+                TotalAmount = 31.83m, TransactionSign = 1, Canceled = 1, Replaced = 1
+            },
+            new InvoiceCatalogView
+            {
+                InvoiceId = Guid.NewGuid(), InvoiceTypeId = type, PaymentType = 0,
+                TotalAmount = 31.83m, TransactionSign = 1, Cancelation = 1
+            },
+            new InvoiceCatalogView
+            {
+                InvoiceId = Guid.NewGuid(), InvoiceTypeId = type, PaymentType = 0,
+                TotalAmount = 25.67m, TransactionSign = 1
+            },
+            new InvoiceCatalogView
+            {
+                InvoiceId = Guid.NewGuid(), InvoiceTypeId = type, PaymentType = 0,
+                TotalAmount = 206.05m, TransactionSign = 1
+            }
+        };
+        var totals = new InvoiceCatalogTotals(rows, types);
+        Check(totals.Get(4, "TotalAmount") == 231.72m &&
+              totals.Get(1, "TotalAmount") == 231.72m,
+            "catalog totals omit both sides of a cancellation pair");
+    }
+
     private static IQueryable<InvoiceCatalogView> LegacyFilter(IQueryable<InvoiceCatalogView> q, InvoiceCatalogFilter filter)
     {
         var from = filter.From; var to = filter.To; var search = filter.Search; var typeId = filter.InvoiceTypeId;
@@ -152,8 +190,90 @@ internal static class Program
     private static void SnapshotAndTotals()
     {
         var filter = new InvoiceCatalogFilter(new DateTime(2026, 10, 17), new DateTime(2026, 10, 19), Guid.Empty, "");
+        var localCopyParent = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=2");
+        var localCopyChild = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=3");
+        var markCancelledInvoice = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=4");
+        var releasedOriginal = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=7");
+        var cancelledCredit = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=8");
+        var activeOriginal = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=11");
+        var activeCredit = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=12");
+        var failedInvoice = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=14");
+        var resolvedInvoice = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=15");
+        var transmittedWithoutMark = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=16");
+        var transmittedWithMark = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=17");
+        var currentSignWithoutSignature = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=18");
+        var untouchedDraft = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=19");
+        var currentTransmissionWithoutMark = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=22");
+        var historicalInvoice = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=25");
+        var frozenLocalInvoice = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=28");
+        var currentTransmissionWithMark = (Guid)Scalar("SELECT InvoiceId FROM dbo.Invoice WHERE Number=31");
+        Execute(connection, "INSERT dbo.InvoiceRelation(ParentInvoiceId,ChildInvoiceId,RelationType) VALUES('" +
+            localCopyParent + "','" + localCopyChild + "',2); INSERT dbo.MyDataInvoice(MyDataInvoiceId,InvoiceId,CanceledByMark) VALUES(NEWID(),'" +
+            markCancelledInvoice + "',900004); INSERT dbo.InvoiceRelation(ParentInvoiceId,ChildInvoiceId,RelationType) VALUES('" +
+            releasedOriginal + "','" + cancelledCredit + "',0),('" + activeOriginal + "','" + activeCredit + "',0); " +
+            "INSERT dbo.MyDataInvoice(MyDataInvoiceId,InvoiceId,CanceledByMark) VALUES(NEWID(),'" + cancelledCredit + "',900008)");
+        Execute(connection,@"INSERT dbo.FiscalConfiguration(ConfigurationJson,CreatedUtc,CreatedBy)
+VALUES(N'{""Enabled"":true,""FirstInvoiceDate"":""2026-10-18T00:00:00""}',SYSUTCDATETIME(),N'test');
+INSERT dbo.FiscalInvoiceTypePolicy(InvoiceTypeId,TransmissionMode,SignWithFiscalDevice,Revision,UpdatedUtc)
+VALUES('00000000-0000-0000-0000-000000000001',2,0,1,SYSUTCDATETIME()),
+      ('00000000-0000-0000-0000-000000000002',0,1,1,SYSUTCDATETIME()),
+      ('00000000-0000-0000-0000-000000000003',0,0,1,SYSUTCDATETIME());
+UPDATE dbo.Invoice SET InvoiceSignature=N'SIG' WHERE InvoiceId='"+resolvedInvoice+@"';
+UPDATE dbo.Invoice SET Number=0,IsPrinted=0 WHERE InvoiceId='"+untouchedDraft+@"';
+UPDATE dbo.Invoice SET TransactionDate='20261017 12:00' WHERE InvoiceId='"+historicalInvoice+@"';
+INSERT dbo.MyDataInvoice(MyDataInvoiceId,InvoiceId,Mark) VALUES(NEWID(),'"+transmittedWithMark+@"',900017),(NEWID(),'"+currentTransmissionWithMark+@"',900031);
+INSERT dbo.FiscalInvoiceWorkflow(InvoiceId,Payload,PayloadSha256,CreatedUtc,FencingToken)
+VALUES('"+failedInvoice+@"',CONVERT(varbinary(max),'{""Provider"":null,""Signing"":{""Scope"":{""SignerKey"":""Samtec""}},""LocalOnly"":false}'),REPLICATE('0',64),SYSUTCDATETIME(),1),
+      ('"+resolvedInvoice+@"',CONVERT(varbinary(max),'{""Provider"":null,""Signing"":{""Scope"":{""SignerKey"":""Samtec""}},""LocalOnly"":false}'),REPLICATE('0',64),SYSUTCDATETIME(),1),
+      ('"+transmittedWithoutMark+@"',CONVERT(varbinary(max),'{""Provider"":{""ProviderKey"":""myDATA""},""Signing"":null,""LocalOnly"":false}'),REPLICATE('0',64),SYSUTCDATETIME(),1),
+      ('"+transmittedWithMark+@"',CONVERT(varbinary(max),'{""Provider"":{""ProviderKey"":""iTimologia""},""Signing"":null,""LocalOnly"":false}'),REPLICATE('0',64),SYSUTCDATETIME(),1),
+      ('"+frozenLocalInvoice+@"',CONVERT(varbinary(max),'{""Provider"":null,""Signing"":null,""LocalOnly"":true}'),REPLICATE('0',64),SYSUTCDATETIME(),1);
+INSERT dbo.FiscalDocumentLease(DocumentKind,DocumentId,FencingToken)
+VALUES(1,'"+failedInvoice+@"',1),(1,'"+resolvedInvoice+@"',1);
+DECLARE @failed uniqueidentifier=NEWID(),@old uniqueidentifier=NEWID();
+INSERT dbo.FiscalAttempt(AttemptId,DocumentKind,DocumentId,Family,Operation,Scope,PayloadFormat,RequestPayload,RequestSha256,CreatedUtc,CurrentRevision,BlocksNewAttempt)
+VALUES(@failed,1,'"+failedInvoice+@"','Signing','Sign','{}','test/v1',0x01,REPLICATE('0',64),DATEADD(minute,-10,SYSUTCDATETIME()),0,1),
+(@old,1,'"+resolvedInvoice+@"','Signing','Sign','{}','test/v1',0x01,REPLICATE('0',64),DATEADD(minute,-10,SYSUTCDATETIME()),0,0);
+INSERT dbo.FiscalAttemptRevision(AttemptId,Revision,State,RecordedUtc,SnapshotJson,FencingToken)
+VALUES(@failed,0,'Unknown',DATEADD(minute,-10,SYSUTCDATETIME()),'{}',1),
+(@old,0,'Rejected',DATEADD(minute,-10,SYSUTCDATETIME()),'{}',1);");
         var snapshot = InvoiceCatalogData.Read(connection, filter, admin, types);
         Check(snapshot.Invoices.Length == 2405 && snapshot.IsAdmin, "real OpenAccess loads every row and admin state");
+        Check(snapshot.Invoices.Single(i => i.InvoiceId == localCopyParent).IsReplaced,
+            "local transformation provenance marks the source invoice as transformed");
+        Check(snapshot.Invoices.Single(i => i.InvoiceId == markCancelledInvoice).IsCanceled,
+            "accepted MARK cancellation marks the source invoice as cancelled in the catalog");
+        Check(!snapshot.Invoices.Single(i => i.InvoiceId == releasedOriginal).IsCanceled,
+            "cancelled credit MARK releases the original invoice for another credit");
+        Check(snapshot.Invoices.Single(i => i.InvoiceId == cancelledCredit).IsCanceled,
+            "the successfully MARK-cancelled credit remains shown as cancelled");
+        Check(snapshot.Invoices.Single(i => i.InvoiceId == activeOriginal).IsCanceled,
+            "an active credit relation keeps the original invoice cancelled");
+        Check(snapshot.FiscalFailures.ContainsKey(failedInvoice) &&
+              snapshot.FiscalFailures[failedInvoice].Contains("Λείπει υπογραφή") &&
+              snapshot.FiscalFailures[failedInvoice].Contains("άγνωστη έκβαση"),
+            "sign-only invoice without a signature is exposed with its attempt diagnostic");
+        Check(!snapshot.FiscalFailures.ContainsKey(resolvedInvoice),
+            "stored signature clears the indicator even when the latest attempt says rejected");
+        Check(snapshot.FiscalFailures.ContainsKey(transmittedWithoutMark) &&
+              snapshot.FiscalFailures[transmittedWithoutMark].Contains("Λείπει MARK"),
+            "frozen transmission without a MARK is exposed to the catalog");
+        Check(!snapshot.FiscalFailures.ContainsKey(transmittedWithMark),
+            "stored MARK completes a frozen provider transmission");
+        Check(snapshot.FiscalFailures.ContainsKey(currentSignWithoutSignature) &&
+              snapshot.FiscalFailures[currentSignWithoutSignature].Contains("Λείπει υπογραφή"),
+            "current sign-only policy is used after cutover when no workflow was frozen");
+        Check(snapshot.FiscalFailures.ContainsKey(currentTransmissionWithoutMark) &&
+              snapshot.FiscalFailures[currentTransmissionWithoutMark].Contains("Λείπει MARK"),
+            "current transmission policy is used after cutover when no workflow was frozen");
+        Check(!snapshot.FiscalFailures.ContainsKey(currentTransmissionWithMark),
+            "stored MARK completes a current-policy transmission");
+        Check(!snapshot.FiscalFailures.ContainsKey(untouchedDraft),
+            "untouched draft is not reported as missing fiscal evidence");
+        Check(!snapshot.FiscalFailures.ContainsKey(historicalInvoice),
+            "current settings do not flag an invoice before the fiscal cutover");
+        Check(!snapshot.FiscalFailures.ContainsKey(frozenLocalInvoice),
+            "frozen local-only route takes precedence over later type settings");
         Check(snapshot.Invoices.Where(i => i.TraderId.HasValue).Select(i => i.TraderId.Value).Distinct().Count() > 2000, "VAT lookup crosses multiple parameter-safe batches");
         var vat = new Dictionary<Guid, string>();
         using (var c = new SqlConnection(connection))
@@ -171,7 +291,7 @@ internal static class Program
             decimal expected = 0;
             foreach (var invoice in snapshot.Invoices)
             {
-                if (invoice.IsCanceled || invoice.IsReplaced) continue;
+                if (invoice.IsCanceled || invoice.IsCanceling || invoice.IsReplaced) continue;
                 if (row < 4 && invoice.PaymentType != payments[row]) continue;
                 int transactionType = types.First(t => t.Key == invoice.InvoiceTypeId).Value;
                 if (column == "TotalAmount" && transactionType == 1) continue;

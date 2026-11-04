@@ -43,7 +43,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
 
             this.taxLine.Text = optionHandler.GetOptionOrAdd("SingLine", "");
             this.tailLines.Value = int.Parse(optionHandler.GetOptionOrAdd("TailInvoiceLine", "5"));
-            this.invoiceCopies.Value = int.Parse(optionHandler.GetOptionOrAdd("InvoiceCopies", "2"));
+            this.invoiceCopies.Value = Threads.SharedInvoicingSettings.GetLaserCopiesOption();
             if (this.taxDeviceType.SelectedValue == "SignA")
             {
                 this.outFolder.Text = optionHandler.GetOptionOrAdd("SignA_SignFolder", "C:\\ASFuelControl\\Sign");
@@ -66,12 +66,17 @@ namespace ASFuelControl.Windows.UI.SettingForms
             this.printBalancesCheck.Checked = optionHandler.GetBoolOption("PrintBalancelsOnPrinter", false);
 
             this.chkPrintBarcode.Checked = optionHandler.GetBoolOption("PrintInvoiceBarcode", false);
-            this.chkWinPrint.Checked = optionHandler.GetBoolOption("WindowsInvoicePrint", false);
+            this.chkWinPrint.Checked = true;
+            this.chkWinPrint.Enabled = false;
+            this.radLabel6.Text = "Θερμική εκτύπωση Telerik";
             this.thermalPageHeight.Value = optionHandler.GetIntOption("ThermalPrintHeight", 130);
             this.qrCodeTest.Checked = optionHandler.GetBoolOption("PrintTestQRCode", false);
 
-            this.fontSizeNumeric.Value = optionHandler.GetDecimalOption("ThermalPrintFontSize", 9);
-            this.fontDropDown.Text = optionHandler.GetOption("ThermalPrintFontName", "Bahnschrift Light Condensed");
+            string configuredThermalFont = optionHandler.GetOption("ThermalPrintFontName", "Tahoma");
+            decimal configuredThermalFontSize = optionHandler.GetDecimalOption("ThermalPrintFontSize", 9);
+            this.fontSizeNumeric.Value = (decimal)Reports.Invoices.InvoiceReportNarrow.EffectiveThermalFontSize(
+                configuredThermalFont, (float)configuredThermalFontSize);
+            this.fontDropDown.Text = Reports.Invoices.InvoiceReportNarrow.EffectiveThermalFontName(configuredThermalFont);
 
             this.txtBarcodeTemplate.Text = optionHandler.GetOptionOrAdd("BarCodePattern", "[FuelType.EnumeratorValue:2][UnitPrice:4][Volume:8][TotalPrice:8][Invoice.Number:9]");
             if (optionHandler.GetIntOption("ThermalPaperWidth", 80) == 80)
@@ -150,7 +155,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
             optionHandler.SetOption("TailInvoiceLine", tailLinesNr.ToString());
 
             int invCopies = (int)this.invoiceCopies.Value;
-            optionHandler.SetOption("InvoiceCopies", invCopies.ToString());
+            optionHandler.SetOption(Threads.SharedInvoicingSettings.LaserCopiesOption,
+                Threads.SharedPrinterProfile.NormalizeLaserCopies(invCopies));
 
             if (devType == "SignA")
                 optionHandler.SetOption("SignA_SignFolder", this.outFolder.Text);
@@ -165,7 +171,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
             optionHandler.SetOption("PrintAlertsOnPrinter", this.printAlertsCheck.Checked);
             optionHandler.SetOption("PrintBalancelsOnPrinter", this.printBalancesCheck.Checked);
             optionHandler.SetOption("PrintInvoiceBarcode", this.chkPrintBarcode.Checked);
-            optionHandler.SetOption("WindowsInvoicePrint", this.chkWinPrint.Checked);
+            optionHandler.SetOption("WindowsInvoicePrint", true);
             optionHandler.SetOption("BarCodePattern", this.txtBarcodeTemplate.Text);
             optionHandler.SetOption("PrintTestQRCode", this.qrCodeTest.Checked);
             optionHandler.SetOption("ThermalPrintHeight", (int)this.thermalPageHeight.Value);

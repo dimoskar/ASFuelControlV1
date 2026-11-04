@@ -12,6 +12,7 @@ using ASFuelControl.Windows.Threads;
 using Exedron.Invoicing.Core;
 using Exedron.Invoicing.Adapters.Samtec;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Telerik.WinControls;
 using Telerik.WinControls.UI;
 
@@ -27,7 +28,8 @@ internal static class Preview
         return new SharedInvoiceConfiguration { Version = 2,TestMode = true,FirstInvoiceDate = new DateTime(2026,10,16),InvoiceProvider = route,
             Pos = PaymentRoute.ForMode(route,"http://gateway.invalid:1234","DEMO-TID","VIVA"),
             FiscalDevice = scope,Devices = new[] { new SamtecDeviceProfile(scope,new Uri("http://device.invalid:1234")) },
-            DefaultPrinter = new SharedPrinterProfile { PrinterName = "DEMO Thermal" },
+            DefaultPrinter = new SharedPrinterProfile { PrinterName = "DEMO Laser",ThermalPrinterName = "DEMO Thermal",
+                NonThermalPaperSize = "A5",LaserCopies = 2 },
             Credentials = new[] { new SharedCredentialProfile { Route = route,ApiKeyOption = "demo-key-reference",PasswordOption = "demo-password-reference" } },
             Mapping = new ASFuelControl.Invoicing.Mapping.MappingContext { WholesaleCodes = new HashSet<int> { 100 } } };
     }
@@ -35,6 +37,8 @@ internal static class Preview
     {
         resources = Assembly.LoadFrom(args[0]);
         Application.EnableVisualStyles(); new Telerik.WinControls.Themes.TelerikMetroBlueTheme(); ThemeResolutionService.ApplicationThemeName = "TelerikMetroBlue";
+        if (args.Length > 1 && args[1] == "--gbridge") return GBridgeChecks();
+        if (args.Length > 1 && args[1] == "--printer") return PrinterChecks();
         using(var form = new ASFuelControl.Windows.UI.SettingForms.MainSettingsForm())
         {
             foreach(var tab in new[] { "radPageViewPage4","radPageViewPage5","radPageViewPage3" })
@@ -102,7 +106,13 @@ internal static class Preview
         {
             var tabs = form.Controls.OfType<RadPageView>().Single();
             tabs.SelectedPage = tabs.Pages[0]; Capture(form,"signing");
+            if(Field<RadTextBox>(form,"sharedDeviceTerminalId").Text != "POS-TID")
+                throw new Exception("The Samtec terminal ID option was not shown on the printer settings page");
             tabs.SelectedPage = tabs.Pages[1]; Capture(form,"printing");
+            if(Field<RadDropDownList>(form,"sharedNonThermalPaperSize").SelectedIndex != 1)
+                throw new Exception("Legacy A5 laser paper option was not shown on the printer settings page");
+            if(Field<RadSpinEditor>(form,"sharedCopies").Value != 2)
+                throw new Exception("The default laser copy count was not shown on the printer settings page");
         }
         using(var form = new ASFuelControl.Windows.UI.Forms.InvoiceTypesForm())
         {
@@ -293,10 +303,66 @@ internal static class Preview
             Capture(form,"invoice-pos-declined");
             SharedInvoiceRuntime.Status.Attempts = new[] { oldPayment }; panel.LoadInvoice(invoice.InvoiceId);
             if (submit.Enabled) throw new Exception("Unresolved unknown payment enables ordinary retry");
+            SharedInvoiceRuntime.Status.CanVoidPayment = true;
+            SharedInvoiceRuntime.Status.PaymentAttemptId = oldPayment.AttemptId;
+            panel.LoadInvoice(invoice.InvoiceId);
+            if (!Field<RadButton>(panel,"voidPayment").Visible || !Field<RadButton>(panel,"voidPayment").Enabled ||
+                !Field<RadButton>(panel,"diagnostics").Visible)
+                throw new Exception("Eligible accepted payment does not expose void and diagnostics actions");
+            SharedInvoiceRuntime.Status.CanVoidPayment = false;
+            SharedInvoiceRuntime.Status.CanRefundPayment = true;
+            SharedInvoiceRuntime.Status.RefundOriginalInvoiceId = Guid.NewGuid();
+            panel.LoadInvoice(invoice.InvoiceId);
+            if (!Field<RadButton>(panel,"refundPayment").Visible || !Field<RadButton>(panel,"refundPayment").Enabled)
+                throw new Exception("Eligible related credit does not expose the full refund action");
+            var secret = JObject.Parse("{\"InputType\":\"SIGNATURE\",\"ProviderSignature\":\"secret\",\"Body\":\"{\\\"api_key\\\":\\\"key\\\",\\\"RRN\\\":\\\"123\\\"}\"}");
+            var redacted = ASFuelControl.Windows.UI.Forms.GBridgeEvidenceRedactor.Redact(secret).ToString();
+            if (redacted.Contains("secret") || redacted.Contains("\\\"key\\\"") || !redacted.Contains("SIGNATURE") || !redacted.Contains("123"))
+                throw new Exception("GBridge evidence redaction hid event type/RRN or exposed credentials/signatures");
+            using(var diagnosticsForm = new ASFuelControl.Windows.UI.Forms.GBridgeDiagnosticsForm(invoice.InvoiceId)) { }
             SharedInvoiceRuntime.Status = new SharedInvoiceStatus();
         }
         Console.WriteLine("PASS pending invoice UI: configured provider/myDATA, cancellation blocker, saved route precedence and no issuance during inspection.");
         Console.WriteLine("PASS native UI: twenty renders, explicit F4 and sequence retry without confirmation, duplicate click blocked, incomplete response lookup-only recovery, configured subscription before first attempt, send-only errors survive refresh, prior printing is distinguished, isolated provider fields and credentials, catalogue IDs/licences, provider-only signing and POS mode selection. No application DB or external transport used.");
+        return 0;
+    }
+    static int PrinterChecks()
+    {
+        using(var form = new ASFuelControl.Windows.UI.SettingForms.PrinterSettings())
+        {
+            var tabs = form.Controls.OfType<RadPageView>().Single();
+            tabs.SelectedPage = tabs.Pages[1]; Capture(form,"printing");
+            if(Field<RadDropDownList>(form,"sharedNonThermalPaperSize").SelectedIndex != 1)
+                throw new Exception("Legacy A5 laser paper option was not shown on the printer settings page");
+        }
+        return 0;
+    }
+    static int GBridgeChecks()
+    {
+        var id = Guid.NewGuid();
+        var payment = PaymentEvidence("Approved",null,null);
+        SharedInvoiceRuntime.Status = new SharedInvoiceStatus {
+            Snapshot = new InvoiceWorkflowSnapshot { Provider = Configuration().InvoiceProvider,Payment = Configuration().Pos,PrintDestination = "test" },
+            Attempts = new[] { payment },PaymentAttemptId = payment.AttemptId,CanVoidPayment = true };
+        using(var panel = new ASFuelControl.Windows.UI.Controls.FiscalDocumentPanel())
+        {
+            panel.LoadInvoice(id);
+            if (!Field<RadButton>(panel,"voidPayment").Visible || !Field<RadButton>(panel,"voidPayment").Enabled ||
+                !Field<RadButton>(panel,"diagnostics").Visible)
+                throw new Exception("Eligible accepted payment does not expose void and diagnostics actions");
+            SharedInvoiceRuntime.Status.CanVoidPayment = false;
+            SharedInvoiceRuntime.Status.CanRefundPayment = true;
+            SharedInvoiceRuntime.Status.RefundOriginalInvoiceId = Guid.NewGuid();
+            panel.LoadInvoice(id);
+            if (!Field<RadButton>(panel,"refundPayment").Visible || !Field<RadButton>(panel,"refundPayment").Enabled)
+                throw new Exception("Eligible related credit does not expose the full refund action");
+        }
+        var secret = JObject.Parse("{\"InputType\":\"SIGNATURE\",\"ProviderSignature\":\"secret\",\"Body\":\"{\\\"api_key\\\":\\\"key\\\",\\\"RRN\\\":\\\"123\\\"}\"}");
+        var redacted = ASFuelControl.Windows.UI.Forms.GBridgeEvidenceRedactor.Redact(secret).ToString();
+        if (redacted.Contains("secret") || redacted.Contains("\\\"key\\\"") || !redacted.Contains("SIGNATURE") || !redacted.Contains("123"))
+            throw new Exception("GBridge evidence redaction hid event type/RRN or exposed credentials/signatures");
+        using(var form = new ASFuelControl.Windows.UI.Forms.GBridgeDiagnosticsForm(id)) { }
+        Console.WriteLine("PASS GBridge UI: guarded void/refund eligibility, diagnostics form construction, and nested evidence redaction.");
         return 0;
     }
     static T Field<T>(object value,string name) => (T)value.GetType().GetField(name,BindingFlags.Instance|BindingFlags.NonPublic).GetValue(value);
@@ -342,6 +408,10 @@ namespace ASFuelControl.Windows.UI.SettingForms
 }
 namespace ASFuelControl.Windows.UI.Forms
 {
+    internal static class InvoiceEditorFormFactory
+    {
+        internal static InvoiceFormEx CreateForInvoice(Guid id) { return new InvoiceFormEx(); }
+    }
     public partial class InvoiceTypesForm : RadForm
     {
         ViewModels.InvoiceTypeCatalogViewModel vm = new ViewModels.InvoiceTypeCatalogViewModel();
@@ -354,32 +424,95 @@ namespace ASFuelControl.Windows.UI.Forms
     public partial class InvoiceFormEx : RadForm
     {
         ViewModels.InvoiceDetailsViewModel ivm = new ViewModels.InvoiceDetailsViewModel();
+        ViewModels.InvoiceEditorLayout editorLayout = ViewModels.InvoiceEditorLayout.Legacy;
         public InvoiceFormEx() { InitializeComponent(); InitializeFiscalStatus(); }
+        public void LoadInvoice(Guid id) { ivm.InvoiceId = id; }
+        private void ApplyPriceBindings() { }
+        private void SetView() { }
+        private void CommitEditorValues() { }
+    }
+    internal static class MyDieselEvidenceForm { internal static string StageLabel(string value) { return value; } }
+}
+namespace ASFuelControl.Windows.UI.Controls
+{
+    internal sealed class MyDieselCouponPanel : UserControl
+    {
+        internal MyDieselCouponPanel(Func<bool> save,Func<string> vat,Func<string> problem,Action changed) { }
+        internal bool Busy { get; private set; }
+        internal bool DiscountLocked { get; private set; }
+        internal event EventHandler StateChanged;
+        internal void RefreshEligibility() { }
+        internal void LoadInvoice(Guid id,bool draft = false) { }
     }
 }
 namespace ASFuelControl.Windows.ViewModels
 {
+    public enum EntityStateEnum { Unchanged, Added, Modified, Deleted }
+    public enum InvoiceEditorLayout { Legacy, SupplierPurchase, Fixed }
     public sealed class InvoiceTypeDetailViewModel { public Guid InvoiceTypeId { get; set; } }
     public sealed class InvoiceTypeCatalogViewModel { public bool HasChanges; public void SaveChanges() { throw new InvalidOperationException("No DB in preview"); } }
-    public sealed class InvoiceDetailsViewModel { public Guid InvoiceId = Guid.NewGuid(); }
+    public sealed class InvoiceDetailsViewModel
+    {
+        public Guid InvoiceId = Guid.NewGuid();
+        public string InvoiceSignature;
+        public EntityStateEnum EntityState;
+        public Guid? TraderId;
+        public bool HasChanges;
+        public PreviewError[] Errors = new PreviewError[0];
+        public PreviewInvoiceLine[] InvoiceLines = new PreviewInvoiceLine[0];
+        public FuelTypeViewModel[] FuelTypes = new FuelTypeViewModel[0];
+        public void Load(Guid id) { InvoiceId = id; }
+        public bool Save(Guid id) { return true; }
+    }
+    public sealed class PreviewError { public string ErrorMessage; }
+    public sealed class PreviewInvoiceLine { public decimal Volume; public Guid FuelTypeId; }
+    public sealed class FuelTypeViewModel { public Guid FuelTypeId; public int EnumeratorValue; }
 }
 namespace ASFuelControl.Windows
 {
     internal static class Program { internal static bool AdminConnected => false; }
 }
+namespace Samtec.WebService
+{
+    internal sealed class SamtecSettings
+    {
+        internal string SamtecUrl { get; set; }
+        internal string SamtecURLPort { get; set; }
+        internal string EftPosTID { get; set; }
+        internal static SamtecSettings ReadSettings() => new SamtecSettings {
+            SamtecUrl = "http://device.invalid",SamtecURLPort = "1234",EftPosTID = "POS-TID" };
+    }
+}
 namespace ASFuelControl.Windows.Threads
 {
+    internal static class SharedMyDieselRuntime { internal static string InvoiceEligibilityProblem(Guid id) { return null; } }
     internal sealed class SharedPrinterProfile
     {
         public string PrinterName { get; set; }
+        public string ThermalPrinterName { get; set; }
+        public bool Thermal { get; set; } = true;
+        public string NonThermalPaperSize { get; set; }
         public int WidthHundredths { get; set; } = 315;
         public int HeightHundredths { get; set; } = 1100;
         public short Copies { get; set; } = 1;
+        public short LaserCopies { get; set; }
         public float FontSize { get; set; } = 8;
+        internal static short NormalizeLaserCopies(int copies) => (short)(copies < 1 || copies > 10 ? 2 : copies);
     }
     internal static class SharedInvoicePrinting { internal static void CheckProfile(SharedPrinterProfile value) { throw new InvalidOperationException("No transport in preview"); } }
     internal static class SharedInvoicingSettings
     {
+        internal sealed class SamtecApplicationOptions
+        {
+            internal Uri Endpoint { get; set; }
+            internal string TerminalId { get; set; }
+        }
+        internal static SamtecApplicationOptions LoadSamtecApplicationOptions() => new SamtecApplicationOptions {
+            Endpoint = new Uri("http://device.invalid:1234"), TerminalId = "POS-TID" };
+        internal static void SaveSamtecEndpoint(Uri endpoint) { }
+        internal static void SaveSamtecTerminalId(string terminalId) { }
+        internal const string LaserCopiesOption = "InvoiceCopies";
+        internal static short GetLaserCopiesOption() => 2;
         internal static SharedInvoiceConfiguration Load(out long revision) { revision = 1; return Preview.Configuration(); }
         internal static string Preflight(SharedInvoiceConfiguration value) { throw new InvalidOperationException("No DB in preview"); }
         internal static void ValidateActivation(SharedInvoiceConfiguration value) { throw new InvalidOperationException("No DB in preview"); }
@@ -398,13 +531,21 @@ namespace ASFuelControl.Windows.Threads
         internal bool AlreadyPrinted;
         internal ProviderRoute ConfiguredProvider;
         internal string ConnectionProblem;
+        internal string InvoiceSignature;
         internal Guid? RetryPaymentAttemptId;
+        internal Guid? PaymentAttemptId;
+        internal Guid? OriginalPaymentAttemptId;
+        internal Guid? RefundOriginalInvoiceId;
+        internal ASFuelControl.Invoicing.Persistence.PaymentCompensationRecord Compensation;
+        internal bool CanVoidPayment, CanRecoverVoid, CanRefundPayment, CanRecoverRefund, IsRefundPayment;
+        internal ASFuelControl.Invoicing.ProviderResendAssessment ProviderResend;
         internal InvoiceWorkflowSnapshot Snapshot = new InvoiceWorkflowSnapshot { LocalOnly = true,PrintDestination = "DEMO Thermal" };
         internal FiscalAttemptEvidence[] Attempts = new FiscalAttemptEvidence[0], Revisions = new FiscalAttemptEvidence[0];
         internal string State(string family) => Attempts.LastOrDefault(a => a.Family == family)?.State ?? "Δεν ξεκίνησε";
     }
     internal static class SharedInvoiceRuntime
     {
+        internal const string OperatorRequestedCopyReason = "Operator requested an invoice copy.";
         internal static SharedInvoiceStatus Status = new SharedInvoiceStatus();
         internal static bool FailRead, LastPrint;
         internal static int ProcessCalls;
@@ -425,6 +566,11 @@ namespace ASFuelControl.Windows.Threads
             typeof(ProviderPaymentResult).GetProperty("Payment").SetValue(result,new ProviderPaymentAttempt { Id = expectedAttemptId,State = "Unknown" },null);
             return result;
         }
+        internal static ASFuelControl.Invoicing.Persistence.PaymentCompensationRecord VoidPayment(Guid id,string reason) { throw new InvalidOperationException("No transport in preview"); }
+        internal static ASFuelControl.Invoicing.Persistence.PaymentCompensationRecord RecoverVoid(Guid id) { throw new InvalidOperationException("No transport in preview"); }
+        internal static ProviderPaymentResult RefundPayment(Guid id,Guid original) { throw new InvalidOperationException("No transport in preview"); }
+        internal static ProviderPaymentResult RecoverRefund(Guid id,Guid original) { throw new InvalidOperationException("No transport in preview"); }
+        internal static InvoiceWorkflowResult AuthorizeAndResumeSubmission(Guid id) { throw new InvalidOperationException("No transport in preview"); }
         internal static InvoiceWorkflowResult ResumeIssuance(Guid id) { throw new InvalidOperationException("No transport in preview"); }
         internal static InvoiceWorkflowResult SubmitPrintedInvoice(Guid id) { throw new InvalidOperationException("No transport in preview"); }
         internal static InvoiceWorkflowResult Process(Guid id,bool print,string reason)
@@ -434,5 +580,14 @@ namespace ASFuelControl.Windows.Threads
             return null; // Dispatch spy only: no DB or external transport in the native UI check.
         }
         internal static void ReconcilePrint(Guid id,Guid job,bool confirmed,string reason) { throw new InvalidOperationException("No DB in preview"); }
+    }
+}
+
+namespace ASFuelControl.Windows.Properties
+{
+    internal sealed class Settings
+    {
+        internal static readonly Settings Default = new Settings();
+        internal string DBConnection { get { return "Data Source=(localdb)\\none;Initial Catalog=none;Integrated Security=True"; } }
     }
 }

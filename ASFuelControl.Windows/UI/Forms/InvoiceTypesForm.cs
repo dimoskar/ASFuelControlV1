@@ -19,9 +19,51 @@ namespace ASFuelControl.Windows.UI.Forms
         public InvoiceTypesForm()
         {
             InitializeComponent();
+            PrepareTransformationLookupBindings();
             InitializeInvoicingPolicy();
-            
+            vm.PropertyChanged += Vm_PropertyChanged;
             this.Load += InvoiceTypesForm_Load;
+        }
+
+        private void PrepareTransformationLookupBindings()
+        {
+            // These lookup lists describe the values allowed in transformation
+            // rows. They are not children of the currently selected invoice type:
+            // changing/resetting that row must never move a combo editor to item 0
+            // and write the new position into ChildInvoiceTypeId/CreationTypeId.
+            var filteredTypes = vm.InvoiceTypes
+                .Cast<ViewModels.InvoiceTypeViewModel>()
+                .OrderBy(item => item.Description)
+                .ToArray();
+            var nullableTypes = new List<ViewModels.InvoiceTypeViewModel>
+            {
+                new ViewModels.InvoiceTypeViewModel { InvoiceTypeId = Guid.Empty }
+            };
+            nullableTypes.AddRange(filteredTypes);
+            var transformationTypes = Common.Enumerators.EnumToList
+                .EnumList<Common.Enumerators.InvoiceTransformationTypeEnum>()
+                .ToArray();
+
+            SetIndependentLookupSource(invoiceTypesBindingSource, filteredTypes);
+            SetIndependentLookupSource(invoiceTypesNullableBindingSource, nullableTypes.ToArray());
+            SetIndependentLookupSource(invoiceTransformationTypesBindingSource, transformationTypes);
+        }
+
+        private static void SetIndependentLookupSource(BindingSource source, object values)
+        {
+            source.DataSource = null;
+            source.DataMember = string.Empty;
+            source.DataSource = values;
+        }
+
+        private void Vm_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != "InvoiceTypes")
+                return;
+            // Commit a user's active grid choice before replacing only the lookup
+            // lists. The transformation row values themselves are never rebound.
+            radGridView2.EndEdit();
+            PrepareTransformationLookupBindings();
         }
 
         private void InvoiceTypesForm_Load(object sender, EventArgs e)

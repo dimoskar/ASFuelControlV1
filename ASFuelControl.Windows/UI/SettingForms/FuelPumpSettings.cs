@@ -98,7 +98,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
             col2.DisplayMember = "Description";
             col2.ValueMember = "Value";
 
-            defInvType.DataSource = ViewModels.CommonCache.Instance.InvoiceTypes.Where(i=>i.DispenserTypeEx).OrderBy(i => i.Description);
+            defInvType.DataSource = ViewModels.CommonCache.Instance.InvoiceTypes.Where(i=>i.DispenserTypeEx && (!i.Invalidated.HasValue || i.Invalidated.Value == false)).OrderBy(i => i.Description);
             defInvType.DisplayMember = "Description";
             defInvType.ValueMember = "InvoiceTypeId";
 

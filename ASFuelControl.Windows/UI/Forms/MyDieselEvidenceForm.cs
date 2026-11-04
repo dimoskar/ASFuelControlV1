@@ -104,7 +104,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 AddSummary("Κατάσταση ΑΑΔΕ",string.IsNullOrWhiteSpace(value.RemoteStatus) ? "—" : value.RemoteStatus);
                 AddSummary("Λίτρα / καύσιμο",(value.IssuedLitres.HasValue ? value.IssuedLitres.Value.ToString("0.00") + " L" : "—") +
                     (string.IsNullOrWhiteSpace(value.FuelType) ? "" : " · " + value.FuelType + " (" + value.FuelCode + ")"));
-                AddSummary("Έκπτωση ΕΦΚ",value.ExciseDiscountPerLitre.ToString("0.0000") + " €/L");
+                AddSummary("ΕΦΚ χωρίς ΦΠΑ",value.ExciseDiscountPerLitre.ToString("0.0000") + " €/L");
                 AddSummary("Ισχύει έως",Local(value.ValidUntilUtc));
                 AddSummary("MARK",string.IsNullOrWhiteSpace(value.InvoiceMark) ? "—" : value.InvoiceMark);
                 AddSummary("Τελευταίος έλεγχος",Local(value.LastCheckedUtc));

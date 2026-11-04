@@ -19,9 +19,20 @@ namespace ASFuelControl.Windows.UI.Catalogs
         private int refreshVersion;
         private Font summaryFont;
         private RadMenuItem heatingCorrectionMenu;
+        private RadMenuItem invoiceTypeCorrectionMenu;
+        private GridViewImageColumn fiscalFailureColumn;
+        private Image fiscalFailureImage;
         public InvoiceCatalog()
         {
             InitializeComponent();
+            fiscalFailureImage = new Bitmap(Properties.Resources.error32,
+                new Size(16,16));
+            fiscalFailureColumn = new GridViewImageColumn("FiscalFailure") {
+                HeaderText = "", Width = 30, ReadOnly = true, AllowFiltering = false,
+                ImageLayout = ImageLayout.Center
+            };
+            fiscalFailureColumn.HeaderText = "!";
+            this.invoiceRadGridView.Columns.Insert(3,fiscalFailureColumn);
             heatingCorrectionMenu = new RadMenuItem("Διόρθωση επιδόματος θέρμανσης…") { Visibility = ElementVisibility.Collapsed };
             heatingCorrectionMenu.Click += delegate {
                 try {
@@ -33,12 +44,24 @@ namespace ASFuelControl.Windows.UI.Catalogs
                 }
             };
             radDropDownButton1.Items.Add(heatingCorrectionMenu);
+            invoiceTypeCorrectionMenu = new RadMenuItem("Διόρθωση τύπου myDATA 11.1 → 1.1…") { Visibility = ElementVisibility.Collapsed };
+            invoiceTypeCorrectionMenu.Click += delegate {
+                try {
+                    Threads.SharedInvoiceRuntime.RequireInvoiceTypeCorrectionAdmin();
+                    using (var form = new Forms.InvoiceTypeCorrectionBatchForm()) form.ShowDialog(this);
+                    RefreshData();
+                } catch (Exception ex) {
+                    RadMessageBox.Show(this, ex.Message, "Διόρθωση τύπου myDATA", MessageBoxButtons.OK, RadMessageIcon.Error);
+                }
+            };
+            radDropDownButton1.Items.Add(invoiceTypeCorrectionMenu);
             vm.QueryInvoiceData += Vm_QueryInvoiceData;
             this.Disposed += delegate
             {
                 ++refreshVersion;
                 vm.CancelPendingLoads();
                 if (summaryFont != null) summaryFont.Dispose();
+                if (fiscalFailureImage != null) fiscalFailureImage.Dispose();
             };
 
             Telerik.WinControls.UI.GridViewSummaryItem gridViewSummaryItem1 = new Telerik.WinControls.UI.GridViewSummaryItem();
@@ -215,6 +238,20 @@ namespace ASFuelControl.Windows.UI.Catalogs
 
         private void InvoiceRadGridView_ViewCellFormatting(object sender, CellFormattingEventArgs e)
         {
+            if (e.CellElement.ColumnInfo != null && e.CellElement.ColumnInfo.Name == "FiscalFailure")
+            {
+                var invoice = e.Row == null ? null : e.Row.DataBoundItem as Data.InvoiceCatalogView;
+                string failure = invoice == null ? null : vm.FiscalFailure(invoice.InvoiceId);
+                e.CellElement.Image = string.IsNullOrWhiteSpace(failure) ? null : fiscalFailureImage;
+                e.CellElement.ToolTipText = failure ?? "";
+                e.CellElement.ImageAlignment = ContentAlignment.MiddleCenter;
+                e.CellElement.TextAlignment = ContentAlignment.MiddleCenter;
+            }
+            if (e.CellElement.ColumnInfo != null && e.CellElement.ColumnInfo.Name == "Selected")
+            {
+                var invoice = e.Row == null ? null : e.Row.DataBoundItem as Data.InvoiceCatalogView;
+                e.CellElement.Enabled = CanSelectInvoice(invoice);
+            }
             if (e.CellElement is Telerik.WinControls.UI.GridSummaryCellElement)
             {
                 if(e.CellElement.ColumnInfo.Name == "TotalAmount" || e.CellElement.ColumnInfo.Name == "RestAmount")
@@ -224,6 +261,11 @@ namespace ASFuelControl.Windows.UI.Catalogs
                 if (summaryFont == null) summaryFont = new Font(this.invoiceRadGridView.Font, FontStyle.Bold);
                 e.CellElement.Font = summaryFont;
             }
+        }
+
+        private static bool CanSelectInvoice(Data.InvoiceCatalogView invoice)
+        {
+            return invoice != null && !invoice.IsReplaced && !invoice.IsCanceled;
         }
 
         private void InvoiceRadGridView_GroupSummaryEvaluate(object sender, GroupSummaryEvaluationEventArgs e)
@@ -246,12 +288,32 @@ namespace ASFuelControl.Windows.UI.Catalogs
 
         private void menuInvoiceReplacement_Click(object sender, EventArgs e)
         {
+            BeginInvoiceTransformation(null, false);
+        }
+
+        private void BeginInvoiceTransformation(Data.InvoiceCatalogView[] requestedInvoices,
+            bool cancellationOnly)
+        {
             Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
             try
             {
-                var invoices = this.vm.Invoices.Where(s => s.Selected).ToArray();
+                var invoices = requestedInvoices ?? this.vm.Invoices.Where(s => s.Selected).ToArray();
                 if (invoices.Length == 0)
                     return;
+                if (cancellationOnly && invoices.Length != 1)
+                {
+                    RadMessageBox.Show("Η ακύρωση από τον κατάλογο αφορά ένα παραστατικό κάθε φορά.",
+                        "Ακύρωση παραστατικού", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
+                    return;
+                }
+                if (invoices.Any(invoice => !CanSelectInvoice(invoice)))
+                {
+                    foreach (var invoice in invoices.Where(invoice => !CanSelectInvoice(invoice)))
+                        invoice.Selected = false;
+                    RadMessageBox.Show("Παραστατικό που έχει ήδη χρησιμοποιηθεί ή ακυρωθεί δεν μπορεί να επιλεγεί ξανά.",
+                        "Σφάλμα Επιλογής...",MessageBoxButtons.OK,RadMessageIcon.Exclamation);
+                    return;
+                }
 
                 var selectedIds = new List<Guid>();
                 selectedIds.AddRange(invoices.Select(s => s.InvoiceId));
@@ -277,7 +339,14 @@ namespace ASFuelControl.Windows.UI.Catalogs
                 Data.InvoiceTypeTransform transformation = null;
                 using (SelectionForms.InvoiceTypeSelection sitf = new SelectionForms.InvoiceTypeSelection())
                 {
-                    if(selectedIds.Count > 1)
+                    if (cancellationOnly)
+                    {
+                        sitf.AllowedInvoiceTypes = db.InvoiceTypeTransforms.Where(i =>
+                            i.ParentInvoiceTypeId == parentInvoiceTypeId &&
+                            i.TransformationMode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation)
+                            .Select(i => i.ChildInvoiceTypeId).Distinct().ToArray();
+                    }
+                    else if(selectedIds.Count > 1)
                     {
                         var q = db.InvoiceTypeTransforms.Where(i => i.ParentInvoiceTypeId == parentInvoiceTypeId);
                         q = q.Where(i =>
@@ -288,8 +357,13 @@ namespace ASFuelControl.Windows.UI.Catalogs
                     else
                         sitf.AllowedInvoiceTypes = db.InvoiceTypeTransforms.Where(i => i.ParentInvoiceTypeId == invoiceTypeId).Select(i=>i.ChildInvoiceTypeId).ToArray();
 
+                    if (sitf.AllowedInvoiceTypes.Length == 0)
+                        throw new InvalidOperationException(cancellationOnly
+                            ? "Δεν έχει οριστεί μετασχηματισμός ακύρωσης για τον τύπο του επιλεγμένου παραστατικού."
+                            : "Δεν έχει οριστεί επιτρεπτός μετασχηματισμός για τον τύπο του επιλεγμένου παραστατικού.");
+
                     sitf.FilterAdminView = true;
-                    sitf.ReplacementTypes = true;
+                    sitf.ReplacementTypes = !cancellationOnly;
                     //sitf.ToBeReplacedTypeId = invoiceTypeId;
                     var result = sitf.ShowDialog(this);
                     if (result != DialogResult.OK)
@@ -308,9 +382,25 @@ namespace ASFuelControl.Windows.UI.Catalogs
                         return;
                     }
 
-                    transformation = db.InvoiceTypeTransforms.Where(i => i.ChildInvoiceTypeId == invoiceTypeId && i.ParentInvoiceTypeId == parentInvoiceTypeId).FirstOrDefault();
+                    var selectedTransformations = db.InvoiceTypeTransforms.Where(i =>
+                        i.ChildInvoiceTypeId == invoiceTypeId &&
+                        i.ParentInvoiceTypeId == parentInvoiceTypeId);
+                    if (cancellationOnly)
+                        selectedTransformations = selectedTransformations.Where(i =>
+                            i.TransformationMode == (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation);
+                    // The final invoice of a replacement that creates an
+                    // intermediate credit uses the source only as a guide. When a
+                    // database contains more than one parent/child rule, prefer
+                    // that configured route so its editable-price policy is not
+                    // lost to an arbitrary FirstOrDefault result.
+                    transformation = selectedTransformations
+                        .OrderByDescending(i => i.CreationInvoiceTypeId.HasValue)
+                        .FirstOrDefault();
                     
                 }
+
+                if (transformation == null)
+                    throw new InvalidOperationException("Ο επιλεγμένος τύπος δεν είναι διαθέσιμος για αυτόν τον μετασχηματισμό.");
 
                 if(transformation.TransformationMode != (int)Common.Enumerators.InvoiceTransformationTypeEnum.ManyToOne && invoices.Length != 1)
                 {
@@ -321,7 +411,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
 
                 if (transformation.TransformationMode != (int)Common.Enumerators.InvoiceTransformationTypeEnum.OneToMany)
                 {
-                    var cm = this.vm.Invoices.Where(s => s.Selected && (s.IsCanceled || s.IsReplaced)).Count();
+                    var cm = invoices.Count(s => s.IsCanceled || s.IsReplaced);
                     if (cm > 0)
                     {
                         db.Dispose();
@@ -406,7 +496,9 @@ namespace ASFuelControl.Windows.UI.Catalogs
             }
             catch(Exception ex)
             {
-                RadMessageBox.Show(ex.Message,"Μετασχηματισμός παραστατικού",MessageBoxButtons.OK,RadMessageIcon.Exclamation);
+                RadMessageBox.Show(ex.Message,
+                    cancellationOnly ? "Ακύρωση παραστατικού" : "Μετασχηματισμός παραστατικού",
+                    MessageBoxButtons.OK,RadMessageIcon.Exclamation);
             }
             finally
             {
@@ -421,56 +513,35 @@ namespace ASFuelControl.Windows.UI.Catalogs
 
         private void menuInvoiceCancel_Click(object sender, EventArgs e)
         {
-            Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
+            var invoices = this.vm.Invoices.Where(s => s.Selected).ToArray();
+            if (invoices.Length == 1 && TryCancelCancellationInvoiceMark(invoices[0]))
+                return;
+            BeginInvoiceTransformation(invoices, true);
+        }
+
+        private bool TryCancelCancellationInvoiceMark(Data.InvoiceCatalogView invoice)
+        {
             try
             {
-                var invoices = this.vm.Invoices.Where(s => s.Selected).ToArray();
-                if (invoices.Length == 0)
-                    return;
-                Guid invoiceTypeId = Guid.Empty;
-                using (SelectionForms.InvoiceTypeSelection sitf = new SelectionForms.InvoiceTypeSelection())
-                {
-                    sitf.FilterAdminView = true;
-                    sitf.CancelationTypes = true;
-                    var result = sitf.ShowDialog(this);
-                    if (result != DialogResult.OK)
-                        return;
-                    invoiceTypeId = (sitf.SelectedEntity as ViewModels.InvoiceTypeViewModel).InvoiceTypeId;
-                }
-                var selectedInvoices = invoices.Select(i => i.InvoiceId).ToArray();
-                var vehicleSelections = db.Invoices.Where(i => invoices.Select(s => s.InvoiceId).Contains(i.InvoiceId)).Select(i => i.Vehicle).Distinct().ToArray();
-                var vehicle = vehicleSelections.First();
-                Guid? vehicleId = vehicle == null ? null : new Guid?(vehicleSelections.First().VehicleId);
-                Guid? traderId = vehicle == null ? null : new Guid?(vehicleSelections.First().TraderId);
-                Guid newInvoice = Guid.Empty;
-                if (vehicleSelections.Length == 1 && vehicleId.HasValue)
-                {
-                    newInvoice = vm.CancelInvoices(selectedInvoices, invoiceTypeId, traderId.Value, vehicleId.Value);
-                }
-                else
-                {
-                    newInvoice = vm.CancelInvoices(selectedInvoices, invoiceTypeId, Guid.Empty, Guid.Empty);
-                }
-                if (newInvoice != Guid.Empty)
-                {
-
-                    var invoice = db.Invoices.SingleOrDefault(i => i.InvoiceId == newInvoice);
-                    if (invoice == null)
-                        return;
-                    Forms.InvoiceFormEx invoiceForm = Forms.InvoiceEditorFormFactory.CreateForInvoice(newInvoice);
-                    invoiceForm.LoadInvoice(newInvoice);
-                    invoiceForm.Show(this);
-                    invoiceForm.FormClosed += InvForm_FormClosed;
-                    this.RefreshData();
-                }
+                long cancellationMark;
+                if (!Threads.SharedInvoiceRuntime.TryCancelCancellationInvoiceMark(
+                    invoice.InvoiceId, out cancellationMark))
+                    return false;
+                RadMessageBox.Show(
+                    "Η ακύρωση ολοκληρώθηκε. Cancellation MARK: " + cancellationMark,
+                    "Ακύρωση παραστατικού", MessageBoxButtons.OK,
+                    RadMessageIcon.Info);
+                this.RefreshData();
+                return true;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-
-            }
-            finally
-            {
-                db.Dispose();
+                RadMessageBox.Show(ex.Message, "Ακύρωση παραστατικού",
+                    MessageBoxButtons.OK, RadMessageIcon.Exclamation);
+                // The invoice was identified as a cancellation/credit document.
+                // Even when MARK cancellation fails, never fall through to the
+                // target-type selector and create another cancellation invoice.
+                return true;
             }
         }
 
@@ -489,6 +560,13 @@ namespace ASFuelControl.Windows.UI.Catalogs
             if (e.Row == null)
                 return;
             var curInvoice = e.Row.DataBoundItem as Data.InvoiceCatalogView;
+            if (e.Column != null && e.Column.Name == "Selected" && !CanSelectInvoice(curInvoice))
+            {
+                if (curInvoice != null)
+                    curInvoice.Selected = false;
+                e.Cancel = true;
+                return;
+            }
             var selectedInvoices = this.vm.Invoices.Where(i => i.Selected).ToArray();
             if (selectedInvoices.Length == 0)
                 return;
@@ -535,53 +613,102 @@ namespace ASFuelControl.Windows.UI.Catalogs
                 return;
             }
 
-            Forms.InvoiceFormEx isfm = Forms.InvoiceEditorFormFactory.CreateForInvoice(dataRow.InvoiceId);
-            isfm.LoadInvoice(dataRow.InvoiceId);
+            Forms.InvoiceFormEx isfm = Forms.InvoiceEditorFormFactory.OpenInvoice(dataRow.InvoiceId);
             isfm.Show(this);
             isfm.FormClosed += InvForm_FormClosed;
         }
 
         private void btnDelete_Click(object sender, EventArgs e)
         {
-
             if (this.invoiceRadGridView.CurrentRow == null)
                 return;
             var dataRow = this.invoiceRadGridView.CurrentRow.DataBoundItem as Data.InvoiceCatalogView;
             if (dataRow == null)
                 return;
-            if(dataRow.IsPrinted)
+            if (dataRow.Number == 0)
             {
-                RadMessageBox.Show("Δεν επιτρέπεται η διαγραφή της εγγραφής που επιλέξατε!", "Σφάλμα Διαγραφής...", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
+                DeleteNumberlessInvoice(dataRow.InvoiceId);
                 return;
             }
-            
+            if (RadMessageBox.Show(
+                "Θέλετε να ξεκινήσετε την ακύρωση του επιλεγμένου παραστατικού;",
+                "Ακύρωση παραστατικού", MessageBoxButtons.YesNo, RadMessageIcon.Question) != DialogResult.Yes)
+                return;
+
+            if (TryCancelCancellationInvoiceMark(dataRow))
+                return;
+
+            // A catalog invoice is never physically deleted from this button. The
+            // configured cancellation transformation preserves the source and all
+            // fiscal/movement history, and applies the route-specific checks later.
+            BeginInvoiceTransformation(new[] { dataRow }, true);
+        }
+
+        private void DeleteNumberlessInvoice(Guid invoiceId)
+        {
+            if (RadMessageBox.Show("Θέλετε να διαγράψετε το μη εκδομένο παραστατικό;",
+                "Διαγραφή παραστατικού", MessageBoxButtons.YesNo,
+                RadMessageIcon.Question) != DialogResult.Yes)
+                return;
+
             try
             {
-                using (Threads.SharedInvoiceRuntime.EditUnissued(dataRow.InvoiceId))
-                using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                using (Threads.SharedInvoiceRuntime.EditUnissued(invoiceId))
+                using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
-                    var inv = db.Invoices.SingleOrDefault(i=>i.InvoiceId == dataRow.InvoiceId);
-                    if (inv == null) return;
-                    if (inv.IsPrinted == true || !string.IsNullOrWhiteSpace(inv.InvoiceSignature) || !string.IsNullOrWhiteSpace(inv.QRCodeData) ||
-                        db.MyDataInvoices.Any(m => m.InvoiceId == inv.InvoiceId) ||
-                        inv.InvoiceLines.Any(i => i.TankFillingId.HasValue || i.SaleTransactionId.HasValue))
-                        throw new InvalidOperationException("Δεν επιτρέπεται η διαγραφή παραστατικού με ιστορικό έκδοσης ή κίνησης.");
-                    if (RadMessageBox.Show("Θέλετε να διαγράψετε την εγγραφή που επιλέξατε;", "Διαγραφή...", MessageBoxButtons.YesNo, RadMessageIcon.Question) != DialogResult.Yes) return;
-                    db.Delete(inv.InvoiceLines);
-                    db.Delete(inv.ParentInvoiceRelations);
-                    db.Delete(inv.ChildInvoiceRelations);
-                    db.Delete(inv.FinTransactions);
-                    db.Delete(inv);
+                    var invoice = db.Invoices.SingleOrDefault(item =>
+                        item.InvoiceId == invoiceId);
+                    if (invoice == null)
+                        return;
+                    if (invoice.Number != 0)
+                        throw new InvalidOperationException(
+                            "Το παραστατικό έχει ήδη αριθμηθεί και δεν μπορεί να διαγραφεί.");
+
+                    var lineIds = invoice.InvoiceLines.Select(line =>
+                        line.InvoiceLineId).ToArray();
+                    var relationIds = db.InvoiceRelations.Where(relation =>
+                        relation.ParentInvoiceId == invoiceId ||
+                        relation.ChildInvoiceId == invoiceId)
+                        .Select(relation => relation.InvoiceRelationId).ToArray();
+
+                    var lineRelations = db.InvoiceLineRelations.Where(relation =>
+                        lineIds.Contains(relation.ParentLineId) ||
+                        lineIds.Contains(relation.ChildRelationId) ||
+                        relationIds.Contains(relation.InvoiceRelationId)).ToArray();
+                    if (lineRelations.Length > 0)
+                        db.Delete(lineRelations);
+
+                    var invoiceRelations = db.InvoiceRelations.Where(relation =>
+                        relationIds.Contains(relation.InvoiceRelationId)).ToArray();
+                    if (invoiceRelations.Length > 0)
+                        db.Delete(invoiceRelations);
+
+                    var myDataRows = db.MyDataInvoices.Where(item =>
+                        item.InvoiceId == invoiceId).ToArray();
+                    if (myDataRows.Length > 0)
+                        db.Delete(myDataRows);
+
+                    var financialTransactions = db.FinancialTransactions.Where(item =>
+                        item.InvoiceId == invoiceId).ToArray();
+                    if (financialTransactions.Length > 0)
+                        db.Delete(financialTransactions);
+                    if (invoice.FinTransactions.Count > 0)
+                        db.Delete(invoice.FinTransactions);
+                    if (invoice.InvoiceLines.Count > 0)
+                        db.Delete(invoice.InvoiceLines);
+
+                    db.Delete(invoice);
                     db.SaveChanges();
                 }
+                lock (Threads.PrintAgent.ExcludeInvoices)
+                    Threads.PrintAgent.ExcludeInvoices.Remove(invoiceId);
+                RefreshData();
             }
             catch (Exception ex)
             {
-                RadMessageBox.Show(ex.Message,"Σφάλμα Διαγραφής...",MessageBoxButtons.OK,RadMessageIcon.Exclamation);
-                return;
+                RadMessageBox.Show(ex.Message, "Διαγραφή παραστατικού",
+                    MessageBoxButtons.OK, RadMessageIcon.Exclamation);
             }
-
-            this.RefreshData();
         }
 
         private void btnAdd_Click(object sender, EventArgs e)
@@ -607,6 +734,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
         {
             this.vm.RefreshIsAdmin();
             heatingCorrectionMenu.Visibility = vm.IsAdmin ? ElementVisibility.Visible : ElementVisibility.Collapsed;
+            invoiceTypeCorrectionMenu.Visibility = vm.IsAdmin ? ElementVisibility.Visible : ElementVisibility.Collapsed;
         }
 
         private void btnPrint_Click(object sender, EventArgs e)
@@ -626,14 +754,9 @@ namespace ASFuelControl.Windows.UI.Catalogs
 
         private void Vm_QueryInvoiceData(object sender, ViewModels.QueryInvoiceDataArgs e)
         {
-            using (Forms.InvoiceTransformationForm itff = new Forms.InvoiceTransformationForm())
-            {
-                itff.LoadData(e);
-                var result = itff.ShowDialog(this);
-                if(result != DialogResult.OK)
-                    e.Cancel = true;
-
-            }
+            // Transformation values are now reviewed in the target invoice's
+            // normal editor. Keep the event subscribed for legacy view-model
+            // construction, but do not insert a second modal editing step.
         }
 
         private void radTextBox1_KeyUp(object sender, KeyEventArgs e)

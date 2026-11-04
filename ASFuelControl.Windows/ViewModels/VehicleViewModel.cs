@@ -14,6 +14,8 @@ namespace ASFuelControl.Windows.ViewModels
 
         public string TraderDeliveryAddress { set; get; }
 
+        public string TraderPaymentTypeDescription { set; get; }
+
         public Guid DefaultInvoiceTypeId { set; get; }
 
         public int Odometer { set; get; }

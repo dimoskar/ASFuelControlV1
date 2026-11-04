@@ -74,6 +74,26 @@ namespace ASFuelControl.Invoicing.Persistence
                 return updated;
             });
         }
+        // A definitive device rejection proves that the saved request was not
+        // signed. This is the only point at which recalculated invoice values may
+        // replace the workflow snapshot before a new signing attempt is created.
+        public byte[] ReplaceAfterRejectedSigning(IFiscalDocumentLease lease,
+            byte[] expectedSnapshot, byte[] replacementSnapshot)
+        {
+            RequireInvoice(lease);
+            if (expectedSnapshot == null || expectedSnapshot.Length == 0 ||
+                replacementSnapshot == null || replacementSnapshot.Length == 0)
+                throw new ArgumentException("Both workflow snapshots are required.");
+            return database.Locked(lease,(held,tx) => {
+                using (var command = SqlFiscalDatabase.Command(held.Connection,tx,
+                    SqlStatements.ReplaceWorkflowAfterRejectedSigning,
+                    "@id",lease.Document.DocumentId,"@expected",expectedSnapshot,
+                    "@expectedHash",SqlFiscalDatabase.Hash(expectedSnapshot),
+                    "@payload",replacementSnapshot,"@hash",SqlFiscalDatabase.Hash(replacementSnapshot),
+                    "@token",lease.FencingToken)) command.ExecuteNonQuery();
+                return replacementSnapshot;
+            });
+        }
         public int AllocateNumbers(IFiscalDocumentLease lease, DateTime? firstInvoiceDate = null)
         {
             RequireInvoice(lease);

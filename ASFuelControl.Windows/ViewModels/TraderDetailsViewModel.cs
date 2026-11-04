@@ -143,6 +143,10 @@ namespace ASFuelControl.Windows.ViewModels
         {
             TraderVehicleViewModel newVehicle = new TraderVehicleViewModel();
             newVehicle.TraderId = this.TraderId;
+            // dbo.Vehicle.PlateNumber is non-nullable. Empty means that the
+            // selected vehicle has no registration number; it is not a display
+            // placeholder and must not be transmitted to fiscal integrations.
+            newVehicle.PlateNumber = "";
             newVehicle.EntityState = EntityStateEnum.Added;
             this.vehicles.Add(newVehicle);
             this.OnPropertyChanged("Vehicles");

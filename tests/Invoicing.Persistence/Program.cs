@@ -63,6 +63,35 @@ internal static class Program
                 catch (Exception ex) { throw new Exception(Path.GetFileName(file) + ": " + ex.Message, ex); }
             }
         });
+        Test("Application database version and resources include the latest migration", () => {
+            var repo = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "../../../.."));
+            var scripts = Path.Combine(repo, "ASFuelControl.Windows/DBScripts");
+            var latest = Directory.GetFiles(scripts, "UpdateDatabase*.sql")
+                .Select(path => Regex.Match(Path.GetFileNameWithoutExtension(path), "^UpdateDatabase([0-9]+)$"))
+                .Where(match => match.Success)
+                .Select(match => int.Parse(match.Groups[1].Value))
+                .Max();
+            var program = File.ReadAllText(Path.Combine(repo, "ASFuelControl.Windows/Program.cs"));
+            var declared = Regex.Match(program, @"CurrentDBVersion\s*=\s*([0-9]+)");
+            Check(declared.Success, "CurrentDBVersion declaration was not found.");
+            Equal(latest, int.Parse(declared.Groups[1].Value));
+            var resources = File.ReadAllText(Path.Combine(repo, "ASFuelControl.Windows/Properties/Resources.resx"));
+            Check(resources.Contains("name=\"UpdateDatabase" + latest + "\""), "Latest migration is not registered as a resource.");
+        });
+        Test("Migration 65 upgrades an existing myDiesel schema and is idempotent", () => {
+            var repo = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "../../../.."));
+            var migration = File.ReadAllText(Path.Combine(repo, "ASFuelControl.Windows/DBScripts/UpdateDatabase65.sql"));
+            Execute(connectionString, "CREATE TABLE dbo.MyDieselCouponCase(CouponCaseId uniqueidentifier NOT NULL);");
+            try
+            {
+                Execute(connectionString, migration);
+                Execute(connectionString, migration);
+                Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.MyDieselCouponCase') AND name='ReservedStationAmdika' AND is_nullable=1;")));
+                Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.MyDieselCouponCase') AND name='CurrentStationAmdika' AND is_nullable=1;")));
+                Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID('dbo.MyDieselCouponCase') AND name='CK_MyDieselCouponCase_Amdika';")));
+            }
+            finally { Execute(connectionString, "DROP TABLE dbo.MyDieselCouponCase;"); }
+        });
         Test("Migration and every production SQL batch parse with SQL Server 2008 grammar", () => {
             var assembly = typeof(SqlFiscalDatabase).Assembly;
             using (var reader = new StreamReader(assembly.GetManifestResourceStream("FiscalSchema.sql"))) ParseSql100(reader.ReadToEnd());
@@ -373,6 +402,8 @@ internal static class Program
             Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.tables WHERE name='MyDieselCouponCase';")));
             Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.tables WHERE name='MyDieselReferenceCache';")));
             Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.MyDieselCouponCase') AND name='ExciseDiscountPerLitre';")));
+            Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.MyDieselCouponCase') AND name='ReservedStationAmdika';")));
+            Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.MyDieselCouponCase') AND name='CurrentStationAmdika';")));
             using (db.Acquire(new FiscalDocumentReference(FiscalDocumentKind.MyDieselCoupon, Guid.NewGuid()))) { }
             db.InstallSchema();
             Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.check_constraints WHERE name='CK_FiscalDocumentLease_DocumentKind';")));
@@ -389,7 +420,7 @@ internal static class Program
                 changedRate.Revision++; changedRate.UpdatedUtc = DateTime.UtcNow;
                 Throws<InvalidOperationException>(() => store.Save(lease,0,changedRate));
                 var saved = store.Load(lease); saved.LocalStage = MyDieselCaseStage.Reserved; saved.RemoteStatus = "RESERVED";
-                saved.Redeemable = true; saved.CurrentBranchNum = 1; saved.IssuedLitres = 150m;
+                saved.Redeemable = true; saved.CurrentBranchNum = 1; saved.CurrentStationAmdika = saved.ReservedStationAmdika; saved.IssuedLitres = 150m;
                 saved.CouponCreatedUtc = DateTime.UtcNow.AddDays(-1); saved.ValidUntilUtc = DateTime.UtcNow.AddDays(30);
                 saved.LastCheckedUtc = DateTime.UtcNow; saved.UpdatedUtc = DateTime.UtcNow; saved.Revision++;
                 store.Save(lease, 0, saved); Equal(1L, store.Load(lease).Revision);
@@ -441,7 +472,8 @@ internal static class Program
             {
                 store.Create(lease,row); var saved = store.Load(lease);
                 saved.LocalStage = MyDieselCaseStage.Reserved; saved.RemoteStatus = "RESERVED"; saved.Redeemable = true;
-                saved.CurrentBranchNum = 1; saved.Revision++; saved.UpdatedUtc = DateTime.UtcNow; store.Save(lease,0,saved);
+                saved.CurrentBranchNum = 1; saved.CurrentStationAmdika = saved.ReservedStationAmdika;
+                saved.Revision++; saved.UpdatedUtc = DateTime.UtcNow; store.Save(lease,0,saved);
                 saved.LocalStage = MyDieselCaseStage.Redeemed; saved.RemoteStatus = "REDEEMED"; saved.Redeemable = false;
                 saved.InvoiceMark = "400001234567890"; saved.MarkSourceInvoiceId = saved.InvoiceId;
                 saved.LastCheckedUtc = DateTime.UtcNow.AddHours(-2); saved.Revision++; saved.UpdatedUtc = DateTime.UtcNow; store.Save(lease,1,saved);
@@ -482,6 +514,7 @@ internal static class Program
         var now = DateTime.UtcNow;
         return new MyDieselCouponCaseRecord { CouponCaseId = caseId, InvoiceId = invoiceId, CouponCode = code,
             BeneficiaryVat = "123456789", CompanyVat = "998877665", Environment = FiscalEnvironment.Test, ReservedBranchNum = 1,
+            ReservedStationAmdika = "AMD-1",
             CredentialProfileId = "fixture", ExciseDiscountPerLitre = MyDieselTaxRules.DefaultExciseDiscountPerLitre,
             LocalStage = MyDieselCaseStage.Captured, BlocksInvoice = true, BlocksCouponReuse = true, CreatedUtc = now, UpdatedUtc = now };
     }
@@ -489,7 +522,7 @@ internal static class Program
     {
         var now = DateTime.UtcNow;
         return new MyDieselAttemptRecord { AttemptId = Guid.NewGuid(), Operation = operation,
-            Scope = new MyDieselScope(FiscalEnvironment.Test, "998877665", 1, "fixture"), RequestJson = request,
+            Scope = new MyDieselScope(FiscalEnvironment.Test, "998877665", 1, "fixture", "AMD-1"), RequestJson = request,
             State = MyDieselOperationState.Prepared, CreatedUtc = now, UpdatedUtc = now };
     }
     private static ProviderPaymentAttemptRequest PaymentRequest(Guid id)

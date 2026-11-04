@@ -21,8 +21,13 @@ namespace Exedron.Invoicing.Core
             Require(country != null, "The customer's country is missing or unknown.");
             var type = invoice.InvoiceSeries.InvoiceType;
             var linked = (parents ?? Enumerable.Empty<InvoiceParent>()).ToArray();
-            if (type.InvoiceTypeMode == InvoiceMode.Credit)
+            bool credit = type.InvoiceTypeMode == InvoiceMode.Credit;
+            bool cancellation = type.InvoiceTypeMode == InvoiceMode.Cancel;
+            if (credit || cancellation)
             {
+                if (cancellation)
+                    Require(linked.Length == 1,
+                        "A cancellation document must reference exactly one original invoice.");
                 foreach (var parent in linked)
                 {
                     Require(parent != null && parent.Invoice != null && parent.Invoice.InvoiceSeries != null &&
@@ -30,9 +35,12 @@ namespace Exedron.Invoicing.Core
                         "A linked original invoice is missing required data.");
                     Require(parent.Invoice.InvoiceId != invoice.InvoiceId, "An invoice cannot credit itself.");
                     var parentType = parent.Invoice.InvoiceSeries.InvoiceType;
-                    Require(parentType.InvoiceTypeMode == InvoiceMode.Normal &&
-                        (parentType.MyDataDocumentKind == (int)MyDataDocumentKind.Goods || parentType.MyDataDocumentKind == (int)MyDataDocumentKind.Services),
-                        "A credit invoice must reference original sales invoices, not credits, cancellations or standalone delivery notes.");
+                    if (credit || cancellation)
+                        Require(parentType.InvoiceTypeMode == InvoiceMode.Normal &&
+                            (parentType.MyDataDocumentKind == (int)MyDataDocumentKind.Goods || parentType.MyDataDocumentKind == (int)MyDataDocumentKind.Services),
+                            cancellation
+                                ? "A cancellation document transmitted as a credit must reference an original sales invoice, not another credit or cancellation."
+                                : "A credit invoice must reference original sales invoices, not credits, cancellations or standalone delivery notes.");
                     Require(parentType.IsRetail == type.IsRetail, "The credit invoice and its original invoices must agree on retail or wholesale classification.");
                     Require(string.Equals(Clean(parent.Invoice.Trader.TaxRegistrationId), Clean(invoice.Trader.TaxRegistrationId), StringComparison.OrdinalIgnoreCase) &&
                         (Clean(invoice.Trader.TaxRegistrationId) != null || parent.Invoice.TraderId == invoice.TraderId),
@@ -43,8 +51,8 @@ namespace Exedron.Invoicing.Core
                 p.Transmission.Mark.GetValueOrDefault() > 0 && !p.Transmission.CancelationMark.HasValue && !p.Transmission.CanceledByMark.HasValue);
             var resolved = ResolveKind((MyDataDocumentKind)type.MyDataDocumentKind,
                 type.InvoiceTypeMode, type.IsRetail, country.CountryCode, country.IsEu,
-                type.InvoiceTypeMode == InvoiceMode.Credit ? linked.Length : 0,
-                type.InvoiceTypeMode == InvoiceMode.Credit ? validMarks : 0);
+                credit || cancellation ? linked.Length : 0,
+                credit || cancellation ? validMarks : 0);
             // A customer delivery linked to the tanker's loading MARK is correlated
             // 9.1, regardless of provider or direct myDATA transmission channel.
             if (resolved == "9.3" && tanker?.Role == "Delivery")
@@ -58,9 +66,7 @@ namespace Exedron.Invoicing.Core
         private static string ResolveKind(MyDataDocumentKind kind, InvoiceMode mode,
             bool isRetail, string countryCode, bool isEu, int parentCount, int validMarkCount)
         {
-            if (mode == InvoiceMode.Cancel)
-                throw new ProviderInvoiceValidationException("Cancellation documents cannot be issued as credit invoices. Cancel the original document through the cancellation procedure.");
-            if (mode != InvoiceMode.Normal && mode != InvoiceMode.Credit)
+            if (mode != InvoiceMode.Normal && mode != InvoiceMode.Credit && mode != InvoiceMode.Cancel)
                 throw new ProviderInvoiceValidationException("The invoice mode is not supported.");
             if (kind == MyDataDocumentKind.Unspecified || !Enum.IsDefined(typeof(MyDataDocumentKind), kind))
                 throw new ProviderInvoiceValidationException("Select the myDATA document kind in Invoice Types before issuing this document.");
@@ -69,12 +75,14 @@ namespace Exedron.Invoicing.Core
             if (parentCount < 0 || validMarkCount < 0 || validMarkCount > parentCount)
                 throw new ProviderInvoiceValidationException("Invalid credit-invoice correlation data.");
 
-            if (mode == InvoiceMode.Credit)
+            if (mode == InvoiceMode.Credit || mode == InvoiceMode.Cancel)
             {
                 if (kind == MyDataDocumentKind.Delivery || kind == MyDataDocumentKind.ConsolidatedDelivery || kind == MyDataDocumentKind.CorrelatedQuantityReceipt)
                     throw new ProviderInvoiceValidationException("A standalone delivery document cannot be issued as a financial credit invoice.");
                 if (parentCount != validMarkCount)
                     throw new ProviderInvoiceValidationException("Every linked original invoice must have a successful, uncancelled myDATA MARK before issuing the credit invoice.");
+                if (mode == InvoiceMode.Cancel && parentCount != 1)
+                    throw new ProviderInvoiceValidationException("A cancellation document must reference exactly one original invoice.");
                 return isRetail ? "11.4" : parentCount > 0 ? "5.1" : "5.2";
             }
 

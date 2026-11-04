@@ -9,8 +9,6 @@ namespace ASFuelControl.Windows.Threads
     {
         private string outFolder = "";
         private string signFolder = "";
-        private bool windowsPrint = false;
-        private bool printBarCode = false;
         private string connectionString = "";
         private string invoiceSignLine = "";
         private string taxNumber = "";
@@ -36,8 +34,6 @@ namespace ASFuelControl.Windows.Threads
             }
             this.tailInvLines = Data.Implementation.OptionHandler.Instance.GetIntOption("TailInvoiceLine", 5);
             this.invoiceSignLine = Data.Implementation.OptionHandler.Instance.GetOption("SingLine");
-            this.windowsPrint = Data.Implementation.OptionHandler.Instance.GetBoolOption("WindowsInvoicePrint", false);
-            this.printBarCode = Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintInvoiceBarcode", false);
         }
 
         public bool SignInvoice(Data.Invoice invoice)
@@ -276,50 +272,7 @@ namespace ASFuelControl.Windows.Threads
 
         public void PrintInvoice(Data.Invoice invoice)
         {
-            if (windowsPrint)
-            {
-                Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-
-                Reports.InvoiceThermal report = new Reports.InvoiceThermal();
-                report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db, "InvoicePrintViews");
-                report.ReportParameters[0].Value = invoice.InvoiceId.ToString().ToLower();
-                report.ReportParameters[1].Value = this.printBarCode;
-
-                System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
-                //printerSettings.PrinterName = invoice.Printer;
-                Telerik.Reporting.Processing.ReportProcessor.Print(report, printerSettings);
-            }
-            else
-            {
-                System.Diagnostics.Trace.WriteLine("Start Invoice Print : " + DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss.ffff"));
-                string[] invoiceLines = this.CreateInvoiceText(invoice);
-                //invoice.InvoiceLines[0].SalesTransaction.Nozzle.Dispenser.InvoicePrints
-                string printText = "";
-                for (int i = 0; i < invoiceLines.Length; i++)
-                {
-                    printText = printText + invoiceLines[i] + "\r\n";
-                }
-
-                string sign = "Χώρος σήμανσης: " + invoice.InvoiceSignature;
-                printText = printText + sign;
-
-                for (int i = 0; i < this.tailInvLines; i++)
-                {
-                    printText = printText + "\r\n";
-                }
-
-
-                string GS = Convert.ToString((char)29);
-                string ESC = Convert.ToString((char)27);
-                string COMMAND = "";
-                COMMAND = ESC + "@";
-                COMMAND += GS + "V" + (char)1;
-
-                //DirectPrinter.SendToPrinter("ASFuelControl Invoice", printText, invoice.Printer);
-                DirectPrinter.SendToPrinter("ASFuelControl Invoice", printText + "\r\n" + COMMAND, invoice.Printer);
-
-                System.Diagnostics.Trace.WriteLine("Invoice Printed: " + DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss.ffff"));
-            }
+            PrintAgent.PrintThermalInvoiceReport(invoice);
         }
 
         public bool PrintText(string text, string name)

@@ -1073,6 +1073,8 @@ namespace ASFuelControl.Windows.Threads
             string scriptName = "UpdateDatabase" + version.ToString();
             
             string str = Properties.Resources.ResourceManager.GetString(scriptName);
+            if (string.IsNullOrWhiteSpace(str))
+                throw new InvalidOperationException("Missing embedded database migration resource: " + scriptName + ".");
             string[] commands = str.Split(new string[] {"GO\r\n"}, StringSplitOptions.RemoveEmptyEntries);
             foreach (string command in commands)
             {
@@ -1820,6 +1822,8 @@ namespace ASFuelControl.Windows.Threads
                         if (sale.EuromatTransaction.TranType != Euromat.TranTypeEnum.Attendant)
                         {
                             newInvoice.IsEuromat = sale.EuromatTransaction.TranType == Euromat.TranTypeEnum.Euromat;
+                            if (newInvoice.IsEuromat == true)
+                                newInvoice.PaymentType = (int)Common.Enumerators.PaymentTypeEnum.FleetCard;
                             sale.EuromatTransaction.InvoiceNumber = newInvoice.Number;
                             sale.EuromatTransaction.InvoiceDate = newInvoice.TransactionDate;
                         }
@@ -1832,6 +1836,8 @@ namespace ASFuelControl.Windows.Threads
                         if (sale.EuromatTransaction.TranType != Euromat.TranTypeEnum.Attendant && !sent)
                         {
                             newInvoice.IsEuromat = sale.EuromatTransaction.TranType == Euromat.TranTypeEnum.Euromat;
+                            if (newInvoice.IsEuromat == true)
+                                newInvoice.PaymentType = (int)Common.Enumerators.PaymentTypeEnum.FleetCard;
                             sale.EuromatTransaction.InvoiceNumber = newInvoice.Number;
                             sale.EuromatTransaction.InvoiceDate = newInvoice.TransactionDate;
                         }

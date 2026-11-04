@@ -59,7 +59,7 @@ namespace Exedron.Invoicing.Adapters
                     new XElement("invoiceMark",Value(match,"mark")), new XElement("invoiceUid",Value(match,"uid")), new XElement("qrUrl",Value(match,"qrCodeUrl") ?? "")));
                 saved.ResponseXml = evidence.ToString(SaveOptions.DisableFormatting);
                 saved.State = "Accepted"; saved.CommunicationError = null;
-                result = ParseInvoiceResponse(saved.ResponseXml);
+                result = MapResponse(saved.ResponseXml);
             }
             catch (Exception ex)
             {

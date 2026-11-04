@@ -176,8 +176,7 @@ namespace ASFuelControl.Windows.UI.SelectionForms
                 if (invLine == null)
                     return;
                 Guid invId = invLine.InvoiceId;
-                Forms.InvoiceFormEx iform = Forms.InvoiceEditorFormFactory.CreateForInvoice(invId);
-                iform.LoadInvoice(invId);
+                Forms.InvoiceFormEx iform = Forms.InvoiceEditorFormFactory.OpenInvoice(invId);
                 iform.StartPosition = FormStartPosition.CenterScreen;
                 iform.Show(this);
             }

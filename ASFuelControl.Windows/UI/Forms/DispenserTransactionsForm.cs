@@ -126,11 +126,11 @@ namespace ASFuelControl.Windows.UI.Forms
                 Telerik.WinControls.RadMessageBox.Show("Το επιλεγμένο Παραστατικό δεν περιέχει γραμμές παραστατικού", "Σφάλμα εκτύπωσης", MessageBoxButtons.OK, Telerik.WinControls.RadMessageIcon.Error);
                 return;
             }
-            DialogResult res = Telerik.WinControls.RadMessageBox.Show("Θέλετε να εκτύπώσετε το επιλεγμένο Παραστατικό;", "Επανεκτύπωση Παραστατικού", MessageBoxButtons.YesNo, Telerik.WinControls.RadMessageIcon.Question);
-            if (res == System.Windows.Forms.DialogResult.Yes)
-            {
-                Threads.PrintAgent.PrintInvoiceDirect(invoice);
-            }
+            string selectedPrinter;
+            if (InvoicePrintConfirmationDialog.Confirm(this,
+                "Θέλετε να εκτυπώσετε το επιλεγμένο Παραστατικό;",
+                InvoicePrintConfirmationDialog.ResolvePrinter(invoice),out selectedPrinter))
+                Threads.PrintAgent.PrintInvoiceDirect(invoice,selectedPrinter);
         }
 
         private void salesTransactionRadGridView_ViewCellFormatting(object sender, CellFormattingEventArgs e)

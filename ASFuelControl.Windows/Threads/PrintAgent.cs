@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using ASFuelControl.Logging;
-using System.Net.Sockets;
 using System.Drawing.Printing;
 using ASFuelControl.Communication.Enums;
 using System.Xml.Serialization;
@@ -35,8 +34,6 @@ namespace ASFuelControl.Windows.Threads
         private string outFolder = "";
         private string signFolder = "";
         private string processFolder = "";
-        private bool windowsPrint = false;
-        private int thermalPaperWidth = 80;
         private bool printBarCode = false;
         private string invoiceSignLine = "";
         private int invoiceReplaceCodeFrom = 173;
@@ -73,9 +70,9 @@ namespace ASFuelControl.Windows.Threads
 
         public PrintAgent()
         {
-            var samtecSetings = Samtec.WebService.SamtecSettings.ReadSettings();
-            samtecWSUrl = samtecSetings.SamtecUrl + ":" + samtecSetings.SamtecURLPort;
-            eftPosTid = samtecSetings.EftPosTID;
+            var samtecSettings = SharedInvoicingSettings.LoadSamtecApplicationOptions();
+            samtecWSUrl = samtecSettings.Endpoint?.AbsoluteUri.TrimEnd('/') ?? "";
+            eftPosTid = samtecSettings.TerminalId;
             List<string> instPrinterList = new List<string>();
             foreach (string printer in System.Drawing.Printing.PrinterSettings.InstalledPrinters)
             {
@@ -97,10 +94,8 @@ namespace ASFuelControl.Windows.Threads
             if(!string.IsNullOrWhiteSpace(this.signFolder) && !Directory.Exists(this.processFolder))
                 Directory.CreateDirectory(this.processFolder);
             this.tailInvLines = Data.Implementation.OptionHandler.Instance.GetIntOption("TailInvoiceLine", 5);
-            this.invoiceCopies = Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceCopies", 2);
+            this.invoiceCopies = SharedInvoicingSettings.GetLaserCopiesOption();
             this.invoiceSignLine = Data.Implementation.OptionHandler.Instance.GetOption("SingLine");
-            this.windowsPrint = Data.Implementation.OptionHandler.Instance.GetBoolOption("WindowsInvoicePrint", false);
-            this.thermalPaperWidth = Data.Implementation.OptionHandler.Instance.GetIntOption("ThermalPaperWidth", 80);
             this.printBarCode = Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintInvoiceBarcode", false);
             this.litercheckInvoiceType = Data.Implementation.OptionHandler.Instance.GetGuidOption("3f54a35b-01f6-43b8-a17e-2d4927e319b8", Guid.Empty);
             this.invoiceReplaceCodeFrom = Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceReplaceCodeFrom", 173);
@@ -296,9 +291,9 @@ namespace ASFuelControl.Windows.Threads
 
         #region static methods
 
-        public static void PrintInvoiceDirect(Data.Invoice inv)
+        public static void PrintInvoiceDirect(Data.Invoice inv, string selectedPrinter = null)
         {
-            if (SharedInvoiceRuntime.Handles(inv.InvoiceId)) { SharedInvoiceRuntime.Process(inv.InvoiceId); return; }
+            if (SharedInvoiceRuntime.Handles(inv.InvoiceId)) { SharedInvoiceRuntime.Process(inv.InvoiceId,true,null,selectedPrinter); return; }
             Guid invoiceId = inv.InvoiceId;
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
@@ -347,8 +342,8 @@ namespace ASFuelControl.Windows.Threads
                             report.ReportParameters["CompanyEfk"].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyEFK");
                             
                             report.SetSupplyNumber(invoice, myDataQrCode);
-                            short invCopies = (short)Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceCopies", 2);
-                            System.Drawing.Printing.PrinterSettings printerSettings = CreateLegacyReportPrinterSettings(invoice, invCopies);
+                            short invCopies = SharedInvoicingSettings.GetLaserCopiesOption();
+                            System.Drawing.Printing.PrinterSettings printerSettings = CreateLegacyReportPrinterSettings(invoice, invCopies,selectedPrinter);
                             PrintReport(report, printerSettings);
 
                             //report.ReportParameters["InvoiceId"].Value = invoice.InvoiceId.ToString().ToLower();
@@ -397,135 +392,16 @@ namespace ASFuelControl.Windows.Threads
 
                             report.SetSupplyNumber(invoice, myDataQrCode);
                             report.SetRestAmounts(invoice);
-                            short invCopies = (short)Data.Implementation.OptionHandler.Instance.GetIntOption("InvoiceCopies", 2);
-                            System.Drawing.Printing.PrinterSettings printerSettings = CreateLegacyReportPrinterSettings(invoice, invCopies);
+                            short invCopies = SharedInvoicingSettings.GetLaserCopiesOption();
+                            System.Drawing.Printing.PrinterSettings printerSettings = CreateLegacyReportPrinterSettings(invoice, invCopies,selectedPrinter);
                             PrintReport(report, printerSettings);
                         }
                     }
                 }
                 else
                 {
-                    bool windowsPrint = Data.Implementation.OptionHandler.Instance.GetBoolOption("WindowsInvoicePrint", false);
                     bool printBarCode = Data.Implementation.OptionHandler.Instance.GetBoolOption("PrintInvoiceBarcode", false);
-                    int thermalPaperWidth = Data.Implementation.OptionHandler.Instance.GetIntOption("ThermalPaperWidth", 80);
-                    int tailInvLines = Data.Implementation.OptionHandler.Instance.GetIntOption("TailInvoiceLine", 5);
-                    if (windowsPrint)
-                    {
-                        //if (thermalPaperWidth == 80)
-                        //{
-                        //    using (Reports.InvoiceThermal report = new Reports.InvoiceThermal())
-                        //    {
-                        //        report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db, "InvoicePrintViews");
-                        //        report.ReportParameters[0].Value = invoice.InvoiceId.ToString().ToLower();
-                        //        report.ReportParameters[1].Value = printBarCode;
-                        //        report.ReportParameters[2].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyName");
-                        //        report.ReportParameters[3].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyOccupation");
-                        //        report.ReportParameters[4].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyAddress");
-                        //        report.ReportParameters[4].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyAddress") + " " + Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
-                        //        report.ReportParameters[10].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyMainAddress");
-                        //        report.ReportParameters[5].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
-                        //        report.ReportParameters[6].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN");
-                        //        report.ReportParameters[7].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTaxOffice");
-                        //        report.ReportParameters[8].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyPhone");
-                        //        report.ReportParameters[9].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyFax");
-                        //        string efk = Data.Implementation.OptionHandler.Instance.GetOption("CompanyEFK");
-                        //        report.ReportParameters[11].Value = efk == null ? "" : efk;
-                        //        report.SetSupplyNumber(invoice);
-                        //        System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
-                        //        printerSettings.PrinterName = invoice.Printer;
-                        //        PrintReport(report, printerSettings);
-                        //    }
-                        //}
-                        //else
-                        //{
-                        using (Reports.Invoices.InvoiceReportNarrow report = new Reports.Invoices.InvoiceReportNarrow())
-                        {
-                            report.ApplyThermalPrintSafety();
-                            var fs = Data.Implementation.OptionHandler.Instance.GetDecimalOption("ThermalPrintFontSize", 9);
-                            var fn = Data.Implementation.OptionHandler.Instance.GetOption("ThermalPrintFontName", "Bahnschrift Light Condensed");
-
-                            report.SetFont(fn, (float)fs);
-                            var invLines = db.InvoicePrintViews.Where(i => i.InvoiceId == invoice.InvoiceId);
-                            foreach(var invLine in invLines)
-                            {
-                                invLine.InvoiceNettoAmount = invoice.NettoAmount.Value;
-                                invLine.InvoiceTotalAmount = invoice.TotalAmount.Value;
-                                invLine.InvoiceVatAmount = invoice.VatAmount.Value;
-                                invLine.InvoiceDiscountAmount = invoice.DiscountAmount;
-                                invLine.InvoiceNettoAfterDiscountAmount = invoice.NettoAfterDiscount;
-                            }
-                            using (var reportData = new Telerik.Reporting.OpenAccessDataSource(invLines, ""))
-                            {
-                                report.DataSource = reportData;
-                            report.ReportParameters[0].Value = invoice.InvoiceId.ToString().ToLower();
-                            report.ReportParameters[1].Value = printBarCode;
-                            report.ReportParameters[2].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyName");
-                            report.ReportParameters[3].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyOccupation");
-                            report.ReportParameters[4].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyAddress");
-                            report.ReportParameters[4].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyAddress") + " " + Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
-                            report.ReportParameters[10].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyMainAddress");
-                            report.ReportParameters[5].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
-                            report.ReportParameters[6].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN");
-                            report.ReportParameters[7].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTaxOffice");
-                            report.ReportParameters[8].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyPhone");
-                            report.ReportParameters[9].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyFax");
-                            string efk = Data.Implementation.OptionHandler.Instance.GetOption("CompanyEFK");
-                            report.ReportParameters[11].Value = efk == null ? "" : efk;
-                            SetNarrowReportSupplyNumber(report, invoice, myDataQrCode);
-                            System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
-                            SetPrinter(printerSettings, invoice);
-                                PrintReport(report, printerSettings);
-                            }
-                        }
-                        //}
-
-                    }
-                    else
-                    {
-                        if (Properties.Settings.Default.TCPPrinterAddress == "")
-                        {
-                            System.Diagnostics.Trace.WriteLine("Start Invoice Print : " + DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss.ffff"));
-                            string[] invoiceLines = CreateInvoiceTextDirect(invoice);
-                            //invoice.InvoiceLines[0].SalesTransaction.Nozzle.Dispenser.InvoicePrints
-                            string printText = "";
-
-
-
-
-                            for (int i = 0; i < invoiceLines.Length; i++)
-                            {
-                                printText = printText + invoiceLines[i] + "\r\n";
-                            }
-
-                            string sign = "Χώρος σήμανσης: " + invoice.InvoiceSignature;
-                            printText = printText + sign;
-
-                            for (int i = 0; i < tailInvLines; i++)
-                            {
-                                printText = printText + "\r\n";
-                            }
-
-
-                            string GS = Convert.ToString((char)29);
-                            string ESC = Convert.ToString((char)27);
-                            string COMMAND = "";
-                            COMMAND = ESC + "@";
-                            COMMAND += GS + "V" + (char)1;
-
-
-
-                            //printText = Encoding.ASCII.GetString(Encoding.Convert(Encoding.Default, Encoding.ASCII, Encoding.Default.GetBytes(printText)));
-
-                            //DirectPrinter.SendToPrinter("ASFuelControl Invoice", printText, invoice.Printer);
-                            DirectPrinter.SendToPrinter("ASFuelControl Invoice", printText + "\r\n" + COMMAND, invoice.Printer);
-
-                            System.Diagnostics.Trace.WriteLine("Invoice Printed: " + DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss.ffff"));
-                        }
-                        else
-                        {
-                            TcpPrint(Properties.Settings.Default.TCPPrinterAddress, invoice);
-                        }
-                    }
+                    PrintThermalInvoiceReport(db,invoice,myDataQrCode,printBarCode,selectedPrinter);
                 }
             }
             //new System.Threading.Tasks.Task(() =>
@@ -761,36 +637,120 @@ namespace ASFuelControl.Windows.Threads
                 foreach (var entry in unitPrices)
                     entry.Line.UnitPrice = entry.UnitPrice;
             }
+            report.SetTransactionDate(invoice.TransactionDate);
+            report.FlowFooterAfterDetails();
+        }
+
+        private static void PrintThermalInvoiceReport(
+            Data.DatabaseModel db,
+            Data.Invoice invoice,
+            string myDataQrCode,
+            bool printBarCode,
+            string selectedPrinter)
+        {
+            using (var report = new Reports.Invoices.InvoiceReportNarrow())
+            {
+                report.ApplyThermalPrintSafety();
+                var options = Data.Implementation.OptionHandler.Instance;
+                var fontSize = options.GetDecimalOption("ThermalPrintFontSize",9);
+                var fontName = options.GetOption("ThermalPrintFontName","Tahoma");
+                report.SetFont(fontName,(float)fontSize);
+                report.ApplyThermalTypography(fontName,(float)fontSize);
+
+                var invoiceLines = db.InvoicePrintViews
+                    .Where(line => line.InvoiceId == invoice.InvoiceId)
+                    .ToArray();
+                foreach (var line in invoiceLines)
+                {
+                    line.InvoiceNettoAmount = invoice.NettoAmount.GetValueOrDefault();
+                    line.InvoiceTotalAmount = invoice.TotalAmount.GetValueOrDefault();
+                    line.InvoiceVatAmount = invoice.VatAmount.GetValueOrDefault();
+                    line.InvoiceDiscountAmount = invoice.DiscountAmount;
+                    line.InvoiceNettoAfterDiscountAmount = invoice.NettoAfterDiscount;
+                }
+
+                using (var reportData = new Telerik.Reporting.OpenAccessDataSource(invoiceLines,""))
+                {
+                    report.DataSource = reportData;
+                    report.ReportParameters["InvoiceId"].Value = invoice.InvoiceId.ToString().ToLowerInvariant();
+                    report.ReportParameters["PrintBarcode"].Value = printBarCode;
+                    report.ReportParameters["CompanyName"].Value = options.GetOption("CompanyName");
+                    report.ReportParameters["Occupation"].Value = options.GetOption("CompanyOccupation");
+                    report.ReportParameters["Address"].Value = options.GetOption("CompanyAddress") + " " +
+                        options.GetOption("CompanyCity");
+                    report.ReportParameters["MainAddress"].Value = options.GetOption("CompanyMainAddress");
+                    report.ReportParameters["City"].Value = options.GetOption("CompanyCity");
+                    report.ReportParameters["VATNumber"].Value = options.GetOption("CompanyTIN");
+                    report.ReportParameters["TaxOffice"].Value = options.GetOption("CompanyTaxOffice");
+                    report.ReportParameters["Phone"].Value = options.GetOption("CompanyPhone");
+                    report.ReportParameters["Fax"].Value = options.GetOption("CompanyFax");
+                    report.ReportParameters["efk"].Value = options.GetOption("CompanyEFK") ?? "";
+                    SetNarrowReportSupplyNumber(report,invoice,myDataQrCode);
+
+                    var printerSettings = new System.Drawing.Printing.PrinterSettings { Copies = 1 };
+                    SetPrinter(printerSettings,invoice);
+                    if (!string.IsNullOrWhiteSpace(selectedPrinter))
+                        printerSettings.PrinterName = selectedPrinter.Trim();
+                    PrintReport(report,printerSettings);
+                }
+            }
+        }
+
+        internal static void PrintThermalInvoiceReport(Data.Invoice sourceInvoice)
+        {
+            if (sourceInvoice == null)
+                throw new ArgumentNullException("sourceInvoice");
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var invoice = db.Invoices.Single(item => item.InvoiceId == sourceInvoice.InvoiceId);
+                var myDataInvoice = db.MyDataInvoices.FirstOrDefault(item => item.InvoiceId == invoice.InvoiceId);
+                string qrCode = myDataInvoice == null ? null : myDataInvoice.QrCodeUrl;
+                if (string.IsNullOrWhiteSpace(qrCode) && !string.IsNullOrWhiteSpace(myDataInvoice?.Errors))
+                {
+                    var values = myDataInvoice.Errors.Split('|');
+                    if (values.Length > 1)
+                        qrCode = values[1];
+                }
+                bool printBarCode = Data.Implementation.OptionHandler.Instance
+                    .GetBoolOption("PrintInvoiceBarcode",false);
+                PrintThermalInvoiceReport(db,invoice,qrCode,printBarCode,null);
+            }
         }
 
         private static void SetPrinter(System.Drawing.Printing.PrinterSettings printerSettings, Data.Invoice invoice)
         {
-            if (invoice.Printer == null || invoice.Printer == "")
-            {
-                var invLine = invoice.InvoiceLines.FirstOrDefault();
-                if (invLine != null)
-                {
-                    var st = invLine.SalesTransaction;
-                    if (st != null)
-                    {
-                        var pr = st.Nozzle.Dispenser.InvoicePrints.Where(i => i.Printer != null && i.Printer != "").FirstOrDefault();
-                        if (pr != null)
-                            invoice.Printer = pr.Printer;
-                    }
-                }
-                if (invoice.Printer == null || invoice.Printer == "")
-                {
-                    invoice.Printer = invoice.InvoiceType.Printer;
-                }
-                //.SalesTransaction.Nozzle
-            }
-            if (invoice.Printer != null && invoice.Printer != "")
-                printerSettings.PrinterName = invoice.Printer;
+            string printer = ResolveLegacyThermalPrinter(invoice);
+            if (!string.IsNullOrWhiteSpace(printer))
+                printerSettings.PrinterName = printer;
         }
 
-        private static System.Drawing.Printing.PrinterSettings CreateLegacyReportPrinterSettings(Data.Invoice invoice, short copies)
+        private static string ResolveLegacyThermalPrinter(Data.Invoice invoice)
+        {
+            string requested = invoice?.Printer;
+            if (string.IsNullOrWhiteSpace(requested))
+                requested = SharedInvoiceConfiguration.PrinterName(invoice);
+            string thermalFallback = null;
+            try
+            {
+                long revision;
+                thermalFallback = SharedInvoicingSettings.Load(out revision)?.DefaultPrinter?.ThermalPrinterName;
+            }
+            catch (Exception ex) { Logger.Instance.LogToFile("Thermal invoice printer fallback",ex); }
+            var installed = System.Drawing.Printing.PrinterSettings.InstalledPrinters.Cast<string>().ToArray();
+            string windowsDefault = installed.Length == 0 ? null :
+                new System.Drawing.Printing.PrinterSettings().PrinterName;
+            return SharedInvoicePrinting.ResolvePrinterName(requested,thermalFallback,installed,windowsDefault);
+        }
+
+        private static System.Drawing.Printing.PrinterSettings CreateLegacyReportPrinterSettings(Data.Invoice invoice, short copies,
+            string selectedPrinter = null)
         {
             var printerSettings = new System.Drawing.Printing.PrinterSettings { Copies = copies };
+            if (!string.IsNullOrWhiteSpace(selectedPrinter))
+            {
+                printerSettings.PrinterName = selectedPrinter.Trim();
+                return printerSettings;
+            }
             if (invoice == null || invoice.InvoiceType == null || invoice.InvoiceType.IsLaserPrint != true)
                 return printerSettings;
             try
@@ -1366,10 +1326,12 @@ namespace ASFuelControl.Windows.Threads
                             try
                             {
                                 // Correction pairs are issued and printed explicitly by their batch.
-                                if (SharedInvoiceRuntime.IsHeatingBatchChild(invoice.InvoiceId)) continue;
+                                if (SharedInvoiceRuntime.IsHeatingBatchChild(invoice.InvoiceId) ||
+                                    SharedInvoiceRuntime.IsInvoiceTypeCorrectionChild(invoice.InvoiceId)) continue;
                                 if (SharedInvoiceRuntime.Handles(invoice.InvoiceId))
                                 {
-                                    SharedInvoiceRuntime.Process(invoice.InvoiceId);
+                                    SharedInvoiceRuntime.Process(invoice.InvoiceId,
+                                        automaticSamtecAmountCorrection: true);
                                     continue;
                                 }
                                 lock (this.invoicesProcessed)
@@ -1823,7 +1785,8 @@ namespace ASFuelControl.Windows.Threads
         /// <param name="sign"></param>
         /// <param name="id"></param>
         /// <param name="fileType"></param>
-        private bool ApplySign(Data.DatabaseModel db, string sign, string qrData, Guid id, string fileType)
+        private bool ApplySign(Data.DatabaseModel db, string sign, string qrData, Guid id, string fileType,
+            string selectedPrinter = null)
         {
             if ((fileType == "Balance" || fileType == "TankFilling") && SharedInvoiceRuntime.HandlesDocument(fileType, id))
                 throw new InvalidOperationException("Legacy callbacks cannot change a shared fiscal document.");
@@ -1923,9 +1886,9 @@ namespace ASFuelControl.Windows.Threads
                             bool isInternal = invoice.InvoiceType.IsInternal.HasValue ? invoice.InvoiceType.IsInternal.Value : true;
 
                             if (invoice.InvoiceType.IsLaserPrint.HasValue && invoice.InvoiceType.IsLaserPrint.Value)
-                                this.PrintToPrinterInternalInvoice(invoice, isInternal);
+                                this.PrintToPrinterInternalInvoice(invoice, isInternal,selectedPrinter);
                             else
-                                this.PrintToPrinter(db, invoice);
+                                this.PrintToPrinter(db, invoice,selectedPrinter);
                             return true;
                         }
                         
@@ -2321,9 +2284,9 @@ namespace ASFuelControl.Windows.Threads
             }
         }
 
-        private void PrintToPrinter(Data.DatabaseModel db, Data.Invoice invoice)
+        private void PrintToPrinter(Data.DatabaseModel db, Data.Invoice invoice, string selectedPrinter = null)
         {
-            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId); return; }
+            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId,true,null,selectedPrinter); return; }
             if (invoicingProviderEnabled || invoice.InvoiceType.SendToMyData)
             {
                 if (!MyDataSendInvoice(invoice.InvoiceId, 2))
@@ -2344,129 +2307,13 @@ namespace ASFuelControl.Windows.Threads
                     myDataQrCode = myDataInvoice.QrCodeUrl;
                 }
             }
-            //if(invoice.InvoiceType.TransactionType == 1
-            if (windowsPrint)
+            try
             {
-                try
-                {
-                    //if (this.thermalPaperWidth == 80)
-                    //{
-                    //    using (Reports.InvoiceThermal report = new Reports.InvoiceThermal())
-                    //    {
-
-                    //        report.SetPaperWidth(this.thermalPaperWidth);
-                    //        report.DataSource = new Telerik.Reporting.OpenAccessDataSource(db, "InvoicePrintViews");
-                    //        report.ReportParameters[0].Value = invoice.InvoiceId.ToString().ToLower();
-                    //        report.ReportParameters[1].Value = this.printBarCode;
-                    //        report.ReportParameters[2].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyName");
-                    //        report.ReportParameters[3].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyOccupation");
-                    //        report.ReportParameters[4].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyAddress") + " " + Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
-                    //        report.ReportParameters[10].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyMainAddress");
-                    //        report.ReportParameters[5].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
-                    //        report.ReportParameters[6].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN");
-                    //        report.ReportParameters[7].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTaxOffice");
-                    //        report.ReportParameters[8].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyPhone");
-                    //        report.ReportParameters[9].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyFax");
-                    //        string efk = Data.Implementation.OptionHandler.Instance.GetOption("CompanyEFK");
-                    //        report.ReportParameters[11].Value = efk == null ? "" : efk;
-                    //        report.SetSupplyNumber(invoice);
-                    //        System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
-                    //        printerSettings.PrinterName = invoice.Printer;
-
-                    //        PrintReport(report, printerSettings);
-                    //    }
-                    //}
-                    //else
-                    //{
-                    using (Reports.Invoices.InvoiceReportNarrow report = new Reports.Invoices.InvoiceReportNarrow())
-                    {
-                        report.ApplyThermalPrintSafety();
-                        var fs = Data.Implementation.OptionHandler.Instance.GetDecimalOption("ThermalPrintFontSize", 9);
-                        var fn = Data.Implementation.OptionHandler.Instance.GetOption("ThermalPrintFontName", "Bahnschrift Light Condensed");
-
-                        report.SetFont(fn, (float)fs);
-
-                        var invLines = db.InvoicePrintViews.Where(i => i.InvoiceId == invoice.InvoiceId);
-                        foreach (var invLine in invLines)
-                        {
-                            invLine.InvoiceNettoAmount = invoice.NettoAmount.Value;
-                            invLine.InvoiceTotalAmount = invoice.TotalAmount.Value;
-                            invLine.InvoiceVatAmount = invoice.VatAmount.Value;
-                            invLine.InvoiceDiscountAmount = invoice.DiscountAmount;
-                            invLine.InvoiceNettoAfterDiscountAmount = invoice.NettoAfterDiscount;
-                        }
-
-                        using (var reportData = new Telerik.Reporting.OpenAccessDataSource(invLines, ""))
-                        {
-                            report.DataSource = reportData;
-                        report.ReportParameters[0].Value = invoice.InvoiceId.ToString().ToLower();
-                        report.ReportParameters[1].Value = this.printBarCode;
-                        report.ReportParameters[2].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyName");
-                        report.ReportParameters[3].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyOccupation");
-                        report.ReportParameters[4].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyAddress") + " " + Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
-                        report.ReportParameters[10].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyMainAddress");
-                        report.ReportParameters[5].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyCity");
-                        report.ReportParameters[6].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN");
-                        report.ReportParameters[7].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyTaxOffice");
-                        report.ReportParameters[8].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyPhone");
-                        report.ReportParameters[9].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyFax");
-                        report.ReportParameters[11].Value = Data.Implementation.OptionHandler.Instance.GetOption("CompanyEFK");
-                        SetNarrowReportSupplyNumber(report, invoice, myDataQrCode);
-                        System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
-                        SetPrinter(printerSettings, invoice);
-                            PrintReport(report, printerSettings);
-                        }
-                    }
-                    //}
-                }
-                catch(Exception ex)
-                {
-                    Logger.Instance.LogToFile("PrintToPrinter : Windows", ex);
-                }
+                PrintThermalInvoiceReport(db,invoice,myDataQrCode,this.printBarCode,selectedPrinter);
             }
-            else
+            catch (Exception ex)
             {
-                try
-                {
-                    if (Properties.Settings.Default.TCPPrinterAddress == "")
-                    {
-                        System.Diagnostics.Trace.WriteLine("Start Invoice Print : " + DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss.ffff"));
-                        string[] invoiceLines = this.CreateInvoiceText(db, invoice);
-                        //invoice.InvoiceLines[0].SalesTransaction.Nozzle.Dispenser.InvoicePrints
-                        string printText = "";
-                        for (int i = 0; i < invoiceLines.Length; i++)
-                        {
-                            printText = printText + invoiceLines[i] + "\r\n";
-                        }
-
-                        string sign = "Χώρος σήμανσης: " + invoice.InvoiceSignature;
-                        printText = printText + sign;
-
-                        for (int i = 0; i < this.tailInvLines; i++)
-                        {
-                            printText = printText + "\r\n";
-                        }
-
-                        string GS = Convert.ToString((char)29);
-                        string ESC = Convert.ToString((char)27);
-                        string COMMAND = "";
-                        COMMAND = ESC + "@";
-                        COMMAND += GS + "V" + (char)1;
-
-                        //DirectPrinter.SendToPrinter("ASFuelControl Invoice", printText, invoice.Printer);
-                        DirectPrinter.SendToPrinter("ASFuelControl Invoice", printText + "\r\n" + COMMAND, invoice.Printer);
-
-                        System.Diagnostics.Trace.WriteLine("Invoice Printed: " + DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss.ffff"));
-                    }
-                    else
-                    {
-                        TcpPrint(Properties.Settings.Default.TCPPrinterAddress, invoice);
-                    }
-                }
-                catch(Exception ex)
-                {
-                    Logger.Instance.LogToFile("PrintToPrinter : Other", ex);
-                }
+                Logger.Instance.LogToFile("PrintToPrinter : Telerik thermal invoice",ex);
             }
         }
 
@@ -2545,9 +2392,9 @@ namespace ASFuelControl.Windows.Threads
 
         }
 
-        private void PrintToPrinterInternalInvoice(Data.Invoice inv, bool showAdditionalData)
+        private void PrintToPrinterInternalInvoice(Data.Invoice inv, bool showAdditionalData, string selectedPrinter = null)
         {
-            if (SharedInvoiceRuntime.Handles(inv.InvoiceId)) { SharedInvoiceRuntime.Process(inv.InvoiceId); return; }
+            if (SharedInvoiceRuntime.Handles(inv.InvoiceId)) { SharedInvoiceRuntime.Process(inv.InvoiceId,true,null,selectedPrinter); return; }
             Guid invoiceId = inv.InvoiceId;
             using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
@@ -2596,8 +2443,10 @@ namespace ASFuelControl.Windows.Threads
                         
                         report.SetSupplyNumber(invoice, myDataQrCode);
                         System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
-                        short invCopies = Data.Implementation.OptionHandler.Instance.GetShortOption("InvoiceCopies", 2);
+                        short invCopies = SharedInvoicingSettings.GetLaserCopiesOption();
                         printerSettings.Copies = invCopies;
+                        if (!string.IsNullOrWhiteSpace(selectedPrinter))
+                            printerSettings.PrinterName = selectedPrinter.Trim();
                         PrintReport(report, printerSettings);
                     }
                 }
@@ -2622,9 +2471,11 @@ namespace ASFuelControl.Windows.Threads
                         report.SetSupplyNumber(invoice, myDataQrCode);
                         report.SetRestAmounts(invoice);
                         System.Drawing.Printing.PrinterSettings printerSettings = new System.Drawing.Printing.PrinterSettings();
-                        short invCopies = Data.Implementation.OptionHandler.Instance.GetShortOption("InvoiceCopies", 2);
+                        short invCopies = SharedInvoicingSettings.GetLaserCopiesOption();
                         Console.WriteLine(invCopies);
                         printerSettings.Copies = invCopies;
+                        if (!string.IsNullOrWhiteSpace(selectedPrinter))
+                            printerSettings.PrinterName = selectedPrinter.Trim();
                         PrintReport(report, printerSettings);
                     }
                 }
@@ -2684,46 +2535,10 @@ namespace ASFuelControl.Windows.Threads
 
         #region Print Methods
 
+        [Obsolete("Thermal invoices are printed by InvoiceReportNarrow through a Windows printer.")]
         public static void TcpPrint(string host, Data.Invoice invoice)
         {
-            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId); return; }
-            Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            int port = Properties.Settings.Default.TCPPrinterPort;
-            s.Connect(host, port);
-            s.Send(CreatePrint(invoice));
-            s.Disconnect(false);
-        }
-
-        const char ESC = '\x1b';
-        const char FS = '\x1c';
-        const char GS = '\x1d';
-
-        static byte[] CreatePrint(Data.Invoice invoice)
-        {
-            StringBuilder sb = new StringBuilder();
-
-            // Initialize printer
-            sb.Append(ESC + "@");
-            sb.Append(ESC + "R" + (char)(Properties.Settings.Default.TCPPrinterInternationalCharacter));
-            // Align center
-            sb.Append(ESC + "a" + (char)1);
-            sb.Append(ESC + "t" + (char)(Properties.Settings.Default.TCPPrinterCodeTable));
-            string[] lines = CreateInvoiceTextDirect(invoice);
-            foreach (string line in lines)
-                sb.AppendLine(line);
-
-            string sign = "Χώρος σήμανσης: " + invoice.InvoiceSignature;
-            sb.AppendLine(sign);
-            //string[] cmd = Properties.Settings.Default.CutCommand.Split(';');
-            //string cutCommand = "";
-            //string cutCommand2 = GS + "V\x41\0";
-            //foreach (string c in cmd)
-            //{
-            //    cutCommand = cutCommand + (char)(int.Parse(c));
-            //}
-            sb.Append(GS + "V\x41\0");//Kopse Xarti
-
-            return Encoding.Default.GetBytes(sb.ToString());
+            PrintThermalInvoiceReport(invoice);
         }
 
         List<Guid> invoiceProcessed = new List<Guid>();
@@ -2812,34 +2627,38 @@ namespace ASFuelControl.Windows.Threads
             List<Samtec.WebService.Models.Transactionline> transactionLines = new List<Samtec.WebService.Models.Transactionline>();
             if (!(invoice.InvoiceType.IsCancelation.HasValue && invoice.InvoiceType.IsCancelation.Value && invoice.InvoiceType.OfficialEnumerator == 215))
             {
+                int lineNo = 0;
                 foreach (var invLine in invoice.InvoiceLines)
                 {
                     var trans = new Samtec.WebService.Models.Transactionline();
+                    trans.LineNo = ++lineNo;
                     trans.ClassCategory = 1;
                     if (invLine.FuelType != null)
                     {
                         trans.FuelCode = invLine.FuelType.EnumeratorValue;
+                        trans.Code = invLine.FuelType.EnumeratorValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
                         trans.Description = invLine.FuelType.Name;
                     }
-                    int decimalPlaces = 3;
-
-                    if (invLine.VatPercentage == 0)
+                    var relatedSale = GetRelatedSamtecSale(invLine,
+                        invoice.InvoiceLines.Count == 1);
+                    if (relatedSale != null)
                     {
-                        decimalPlaces = decimal.Round(invLine.UnitPriceWhole, 3) != decimal.Round(invLine.UnitPriceWhole, 5) ? 5 : 3;
-                        trans.ItemAmount = decimal.Round(invLine.UnitPriceWhole, decimalPlaces);
+                        if (relatedSale.UnitPrice <= 0)
+                            throw new InvalidOperationException(
+                                "A sale-linked Samtec line requires a positive SalesTransaction retail unit price.");
+                        trans.ItemAmount = decimal.Round(relatedSale.UnitPrice,3);
+                    }
+                    else if(invLine.VatPercentage == 0 && invLine.UnitPriceWhole > 0)
+                    {
+                        trans.ItemAmount = decimal.Round(invLine.UnitPriceWhole,3);
                     }
                     else
                     {
-                        if (invLine.UnitPrice < invLine.UnitPriceRetail)
-                        {
-                            decimalPlaces = decimal.Round(invLine.UnitPriceRetail, 3) != decimal.Round(invLine.UnitPriceRetail, 5) ? 5 : 3;
-                            trans.ItemAmount = decimal.Round(invLine.UnitPriceRetail, decimalPlaces);
-                        }
-                        else
-                        {
-                            decimalPlaces = decimal.Round(invLine.UnitPrice, 3) != decimal.Round(invLine.UnitPrice, 5) ? 5 : 3;
-                            trans.ItemAmount = decimal.Round(invLine.UnitPrice, decimalPlaces);
-                        }
+                        decimal retail = Math.Max(invLine.UnitPrice,invLine.UnitPriceRetail);
+                        if(retail <= 0)
+                            throw new InvalidOperationException(
+                                "A Samtec line requires a positive stored retail unit price; it cannot be reconstructed from UnitPriceWhole.");
+                        trans.ItemAmount = decimal.Round(retail,3);
                     }
                     trans.MeasurementUnit = 3;
                     trans.SaleQty = decimal.Round(invLine.Volume, 3);
@@ -2853,15 +2672,143 @@ namespace ASFuelControl.Windows.Threads
                     else
                         trans.VatExCategory = 0;
                     trans.FeeCategory = 0;
-                    if(invLine.DiscountAmount > 0)
+                    trans.SaleQty = ReconcileLegacySamtecSaleQuantity(invLine,
+                        trans.ItemAmount,trans.SaleQty,Math.Abs(trans.GrossAmount));
+                    decimal discountGross = decimal.Round(trans.ItemAmount * trans.SaleQty, 2) -
+                        Math.Abs(trans.GrossAmount);
+                    if(discountGross < 0)
+                        throw new InvalidOperationException(
+                            "A Samtec line gross total exceeds its rounded quantity and retail unit price.");
+                    if(discountGross > 0)
                     {
                         trans.DMType = 1;
-                        trans.DMValue = (isNegative ? -1 : 1) * decimal.Round(invLine.DiscountAmount, 2);
+                        trans.DMValue = (isNegative ? -1 : 1) * discountGross;
                     }
                     transactionLines.Add(trans);
                 }
             }
             req.Doc.TransactionLines = transactionLines.ToArray();
+        }
+
+        private static decimal ReconcileLegacySamtecSaleQuantity(Data.InvoiceLine line,
+            decimal itemAmount,decimal quantity,decimal grossAmount)
+        {
+            if (!IsLegacySamtecSaleDerived(line,new HashSet<Guid>()) || itemAmount <= 0 ||
+                quantity <= 0 || decimal.Round(line.DiscountAmount,2,MidpointRounding.ToEven) != 0 ||
+                decimal.Round(line.DiscountAmountRetail,2,MidpointRounding.ToEven) != 0)
+                return quantity;
+            decimal difference = grossAmount - decimal.Round(itemAmount * quantity,2,
+                MidpointRounding.ToEven);
+            if (difference == 0)
+                return quantity;
+            decimal source = decimal.Round(quantity,3,MidpointRounding.ToEven);
+            decimal? bestAny = null;
+            decimal bestAnyError = decimal.MaxValue;
+            int bestAnyOffset = int.MaxValue;
+            for (int offset = -20; offset <= 20; offset++)
+            {
+                if(offset == 0)
+                    continue;
+                decimal candidate = source + offset * 0.001m;
+                if (candidate <= 0)
+                    continue;
+                decimal product = candidate * itemAmount;
+                if(decimal.Round(product,2,MidpointRounding.ToEven) != grossAmount)
+                    continue;
+                decimal error = Math.Abs(product - grossAmount);
+                int absoluteOffset = Math.Abs(offset);
+                if(error < bestAnyError || (error == bestAnyError && absoluteOffset < bestAnyOffset))
+                {
+                    bestAny = candidate;
+                    bestAnyError = error;
+                    bestAnyOffset = absoluteOffset;
+                }
+            }
+            return bestAny ?? quantity;
+        }
+
+        private static bool IsLegacySamtecSaleDerived(Data.InvoiceLine line,ISet<Guid> visited)
+        {
+            if (line == null)
+                return false;
+            if (line.SaleTransactionId.HasValue && line.SaleTransactionId.Value != Guid.Empty)
+                return true;
+            if (line.InvoiceLineId != Guid.Empty && !visited.Add(line.InvoiceLineId))
+                return false;
+            return line.InvoiceLineRelations_ChildRelationId != null &&
+                line.InvoiceLineRelations_ChildRelationId.Any(relation =>
+                    IsLegacySamtecSaleDerived(relation.InvoiceLine_ParentLineId,visited));
+        }
+
+        private static Data.SalesTransaction GetRelatedSamtecSale(Data.InvoiceLine line,
+            bool singleLineInvoice)
+        {
+            if (line == null)
+                return null;
+            if (line.SaleTransactionId.HasValue && line.SaleTransactionId.Value != Guid.Empty)
+                return RequireLoadedSamtecSale(line);
+
+            if (!singleLineInvoice)
+                return null;
+
+            var sources = new Dictionary<Guid, Data.InvoiceLine>();
+            var visited = new HashSet<Guid>();
+            if (line.InvoiceLineId != Guid.Empty)
+                visited.Add(line.InvoiceLineId);
+            if (line.InvoiceLineRelations_ChildRelationId != null)
+                foreach (var relation in line.InvoiceLineRelations_ChildRelationId)
+                    CollectRelatedSamtecSales(relation.InvoiceLine_ParentLineId, visited, sources);
+            if (sources.Count == 0)
+                return null;
+            decimal targetBeforeDiscount = SamtecGrossBeforeDiscount(line);
+            decimal sourceBeforeDiscount = decimal.Round(
+                sources.Values.Sum(source => (decimal)SamtecGrossBeforeDiscount(source)), 2);
+            decimal targetVolume = decimal.Round(Math.Abs(line.Volume), 3);
+            decimal sourceVolume = decimal.Round(
+                sources.Values.Sum(source => Math.Abs(source.Volume)), 3);
+            if (targetBeforeDiscount != sourceBeforeDiscount ||
+                targetVolume != sourceVolume)
+                return null;
+            var prices = sources.Values.Select(source =>
+                RequireLoadedSamtecSale(source).UnitPrice).Distinct().ToArray();
+            return prices.Length == 1
+                ? RequireLoadedSamtecSale(sources.Values.First())
+                : null;
+        }
+
+        private static Data.SalesTransaction RequireLoadedSamtecSale(Data.InvoiceLine line)
+        {
+            if (line.SalesTransaction == null)
+                throw new InvalidOperationException(
+                    "A sale-linked Samtec line requires its SalesTransaction to be loaded.");
+            return line.SalesTransaction;
+        }
+
+        private static decimal SamtecGrossBeforeDiscount(Data.InvoiceLine line)
+        {
+            decimal discount = line.DiscountAmountRetail != 0
+                ? line.DiscountAmountRetail
+                : line.DiscountAmount;
+            return decimal.Round(Math.Abs(line.TotalPrice) + Math.Abs(discount), 2);
+        }
+
+        private static void CollectRelatedSamtecSales(Data.InvoiceLine line,
+            ISet<Guid> visited, IDictionary<Guid, Data.InvoiceLine> sources)
+        {
+            if (line == null)
+                return;
+            if (line.InvoiceLineId != Guid.Empty && !visited.Add(line.InvoiceLineId))
+                return;
+            if (line.SaleTransactionId.HasValue && line.SaleTransactionId.Value != Guid.Empty)
+            {
+                RequireLoadedSamtecSale(line);
+                sources[line.SaleTransactionId.Value] = line;
+                return;
+            }
+            if (line.InvoiceLineRelations_ChildRelationId == null)
+                return;
+            foreach (var relation in line.InvoiceLineRelations_ChildRelationId)
+                CollectRelatedSamtecSales(relation.InvoiceLine_ParentLineId, visited, sources);
         }
         private void BuildReceiverHeader(Samtec.WebService.Models.Request req, Data.Invoice invoice)
         {
@@ -2892,6 +2839,7 @@ namespace ASFuelControl.Windows.Threads
                             payType = 0;
                             break;
                         case Common.Enumerators.PaymentTypeEnum.Credit:
+                        case Common.Enumerators.PaymentTypeEnum.FleetCard:
                             payType = 5;
                             break;
                         case Common.Enumerators.PaymentTypeEnum.CreditCard:
@@ -3170,9 +3118,9 @@ namespace ASFuelControl.Windows.Threads
             return req;
         }
 
-        public void SignInvoice(Data.DatabaseModel db, Data.Invoice invoice)
+        public void SignInvoice(Data.DatabaseModel db, Data.Invoice invoice, string selectedPrinter = null)
         {
-            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId); return; }
+            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId,true,null,selectedPrinter); return; }
             string sign = "";
             string qrData = "";
             if (invoice.Number == 0)
@@ -3183,7 +3131,7 @@ namespace ASFuelControl.Windows.Threads
                 db.SaveChanges();
             }
             if (invoicingProviderEnabled)
-                ApplySign(db, sign, qrData, invoice.InvoiceId, "Invoice");
+                ApplySign(db, sign, qrData, invoice.InvoiceId, "Invoice",selectedPrinter);
             else
             {
                 List<string> lines = new List<string>(this.CreateInvoiceText(db, invoice));
@@ -3215,7 +3163,7 @@ namespace ASFuelControl.Windows.Threads
                 }
                 if (sign != "")
                 {
-                    ApplySign(db, sign, qrData, invoice.InvoiceId, "Invoice");
+                    ApplySign(db, sign, qrData, invoice.InvoiceId, "Invoice",selectedPrinter);
                 }
             }
         }
@@ -4002,7 +3950,7 @@ namespace ASFuelControl.Windows.Threads
                         doc.Invoices = new Exedron.MyData.Interfaces.IInvoice[] { invoice };
                         string xml = doc.AsXml();
 
-                        if (dbInvoice.InvoiceType.OfficialEnumerator == 158)
+                        if (ASFuelControl.Invoicing.Mapping.HostInvoiceMapper.IsDeliveryDocument(dbInvoice.InvoiceType))
                         {
                             xml = xml.Replace("<currency>", "");
                             xml = xml.Replace("</currency>", "");
@@ -4145,7 +4093,7 @@ namespace ASFuelControl.Windows.Threads
 
         public static void CancelInvoice(Data.DatabaseModel db, Data.MyDataInvoice invToCancel)
         {
-            if (SharedInvoiceRuntime.Handles(invToCancel.InvoiceId)) throw new InvalidOperationException("Use the journalled cancellation/reconciliation workflow for this invoice.");
+            if (SharedInvoiceRuntime.Owns(invToCancel.InvoiceId)) throw new InvalidOperationException("Use the journalled cancellation/reconciliation workflow for this invoice.");
             var url = Data.Implementation.OptionHandler.Instance.GetOption("MyDataUrl", "https://mydata-dev.azure-api.net");
             string requestPayload = string.Format(
                 "<CancelInvoice><mark>{0}</mark></CancelInvoice>",
@@ -4649,7 +4597,16 @@ namespace ASFuelControl.Windows.Threads
             inv.Issuer.Country = "GR";
             inv.Issuer.VATNumber = vatNumber;
             inv.Issuer.Branch = Data.Implementation.OptionHandler.Instance.GetIntOption("CompanyBranch", 0);
-            bool isDelivery = (new int[] { 158, 159 }).Contains(invoice.InvoiceType.OfficialEnumerator);
+            bool isDelivery = ASFuelControl.Invoicing.Mapping.HostInvoiceMapper.IsDeliveryDocument(invoice.InvoiceType);
+            bool isSelfDelivery = ASFuelControl.Invoicing.Mapping.HostInvoiceMapper.IsSelfDeliveryDocument(invoice.InvoiceType);
+            if (isSelfDelivery && (invoice.Trader == null || string.IsNullOrWhiteSpace(vatNumber) ||
+                string.IsNullOrWhiteSpace(invoice.Trader.TaxRegistrationNumber) ||
+                !string.Equals((invoice.Trader.TaxRegistrationNumber ?? "").Trim(), vatNumber,
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                errorMessage = "The internal delivery document requires the counterpart VAT number to match the issuer VAT number.";
+                return null;
+            }
             if (!isRetail || isDelivery)
             {
 
@@ -4761,7 +4718,9 @@ namespace ASFuelControl.Windows.Threads
                 }
             }
 
-            invHeader.MovePurpose = Exedron.MyData.Interfaces.MovePurposeEnum.Sales;
+            invHeader.MovePurpose = isSelfDelivery
+                ? Exedron.MyData.Interfaces.MovePurposeEnum.Internal
+                : Exedron.MyData.Interfaces.MovePurposeEnum.Sales;
             invHeader.Series = string.IsNullOrEmpty(invoice.Series) ? "" : invoice.Series;
             inv.InvoiceHeader = invHeader;
 
@@ -4770,6 +4729,8 @@ namespace ASFuelControl.Windows.Threads
                 Exedron.MyData.InvoiceModels.PaymentMethodDetails payment = new Exedron.MyData.InvoiceModels.PaymentMethodDetails();
                 payment.Amount = invoice.TotalAmount.Value;
                 if (invoice.PaymentType.HasValue && invoice.PaymentType.Value == 0)
+                    payment.Type = Exedron.MyData.Interfaces.PaymentMethodEnum.Credit;
+                else if (invoice.PaymentType.HasValue && invoice.PaymentType.Value == 3)
                     payment.Type = Exedron.MyData.Interfaces.PaymentMethodEnum.Credit;
                 else if (invoice.PaymentType.HasValue && invoice.PaymentType.Value == 1)
                     payment.Type = Exedron.MyData.Interfaces.PaymentMethodEnum.Cash;
@@ -4982,7 +4943,16 @@ namespace ASFuelControl.Windows.Threads
             inv.Issuer.Address.City = Exedron.ProviderInvoicing.InvoiceHandler.Instance.CompanyCity;
             //inv.Issuer.Email
 
-            bool isDelivery = (new int[] { 158, 159 }).Contains(invoice.InvoiceType.OfficialEnumerator);
+            bool isDelivery = ASFuelControl.Invoicing.Mapping.HostInvoiceMapper.IsDeliveryDocument(invoice.InvoiceType);
+            bool isSelfDelivery = ASFuelControl.Invoicing.Mapping.HostInvoiceMapper.IsSelfDeliveryDocument(invoice.InvoiceType);
+            if (isSelfDelivery && (invoice.Trader == null || string.IsNullOrWhiteSpace(inv.Issuer.VATNumber) ||
+                string.IsNullOrWhiteSpace(invoice.Trader.TaxRegistrationNumber) ||
+                !string.Equals((invoice.Trader.TaxRegistrationNumber ?? "").Trim(),
+                    (inv.Issuer.VATNumber ?? "").Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                errorMessage = "The internal delivery document requires the counterpart VAT number to match the issuer VAT number.";
+                return null;
+            }
             if (!isRetail || isDelivery)
             {
                 //country = invoice.Trader.Country;
@@ -5068,7 +5038,9 @@ namespace ASFuelControl.Windows.Threads
                 }
             }
 
-            invHeader.MovePurpose = Exedron.ProviderInvoicing.MovePurposeEnum.Sales;
+            invHeader.MovePurpose = isSelfDelivery
+                ? Exedron.ProviderInvoicing.MovePurposeEnum.Internal
+                : Exedron.ProviderInvoicing.MovePurposeEnum.Sales;
             invHeader.Series = string.IsNullOrEmpty(invoice.Series) ? "" : invoice.Series;
             inv.InvoiceHeader = invHeader;
 
@@ -5077,6 +5049,8 @@ namespace ASFuelControl.Windows.Threads
                 Exedron.ProviderInvoicing.PaymentMethod payment = new Exedron.ProviderInvoicing.PaymentMethod();
                 payment.Amount = invoice.TotalAmount.Value;
                 if (invoice.PaymentType.HasValue && invoice.PaymentType.Value == 0)
+                    payment.Type = Exedron.ProviderInvoicing.PaymentMethodEnum.Credit;
+                else if (invoice.PaymentType.HasValue && invoice.PaymentType.Value == 3)
                     payment.Type = Exedron.ProviderInvoicing.PaymentMethodEnum.Credit;
                 else if (invoice.PaymentType.HasValue && invoice.PaymentType.Value == 1)
                     payment.Type = Exedron.ProviderInvoicing.PaymentMethodEnum.Cash;
@@ -5227,7 +5201,7 @@ namespace ASFuelControl.Windows.Threads
             }
 
             
-            bool isDelivery = (new int[] { 158, 159 }).Contains(invoice.InvoiceType.OfficialEnumerator);
+            bool isDelivery = ASFuelControl.Invoicing.Mapping.HostInvoiceMapper.IsDeliveryDocument(invoice.InvoiceType);
             
             var ctxInvType = Exedron.ProviderInvoicing.Resolvers.InvoiceTypeResolver.Resolve(new Exedron.ProviderInvoicing.Resolvers.InvoiceContext()
             {

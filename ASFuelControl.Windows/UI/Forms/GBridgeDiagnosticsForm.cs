@@ -180,7 +180,7 @@ ORDER BY a.CreatedUtc DESC,a.AttemptSequence DESC;";
         {
             var row = attempts.CurrentRow?.DataBoundItem as AttemptRow;
             if (row == null) return;
-            try { var form = InvoiceEditorFormFactory.CreateForInvoice(row.InvoiceId); form.LoadInvoice(row.InvoiceId); form.Show(this); }
+            try { var form = InvoiceEditorFormFactory.OpenInvoice(row.InvoiceId); form.Show(this); }
             catch (Exception ex) { RadMessageBox.Show(ex.Message,"Άνοιγμα παραστατικού",MessageBoxButtons.OK,RadMessageIcon.Error); }
         }
         private sealed class AttemptRow

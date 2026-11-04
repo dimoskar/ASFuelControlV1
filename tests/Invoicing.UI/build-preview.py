@@ -1,6 +1,6 @@
 """Compile real Designer and Step 9 UI code with inert host stubs. No production startup/DB."""
 from pathlib import Path
-import os, re, shutil, subprocess
+import os, re, shutil, subprocess, sys
 
 repo = Path(__file__).resolve().parents[2]
 out = Path(__file__).parent / 'output'
@@ -30,6 +30,7 @@ resource_source = 'namespace ASFuelControl.Windows.Properties { internal static 
 (out/'Resources.cs').write_text(resource_source, encoding='utf-8-sig')
 sources += [out/'Resources.cs',Path(__file__).parent/'Preview.cs',
     repo/'ASFuelControl.Windows/UI/Controls/InvoicingFields.cs',repo/'ASFuelControl.Windows/UI/Controls/FiscalDocumentPanel.cs',
+    repo/'ASFuelControl.Windows/UI/Forms/GBridgeDiagnosticsForm.cs',
     repo/'ASFuelControl.Windows/UI/Controls/DoubleBufferTableLayout.cs',repo/'ASFuelControl.Windows/Threads/SharedInvoiceConfiguration.cs']
 dlls = ['Telerik.WinControls.dll','Telerik.WinControls.GridView.dll','Telerik.WinControls.UI.dll','TelerikCommon.dll','TelerikData.dll',
     'Telerik.WinControls.Themes.TelerikMetroBlue.dll','ASFuelControl.Data.dll','ASFuelControl.Common.dll','Telerik.OpenAccess.dll',
@@ -44,4 +45,4 @@ args = [str(compiler),'/nologo','/langversion:7.3','/target:exe','/platform:x86'
 args += ['/r:'+name for name in ['System.dll','System.Core.dll','System.Drawing.dll','System.Windows.Forms.dll','System.Data.dll','System.Xml.dll','System.Net.Http.dll']]
 args += ['/r:'+str(out/name) for name in dlls]
 subprocess.run(args + [str(source) for source in sources],check=True)
-subprocess.run([str(out/'Preview.exe'),str(binary/'ASFuelControl.Windows.exe')],check=True,cwd=out)
+subprocess.run([str(out/'Preview.exe'),str(binary/'ASFuelControl.Windows.exe')] + sys.argv[1:],check=True,cwd=out)

@@ -13,6 +13,7 @@
     <!-- Explicit source items are required for reliable classic Visual Studio project tracking. -->
     <Compile Include="DatabaseInvoiceSource.cs" />
     <Compile Include="HeatingCorrection.cs" />
+    <Compile Include="InvoiceTypeCorrection.cs" />
     <Compile Include="FiscalPrintService.cs" />
     <Compile Include="FiscalSigningService.cs" />
     <Compile Include="HostFiscalSigningMapper.cs" />

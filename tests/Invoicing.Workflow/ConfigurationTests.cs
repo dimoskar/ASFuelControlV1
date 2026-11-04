@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using ASFuelControl.Invoicing;
+using ASFuelControl.Invoicing.Mapping;
 using ASFuelControl.Invoicing.Persistence;
 using ASFuelControl.Windows.Threads;
 using Exedron.Invoicing.Core;
+using Exedron.Invoicing.Adapters.Samtec;
 using Newtonsoft.Json;
 
 internal static partial class Program
@@ -50,6 +52,14 @@ internal static partial class Program
                 Equal(null,restored.PosMode); Equal(json,JsonConvert.SerializeObject(restored));
             }
         });
+        Test("empty wholesale codes receive startup defaults without replacing configured codes", () => {
+            var config = new SharedInvoiceConfiguration { Mapping = new MappingContext { WholesaleCodes = new HashSet<int>() } };
+            Check(config.EnsureWholesaleCodes(),"empty wholesale codes were not initialized");
+            Equal("161,165,178,221,222",string.Join(",",config.Mapping.WholesaleCodes.OrderBy(code => code)));
+            config.Mapping.WholesaleCodes = new HashSet<int> { 999 };
+            Check(!config.EnsureWholesaleCodes(),"configured wholesale codes were replaced");
+            Equal("999",string.Join(",",config.Mapping.WholesaleCodes));
+        });
         Test("per-type policy resolves five supported transmission/signing combinations", () => {
             var type = Guid.NewGuid();
             var policy = new InvoiceTypePolicy { InvoiceTypeId = type };
@@ -83,10 +93,17 @@ internal static partial class Program
             Equal("dispenser-printer",SharedInvoiceConfiguration.PrinterName(invoice));
             var config = new SharedInvoiceConfiguration { Version = 2,Policies = new Dictionary<Guid,InvoiceTypePolicy> {
                 { type.InvoiceTypeId,new InvoiceTypePolicy { InvoiceTypeId = type.InvoiceTypeId } } },
-                DefaultPrinter = new SharedPrinterProfile { PrinterName = "laser-printer" } };
-            var compact = config.Route(invoice); Equal(true,compact.Printer.Thermal); Equal("dispenser-printer",compact.Printer.PrinterName);
+                DefaultPrinter = new SharedPrinterProfile { PrinterName = "laser-printer",
+                    ThermalPrinterName = "thermal-fallback",LaserCopies = 3 } };
+            var compact = config.Route(invoice); Equal(true,compact.Printer.Thermal); Equal("dispenser-printer",compact.Printer.PrinterName); Equal((short)1,compact.Printer.Copies);
+            dispenser.InvoicePrints.First().Printer = "removed-printer";
+            compact = config.Route(invoice);
+            Equal("thermal-fallback",SharedInvoicePrinting.ResolveProfile(compact.Printer,config.DefaultPrinter,
+                new[] { "thermal-fallback","windows-default" },"windows-default").PrinterName);
             type.IsLaserPrint = true;
-            var laser = config.Route(invoice); Equal(false,laser.Printer.Thermal); Equal("laser-printer",laser.Printer.PrinterName);
+            var laser = config.Route(invoice); Equal(false,laser.Printer.Thermal); Equal("laser-printer",laser.Printer.PrinterName); Equal((short)3,laser.Printer.Copies);
+            config.DefaultPrinter.LaserCopies = 0;
+            Equal((short)2,config.Route(invoice).Printer.Copies);
         });
         Test("missing reviewed policy and conflicting environment cannot silently fall back", () => {
             var type = Guid.NewGuid(); var config = new SharedInvoiceConfiguration { Version = 2,TestMode = true,
@@ -94,6 +111,11 @@ internal static partial class Program
             Throws(() => config.Route(type,null));
             config.Policies[type] = new InvoiceTypePolicy { InvoiceTypeId = type,Transmission = InvoiceTransmissionMode.Provider };
             Throws(() => config.Route(type,null));
+            config.Policies[type].Transmission = InvoiceTransmissionMode.MyData;
+            config.DirectMyData = Route(InvoiceProviderCatalog.MyDataKey,false);
+            Throws(() => config.Route(type,null));
+            config.TestMode = false;
+            Equal(false,config.Route(type,null).Provider.TestMode);
         });
         Test("Ilyda and iTimologia are global choices without changing type policy", () => {
             var type = Guid.NewGuid(); var policy = new InvoiceTypePolicy { InvoiceTypeId = type,Transmission = InvoiceTransmissionMode.Provider };
@@ -210,11 +232,14 @@ internal static partial class Program
             Check(config.PendingInvoiceSummary(invoice,false).Contains("Σε παύση"),"missing pause status");
             config.Enabled = true;
         });
-        Test("a newly created cancellation invoice shows the unsupported workflow instead of a legacy label", () => {
+        Test("a newly created cancellation invoice uses its configured route", () => {
+            policy.Transmission = InvoiceTransmissionMode.Provider;
+            config.InvoiceProvider = Route(InvoiceProviderCatalog.ITimologiaKey);
             invoice.InvoiceType.IsCancelation = true;
             invoice.InvoiceType.OfficialEnumerator = 215;
             var summary = config.PendingInvoiceSummary(invoice,false);
-            Check(summary.Contains("ακυρωτικός") && summary.Contains("ειδική ροή ακύρωσης") && !summary.Contains("Παλαιό"),"missing cancellation explanation");
+            Check(summary.Contains("iTimologia") && !summary.Contains("ειδική ροή ακύρωσης") && !summary.Contains("Παλαιό"),"cancellation route was blocked");
+            config.PendingRoute(invoice,false);
             Equal(0,invoice.Number); invoice.InvoiceType.IsCancelation = false; invoice.InvoiceType.OfficialEnumerator = 100;
         });
         foreach (int code in new[] { 169,175 })
@@ -225,9 +250,39 @@ internal static partial class Program
                 Check(!config.PendingInvoiceSummary(invoice,false).Contains("ειδική ροή ακύρωσης"),"credit blocked as cancellation");
                 invoice.InvoiceType.IsCancelation = false; invoice.InvoiceType.OfficialEnumerator = 100;
             });
-        Test("special cancellation and tank types remain individually protected", () => {
-            invoice.InvoiceType.OfficialEnumerator = 215;
+        Test("Samtec card and IRIS use the device terminal for sign-only and direct myDATA routes", () => {
+            var scope = new FiscalSigningScope(SamtecFiscalSigner.Key,"device-pos",FiscalEnvironment.Test,"000000000",0);
+            var profile = new SamtecDeviceProfile(scope,new Uri("http://device.invalid:1234"),"POS-TID");
+            var restored = JsonConvert.DeserializeObject<SamtecDeviceProfile>(JsonConvert.SerializeObject(profile));
+            Equal("POS-TID",restored.EftPosTID);
+            policy.Transmission = InvoiceTransmissionMode.None; policy.SignWithFiscalDevice = true;
+            config.FiscalDevice = scope; config.Devices = new[] { profile };
+            foreach (int payment in new[] { 2,4 })
+            {
+                invoice.PaymentType = payment;
+                var route = config.PendingRoute(invoice,false);
+                Equal(null,route.Provider); Equal(null,route.Payment); Equal(scope,route.Signing);
+                Check(!config.PendingInvoiceSummary(invoice,false).Contains("απαιτεί διαδρομή POS"),"sign-only Samtec POS was reported as blocked");
+            }
+            config.Devices = new[] { new SamtecDeviceProfile(scope,new Uri("http://device.invalid:1234")) };
             Throws(() => config.PendingRoute(invoice,false));
+            config.Devices = new[] { profile }; policy.Transmission = InvoiceTransmissionMode.MyData;
+            foreach (int payment in new[] { 2,4 })
+            {
+                invoice.PaymentType = payment;
+                var route = config.PendingRoute(invoice,false);
+                Equal(config.DirectMyData,route.Provider); Equal(null,route.Payment); Equal(scope,route.Signing);
+                Check(!config.PendingInvoiceSummary(invoice,false).Contains("απαιτεί διαδρομή POS"),"direct myDATA with Samtec POS was reported as blocked");
+            }
+            config.Devices = new[] { new SamtecDeviceProfile(scope,new Uri("http://device.invalid:1234")) };
+            Throws(() => config.PendingRoute(invoice,false));
+            config.Devices = new[] { profile };
+            invoice.PaymentType = 1; policy.Transmission = InvoiceTransmissionMode.Provider;
+            policy.SignWithFiscalDevice = false; config.InvoiceProvider = Route(InvoiceProviderCatalog.ITimologiaKey);
+        });
+        Test("only tank-special types remain individually protected", () => {
+            invoice.InvoiceType.OfficialEnumerator = 215;
+            config.PendingRoute(invoice,false);
             invoice.InvoiceType.OfficialEnumerator = 100; invoice.InvoiceType.ForcesDelivery = true;
             Throws(() => config.PendingRoute(invoice,false));
             invoice.InvoiceType.ForcesDelivery = false;

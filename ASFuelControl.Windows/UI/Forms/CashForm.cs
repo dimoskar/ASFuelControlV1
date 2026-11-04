@@ -380,11 +380,12 @@ namespace ASFuelControl.Windows.UI.Forms
                 Telerik.WinControls.RadMessageBox.Show("Το επιλεγμένο Παραστατικό δεν περιέχει γραμμές παραστατικού", "Σφάλμα εκτύπωσης", MessageBoxButtons.OK, Telerik.WinControls.RadMessageIcon.Error);
                 return;
             }
-            DialogResult res = Telerik.WinControls.RadMessageBox.Show("Θέλετε να εκτύπώσετε το επιλεγμένο Παραστατικό;", "Επανεκτύπωση Παραστατικού", MessageBoxButtons.YesNo, Telerik.WinControls.RadMessageIcon.Question);
-            if (res == System.Windows.Forms.DialogResult.Yes)
+            string selectedPrinter;
+            if (InvoicePrintConfirmationDialog.Confirm(this,
+                "Θέλετε να εκτυπώσετε το επιλεγμένο Παραστατικό;",
+                InvoicePrintConfirmationDialog.ResolvePrinter(invoice),out selectedPrinter))
             {
-               
-                Threads.PrintAgent.PrintInvoiceDirect(invoice);
+                Threads.PrintAgent.PrintInvoiceDirect(invoice,selectedPrinter);
             }
         }
 
@@ -420,8 +421,7 @@ namespace ASFuelControl.Windows.UI.Forms
             Data.Invoice invoice = e.Row.DataBoundItem as Data.Invoice;
             if(invoice.InvoiceType.IsLaserPrint.HasValue && invoice.InvoiceType.IsLaserPrint.Value)
             {
-                InvoiceFormEx invForm = InvoiceEditorFormFactory.CreateForInvoice(invoice.InvoiceId);
-                invForm.LoadInvoice(invoice.InvoiceId);
+                InvoiceFormEx invForm = InvoiceEditorFormFactory.OpenInvoice(invoice.InvoiceId);
                 invForm.Show(this);
             }
         }

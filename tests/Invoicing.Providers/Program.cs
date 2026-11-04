@@ -54,6 +54,31 @@ internal static class Program
         });
         foreach (var key in new[] { InvoiceProviderCatalog.MyDataKey, InvoiceProviderCatalog.ITimologiaKey, InvoiceProviderCatalog.DirectIlydaKey })
         {
+            Test(key + " transmits FleetCard as AADE credit", () => {
+                var source = new Source(); source.Invoice.PaymentType = 3;
+                var http = new Http(source.Id,key);
+                var result = Service(http).Send(source.Id,Route(key),source);
+                Check(result.Accepted,Errors(result));
+
+                int paymentType;
+                if (key == InvoiceProviderCatalog.MyDataKey)
+                {
+                    paymentType = Convert.ToInt32(XDocument.Parse(http.LastPayload)
+                        .Descendants().Single(element => element.Name.LocalName == "paymentMethodDetails")
+                        .Elements().Single(element => element.Name.LocalName == "type").Value);
+                }
+                else
+                {
+                    var payload = JObject.Parse(http.LastPayload);
+                    paymentType = key == InvoiceProviderCatalog.ITimologiaKey
+                        ? (int)payload["payment_methods"][0]["type"]
+                        : (int)payload["paymentMethods"][0]["type"];
+                }
+                Equal(5,paymentType);
+            });
+        }
+        foreach (var key in new[] { InvoiceProviderCatalog.MyDataKey, InvoiceProviderCatalog.ITimologiaKey, InvoiceProviderCatalog.DirectIlydaKey })
+        {
             Test(key + " persists exact payload before dispatch and recovers accepted history", () => {
                 var s = new Source(); var h = new Http(s.Id, key); var secrets = new Credentials(); var service = Service(h,secrets);
                 var result = service.Send(s.Id, Route(key), s); Check(result.Accepted, Errors(result)); Equal(1,h.Posts);
@@ -61,6 +86,8 @@ internal static class Program
                 var again = service.Send(s.Id, Route(InvoiceProviderCatalog.MyDataKey, false), null);
                 Check(again.Accepted, Errors(again)); Equal(1,h.Posts); Equal(1,s.Loads); Equal(key,secrets.Last.ProviderKey); Equal(true,secrets.Last.TestMode);
                 var e = service.LoadParentEvidence(s.Id); Equal(900010L,e.Transmission.Mark.Value); Equal(FiscalEnvironment.Test,e.Environment);
+                var acceptedRoute = ProviderSubmissionService.ReadAcceptedRoute(Latest(s.Id));
+                Equal(key,acceptedRoute.ProviderKey); Equal(true,acceptedRoute.TestMode);
                 Equal(1,History(s.Id).Length); Equal(2,Revisions(s.Id).Length);
                 var json = Latest(s.Id).SnapshotJson; Check(json.Contains("credential-v1"), "Missing historical route"); Check(!json.Contains("SECRET"), "Secret leaked to fiscal journal");
             });

@@ -5,6 +5,7 @@ using ASFuelControl.Invoicing.Persistence;
 using Exedron.Invoicing.Core;
 using Exedron.Invoicing.Core.Models;
 using Exedron.Invoicing.Adapters;
+using Exedron.Invoicing.Adapters.Samtec;
 using Newtonsoft.Json;
 
 namespace ASFuelControl.Invoicing
@@ -104,6 +105,26 @@ namespace ASFuelControl.Invoicing
         public InvoiceWorkflowResult Process(Guid invoiceId, IInvoiceWorkflowSource source, bool print, string reprintReason, bool retryRejected,
             bool retryDeclinedPayment, string reprintDestination)
         {
+            return ProcessCore(invoiceId,source,print,reprintReason,retryRejected,
+                retryDeclinedPayment,reprintDestination,false);
+        }
+
+        // PrintAgent-only repair path. A definitive Samtec amount rejection may
+        // be retried automatically only when the current mapper produces different
+        // request bytes. Once those corrected bytes have been rejected, later polls
+        // see no payload change and cannot dispatch again.
+        public InvoiceWorkflowResult ProcessAutomaticSamtecAmountCorrection(Guid invoiceId,
+            IInvoiceWorkflowSource source, bool print = true, string reprintReason = null,
+            string reprintDestination = null)
+        {
+            return ProcessCore(invoiceId,source,print,reprintReason,false,false,
+                reprintDestination,true);
+        }
+
+        private InvoiceWorkflowResult ProcessCore(Guid invoiceId, IInvoiceWorkflowSource source,
+            bool print, string reprintReason, bool retryRejected, bool retryDeclinedPayment,
+            string reprintDestination, bool automaticSamtecAmountCorrection)
+        {
             using (var lease = database.EnterInvoice(invoiceId))
             {
                 var bytes = snapshots.Load(lease);
@@ -174,9 +195,47 @@ namespace ASFuelControl.Invoicing
                     if (snapshot.LocalOnly) result.FiscalState = "LocalOnly";
                     if (snapshot.Signing != null)
                     {
-                        var signed = signing.Sign(snapshot.Signing.Document, snapshot.Signing.Scope, snapshot);
+                        var previousSigning = history.Load(lease,FiscalJournalFamily.Signing).LastOrDefault();
+                        bool retrySigning = retryRejected;
+                        InvoiceWorkflowSnapshot regenerated = null;
+                        if (!retrySigning && automaticSamtecAmountCorrection && source != null &&
+                            IsAutomaticSamtecAmountCorrection(lease,snapshot,previousSigning))
+                        {
+                            regenerated = source.Prepare(lease) ?? throw new InvalidOperationException(
+                                "The corrected invoice workflow could not be regenerated.");
+                            Validate(regenerated,invoiceId);
+                            retrySigning = !snapshot.Signing.Payload.SequenceEqual(
+                                regenerated.Signing?.Payload ?? new byte[0]);
+                        }
+                        if (retrySigning && previousSigning?.State == FiscalSigningState.Rejected.ToString() &&
+                            snapshot.Signing.Scope.SignerKey == SamtecFiscalSigner.Key)
+                        {
+                            if (source != null)
+                            {
+                                if (regenerated == null)
+                                    regenerated = source.Prepare(lease) ?? throw new InvalidOperationException(
+                                        "The corrected invoice workflow could not be regenerated.");
+                                snapshot = MergeRegeneratedSigning(snapshot,regenerated,invoiceId);
+                                var replacement = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(snapshot));
+                                bytes = snapshots.ReplaceAfterRejectedSigning(lease,bytes,replacement);
+                            }
+                            else
+                                snapshot.Signing = SamtecFiscalSigner.CorrectLineAmountsForRetry(snapshot.Signing);
+                        }
+                        var signed = signing.Sign(snapshot.Signing.Document, snapshot.Signing.Scope, snapshot,
+                            retryDefinitiveFailure: retrySigning);
+                        // A corrected retry has a new immutable request/attempt ID.
+                        // Keep the in-memory workflow aligned for direct-myDATA
+                        // submission and for recovery after a process restart.
+                        snapshot.Signing = signed.Request;
                         result.FiscalState = signed.State.ToString();
-                        if (signed.State != FiscalSigningState.Signed) return result;
+                        if (signed.State != FiscalSigningState.Signed)
+                        {
+                            string diagnostic = signed.Result?.Diagnostic ?? signed.Diagnostic;
+                            if (!string.IsNullOrWhiteSpace(diagnostic))
+                                result.Response = new InvoiceResponse { Errors = new[] { diagnostic } };
+                            return result;
+                        }
                         result.AcceptedAttemptId = signed.Request.AttemptId;
                         result.Response = new InvoiceResponse { InvoiceSignature = signed.Result.Signature, QrCodeUrl = signed.Result.QrCode };
                     }
@@ -191,7 +250,8 @@ namespace ASFuelControl.Invoicing
                             if (submitted == null && !string.IsNullOrWhiteSpace(payment.Payment?.ErrorMessage))
                                 result.Response = new InvoiceResponse { Errors = new[] { payment.Payment.ErrorMessage } };
                         }
-                        else if (snapshot.Signing != null) submitted = providers.SendAfterSigning(invoiceId, snapshot.Provider, snapshot, result.AcceptedAttemptId.Value);
+                        else if (snapshot.Signing != null) submitted = providers.SendAfterSigning(invoiceId,
+                            snapshot.Provider,snapshot,result.AcceptedAttemptId.Value,retryRejected);
                         else submitted = providers.Send(invoiceId, snapshot.Provider, snapshot, retryRejected);
                         result.FiscalState = submitted?.State ?? ("Payment: " + result.PaymentState);
                         result.AcceptedAttemptId = submitted?.Accepted == true ? submitted.AttemptId : null;
@@ -230,7 +290,9 @@ namespace ASFuelControl.Invoicing
                 }
                 if (print)
                 {
-                    var printDestination = !string.IsNullOrWhiteSpace(reprintReason) && !string.IsNullOrWhiteSpace(reprintDestination)
+                    // A UI-selected printer may replace the destination of an
+                    // unfinished first handoff without turning it into a reprint.
+                    var printDestination = !string.IsNullOrWhiteSpace(reprintDestination)
                         ? reprintDestination
                         : snapshot.PrintDestination;
                     result.Print = printing.Print(lease, result.OfflineAttemptId ?? result.AcceptedAttemptId, printDestination,
@@ -238,6 +300,60 @@ namespace ASFuelControl.Invoicing
                     project(invoiceId, result);
                 }
                 return result;
+            }
+        }
+
+        private bool IsAutomaticSamtecAmountCorrection(IFiscalDocumentLease lease,
+            InvoiceWorkflowSnapshot snapshot, FiscalAttemptEvidence previousSigning)
+        {
+            if (previousSigning == null || snapshot?.Signing == null ||
+                previousSigning.State != FiscalSigningState.Rejected.ToString() ||
+                snapshot.Signing.Scope.SignerKey != SamtecFiscalSigner.Key ||
+                !IsSamtecAmountMismatch(previousSigning))
+                return false;
+
+            // One automatic regenerated attempt is the absolute limit. This also
+            // prevents a changing print rendering or another non-fiscal payload
+            // detail from causing an endless retry cycle after the corrected
+            // request itself has been rejected by the device.
+            if (history.Load(lease,FiscalJournalFamily.Signing)
+                .Count(evidence => evidence.State == FiscalSigningState.Rejected.ToString() &&
+                    IsSamtecAmountMismatch(evidence)) != 1)
+                return false;
+
+            foreach (var family in new[] { FiscalJournalFamily.Submission,
+                FiscalJournalFamily.ProviderSession, FiscalJournalFamily.Payment,
+                FiscalJournalFamily.Cancellation, FiscalJournalFamily.Print,
+                FiscalJournalFamily.MyDiesel })
+                if (history.Load(lease,family).Any()) return false;
+            try
+            {
+                // Integrated EFTPOS may have external payment consequences. Those
+                // cases remain operator-controlled even when the device reports 89.
+                var request = Newtonsoft.Json.Linq.JObject.Parse(
+                    Encoding.UTF8.GetString(previousSigning.RequestPayload));
+                var payments = request["Doc"]?["Payments"] as Newtonsoft.Json.Linq.JArray;
+                return payments == null || !payments.Any(payment => (int?)payment["Type"] == 1);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsSamtecAmountMismatch(FiscalAttemptEvidence evidence)
+        {
+            try
+            {
+                var outcome = Newtonsoft.Json.Linq.JObject.Parse(evidence?.SnapshotJson ?? "");
+                string response = (string)outcome["Response"] ?? "";
+                return response.IndexOf("89/D0/02",StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    response.IndexOf("Amounts of JSON transaction line does not match",
+                        StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            catch
+            {
+                return false;
             }
         }
         private static string ReadReprintDestination(ref string reason)
@@ -287,11 +403,50 @@ namespace ASFuelControl.Invoicing
                 if (model.Issuer.VATNumber != value.Provider.IssuerVat || model.Issuer.Branch != value.Provider.IssuerBranch) throw new InvalidOperationException("Issuer differs from workflow route.");
                 new InvoiceAdapterFactory(new InvoiceTypeResolver()).CreatePayloadMapper(value.Provider.ProviderKey).Serialize(model, id);
                 bool pos = (model.PaymentMethods ?? new PaymentMethod[0]).Any(p => (int)p.Type == 7 || (int)p.Type == 8);
-                if (pos != (value.Payment != null)) throw new InvalidOperationException("Explicit POS route required exactly for card/IRIS invoices.");
+                bool integratedSamtecPos = pos && value.Payment == null && value.Signing != null &&
+                    value.Provider.ProviderKey == InvoiceProviderCatalog.MyDataKey && value.Signing.Scope != null &&
+                    value.Signing.Scope.SignerKey == SamtecFiscalSigner.Key;
+                if (pos != (value.Payment != null) && !integratedSamtecPos)
+                    throw new InvalidOperationException("Explicit POS route required exactly for card/IRIS invoices unless Samtec performs the integrated POS transaction.");
                 if (value.Signing != null && (value.Provider.ProviderKey != InvoiceProviderCatalog.MyDataKey ||
                     value.Signing.Scope.IssuerVat != value.Provider.IssuerVat || value.Signing.Scope.IssuerBranch != value.Provider.IssuerBranch ||
                     (value.Signing.Scope.Environment == FiscalEnvironment.Test) != value.Provider.TestMode)) throw new InvalidOperationException("Only matching Samtec/direct-myDATA composition is supported.");
             }
+        }
+
+        private static InvoiceWorkflowSnapshot MergeRegeneratedSigning(InvoiceWorkflowSnapshot saved,
+            InvoiceWorkflowSnapshot regenerated, Guid invoiceId)
+        {
+            Validate(regenerated,invoiceId);
+            if (saved?.Signing == null || regenerated.Signing == null ||
+                !FiscalSigningCoordinator.SameIssuerScope(saved.Signing.Scope,regenerated.Signing.Scope))
+                throw new InvalidOperationException("A corrected signing request must retain the saved Samtec device and issuer scope.");
+            if (saved.LocalOnly != regenerated.LocalOnly ||
+                !SameProviderIdentity(saved.Provider,regenerated.Provider) ||
+                (saved.Payment == null) != (regenerated.Payment == null))
+                throw new InvalidOperationException("Recalculation cannot change the saved fiscal or payment route.");
+            if (saved.MyDieselCouponCaseId != regenerated.MyDieselCouponCaseId ||
+                JsonConvert.SerializeObject(saved.MyDieselScope) != JsonConvert.SerializeObject(regenerated.MyDieselScope))
+                throw new InvalidOperationException("Recalculation cannot change the saved myDiesel case or scope.");
+
+            // Routes, credentials, printer selection and coupon identity remain
+            // fixed. Calculation-derived provider, print and signing data are
+            // replaced together before the new request can be dispatched.
+            saved.Version = Math.Max(saved.Version,regenerated.Version);
+            saved.Invoice = regenerated.Invoice;
+            saved.PrintContent = regenerated.PrintContent;
+            saved.CompanyQrContent = regenerated.CompanyQrContent;
+            saved.MyDieselExciseDiscountPerLitre = regenerated.MyDieselExciseDiscountPerLitre;
+            saved.Signing = regenerated.Signing;
+            Validate(saved,invoiceId);
+            return saved;
+        }
+
+        private static bool SameProviderIdentity(ProviderRoute left, ProviderRoute right)
+        {
+            if (left == null || right == null) return left == null && right == null;
+            return left.ProviderKey == right.ProviderKey && left.TestMode == right.TestMode &&
+                left.IssuerVat == right.IssuerVat && left.IssuerBranch == right.IssuerBranch;
         }
     }
 }

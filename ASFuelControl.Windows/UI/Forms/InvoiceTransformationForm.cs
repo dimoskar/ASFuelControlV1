@@ -18,17 +18,42 @@ namespace ASFuelControl.Windows.UI.Forms
         public InvoiceTransformationForm()
         {
             InitializeComponent();
+            StartPosition = FormStartPosition.CenterScreen;
         }
 
         public void LoadData(ViewModels.QueryInvoiceDataArgs args)
         {
+            if (this.Data != null)
+                this.Data.PropertyChanged -= Data_PropertyChanged;
             this.queryInvoiceDataArgsBindingSource.DataSource = args;
             this.queryInvoiceDataArgsBindingSource.ResetBindings(false);
             this.volumesBindingSource.ResetBindings(false);
             this.Data = args;
-            this.radGridView1.Columns["Volume"].ReadOnly = !args.AllowVolumeEdit;
-            this.radGridView1.Columns["UnitPrice"].ReadOnly = !args.AllowUnitPriceEdit;
-            this.radGridView1.Columns["DiscountAmount"].ReadOnly = true;
+            this.Data.PropertyChanged += Data_PropertyChanged;
+            this.ApplyEditPolicy();
+        }
+
+        private void Data_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == "AllowUnitPriceEdit" ||
+                e.PropertyName == "AllowVolumeEdit")
+                this.ApplyEditPolicy();
+        }
+
+        private void ApplyEditPolicy()
+        {
+            if (this.Data == null)
+                return;
+            this.radGridView1.Columns["Volume"].ReadOnly = !this.Data.AllowVolumeEdit;
+            this.radGridView1.Columns["UnitPrice"].ReadOnly = !this.Data.AllowUnitPriceEdit;
+            this.radGridView1.Columns["DiscountAmount"].ReadOnly = !this.Data.AllowUnitPriceEdit;
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            if (this.Data != null)
+                this.Data.PropertyChanged -= Data_PropertyChanged;
+            base.OnFormClosed(e);
         }
 
         private void btnSave_Click(object sender, EventArgs e)

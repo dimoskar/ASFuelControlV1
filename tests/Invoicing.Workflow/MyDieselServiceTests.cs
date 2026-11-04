@@ -25,6 +25,7 @@ internal static partial class Program
                 var attempts = new SqlMyDieselStore(database).LoadAttempts(lease, first.AttemptId, true);
                 Equal(5, attempts.Count); Equal(MyDieselOperationState.Succeeded, attempts.Last().State);
                 Check(attempts.All(a => a.RequestJson == attempts[0].RequestJson), "Unknown retry changed its exact request.");
+                Equal("AMD-1", (string)Newtonsoft.Json.Linq.JObject.Parse(attempts[0].RequestJson)["amdika"]);
             }
             Equal(2, factory.Calls);
         });
@@ -46,7 +47,11 @@ internal static partial class Program
             service.Reserve(row.CouponCaseId); var released = service.Release(row.CouponCaseId);
             Equal(MyDieselCaseStage.Released, released.CouponCase.LocalStage);
             Check(!released.CouponCase.BlocksInvoice && !released.CouponCase.BlocksCouponReuse, "Released coupon is still blocking.");
-            Equal(null, new SqlMyDieselStore(database).FindBlockingByInvoice(row.InvoiceId));
+            var store = new SqlMyDieselStore(database);
+            Equal(null, store.FindBlockingByInvoice(row.InvoiceId));
+            Check(store.CanAttachNewCoupon(row.InvoiceId), "Released coupon still prevents attaching a replacement.");
+            var replacement = service.Capture(row.InvoiceId, Identity("AKEM-1022-3310-4471-0928"), Scope());
+            Equal(replacement.CouponCaseId, store.FindLatestByInvoice(row.InvoiceId).CouponCaseId);
         });
         Test("myDiesel redeem timeout never repeats redemption and reconciles with explicit query", () => {
             var factory = new DieselFactory();
@@ -99,6 +104,35 @@ internal static partial class Program
                 Equal("Διόρθωση επιλεγμένου πρατηρίου",attempts.Last().OperatorReason);
             }
         });
+        Test("myDiesel MARK correction resumes without repeating an uncertain correction", () => {
+            var factory = new DieselFactory();
+            factory.Results.Enqueue((operation, caseRow) => Success(operation, caseRow, "RESERVED", true));
+            factory.Results.Enqueue((operation, caseRow) => Success(operation, caseRow, "REDEEMED", false));
+            factory.Results.Enqueue((operation, caseRow) => Unknown(operation));
+            factory.Results.Enqueue((operation, caseRow) => Success(operation, caseRow, "REDEEMED", false));
+            var service = new MyDieselCouponService(database,factory); var invoice = DraftInvoice();
+            var row = service.Capture(invoice,Identity("AXTY-1022-8625-7956-7356"),Scope());
+            service.Reserve(row.CouponCaseId);
+            service.Redeem(row.CouponCaseId,invoice,"400001234567890");
+
+            var uncertain = service.CorrectMarkOrRecover(row.CouponCaseId,invoice,
+                "400001234567891","Διόρθωση τύπου 11.1 σε 1.1");
+            Equal(MyDieselOperationState.Unknown,uncertain.OperationState);
+            Equal(MyDieselCaseStage.RedeemUnknown,uncertain.CouponCase.LocalStage);
+            var recovered = service.CorrectMarkOrRecover(row.CouponCaseId,invoice,
+                "400001234567891","Διόρθωση τύπου 11.1 σε 1.1");
+            Equal(MyDieselOperationState.Succeeded,recovered.OperationState);
+            Equal("400001234567891",recovered.CouponCase.InvoiceMark);
+            Equal(4,factory.Calls);
+
+            var idempotent = service.CorrectMarkOrRecover(row.CouponCaseId,invoice,
+                "400001234567891","Διόρθωση τύπου 11.1 σε 1.1");
+            Equal(MyDieselOperationState.Succeeded,idempotent.OperationState);
+            Equal(4,factory.Calls);
+            using (var lease = new SqlMyDieselStore(database).Acquire(row.CouponCaseId))
+                Equal(2,new SqlMyDieselStore(database).LoadAttempts(lease)
+                    .Count(attempt => attempt.Operation == MyDieselOperation.Redeem));
+        });
         Test("accepted invoice redeems myDiesel before print and freezes the coupon in snapshot v2", () => {
             var source = new WorkflowSource(); var invoice = source.Source.Id;
             DraftInvoice(invoice);
@@ -106,7 +140,7 @@ internal static partial class Program
             factory.Results.Enqueue((operation, caseRow) => Success(operation,caseRow,"RESERVED",true));
             factory.Results.Enqueue((operation, caseRow) => Success(operation,caseRow,"REDEEMED",false));
             var couponService = new MyDieselCouponService(database,factory);
-            var scope = new MyDieselScope(FiscalEnvironment.Test,"000000000",0,"uat-fixture");
+            var scope = new MyDieselScope(FiscalEnvironment.Test,"000000000",0,"uat-fixture","AMD-0");
             var coupon = couponService.Capture(invoice,new MyDieselCouponIdentity("AEMN-1022-8625-7956-7356","111111111"),scope,null,null,0.375m);
             couponService.Reserve(coupon.CouponCaseId);
             source.Snapshot = new InvoiceWorkflowSnapshot { Version = 2,InvoiceId = invoice,Provider = Route(InvoiceProviderCatalog.MyDataKey),
@@ -141,7 +175,7 @@ internal static partial class Program
     }
 
     private static MyDieselCouponIdentity Identity(string code) { return new MyDieselCouponIdentity(code, "123456789"); }
-    private static MyDieselScope Scope() { return new MyDieselScope(FiscalEnvironment.Test, "998877665", 1, "uat-fixture"); }
+    private static MyDieselScope Scope() { return new MyDieselScope(FiscalEnvironment.Test, "998877665", 1, "uat-fixture", "AMD-1"); }
     private static MyDieselCallResult<MyDieselCouponInfo> Unknown(MyDieselOperation operation)
     { return new MyDieselCallResult<MyDieselCouponInfo> { Operation = operation, State = MyDieselOperationState.Unknown, CommunicationError = "fixture.timeout" }; }
     private static MyDieselCallResult<MyDieselCouponInfo> Success(MyDieselOperation operation, MyDieselCouponCaseRecord row, string status, bool redeemable)

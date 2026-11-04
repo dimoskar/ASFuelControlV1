@@ -6,6 +6,7 @@ using System.Xml.Linq;
 using ASFuelControl.Invoicing.Mapping;
 using ASFuelControl.Invoicing.Persistence;
 using Exedron.Invoicing.Adapters;
+using Exedron.Invoicing.Adapters.Samtec;
 using Exedron.Invoicing.Core;
 using Exedron.Invoicing.Core.Models;
 using Newtonsoft.Json;
@@ -64,8 +65,8 @@ namespace ASFuelControl.Invoicing
 
         // Only the composed host workflow may cross signing -> direct myDATA.
         internal ProviderSubmissionResult SendAfterSigning(Guid invoiceId, ProviderRoute route,
-            InvoiceWorkflowSnapshot source, Guid signingAttemptId)
-        { return SendCore(invoiceId, route, source, false, signingAttemptId); }
+            InvoiceWorkflowSnapshot source, Guid signingAttemptId, bool retryRejected = false)
+        { return SendCore(invoiceId, route, source, retryRejected, signingAttemptId); }
 
         private ProviderSubmissionResult SendCore(Guid invoiceId, ProviderRoute route, IInvoiceSubmissionSource source,
             bool retryRejected, Guid? signingAttemptId)
@@ -104,8 +105,12 @@ namespace ASFuelControl.Invoicing
                     "The invoice issuer does not match the selected route.");
                 var model = new InvoiceBuilder(new InvoiceTypeResolver()).Build(request);
                 Require(model.Issuer.Branch == route.IssuerBranch, "The invoice branch does not match the selected route.");
-                Require(!(model.PaymentMethods ?? new PaymentMethod[0]).Any(p => (int)p.Type == 7 || (int)p.Type == 8),
-                    "Card/IRIS issuance requires a configured payment workflow; no submission was attempted.");
+                bool pos = (model.PaymentMethods ?? new PaymentMethod[0]).Any(p => (int)p.Type == 7 || (int)p.Type == 8);
+                var workflow = source as InvoiceWorkflowSnapshot;
+                bool integratedSamtecPos = pos && signingAttemptId.HasValue &&
+                    workflow?.Signing?.Scope?.SignerKey == SamtecFiscalSigner.Key;
+                Require(!pos || integratedSamtecPos,
+                    "Card/IRIS issuance requires a configured payment workflow or a completed integrated Samtec transaction; no submission was attempted.");
                 // Validate all channel-specific limitations before authentication or durable dispatch.
                 factory.CreatePayloadMapper(route.ProviderKey).Serialize(model, invoiceId);
                 string routingContext = Context(route, model);
@@ -184,7 +189,7 @@ namespace ASFuelControl.Invoicing
         {
             Require(saved != null && saved.Family == FiscalJournalFamily.Submission.ToString() && saved.State == "Accepted",
                 "Accepted provider evidence is required.");
-            var route = ReadContext(saved)["Route"].ToObject<ProviderRoute>();
+            var route = ReadAcceptedRoute(saved);
             var evidence = JObject.Parse(saved.SnapshotJson);
             InvoiceResponse response;
             switch (route.ProviderKey)
@@ -210,6 +215,15 @@ namespace ASFuelControl.Invoicing
             Require(response != null && !response.HasErrors,
                 "The accepted provider evidence could not be reconstructed.");
             return response;
+        }
+
+        // The saved route is the authoritative channel/environment for all
+        // follow-up operations. Reading it performs no authentication or I/O.
+        public static ProviderRoute ReadAcceptedRoute(FiscalAttemptEvidence saved)
+        {
+            Require(saved != null && saved.Family == FiscalJournalFamily.Submission.ToString() && saved.State == "Accepted",
+                "Accepted provider evidence is required.");
+            return ReadContext(saved)["Route"].ToObject<ProviderRoute>();
         }
 
         public void UploadIlydaPdf(Guid invoiceId, byte[] pdf)

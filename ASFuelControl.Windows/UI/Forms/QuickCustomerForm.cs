@@ -110,7 +110,7 @@ namespace ASFuelControl.Windows.UI.Forms
 
             var vehicleGroup = new GroupBox { Text = "Όχημα", Dock = DockStyle.Fill };
             var vehicleLayout = CreateDetailsLayout(2);
-            AddField(vehicleLayout, 0, "Αριθμός κυκλοφορίας *", plateNumber, false);
+            AddField(vehicleLayout, 0, "Αριθμός κυκλοφορίας", plateNumber, false);
             AddField(vehicleLayout, 0, "Χιλιόμετρα", odometer, false, 2);
             var vehicleNote = new RadLabel
             {
@@ -246,7 +246,7 @@ namespace ASFuelControl.Windows.UI.Forms
 
                 var vehicle = model.Vehicles.Single();
                 vehicle.VehicleId = Guid.NewGuid();
-                vehicle.PlateNumber = plateNumber.Text.Trim().ToUpperInvariant();
+                vehicle.PlateNumber = (plateNumber.Text ?? "").Trim().ToUpperInvariant();
                 vehicle.Odometer = Decimal.ToInt32(odometer.Value);
 
                 if (!model.Save(model.TraderId))
@@ -275,9 +275,9 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             normalizedVat = null;
             if (string.IsNullOrWhiteSpace(customerName.Text) || string.IsNullOrWhiteSpace(address.Text) ||
-                string.IsNullOrWhiteSpace(city.Text) || string.IsNullOrWhiteSpace(plateNumber.Text))
+                string.IsNullOrWhiteSpace(city.Text))
             {
-                RadMessageBox.Show("Συμπληρώστε επωνυμία, διεύθυνση, πόλη και αριθμό κυκλοφορίας.",
+                RadMessageBox.Show("Συμπληρώστε επωνυμία, διεύθυνση και πόλη.",
                     "Ελλιπή στοιχεία", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
                 return false;
             }

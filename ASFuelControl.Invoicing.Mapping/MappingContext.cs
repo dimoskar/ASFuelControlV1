@@ -12,7 +12,6 @@ namespace ASFuelControl.Invoicing.Mapping
         public FiscalEnvironment Environment { get; set; }
         public ISet<int> WholesaleCodes { get; set; }
         public IEnumerable<CountryInput> Countries { get; set; }
-        public InvoicePaymentType? FleetCardPayment { get; set; }
         public bool IncludeSaleCorrelations { get; set; }
         public DeliveryContext Delivery { get; set; }
         // Explicit non-fuel/service overrides keyed by the legacy FuelType primary key.

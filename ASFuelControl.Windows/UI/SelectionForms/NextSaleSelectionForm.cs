@@ -78,15 +78,19 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 8));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
 
-            var search = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1 };
+            var search = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1 };
             search.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 58));
             search.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             search.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 40));
+            search.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145));
             search.Controls.Add(new RadLabel { Text = "Φίλτρο", Dock = DockStyle.Fill, TextAlignment = ContentAlignment.MiddleLeft }, 0, 0);
             search.Controls.Add(filter, 1, 0);
             var searchButton = new RadButton { Text = "⌕", Dock = DockStyle.Fill, Margin = new Padding(5, 1, 0, 4) };
             searchButton.Click += (s, e) => LoadVehicles();
             search.Controls.Add(searchButton, 2, 0);
+            var addCustomer = new RadButton { Text = "+ Νέος πελάτης", Dock = DockStyle.Fill, Margin = new Padding(7, 1, 0, 4) };
+            addCustomer.Click += AddCustomer;
+            search.Controls.Add(addCustomer, 3, 0);
             filter.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = true; LoadVehicles(); } };
             root.Controls.Add(search, 0, 0);
 
@@ -95,14 +99,11 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             root.Controls.Add(CreateSaleGroup(), 0, 2);
             if (myDieselVisible) root.Controls.Add(CreateCouponGroup(), 0, 3);
 
-            var actions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 5, RowCount = 1 };
-            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145));
+            var actions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1 };
             actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112));
             actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 94));
             actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
-            var addCustomer = new RadButton { Text = "+ Νέος πελάτης", Dock = DockStyle.Fill, Margin = new Padding(0, 4, 7, 0) };
-            addCustomer.Click += AddCustomer;
             var clear = new RadButton { Text = "Καθαρισμός", Dock = DockStyle.Fill, Margin = new Padding(0, 4, 7, 0) };
             clear.Click += ClearSelection;
             var cancel = new RadButton { Text = "Άκυρο", Dock = DockStyle.Fill, DialogResult = DialogResult.Cancel, Margin = new Padding(0, 4, 7, 0) };
@@ -110,10 +111,9 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             apply.Dock = DockStyle.Fill;
             apply.Margin = new Padding(0, 4, 0, 0);
             apply.Click += Apply;
-            actions.Controls.Add(addCustomer, 0, 0);
-            actions.Controls.Add(clear, 2, 0);
-            actions.Controls.Add(cancel, 3, 0);
-            actions.Controls.Add(apply, 4, 0);
+            actions.Controls.Add(clear, 1, 0);
+            actions.Controls.Add(cancel, 2, 0);
+            actions.Controls.Add(apply, 3, 0);
             root.Controls.Add(actions, 0, 5);
 
             Controls.Add(root);
@@ -133,14 +133,44 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             vehicles.Columns.Add(TextColumn("TraderName", "Συναλλασσόμενος", 250));
             vehicles.Columns.Add(TextColumn("TraderTaxRegistration", "Α.Φ.Μ.", 100));
             vehicles.Columns.Add(TextColumn("PlateNumber", "Πινακίδες", 105));
-            vehicles.Columns.Add(TextColumn("TraderDeliveryAddress", "Παράδοση", 150));
-            vehicles.Columns.Add(new GridViewDecimalColumn
+            vehicles.Columns.Add(TextColumn("TraderPaymentTypeDescription", "Τρόπος Πληρωμής", 150));
+            vehicles.Columns.Add(new GridViewCommandColumn
             {
-                FieldName = "Odometer", Name = "Odometer", HeaderText = "Χιλιόμετρα",
-                DecimalPlaces = 0, Minimum = 0, Maximum = 999999999, Width = 105
+                Name = "ViewCustomer", HeaderText = "", Width = 80,
+                DefaultText = "Προβολή", UseDefaultText = true
             });
             vehicles.CurrentRowChanged += (s, e) => SelectCurrentVehicle();
-            vehicles.CellDoubleClick += (s, e) => { if (e.Row != null) Apply(s, EventArgs.Empty); };
+            vehicles.CellClick += VehicleGridCellClick;
+            vehicles.CellDoubleClick += (s, e) =>
+            {
+                if (e.Row != null && e.Column != null && e.Column.Name != "ViewCustomer")
+                    Apply(s, EventArgs.Empty);
+            };
+        }
+
+        private void VehicleGridCellClick(object sender, GridViewCellEventArgs e)
+        {
+            if (e.Column == null || e.Column.Name != "ViewCustomer" || e.Row == null)
+                return;
+
+            var value = e.Row.DataBoundItem as ViewModels.VehicleViewModel;
+            if (value == null || value.TraderId == Guid.Empty)
+                return;
+
+            Guid vehicleId = value.VehicleId;
+            using (var form = new TraderForm())
+            {
+                form.LoadTrader(value.TraderId);
+                form.ShowDialog(this);
+            }
+
+            SelectedVehicle = value;
+            LoadVehicles();
+            var row = vehicles.Rows.FirstOrDefault(candidate =>
+                ((ViewModels.VehicleViewModel)candidate.DataBoundItem).VehicleId == vehicleId);
+            if (row != null)
+                vehicles.CurrentRow = row;
+            SelectCurrentVehicle();
         }
 
         private static GridViewTextBoxColumn TextColumn(string field, string header, int width)
@@ -183,10 +213,10 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-            layout.Controls.Add(new RadLabel { Text = "QR JSON ή κωδικός κουπονιού", Dock = DockStyle.Fill, TextAlignment = ContentAlignment.MiddleLeft }, 0, 0);
+            layout.Controls.Add(new RadLabel { Text = "Κωδικός κουπονιού", Dock = DockStyle.Fill, TextAlignment = ContentAlignment.MiddleLeft }, 0, 0);
             layout.Controls.Add(couponCode, 1, 0);
             layout.SetColumnSpan(couponCode, 3);
-            scanCoupon.Text = "Σάρωση / επικόλληση";
+            scanCoupon.Text = "Σάρωση / καταχώριση";
             scanCoupon.Dock = DockStyle.Fill;
             scanCoupon.Margin = new Padding(7, 2, 0, 3);
             scanCoupon.Click += ScanCoupon;
@@ -197,7 +227,7 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             AddField(layout, 1, 2, "Κατάσταση", couponStatus, 1);
             AddField(layout, 1, 4, "Όριο", couponLimit, 1);
             AddField(layout, 2, 0, "Καύσιμο", couponFuel, 1);
-            AddField(layout, 2, 2, "Μείωση ΕΦΚ", exciseDiscount, 1);
+            AddField(layout, 2, 2, "ΕΦΚ χωρίς ΦΠΑ", exciseDiscount, 1);
             var remove = new RadButton { Text = "Αφαίρεση κουπονιού", Dock = DockStyle.Fill, Margin = new Padding(7, 2, 0, 3) };
             remove.Click += (s, e) => { stagedCoupon = null; RenderCoupon(); };
             layout.Controls.Add(remove, 4, 2);
@@ -267,6 +297,8 @@ namespace ASFuelControl.Windows.UI.SelectionForms
         {
             Guid keep = SelectedVehicle == null ? initialVehicleId : SelectedVehicle.VehicleId;
             var list = new List<ViewModels.VehicleViewModel>();
+            var paymentTypes = Common.Enumerators.EnumToList.EnumList<Common.Enumerators.PaymentTypeEnum>()
+                .ToDictionary(value => value.Value, value => value.Description);
             using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
                 var query = db.Vehicles;
@@ -282,6 +314,13 @@ namespace ASFuelControl.Windows.UI.SelectionForms
                     model.TraderName = entity.Trader.Name;
                     model.TraderTaxRegistration = entity.Trader.TaxRegistrationNumber;
                     model.TraderDeliveryAddress = entity.Trader.DeliveryAddress;
+                    int paymentType = entity.Trader.PaymentType.HasValue &&
+                        Enum.IsDefined(typeof(Common.Enumerators.PaymentTypeEnum), entity.Trader.PaymentType.Value)
+                        ? entity.Trader.PaymentType.Value
+                        : (int)Common.Enumerators.PaymentTypeEnum.Cash;
+                    string paymentDescription;
+                    model.TraderPaymentTypeDescription = paymentTypes.TryGetValue(paymentType, out paymentDescription)
+                        ? paymentDescription : "";
                     model.DefaultInvoiceTypeId = entity.Trader.InvoiceTypeId ?? Guid.Empty;
                     list.Add(model);
                 }
@@ -303,6 +342,7 @@ namespace ASFuelControl.Windows.UI.SelectionForms
                 selectedTrader.Text = "";
                 selectedVehicle.Text = "";
                 apply.Enabled = false;
+                RenderCoupon();
                 return;
             }
             selectedTrader.Text = value.TraderName + " · ΑΦΜ " + value.TraderTaxRegistration;
@@ -337,6 +377,12 @@ namespace ASFuelControl.Windows.UI.SelectionForms
                     "myDiesel", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
                 return;
             }
+            if (SelectedVehicle == null)
+            {
+                RadMessageBox.Show("Επιλέξτε πρώτα πελάτη και όχημα.",
+                    "myDiesel", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
+                return;
+            }
             string traderVat = SelectedVehicle == null ? null : SelectedVehicle.TraderTaxRegistration;
             using (var dialog = new MyDieselCouponCaptureDialog(traderVat, false))
             {
@@ -348,7 +394,10 @@ namespace ASFuelControl.Windows.UI.SelectionForms
 
         private void RenderCoupon()
         {
-            scanCoupon.Enabled = myDieselEnabled;
+            // This dialog only stages the coupon. Fuel and litres do not exist
+            // until the pump sale arrives, so they are checked immediately before
+            // the query/reservation in PendingMyDieselSelectionStore.
+            scanCoupon.Enabled = myDieselEnabled && SelectedVehicle != null;
             if (stagedCoupon == null)
             {
                 couponCode.Text = "";

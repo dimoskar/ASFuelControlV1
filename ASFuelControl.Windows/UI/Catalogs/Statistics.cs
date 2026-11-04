@@ -121,8 +121,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
         private void invoiceRadGridView_CellDoubleClick(object sender, GridViewCellEventArgs e)
         {
             Data.Invoice invoice = e.Row.DataBoundItem as Data.Invoice;
-            Forms.InvoiceFormEx invForm = Forms.InvoiceEditorFormFactory.CreateForInvoice(invoice.InvoiceId);
-            invForm.LoadInvoice(invoice.InvoiceId);
+            Forms.InvoiceFormEx invForm = Forms.InvoiceEditorFormFactory.OpenInvoice(invoice.InvoiceId);
             invForm.Show(this);
         }
 

@@ -41,7 +41,8 @@ internal static class Program
         }
     }
     static FiscalSigningScope Scope(string device = "samtec-test-v1") => new FiscalSigningScope(SamtecFiscalSigner.Key, device, FiscalEnvironment.Test, "000000000", 0);
-    static FiscalSigningService Service(Http transport) => new FiscalSigningService(database, scope => new SamtecFiscalSigner(new SamtecDeviceProfile(scope, new Uri("http://device.invalid:8080/")), transport));
+    static FiscalSigningService Service(Http transport) => new FiscalSigningService(database, scope => new SamtecFiscalSigner(
+        new SamtecDeviceProfile(scope, new Uri("http://device.invalid:8080/"), "POS-TID"), transport));
     static void Tests()
     {
         foreach (var kind in new[] { FiscalDocumentKind.Invoice, FiscalDocumentKind.Balance, FiscalDocumentKind.TankFilling })
@@ -65,7 +66,7 @@ internal static class Program
                         s.Invoice.InvoiceLines[0].VolumeNormalized = 50.1239m;
                         var legacy = new ASFuelControl.Invoicing.Tests.LegacySamtec().Build(s.Invoice, "Rendered\r\nΚείμενο");
                         var actual = s.Prepare(s.Document, Scope());
-                        Check(JToken.DeepEquals(JToken.Parse(legacy), JToken.Parse(Encoding.UTF8.GetString(actual.Payload))), "Wire contract differs from PrintAgent");
+                        Check(JToken.DeepEquals(ExpectedLegacyWire(legacy), JToken.Parse(Encoding.UTF8.GetString(actual.Payload))), "Wire contract differs from PrintAgent");
                     } finally { Thread.CurrentThread.CurrentCulture = old; }
                 });
         Test("code 316 supports sub-litre normalized volume", () => {
@@ -75,8 +76,307 @@ internal static class Program
         Test("zero VAT exemption, credit and five-decimal price preserve legacy wire", () => {
             var s = new Source(); s.Invoice.PaymentType = 0; s.Invoice.Trader.VatExemption = true;
             var line = s.Invoice.InvoiceLines[0]; line.VatPercentage = 0; line.VatAmount = 0; line.UnitPriceWhole = 1.23456m;
+            s.Invoice.TotalAmount = 61.73m; line.TotalPrice = 61.73m; line.DiscountAmount = 0;
             var legacy = new ASFuelControl.Invoicing.Tests.LegacySamtec().Build(s.Invoice,"Rendered\r\nΚείμενο");
-            Check(JToken.DeepEquals(JToken.Parse(legacy),JToken.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))),"exemption wire changed");
+            Check(JToken.DeepEquals(ExpectedLegacyWire(legacy),JToken.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))),"exemption wire changed");
+        });
+        foreach (int payment in new[] { 2,4 }) Test("Samtec sign-only payment " + payment + " preserves the legacy integrated POS wire", () => {
+            var s = new Source(); s.Invoice.PaymentType = payment; s.EftPosTID = "unused";
+            var legacy = new ASFuelControl.Invoicing.Tests.LegacySamtec().Build(s.Invoice,"Rendered\r\nΚείμενο");
+            var actual = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload));
+            Check(JToken.DeepEquals(ExpectedLegacyWire(legacy),actual),"integrated POS wire changed");
+            Equal(1,(int)actual["Doc"]["Payments"][0]["Type"]);
+            Equal("unused",(string)actual["Doc"]["Payments"][0]["EftposTID"]);
+            Equal(0,(int)actual["Doc"]["Payments"][0]["EftposTransType"]);
+        });
+        Test("Samtec signs FleetCard as credit without EFTPOS", () => {
+            var s = new Source(); s.Invoice.PaymentType = 3; s.EftPosTID = null;
+            var legacy = new ASFuelControl.Invoicing.Tests.LegacySamtec().Build(s.Invoice,"Rendered\r\nΚείμενο");
+            var actual = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload));
+            Check(JToken.DeepEquals(ExpectedLegacyWire(legacy),actual),"FleetCard wire changed");
+            Equal(5,(int)actual["Doc"]["Payments"][0]["Type"]);
+            Equal(JTokenType.Null,actual["Doc"]["Payments"][0]["EftposTID"].Type);
+        });
+        Test("discounted pump line sends three-decimal retail ItemAmount and gross DMValue", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 753.39m; s.Invoice.VatAmount = 145.82m; s.Invoice.NettoAmount = 619.98m;
+            var line = s.Invoice.InvoiceLines[0];
+            line.Volume = 369.780m; line.TotalPrice = 753.39m; line.VatAmount = 145.82m;
+            line.UnitPrice = line.UnitPriceRetail = 2.079m; line.UnitPriceWhole = 1.67661m;
+            line.DiscountAmount = 15.38m; line.DiscountAmountWhole = 12.41m;
+            var actual = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload));
+            var wire = actual["Doc"]["TransactionLines"][0];
+            Equal(2.079m,(decimal)wire["ItemAmount"]);
+            Equal(15.38m,(decimal)wire["DMValue"]);
+            Equal(1,(int)wire["DMType"]);
+            Equal(decimal.Round((decimal)wire["ItemAmount"] * (decimal)wire["SaleQty"],2),
+                (decimal)wire["GrossAmount"] + (decimal)wire["DMValue"]);
+            Equal((decimal)wire["GrossAmount"],(decimal)wire["NetAmount"] + (decimal)wire["VatAmount"]);
+        });
+        Test("Samtec preserves the 12.30 gross discount", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 51.87m; s.Invoice.VatAmount = 10.04m; s.Invoice.NettoAmount = 41.83m;
+            var line = s.Invoice.InvoiceLines[0];
+            line.Volume = 30m; line.TotalPrice = 51.87m; line.VatAmount = 10.04m;
+            line.UnitPrice = line.UnitPriceRetail = 2.139m; line.UnitPriceWhole = 1.725m;
+            line.DiscountAmount = 12.30m; line.DiscountAmountWhole = 9.92m;
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(2.139m,(decimal)wire["ItemAmount"]);
+            Equal(41.83m,(decimal)wire["NetAmount"]);
+            Equal(12.30m,(decimal)wire["DMValue"]);
+            Equal(decimal.Round((decimal)wire["ItemAmount"] * (decimal)wire["SaleQty"],2),
+                (decimal)wire["GrossAmount"] + (decimal)wire["DMValue"]);
+        });
+        Test("Samtec type 165 always sends the stored VAT-inclusive unit price", () => {
+            var s = new Source();
+            s.Invoice.InvoiceType.OfficialEnumerator = 165;
+            s.Invoice.TotalAmount = 23.74m; s.Invoice.VatAmount = 4.59m;
+            s.Invoice.NettoAmount = 19.15m;
+            var line = s.Invoice.InvoiceLines[0];
+            line.Volume = 12.540m; line.TotalPrice = 23.74m; line.VatAmount = 4.59m;
+            line.VatPercentage = 24m;
+            // The wholesale value is what the form displays. UnitPriceRetail is
+            // the exact VAT-inclusive source used by the Samtec sample.
+            line.UnitPriceWhole = 1.52661m;
+            line.UnitPrice = 1.950m; // deliberately stale generic value
+            line.UnitPriceRetail = 1.893m;
+            line.DiscountAmount = line.DiscountAmountRetail =
+                line.DiscountAmountWhole = 0;
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(1.893m,(decimal)wire["ItemAmount"]);
+            Equal(12.540m,(decimal)wire["SaleQty"]);
+            Equal(19.15m,(decimal)wire["NetAmount"]);
+            Equal(4.59m,(decimal)wire["VatAmount"]);
+            Equal(23.74m,(decimal)wire["GrossAmount"]);
+            Equal(0m,(decimal)wire["DMValue"]);
+        });
+        Test("Samtec type 165 converts the displayed net discount to gross DMValue", () => {
+            var s = new Source();
+            s.Invoice.InvoiceType.OfficialEnumerator = 165;
+            s.Invoice.TotalAmount = 22.50m; s.Invoice.VatAmount = 4.35m;
+            s.Invoice.NettoAmount = 19.15m;
+            var line = s.Invoice.InvoiceLines[0];
+            line.Volume = 12.540m; line.TotalPrice = 22.50m; line.VatAmount = 4.35m;
+            line.VatPercentage = 24m; line.UnitPriceWhole = 1.52661m;
+            line.UnitPriceRetail = 1.893m;
+            line.DiscountAmount = line.DiscountAmountWhole = 1.00m;
+            line.DiscountAmountRetail = 1.24m;
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(1.893m,(decimal)wire["ItemAmount"]);
+            Equal(1.24m,(decimal)wire["DMValue"]);
+            Equal(1,(int)wire["DMType"]);
+            Equal(decimal.Round((decimal)wire["ItemAmount"] * (decimal)wire["SaleQty"],2),
+                (decimal)wire["GrossAmount"] + (decimal)wire["DMValue"]);
+        });
+        Test("Samtec three-decimal retail price preserves the dispenser gross total", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 60m; s.Invoice.VatAmount = 11.61m; s.Invoice.NettoAmount = 48.39m;
+            var line = s.Invoice.InvoiceLines[0];
+            var sale = new SalesTransaction { SalesTransactionId = Guid.NewGuid(), Volume = 28.857m,
+                UnitPrice = 2.079m, TotalPrice = 60m };
+            line.SaleTransactionId = sale.SalesTransactionId; line.SalesTransaction = sale;
+            line.Volume = sale.Volume;
+            line.UnitPrice = line.UnitPriceRetail = 2.079m; line.UnitPriceWhole = 1.67661m;
+            line.TotalPrice = 60m; line.VatAmount = 11.61m; line.DiscountAmount = 0;
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(60m,(decimal)wire["GrossAmount"]);
+            Equal(0m,(decimal)wire["DMValue"]);
+            Equal(2.079m,(decimal)wire["ItemAmount"]);
+            Equal(28.860m,(decimal)wire["SaleQty"]);
+            Equal(60m,decimal.Round((decimal)wire["ItemAmount"] * (decimal)wire["SaleQty"],2));
+        });
+        Test("Samtec takes a directly linked sale retail price from SalesTransaction", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 10m; s.Invoice.VatAmount = 1.94m; s.Invoice.NettoAmount = 8.06m;
+            var line = s.Invoice.InvoiceLines[0];
+            var sale = new SalesTransaction { SalesTransactionId = Guid.NewGuid(), Volume = 4.610m,
+                UnitPrice = 2.169m, TotalPrice = 10m };
+            line.SaleTransactionId = sale.SalesTransactionId; line.SalesTransaction = sale;
+            line.Volume = sale.Volume; line.TotalPrice = 10m; line.VatAmount = 1.94m;
+            line.VatPercentage = 24m; line.DiscountAmount = 0;
+            // Deliberately stale invoice-line prices must not leak into a physical sale request.
+            line.UnitPrice = line.UnitPriceRetail = 2.000m; line.UnitPriceWhole = 1.61290m;
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(2.169m,(decimal)wire["ItemAmount"]);
+            Equal(4.610m,(decimal)wire["SaleQty"]);
+            Equal(8.06m,(decimal)wire["NetAmount"]);
+            Equal(1.94m,(decimal)wire["VatAmount"]);
+            Equal(10m,(decimal)wire["GrossAmount"]);
+            Equal(0m,(decimal)wire["DMValue"]);
+        });
+        Test("Samtec accepts the reported 20-euro 2.049 retail-price case", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 20m; s.Invoice.VatAmount = 3.87m; s.Invoice.NettoAmount = 16.13m;
+            var line = s.Invoice.InvoiceLines[0];
+            var sale = new SalesTransaction { SalesTransactionId = Guid.NewGuid(), Volume = 9.760m,
+                UnitPrice = 2.049m, TotalPrice = 20m };
+            line.SaleTransactionId = sale.SalesTransactionId; line.SalesTransaction = sale;
+            line.Volume = sale.Volume; line.TotalPrice = 20m; line.VatAmount = 3.87m;
+            line.VatPercentage = 24m; line.DiscountAmount = line.DiscountAmountRetail = 0;
+            line.UnitPrice = line.UnitPriceRetail = 2.049m; line.UnitPriceWhole = 1.65242m;
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(2.049m,(decimal)wire["ItemAmount"]);
+            Equal(9.760m,(decimal)wire["SaleQty"]);
+            Equal(16.13m,(decimal)wire["NetAmount"]);
+            Equal(3.87m,(decimal)wire["VatAmount"]);
+            Equal(20m,(decimal)wire["GrossAmount"]);
+            Equal(0m,(decimal)wire["DMValue"]);
+        });
+        Test("Samtec preserves a forty-euro retail sale at its retail unit price", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 40m; s.Invoice.VatAmount = 7.74m; s.Invoice.NettoAmount = 32.26m;
+            var line = s.Invoice.InvoiceLines[0];
+            var sale = new SalesTransaction { SalesTransactionId = Guid.NewGuid(), Volume = 19.650m,
+                UnitPrice = 2.035m, TotalPrice = 40m };
+            line.SaleTransactionId = sale.SalesTransactionId; line.SalesTransaction = sale;
+            line.Volume = sale.Volume;
+            line.UnitPrice = line.UnitPriceRetail = 2.035m; line.UnitPriceWhole = 1.64113m;
+            line.TotalPrice = 40m; line.VatAmount = 7.74m; line.DiscountAmount = 0;
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(40m,(decimal)wire["GrossAmount"]);
+            Equal(0m,(decimal)wire["DMValue"]);
+            Equal(2.035m,(decimal)wire["ItemAmount"]);
+            Equal(19.656m,(decimal)wire["SaleQty"]);
+            Equal(40m,decimal.Round((decimal)wire["ItemAmount"] * (decimal)wire["SaleQty"],2));
+        });
+        Test("Samtec micro-adjusts only the wire quantity for a sale-derived dispenser total", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 20m; s.Invoice.VatAmount = 3.87m; s.Invoice.NettoAmount = 16.13m;
+            var line = s.Invoice.InvoiceLines[0];
+            var sale = new SalesTransaction { SalesTransactionId = Guid.NewGuid(), Volume = 9.660m,
+                UnitPrice = 2.069m, TotalPrice = 20m };
+            line.SaleTransactionId = sale.SalesTransactionId; line.SalesTransaction = sale;
+            line.Volume = sale.Volume;
+            line.UnitPrice = line.UnitPriceRetail = 2.069m; line.UnitPriceWhole = 1.66855m;
+            line.TotalPrice = 20m; line.VatAmount = 3.87m; line.DiscountAmount = 0;
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(9.660m,line.Volume);
+            Equal(9.667m,(decimal)wire["SaleQty"]);
+            Equal(2.069m,(decimal)wire["ItemAmount"]);
+            Equal(20m,decimal.Round((decimal)wire["ItemAmount"] * (decimal)wire["SaleQty"],2));
+            Equal(0m,(decimal)wire["DMValue"]);
+        });
+        Test("Samtec does not micro-adjust an unrelated manual invoice line", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 20m; s.Invoice.VatAmount = 3.87m; s.Invoice.NettoAmount = 16.13m;
+            var line = s.Invoice.InvoiceLines[0];
+            line.Volume = 9.660m; line.UnitPrice = line.UnitPriceRetail = 2.069m;
+            line.UnitPriceWhole = 1.66855m;
+            line.TotalPrice = 20m; line.VatAmount = 3.87m; line.DiscountAmount = 0;
+            Throws(() => s.Prepare(s.Document,Scope()));
+            Equal(9.660m,line.Volume);
+        });
+        Test("Samtec never reconstructs a VAT-inclusive ItemAmount from UnitPriceWhole", () => {
+            var s = new Source();
+            var line = s.Invoice.InvoiceLines[0];
+            line.UnitPrice = line.UnitPriceRetail = 0;
+            line.UnitPriceWhole = 2m;
+            line.VatPercentage = 24m;
+            Throws(() => s.Prepare(s.Document,Scope()));
+        });
+        Test("Samtec recognizes a transformed line whose parent came from a sale", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 20m; s.Invoice.VatAmount = 3.87m; s.Invoice.NettoAmount = 16.13m;
+            var line = s.Invoice.InvoiceLines[0];
+            line.Volume = 9.660m;
+            // Simulate a legacy automatic unit-price adjustment. The unchanged
+            // pre-discount total must still select the original sale price.
+            line.UnitPrice = line.UnitPriceRetail = 2.070m;
+            line.UnitPriceWhole = 1.66935m;
+            line.TotalPrice = 20m; line.VatAmount = 3.87m; line.DiscountAmount = 0;
+            var sale = new SalesTransaction { SalesTransactionId = Guid.NewGuid(), UnitPrice = 2.069m,
+                Volume = 9.660m, TotalPrice = 20m };
+            var parent = new InvoiceLine { InvoiceLineId = Guid.NewGuid(),
+                SaleTransactionId = sale.SalesTransactionId, SalesTransaction = sale,
+                Volume = 9.660m, TotalPrice = 20m };
+            line.InvoiceLineRelations_ChildRelationId.Add(new InvoiceLineRelation {
+                InvoiceLineRelationId = Guid.NewGuid(), ParentLineId = parent.InvoiceLineId,
+                ChildRelationId = line.InvoiceLineId, InvoiceLine_ParentLineId = parent,
+                InvoiceLine_ChildRelationId = line
+            });
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(9.667m,(decimal)wire["SaleQty"]);
+            Equal(2.069m,(decimal)wire["ItemAmount"]);
+            Equal(9.660m,line.Volume);
+        });
+        Test("Samtec chooses the closest quantity for the reported 2.019 retail case", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 20m; s.Invoice.VatAmount = 3.87m; s.Invoice.NettoAmount = 16.13m;
+            var line = s.Invoice.InvoiceLines[0];
+            var sale = new SalesTransaction { SalesTransactionId = Guid.NewGuid(), Volume = 9.900m,
+                UnitPrice = 2.0189928m, TotalPrice = 20m };
+            line.SaleTransactionId = sale.SalesTransactionId; line.SalesTransaction = sale;
+            line.Volume = sale.Volume; line.TotalPrice = 20m; line.VatAmount = 3.87m;
+            line.VatPercentage = 24m; line.DiscountAmount = line.DiscountAmountRetail = 0;
+            line.UnitPrice = line.UnitPriceRetail = 2.019m; line.UnitPriceWhole = 1.62822m;
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(9.900m,line.Volume);
+            Equal(2.019m,(decimal)wire["ItemAmount"]);
+            Equal(9.906m,(decimal)wire["SaleQty"]);
+            Equal(20.000214m,(decimal)wire["ItemAmount"] * (decimal)wire["SaleQty"]);
+            Equal(16.13m,(decimal)wire["NetAmount"]);
+            Equal(0m,(decimal)wire["DMValue"]);
+        });
+        Test("Samtec compares transformed totals before discount", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 19m; s.Invoice.VatAmount = 3.68m; s.Invoice.NettoAmount = 15.32m;
+            var line = s.Invoice.InvoiceLines[0];
+            line.Volume = 9.660m; line.UnitPrice = line.UnitPriceRetail = 2.069m;
+            line.UnitPriceWhole = 1.66855m;
+            line.TotalPrice = 19m; line.VatAmount = 3.68m;
+            line.DiscountAmount = line.DiscountAmountRetail = 1m;
+            line.DiscountAmountWhole = 0.81m;
+            var sale = new SalesTransaction { SalesTransactionId = Guid.NewGuid(), UnitPrice = 2.069m,
+                Volume = 9.660m, TotalPrice = 20m };
+            var parent = new InvoiceLine { InvoiceLineId = Guid.NewGuid(),
+                SaleTransactionId = sale.SalesTransactionId, SalesTransaction = sale,
+                Volume = 9.660m, TotalPrice = 20m };
+            line.InvoiceLineRelations_ChildRelationId.Add(new InvoiceLineRelation {
+                InvoiceLineRelationId = Guid.NewGuid(), ParentLineId = parent.InvoiceLineId,
+                ChildRelationId = line.InvoiceLineId, InvoiceLine_ParentLineId = parent,
+                InvoiceLine_ChildRelationId = line
+            });
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(2.069m,(decimal)wire["ItemAmount"]);
+            Equal(9.660m,(decimal)wire["SaleQty"]);
+            Equal(0.99m,(decimal)wire["DMValue"]);
+            Equal(1,(int)wire["DMType"]);
+        });
+        Test("Samtec preserves an explicitly edited transformed target price", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 19.17m; s.Invoice.VatAmount = 3.71m; s.Invoice.NettoAmount = 15.46m;
+            var line = s.Invoice.InvoiceLines[0];
+            line.Volume = 9.660m; line.UnitPrice = line.UnitPriceRetail = 1.984m;
+            line.UnitPriceWhole = 1.60000m;
+            line.TotalPrice = 19.17m; line.VatAmount = 3.71m; line.DiscountAmount = 0;
+            var sale = new SalesTransaction { SalesTransactionId = Guid.NewGuid(), UnitPrice = 2.069m,
+                Volume = 9.660m, TotalPrice = 20m };
+            var parent = new InvoiceLine { InvoiceLineId = Guid.NewGuid(),
+                SaleTransactionId = sale.SalesTransactionId, SalesTransaction = sale,
+                Volume = 9.660m, TotalPrice = 20m };
+            line.InvoiceLineRelations_ChildRelationId.Add(new InvoiceLineRelation {
+                InvoiceLineRelationId = Guid.NewGuid(), ParentLineId = parent.InvoiceLineId,
+                ChildRelationId = line.InvoiceLineId, InvoiceLine_ParentLineId = parent,
+                InvoiceLine_ChildRelationId = line
+            });
+            var wire = JObject.Parse(Encoding.UTF8.GetString(s.Prepare(s.Document,Scope()).Payload))
+                ["Doc"]["TransactionLines"][0];
+            Equal(1.984m,(decimal)wire["ItemAmount"]);
+            Equal(9.660m,(decimal)wire["SaleQty"]);
+            Equal(15.46m,(decimal)wire["NetAmount"]);
+            Equal(19.17m,(decimal)wire["GrossAmount"]);
+            Equal(0m,(decimal)wire["DMValue"]);
         });
         foreach (string raw in new[] { "broken", "{}", "{\"ResultCode\":\"Error,declined\"}", "{\"ResultCode\":\"ΔΦΣΣ\"}",
             "{\"ResultCode\":\"ΔΦΣΣ,-\"}", "{\"ResultCode\":\"ΔΦΣΣ,Sign Device A\"}", "{\"ResultCode\":\"prefix ΔΦΣΣ,SIGN\"}",
@@ -90,21 +390,146 @@ internal static class Program
             var s = new Source(); var h = new Http(s.Document) { Raw = "{\"ResultCode\":\"ΔΦΣΣ,SIGN\"}" };
             var result = Service(h).Sign(s.Document,Scope(),s); Equal(FiscalSigningState.Signed,result.State); Equal<string>(null,result.Result.QrCode);
         });
-        Test("HTTP error with apparent signature is unknown", () => {
-            var s = new Source(); var h = new Http(s.Document) { Status = 500 };
-            var result = Service(h).Sign(s.Document,Scope(),s); Equal(FiscalSigningState.Unknown,result.State); Equal(h.Raw,result.Result.Response);
+        Test("matching explicit Samtec error is rejected and permits a corrected retry", () => {
+            var s = new Source(); var h = new Http(s.Document) { Raw = "{\"JobType\":\"Sign\",\"ResultCode\":\"Error019,Success,ReplyCodeError,137,89,Amounts of JSON transaction line does not match\",\"InvoiceUID\":\"" + s.Document.DocumentId + "\"}" };
+            var service = Service(h); var rejected = service.Sign(s.Document,Scope(),s);
+            Equal(FiscalSigningState.Rejected,rejected.State); Equal(1,h.Calls);
+            h.Raw = "{\"JobType\":\"Sign\",\"InvoiceUID\":\"" + s.Document.DocumentId + "\",\"ResultCode\":\"ΔΦΣΣ,SIGNATURE\"}";
+            Equal(FiscalSigningState.Signed,service.Sign(s.Document,Scope(),s,true).State);
+            Equal(2,h.Calls); Equal(2,s.Loads);
         });
-        Test("timeout remains unknown across service restart and setting changes", () => {
+        Test("legacy Unknown Error019 is recovered locally and its malformed discount is corrected on retry", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 753.39m; s.Invoice.VatAmount = 145.82m; s.Invoice.NettoAmount = 619.98m;
+            var line = s.Invoice.InvoiceLines[0]; line.Volume = 369.780m; line.TotalPrice = 753.39m;
+            line.VatAmount = 145.82m; line.UnitPrice = line.UnitPriceRetail = 2.079m;
+            line.UnitPriceWhole = 1.67661m; line.DiscountAmount = 15.38m;
+            var prepared = s.Prepare(s.Document,Scope());
+            var malformed = JObject.Parse(Encoding.UTF8.GetString(prepared.Payload));
+            malformed["Doc"]["TransactionLines"][0]["DMValue"] = 15.38m;
+            var original = new FiscalSigningRequest(prepared.AttemptId,prepared.Document,prepared.Scope,prepared.PayloadFormat,
+                Encoding.UTF8.GetBytes(malformed.ToString(Newtonsoft.Json.Formatting.None)));
+            string response = "{\"JobType\":\"Sign\",\"ResultCode\":\"Error019,Success,ReplyCodeError,137,89,Amounts of JSON transaction line does not match\",\"InvoiceUID\":\"" + s.Document.DocumentId + "\"}";
+            var store = new SqlFiscalSigningStore(database);
+            using (var lease = store.Acquire(s.Document))
+            {
+                var attempt = store.Begin(lease,original,DateTime.UtcNow);
+                var signing = new FiscalSigningAttempt(original,FiscalSigningState.Signing,1,attempt.CreatedUtc,attempt.CreatedUtc);
+                store.Save(lease,0,signing);
+                store.Save(lease,1,new FiscalSigningAttempt(original,FiscalSigningState.Unknown,2,attempt.CreatedUtc,attempt.CreatedUtc,
+                    FiscalSigningResult.Unknown(original.AttemptId,response,"legacy classification")));
+            }
+            var h = new Http(s.Document);
+            Equal(FiscalSigningState.Rejected,Service(h).Recover(s.Document).State); Equal(0,h.Calls);
+            Equal(FiscalSigningState.Signed,Service(h).Sign(s.Document,Scope(),s,true).State); Equal(1,h.Calls);
+            Equal(15.38m,(decimal)JObject.Parse(Encoding.UTF8.GetString(h.Bytes))["Doc"]["TransactionLines"][0]["DMValue"]);
+        });
+        Test("legacy timeout Unknown resumes its saved request after restart", () => {
+            var s = new Source(); var original = s.Prepare(s.Document,Scope());
+            var store = new SqlFiscalSigningStore(database);
+            using (var lease = store.Acquire(s.Document))
+            {
+                var prepared = store.Begin(lease,original,DateTime.UtcNow);
+                var signing = new FiscalSigningAttempt(original,FiscalSigningState.Signing,1,
+                    prepared.CreatedUtc,prepared.CreatedUtc);
+                store.Save(lease,0,signing);
+                store.Save(lease,1,new FiscalSigningAttempt(original,FiscalSigningState.Unknown,2,
+                    prepared.CreatedUtc,prepared.CreatedUtc,FiscalSigningResult.Unknown(original.AttemptId,null,
+                        "Unconfirmed device response: HttpRequestException")));
+            }
+            var h = new Http(s.Document);
+            Equal(FiscalSigningState.Signed,Service(h).Sign(s.Document,Scope(),null).State);
+            Equal(1,h.Calls); Equal(1,s.Loads);
+        });
+        Test("legacy transient rejection is reclassified and retried after restart", () => {
+            var s = new Source(); var original = s.Prepare(s.Document,Scope());
+            string response = "{\"JobType\":\"Sign\",\"InvoiceUID\":\"" + s.Document.DocumentId +
+                "\",\"ResultCode\":\"Error019,ReplyCodeError,23,17,Η συσκευή είναι σε Χρήση μενού,17/F0/02\"}";
+            var store = new SqlFiscalSigningStore(database);
+            using (var lease = store.Acquire(s.Document))
+            {
+                var prepared = store.Begin(lease,original,DateTime.UtcNow);
+                var signing = new FiscalSigningAttempt(original,FiscalSigningState.Signing,1,
+                    prepared.CreatedUtc,prepared.CreatedUtc);
+                store.Save(lease,0,signing);
+                store.Save(lease,1,new FiscalSigningAttempt(original,FiscalSigningState.Rejected,2,
+                    prepared.CreatedUtc,prepared.CreatedUtc,FiscalSigningResult.Rejected(original.AttemptId,
+                        response,"The device explicitly rejected the matching signing request: Error019")));
+            }
+            var h = new Http(s.Document);
+            Equal(FiscalSigningState.Signed,Service(h).Sign(s.Document,Scope(),null).State);
+            Equal(1,h.Calls); Equal(1,s.Loads);
+        });
+        Test("legacy duplicate rejection becomes operator-visible without another dispatch", () => {
+            var s = new Source(); var original = s.Prepare(s.Document,Scope());
+            string response = "{\"JobType\":\"Sign\",\"InvoiceUID\":\"" + s.Document.DocumentId +
+                "\",\"ResultCode\":\"Error019,Duplicate InvoiceUID already signed\"}";
+            var store = new SqlFiscalSigningStore(database);
+            using (var lease = store.Acquire(s.Document))
+            {
+                var prepared = store.Begin(lease,original,DateTime.UtcNow);
+                var signing = new FiscalSigningAttempt(original,FiscalSigningState.Signing,1,
+                    prepared.CreatedUtc,prepared.CreatedUtc);
+                store.Save(lease,0,signing);
+                store.Save(lease,1,new FiscalSigningAttempt(original,FiscalSigningState.Rejected,2,
+                    prepared.CreatedUtc,prepared.CreatedUtc,FiscalSigningResult.Rejected(original.AttemptId,
+                        response,"legacy duplicate classification")));
+            }
+            var h = new Http(s.Document); var result = Service(h).Sign(s.Document,Scope(),null);
+            Equal(FiscalSigningState.Unknown,result.State); Equal(0,h.Calls);
+            Check(result.Result.Diagnostic.Contains("operator recovery"),"operator notification was lost");
+        });
+        Test("transient HTTP errors retry the persisted request and then remain unknown", () => {
+            var s = new Source(); var h = new Http(s.Document);
+            h.Respond = () => Reply(h.Raw,500);
+            var result = Service(h).Sign(s.Document,Scope(),s); Equal(FiscalSigningState.Unknown,result.State);
+            Equal(h.Raw,result.Result.Response); Equal(3,h.Calls); Equal(1,s.Loads);
+            Equal(FiscalSigningState.Unknown,Service(h).Sign(s.Document,Scope(),null,true).State); Equal(3,h.Calls);
+        });
+        Test("transport failures retry exact saved bytes and can recover", () => {
+            var s = new Source(); var h = new Http(s.Document); int calls = 0;
+            h.Respond = () => { if (++calls < 3) throw new HttpRequestException("synthetic timeout"); return Reply(h.Raw); };
+            Equal(FiscalSigningState.Signed,Service(h).Sign(s.Document,Scope(),s).State);
+            Equal(3,h.Calls); Equal(1,s.Loads);
+            var history = History(s.Document);
+            Equal(3,history.Count(item => item.State == FiscalSigningState.Signing));
+            Equal(1,history.Select(item => item.Request.PayloadSha256).Distinct().Count());
+        });
+        Test("persistent timeout stops after the bounded automatic retry policy", () => {
             var s = new Source(); var h = new Http(s.Document) { Respond = () => { throw new HttpRequestException("synthetic timeout"); } };
             Equal(FiscalSigningState.Unknown,Service(h).Sign(s.Document,Scope(),s).State);
-            Equal(FiscalSigningState.Unknown,Service(h).Sign(s.Document,Scope("changed"),null,true).State); Equal(1,h.Calls);
+            Equal(FiscalSigningState.Unknown,Service(h).Sign(s.Document,Scope("changed"),null,true).State); Equal(3,h.Calls);
         });
-        Test("interrupted Signing becomes Unknown without external lookup or Sign", () => {
+        Test("interrupted Signing retries the persisted request without preparing again", () => {
             var s = new Source(); var store = new SqlFiscalSigningStore(database);
             using (var lease = store.Acquire(s.Document)) { var a = store.Begin(lease,s.Prepare(s.Document,Scope()),DateTime.UtcNow);
                 store.Save(lease,0,new FiscalSigningAttempt(a.Request,FiscalSigningState.Signing,1,a.CreatedUtc,a.CreatedUtc)); }
             var h = new Http(s.Document); Equal(FiscalSigningState.Unknown,Service(h).Recover(s.Document).State); Equal(0,h.Calls);
-            Equal(FiscalSigningState.Unknown,Service(h).Sign(s.Document,Scope(),null,true).State); Equal(0,h.Calls);
+            Equal(FiscalSigningState.Signed,Service(h).Sign(s.Document,Scope(),null,true).State); Equal(1,h.Calls); Equal(1,s.Loads);
+        });
+        Test("transient Samtec menu rejection retries the saved request", () => {
+            var s = new Source(); var h = new Http(s.Document); int calls = 0;
+            h.Respond = () => ++calls == 1
+                ? Reply("{\"JobType\":\"Sign\",\"InvoiceUID\":\"" + s.Document.DocumentId + "\",\"ResultCode\":\"Error019,ReplyCodeError,23,17,Η συσκευή είναι σε Χρήση μενού,17/F0/02\"}")
+                : Reply(h.Raw);
+            Equal(FiscalSigningState.Signed,Service(h).Sign(s.Document,Scope(),s).State);
+            Equal(2,h.Calls); Equal(1,s.Loads);
+        });
+        Test("duplicate InvoiceUID stops retries and requires signature recovery", () => {
+            var s = new Source(); var h = new Http(s.Document); int calls = 0;
+            h.Respond = () => { if (++calls == 1) throw new HttpRequestException("lost response");
+                return Reply("{\"JobType\":\"Sign\",\"InvoiceUID\":\"" + s.Document.DocumentId + "\",\"ResultCode\":\"Error019,Duplicate InvoiceUID already signed\"}"); };
+            var result = Service(h).Sign(s.Document,Scope(),s);
+            Equal(FiscalSigningState.Unknown,result.State); Equal(2,h.Calls);
+            Check(result.Result.Diagnostic.Contains("evidence that the original request was signed"),"duplicate evidence was lost");
+            Equal(FiscalSigningState.Unknown,Service(h).Sign(s.Document,Scope(),null,true).State); Equal(2,h.Calls);
+        });
+        Test("duplicate InvoiceUID response recovers an included original signature", () => {
+            var s = new Source(); var h = new Http(s.Document); int calls = 0;
+            h.Respond = () => { if (++calls == 1) throw new HttpRequestException("lost response");
+                return Reply("{\"JobType\":\"Sign\",\"InvoiceUID\":\"" + s.Document.DocumentId + "\",\"ResultCode\":\"Error019,Duplicate InvoiceUID already signed\",\"Signature\":\"ORIGINAL\",\"QrCode\":\"https://example.invalid/original\"}"); };
+            var result = Service(h).Sign(s.Document,Scope(),s);
+            Equal(FiscalSigningState.Signed,result.State); Equal("ORIGINAL",result.Result.Signature); Equal(2,h.Calls);
         });
         Test("Prepared requires explicit resume and sends original rendered bytes", () => {
             var s = new Source(); var store = new SqlFiscalSigningStore(database); var original = s.Prepare(s.Document,Scope());
@@ -133,9 +558,18 @@ internal static class Program
                 if (stage == "Signed") { Equal(FiscalSigningState.Unknown,Service(h).Recover(s.Document).State); Equal(1,h.Calls); }
                 if (stage == "Signing") Equal(FiscalSigningState.Prepared,Service(h).Sign(s.Document,Scope(),s).State);
             });
-        foreach (int? payment in new int?[] { null, 2, 3, 4, 99 }) Test("unsupported payment " + payment + " cannot trigger POS", () => {
+        foreach (int? payment in new int?[] { null, 99 }) Test("unsupported payment " + payment + " cannot trigger POS", () => {
             var s = new Source(); s.Invoice.PaymentType = payment; var h = new Http(s.Document);
             Throws(() => Service(h).Sign(s.Document,Scope(),s)); Equal(0,h.Calls); Equal(0,Attempts(s.Document).Length);
+        });
+        foreach (int payment in new[] { 2,4 }) Test("Samtec payment " + payment + " requires a saved terminal before dispatch", () => {
+            var s = new Source(); s.Invoice.PaymentType = payment; s.EftPosTID = null; var h = new Http(s.Document);
+            Throws(() => Service(h).Sign(s.Document,Scope(),s)); Equal(0,h.Calls); Equal(0,Attempts(s.Document).Length);
+        });
+        Test("Samtec integrated POS terminal is frozen with the device profile", () => {
+            var s = new Source(); s.Invoice.PaymentType = 2; s.EftPosTID = "OTHER"; var h = new Http(s.Document);
+            Equal(FiscalSigningState.FailedBeforeDispatch,Service(h).Sign(s.Document,Scope(),s).State);
+            Equal(0,h.Calls);
         });
         foreach (string field in new[] { "printed", "signature", "qr", "submission", "balance-date", "balance-sign", "filling-sign" })
             Test("legacy history gate " + field, () => {
@@ -209,7 +643,8 @@ internal static class Program
     }
     sealed class Source : IFiscalSigningSource
     {
-        public FiscalDocumentReference Document; public Invoice Invoice; public Balance Balance; public TankFilling Filling; public int Loads; public bool Legacy;
+        public FiscalDocumentReference Document; public Invoice Invoice; public Balance Balance; public TankFilling Filling;
+        public int Loads; public bool Legacy; public string EftPosTID = "POS-TID";
         public Source(FiscalDocumentKind kind = FiscalDocumentKind.Invoice)
         {
             var id = Guid.NewGuid(); Document = new FiscalDocumentReference(kind,id);
@@ -223,7 +658,7 @@ internal static class Program
         {
             Loads++;
             switch(document.Kind) {
-                case FiscalDocumentKind.Invoice: return HostFiscalSigningMapper.Invoice(Invoice,scope,"Rendered\r\nΚείμενο",Legacy);
+                case FiscalDocumentKind.Invoice: return HostFiscalSigningMapper.Invoice(Invoice,scope,"Rendered\r\nΚείμενο",Legacy,EftPosTID);
                 case FiscalDocumentKind.Balance: return HostFiscalSigningMapper.Balance(Balance,scope,"Balance\r\nΚείμενο");
                 default: return HostFiscalSigningMapper.TankFilling(Filling,scope,"Filling\r\nΚείμενο",40);
             }
@@ -251,6 +686,21 @@ internal static class Program
     static HttpResponseMessage Reply(string text,int status = 200) => new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(text,Encoding.UTF8) };
     static void Execute(string cs,string sql) { using(var c = new SqlConnection(cs)) using(var cmd = c.CreateCommand()) { c.Open(); cmd.CommandText = sql; cmd.ExecuteNonQuery(); } }
     static void Throws(Action action) { try { action(); } catch(InvalidOperationException) { return; } catch(SqlException) { return; } catch(ArgumentException) { return; } catch(NotSupportedException) { return; } catch(Newtonsoft.Json.JsonException) { return; } throw new Exception("Expected rejection"); }
+    static JToken ExpectedLegacyWire(string json)
+    {
+        var wire = JToken.Parse(json);
+        var lines = wire["Doc"]?["TransactionLines"] as JArray;
+        if (lines != null)
+            for (int index = 0; index < lines.Count; index++)
+            {
+                var line = lines[index];
+                line["LineNo"] = index + 1;
+                int fuelCode = (int)line["FuelCode"];
+                line["Code"] = fuelCode == 0 ? JValue.CreateNull() : new JValue(fuelCode.ToString(CultureInfo.InvariantCulture));
+                line["ItemAmount"] = decimal.Round((decimal)line["ItemAmount"],3);
+            }
+        return wire;
+    }
     static void Equal<T>(T expected,T actual) { if (!object.Equals(expected,actual)) throw new Exception("Expected " + expected + ", got " + actual); }
     static void Check(bool ok,string why) { if (!ok) throw new Exception(why); }
     static void Test(string name,Action action) { try { action(); passed++; Console.WriteLine("PASS " + name); } catch(Exception e) { failed++; Console.WriteLine("FAIL " + name + ": " + e); } }

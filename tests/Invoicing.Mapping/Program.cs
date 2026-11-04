@@ -63,14 +63,188 @@ internal static class Program
             Discount(i, .13m, .12m);
             Equal(.12m, Mapper.Map(i, Context()).Invoice.DiscountAmount);
         });
+        Run("myDiesel net EFK plus corresponding VAT maps once", () => {
+            var i = Invoice(new Fixture { Gross = 212.20m, Vat = 41.07m, Rate = 24m });
+            i.InvoiceLines[0].TotalPrice = 196.95m;
+            i.InvoiceLines[0].VatAmount = 38.12m;
+            i.TotalAmount = 196.95m;
+            i.VatAmount = 38.12m;
+            i.NettoAmount = 171.13m;
+            i.NettoAfterDiscount = 158.83m;
+            Discount(i, 15.25m, 12.30m);
+            i.NettoAmount = 171.13m;
+            var mapped = Mapper.Map(i, Context());
+            Equal(12.30m, mapped.Invoice.DiscountAmount);
+            Equal(158.83m, Builder.Build(mapped).InvoiceSummary.TotalNetValue);
+        });
+        Run("direct pump explicit gross and net discounts override the ambiguous generic column", () => {
+            var i = Invoice(new Fixture { Gross = 753.39m, Vat = 145.82m, Rate = 24m });
+            var line = i.InvoiceLines[0];
+            line.SaleTransactionId = Guid.NewGuid();
+            line.DiscountAmount = 12.40m; // Legacy direct-pump compatibility column contains net.
+            line.DiscountAmountWhole = 12.40m;
+            line.DiscountAmountRetail = 15.38m;
+            i.DiscountAmount = 12.40m;
+            i.DiscountAmountWhole = 12.40m;
+            i.DiscountAmountRetail = 15.38m;
+            i.NettoAmount = 617.57m; // Legacy creator used (gross + net discount) / 1.24.
+            var mapped = Mapper.Map(i, Context());
+            Equal(619.97m, mapped.Invoice.NettoAmount);
+            Equal(12.40m, mapped.Invoice.DiscountAmount);
+            var built = Builder.Build(mapped);
+            Equal(607.57m, built.InvoiceSummary.TotalNetValue);
+            Equal(753.39m, built.InvoiceSummary.TotalGrossValue);
+        });
+        Run("legacy pump net-total exception requires an actual linked pump sale", () => {
+            var i = Invoice(new Fixture { Gross = 753.39m, Vat = 145.82m, Rate = 24m });
+            var line = i.InvoiceLines[0];
+            line.DiscountAmount = line.DiscountAmountWhole = 12.40m;
+            line.DiscountAmountRetail = 15.38m;
+            i.DiscountAmount = i.DiscountAmountWhole = 12.40m;
+            i.DiscountAmountRetail = 15.38m;
+            i.NettoAmount = 617.57m;
+            Throws(() => Mapper.Map(i, Context()));
+        });
+        Run("linked pump sale accepts one-cent pre-discount net rounding", () => {
+            var i = Invoice(new Fixture { Gross = 753.39m, Vat = 145.82m, Rate = 24m });
+            var line = i.InvoiceLines[0];
+            line.SaleTransactionId = Guid.NewGuid();
+            line.DiscountAmount = line.DiscountAmountWhole = 12.40m;
+            line.DiscountAmountRetail = 15.38m;
+            i.DiscountAmount = i.DiscountAmountWhole = 12.40m;
+            i.DiscountAmountRetail = 15.38m;
+            i.NettoAmount = 619.98m;
+            var built = Mapper.Build(i, Context());
+            Equal(607.57m, built.InvoiceSummary.TotalNetValue);
+            Equal(753.39m, built.InvoiceSummary.TotalGrossValue);
+        });
+        Run("sub-cent Samtec price accepts normalized one-cent net rounding without a sale link", () => {
+            var i = Invoice(new Fixture { Gross = 753.39m, Vat = 145.82m, Rate = 24m });
+            var line = i.InvoiceLines[0];
+            line.Volume = 369.780m;
+            line.UnitPrice = line.UnitPriceRetail = 2.079m;
+            line.DiscountAmount = line.DiscountAmountRetail = 15.38m;
+            line.DiscountAmountWhole = 12.40m;
+            i.DiscountAmount = i.DiscountAmountRetail = 15.38m;
+            i.DiscountAmountWhole = 12.40m;
+            i.NettoAmount = 619.98m;
+            var built = Mapper.Build(i, Context());
+            Equal(607.57m, built.InvoiceSummary.TotalNetValue);
+            Equal(753.39m, built.InvoiceSummary.TotalGrossValue);
+        });
+        Run("retail transformation never rebuilds gross from rounded net", () => {
+            var prices = TransformationUnitPrice.FromRetail(2.14900m, 24m);
+            Equal(2.14900m, prices.Retail);
+            Equal(1.73306m, prices.Net);
+            Equal(1246.42m, decimal.Round(prices.Retail * 580m, 2,
+                MidpointRounding.ToEven));
+            // The former net -> retail round-trip loses one cent at this volume.
+            Equal(1246.41m, decimal.Round(
+                decimal.Round(prices.Net * 1.24m, 5,
+                    MidpointRounding.ToEven) * 580m, 2,
+                MidpointRounding.ToEven));
+        });
+        Run("wholesale transformation keeps net price authoritative", () => {
+            var prices = TransformationUnitPrice.FromNet(1.73306m, 24m);
+            Equal(1.73306m, prices.Net);
+            Equal(2.14899m, prices.Retail);
+        });
+        Run("financial transformation keeps unit price locked", () => {
+            Equal(false, TransformationEditPolicy.AllowUnitPriceEdit(
+                true, false, "123456789", "987654321"));
+        });
+        Run("guide-only final target permits price but locks volume", () => {
+            Equal(true, TransformationEditPolicy.AllowUnitPriceEdit(
+                true, true, "123456789", "987654321"));
+            Equal(false, TransformationEditPolicy.AllowVolumeEdit(true, true));
+            Equal(true, TransformationEditPolicy.RequiresLineSelection(
+                false, true, true, true, false));
+        });
+        Run("same supplier and counterpart VAT permits target price editing", () => {
+            Equal(true, TransformationEditPolicy.VatNumbersEqual(
+                "123 456 789", "EL123456789"));
+            Equal(true, TransformationEditPolicy.AllowUnitPriceEdit(
+                true, false, "123456789", "GR-123456789"));
+            Equal(true, TransformationEditPolicy.RequiresLineSelection(
+                false, true, true, false, true));
+        });
+        Run("nonfinancial source still requires an entered target price", () => {
+            Equal(true, TransformationEditPolicy.AllowUnitPriceEdit(
+                false, false, "123456789", "987654321"));
+        });
+        Run("two-decimal pump price does not hide a normalized net mismatch", () => {
+            var i = Invoice(new Fixture { Gross = 753.39m, Vat = 145.82m, Rate = 24m });
+            var line = i.InvoiceLines[0];
+            line.SaleTransactionId = Guid.NewGuid();
+            line.Volume = 369.780m;
+            line.UnitPrice = line.UnitPriceRetail = 2.08m;
+            line.DiscountAmount = line.DiscountAmountRetail = 15.38m;
+            line.DiscountAmountWhole = 12.40m;
+            i.DiscountAmount = i.DiscountAmountRetail = 15.38m;
+            i.DiscountAmountWhole = 12.40m;
+            i.NettoAmount = 619.98m;
+            Throws(() => Mapper.Map(i, Context()));
+        });
+        Run("RecalculateInvoice writes a coherent direct-pump discount pair", () => {
+            var i = Invoice(new Fixture { Gross = 753.39m, Vat = 145.82m, Rate = 24m });
+            i.InvoiceType.OfficialEnumerator = 173;
+            var line = i.InvoiceLines[0];
+            var sale = new SalesTransaction { SalesTransactionId = Guid.NewGuid(),
+                Volume = 369.780m,UnitPrice = 2.079m,TotalPrice = 753.39m,
+                DiscountPercentage = 2m };
+            line.SaleTransactionId = sale.SalesTransactionId;
+            line.SalesTransaction = sale;
+            line.Volume = sale.Volume;
+            line.UnitPrice = sale.UnitPrice;
+            i.RecalculateInvoice();
+            Equal(15.38m,line.DiscountAmount);
+            Equal(15.38m,line.DiscountAmountRetail);
+            Equal(12.40m,line.DiscountAmountWhole);
+            Equal(753.39m,line.TotalPrice);
+            Equal(145.82m,line.VatAmount);
+            Equal(15.38m,i.DiscountAmount);
+            Equal(15.38m,i.DiscountAmountRetail);
+            Equal(12.40m,i.DiscountAmountWhole);
+            Equal(619.97m,i.NettoAmount.Value);
+            Equal(607.57m,i.NettoAfterDiscount);
+            Equal(753.39m,i.TotalAmount.Value);
+            Equal(607.57m,Mapper.Build(i,Context()).InvoiceSummary.TotalNetValue);
+        });
+        Run("RecalculateInvoice preserves the dispenser gross across a one-cent multiplication difference", () => {
+            var i = Invoice(new Fixture { Gross = 60m, Vat = 11.61m, Rate = 24m });
+            i.InvoiceType.OfficialEnumerator = 173;
+            var line = i.InvoiceLines[0];
+            var sale = new SalesTransaction { SalesTransactionId = Guid.NewGuid(),
+                Volume = 28.857m,UnitPrice = 2.079m,TotalPrice = 60m,
+                DiscountPercentage = 0m };
+            line.SaleTransactionId = sale.SalesTransactionId;
+            line.SalesTransaction = sale;
+            line.Volume = sale.Volume;
+            line.UnitPrice = line.UnitPriceRetail = sale.UnitPrice;
+            i.RecalculateInvoice();
+            Equal(59.99m,decimal.Round(line.Volume * line.UnitPrice,2));
+            Equal(60m,line.TotalPrice);
+            Equal(60m,i.TotalAmount.Value);
+            Equal(11.61m,i.VatAmount.Value);
+        });
+        Run("RecalculateInvoice preserves a manual-line discount", () => {
+            var i = Invoice(new Fixture { Gross = 111.60m,Vat = 21.60m,Rate = 24m });
+            var line = i.InvoiceLines[0];
+            line.Volume = 50m; line.UnitPrice = 2.48m; line.DiscountPercentage = 10m;
+            i.RecalculateInvoice();
+            Equal(12.40m,line.DiscountAmountRetail);
+            Equal(10m,line.DiscountAmountWhole);
+            Equal(111.60m,line.TotalPrice);
+            Equal(100m,i.NettoAmount.Value);
+            Equal(90m,i.NettoAfterDiscount);
+        });
         Reject("mismatched gross total", (i,c) => i.TotalAmount += .01m);
         Reject("mismatched VAT total", (i,c) => i.VatAmount += .01m);
         Reject("mismatched net total", (i,c) => i.NettoAmount += .01m);
         Reject("mismatched discount", (i,c) => i.InvoiceLines[0].DiscountAmount = 1m);
         Reject("missing payment", (i,c) => i.PaymentType = null);
         Reject("unknown payment", (i,c) => i.PaymentType = 99);
-        Run("explicit FleetCard credit mapping", () => { var i = Invoice(); i.PaymentType = 3; var c = Context(); c.FleetCardPayment = InvoicePaymentType.Credit; Equal(5, (int)Mapper.Build(i,c).PaymentMethods[0].Type); });
-        Reject("invalid FleetCard mapping", (i,c) => { i.PaymentType = 3; c.FleetCardPayment = (InvoicePaymentType)99; });
+        Run("FleetCard always maps to AADE credit", () => { var i = Invoice(); i.PaymentType = 3; Equal(5, (int)Mapper.Build(i,Context()).PaymentMethods[0].Type); });
         Reject("missing saved number", (i,c) => i.Number = 0);
         Reject("UTC fiscal date", (i,c) => i.TransactionDate = DateTime.UtcNow);
         Reject("unknown country", (i,c) => i.Trader.Country = "XX");
@@ -195,16 +369,235 @@ internal static class Program
             Equal(null,request.SaleCorrelations);
             Equal(null,Mapper.Build(i,c).InvoiceHeader.CorrelatedInvoices);
         });
-        foreach (bool flag in new[] { false,true })
-            Run("special cancellation 215 cannot be issued as a credit, flag " + flag, () => {
-                var i = Invoice(new Fixture { OfficialCode = 215, Credit = flag });
-                Throws(() => Mapper.Map(i,Context()));
-            });
+        Run("legacy delivery to sale transformation is local provenance", () => {
+            var c = Context(); c.IncludeSaleCorrelations = false;
+            var i = Invoice(); var p = Invoice();
+            p.InvoiceType.OfficialEnumerator = 158;
+            p.InvoiceType.HasFinancialTransactions = false;
+            i.ParentInvoiceRelations.Add(new InvoiceRelation { ParentInvoice = p, RelationType = 1 });
+            var request = Mapper.Map(i,c);
+            Equal(0,request.Parents.Count());
+            Equal(null,request.SaleCorrelations);
+            Equal(null,Mapper.Build(i,c).InvoiceHeader.CorrelatedInvoices);
+        });
+        Run("special cancellation 215 is a new correlated wholesale credit document", () => {
+            var c = Context();
+            var i = Invoice(new Fixture { OfficialCode = 215, ParentMark = 900215 },c);
+            var original = i.ParentInvoiceRelations.Single().ParentInvoice;
+            original.InvoiceType.OfficialEnumerator = 100;
+            original.InvoiceType.IsCancelation = false;
+            var request = Mapper.Map(i,c);
+            Equal(InvoiceMode.Cancel,request.Invoice.InvoiceSeries.InvoiceType.InvoiceTypeMode);
+            Equal(InvoicePaymentType.Credit,request.Invoice.PaymentType);
+            var model = Builder.Build(request);
+            Equal("5.1",model.InvoiceHeader.InvoiceType);
+            Equal((long)900215,model.InvoiceHeader.CorrelatedInvoices.Single());
+        });
+        Run("special cancellation 215 cannot be transmitted as another credit against a credit invoice", () => {
+            var c = Context(); c.WholesaleCodes.Add(169);
+            var i = Invoice(new Fixture { OfficialCode = 215, ParentMark = 900216 },c);
+            var original = i.ParentInvoiceRelations.Single().ParentInvoice;
+            original.InvoiceType.OfficialEnumerator = 169;
+            original.InvoiceType.IsCancelation = true;
+            Throws(() => Mapper.Build(i,c));
+        });
+        Run("special cancellation 215 inherits retail classification from its original", () => {
+            var c = Context();
+            var i = Invoice(new Fixture { OfficialCode = 215, ParentMark = 900217 },c);
+            var original = i.ParentInvoiceRelations.Single().ParentInvoice;
+            original.InvoiceType.OfficialEnumerator = 200;
+            original.InvoiceType.IsCancelation = false;
+            var model = Mapper.Build(i,c);
+            Equal("11.4",model.InvoiceHeader.InvoiceType);
+            Equal(null,model.InvoiceHeader.CorrelatedInvoices);
+        });
         Run("delivery requires structured dispatch", () => { var i = Invoice(new Fixture { OfficialCode = 158 }); Throws(() => Mapper.Map(i,Context())); });
         Run("delivery snapshot detached, multiple lines, no financial values", () => {
             var i = Invoice(new Fixture { OfficialCode = 159, Gross = 248, Vat = 48, TwoLines = true }); var c = Context(); c.Delivery = Delivery();
             var r = Mapper.Map(i,c); c.Delivery.LoadingAddress.City = "CHANGED";
             var m = Builder.Build(r); Equal(2,m.InvoiceDetails.Length); Equal(0m,m.InvoiceSummary.TotalGrossValue); Equal(0,m.PaymentMethods.Length); Equal("Test City",m.InvoiceHeader.OtherDeliveryNoteHeader.LoadingAddress.City); Equal(248m,i.TotalAmount.Value);
+        });
+        Run("financial delivery type keeps 1.1 values and emits the delivery flag in every channel", () => {
+            var c = Context(); c.WholesaleCodes.Add(222);
+            var i = Invoice(new Fixture { OfficialCode = 222 });
+            // Classification comes from the official invoice type, not from
+            // the independent vehicle requirement setting.
+            i.InvoiceType.NeedsVehicle = false;
+            i.InvoiceType.HasFinancialTransactions = true;
+            i.InvoiceType.TransactionType = 0;
+            i.VehiclePlateNumber = "TEST-222";
+
+            Equal(true,HostInvoiceMapper.IsInvoiceWithDelivery(i.InvoiceType));
+            var request = Mapper.Map(i,c);
+            Equal(true,request.Invoice.InvoiceSeries.IsDeliveryNote);
+            Equal((int)MyDataDocumentKind.Goods,request.Invoice.InvoiceSeries.InvoiceType.MyDataDocumentKind);
+            Equal("TEST-222",request.Delivery.Vehicle);
+            Equal(100m,request.Invoice.NettoAmount);
+            Equal(124m,request.Invoice.TotalAmount);
+            var m = Builder.Build(request);
+            Equal("1.1",m.InvoiceHeader.InvoiceType);
+            Equal(true,m.InvoiceHeader.DeliveryNote);
+            Equal(124m,m.InvoiceSummary.TotalGrossValue);
+            Equal(1,m.PaymentMethods.Length);
+
+            var factory = new InvoiceAdapterFactory(new InvoiceTypeResolver());
+            var direct = XDocument.Parse(factory.CreatePayloadMapper(InvoiceProviderCatalog.MyDataKey).Serialize(m,i.InvoiceId));
+            Equal("1.1",direct.Descendants().Single(e => e.Name.LocalName == "invoiceType").Value);
+            Equal("true",direct.Descendants().Single(e => e.Name.LocalName == "isDeliveryNote").Value);
+            Equal("1",direct.Descendants().Single(e => e.Name.LocalName == "movePurpose").Value);
+
+            var tim = JObject.Parse(factory.CreatePayloadMapper(InvoiceProviderCatalog.ITimologiaKey).Serialize(m,i.InvoiceId));
+            Equal("1.1",(string)tim["invoice_header"]["invoice_type"]);
+            Equal(true,(bool)tim["invoice_header"]["is_delivery_note"]);
+            Equal(124m,(decimal)tim["invoice_summary"]["total_gross_value"]);
+
+            var ilyda = JObject.Parse(factory.CreatePayloadMapper(InvoiceProviderCatalog.DirectIlydaKey).Serialize(m,i.InvoiceId));
+            var support = ilyda["additionalSupportDocs"].Single(d => (string)d["description"] == "##InvoicesDoc##");
+            var ilydaXml = XDocument.Parse(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String((string)support["reference"])));
+            Equal("1.1",ilydaXml.Descendants().Single(e => e.Name.LocalName == "invoiceType").Value);
+            Equal("true",ilydaXml.Descendants().Single(e => e.Name.LocalName == "isDeliveryNote").Value);
+            Equal(124m,(decimal)ilyda["docTotal"]["invoiceTotalAmountWithVat"]);
+        });
+        Run("official type 222 also carries delivery when configured as retail", () => {
+            var i = Invoice(new Fixture { OfficialCode = 222 });
+            i.InvoiceType.NeedsVehicle = true;
+            i.InvoiceType.HasFinancialTransactions = true;
+            i.InvoiceType.TransactionType = 0;
+            i.VehicleId = Guid.NewGuid();
+            i.VehiclePlateNumber = "TEST-200";
+            var model = Mapper.Build(i,Context());
+            Equal("11.1",model.InvoiceHeader.InvoiceType);
+            Equal(true,model.InvoiceHeader.DeliveryNote);
+            Equal(124m,model.InvoiceSummary.TotalGrossValue);
+            var factory = new InvoiceAdapterFactory(new InvoiceTypeResolver());
+            foreach (var provider in new[] { InvoiceProviderCatalog.MyDataKey, InvoiceProviderCatalog.ITimologiaKey, InvoiceProviderCatalog.DirectIlydaKey })
+            {
+                var payload = factory.CreatePayloadMapper(provider).Serialize(model,i.InvoiceId);
+                if (!payload.Contains("111111111")) throw new Exception(provider + " lost the retail delivery recipient");
+                if (provider == InvoiceProviderCatalog.DirectIlydaKey)
+                {
+                    var json = JObject.Parse(payload);
+                    var support = json["additionalSupportDocs"].Single(d => (string)d["description"] == "##InvoicesDoc##");
+                    payload = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String((string)support["reference"]));
+                }
+                if (!payload.Contains(provider == InvoiceProviderCatalog.ITimologiaKey ? "is_delivery_note" : "isDeliveryNote"))
+                    throw new Exception(provider + " lost the retail delivery flag");
+            }
+        });
+        Run("needs-vehicle delivery permits a selected vehicle without a plate", () => {
+            var i = Invoice(new Fixture { OfficialCode = 222 });
+            i.InvoiceType.NeedsVehicle = true;
+            i.InvoiceType.HasFinancialTransactions = true;
+            i.InvoiceType.TransactionType = 0;
+            i.VehicleId = Guid.NewGuid();
+            i.VehiclePlateNumber = "";
+
+            var request = Mapper.Map(i,Context());
+            Equal(null,request.Delivery.Vehicle);
+            var model = Builder.Build(request);
+            Equal(null,model.InvoiceHeader.VehicleNumber);
+            Equal(new DateTime(2026,10,15,10,30,0),model.InvoiceHeader.DispatchDateTime);
+
+            var factory = new InvoiceAdapterFactory(new InvoiceTypeResolver());
+            var direct = XDocument.Parse(factory.CreatePayloadMapper(
+                InvoiceProviderCatalog.MyDataKey).Serialize(model,i.InvoiceId));
+            Equal(0,direct.Descendants().Count(e => e.Name.LocalName == "vehicleNumber"));
+
+            var tim = JObject.Parse(factory.CreatePayloadMapper(
+                InvoiceProviderCatalog.ITimologiaKey).Serialize(model,i.InvoiceId));
+            var timVehicle = tim["invoice_header"]["vehicle_number"];
+            Equal(true,timVehicle == null || timVehicle.Type == JTokenType.Null ||
+                string.IsNullOrWhiteSpace((string)timVehicle));
+
+            var ilyda = JObject.Parse(factory.CreatePayloadMapper(
+                InvoiceProviderCatalog.DirectIlydaKey).Serialize(model,i.InvoiceId));
+            var support = ilyda["additionalSupportDocs"].Single(d =>
+                (string)d["description"] == "##InvoicesDoc##");
+            var ilydaXml = XDocument.Parse(System.Text.Encoding.UTF8.GetString(
+                Convert.FromBase64String((string)support["reference"])));
+            Equal(0,ilydaXml.Descendants().Count(e => e.Name.LocalName == "vehicleNumber"));
+        });
+        Run("needs-vehicle invoice still requires a selected vehicle", () => {
+            var i = Invoice(new Fixture { OfficialCode = 165 });
+            i.InvoiceType.NeedsVehicle = true;
+            i.InvoiceType.HasFinancialTransactions = true;
+            i.InvoiceType.TransactionType = 0;
+            i.VehicleId = null;
+            Throws(() => Mapper.Map(i,Context()));
+        });
+        Run("official type 165 stays an ordinary 1.1 even when it requires a vehicle", () => {
+            var i = Invoice(new Fixture { OfficialCode = 165 });
+            i.InvoiceType.NeedsVehicle = true;
+            i.InvoiceType.HasFinancialTransactions = true;
+            i.InvoiceType.TransactionType = 0;
+            i.VehicleId = Guid.NewGuid();
+            Equal(false,HostInvoiceMapper.IsInvoiceWithDelivery(i.InvoiceType));
+            var c = Context(); c.WholesaleCodes.Add(165);
+            var model = Mapper.Build(i,c);
+            Equal("1.1",model.InvoiceHeader.InvoiceType);
+            Equal(false,model.InvoiceHeader.DeliveryNote);
+        });
+        Run("code 160 self delivery accepts same VAT and reaches every channel as internal 9.3", () => {
+            var i = Invoice(new Fixture { OfficialCode = 160, SameVat = true });
+            i.InvoiceType.NeedsVehicle = true;
+            i.InvoiceType.HasFinancialTransactions = false;
+            i.InvoiceType.TransactionType = 0;
+            i.VehicleId = Guid.NewGuid();
+            i.VehiclePlateNumber = "TEST-160";
+            var m = Mapper.Build(i,Context());
+            Equal("9.3",m.InvoiceHeader.InvoiceType);
+            Equal(MovePurposeEnum.Internal,m.InvoiceHeader.MovePurpose);
+            Equal("000000000",m.Issuer.VATNumber);
+            Equal("000000000",m.CounterPart.VATNumber);
+            Equal("TEST-160",m.InvoiceHeader.VehicleNumber);
+            Equal(0m,m.InvoiceSummary.TotalGrossValue);
+            Equal(0,m.PaymentMethods.Length);
+
+            var factory = new InvoiceAdapterFactory(new InvoiceTypeResolver());
+            var direct = XDocument.Parse(factory.CreatePayloadMapper(InvoiceProviderCatalog.MyDataKey).Serialize(m,i.InvoiceId));
+            Equal("9.3",direct.Descendants().Single(e => e.Name.LocalName == "invoiceType").Value);
+            Equal("8",direct.Descendants().Single(e => e.Name.LocalName == "movePurpose").Value);
+            Equal(0,direct.Descendants().Count(e => e.Name.LocalName == "currency"));
+            Equal(2,direct.Descendants().Count(e => e.Name.LocalName == "vatNumber" && e.Value == "000000000"));
+
+            var tim = JObject.Parse(factory.CreatePayloadMapper(InvoiceProviderCatalog.ITimologiaKey).Serialize(m,i.InvoiceId));
+            Equal("9.3",(string)tim["invoice_header"]["invoice_type"]);
+            Equal(8,(int)tim["invoice_header"]["move_purpose"]);
+            Equal(null,tim["invoice_header"]["currency"]);
+            Equal("000000000",(string)tim["counterpart"]["vat_number"]);
+
+            var ilyda = JObject.Parse(factory.CreatePayloadMapper(InvoiceProviderCatalog.DirectIlydaKey).Serialize(m,i.InvoiceId));
+            Equal(null,ilyda["invoiceCurrencyCode"]);
+            var support = ilyda["additionalSupportDocs"].Single(d => (string)d["description"] == "##InvoicesDoc##");
+            var ilydaXml = XDocument.Parse(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String((string)support["reference"])));
+            Equal("9.3",ilydaXml.Descendants().Single(e => e.Name.LocalName == "invoiceType").Value);
+            Equal("8",ilydaXml.Descendants().Single(e => e.Name.LocalName == "movePurpose").Value);
+            Equal(0,ilydaXml.Descendants().Count(e => e.Name.LocalName == "currency"));
+            Equal("000000000",(string)ilyda["buyer"]["buyerVatIdentifier"]);
+        });
+        Run("code 160 self delivery rejects a different counterpart VAT", () => {
+            var i = Invoice(new Fixture { OfficialCode = 160 });
+            i.InvoiceType.NeedsVehicle = true;
+            i.InvoiceType.HasFinancialTransactions = false;
+            i.InvoiceType.TransactionType = 0;
+            i.VehicleId = Guid.NewGuid();
+            i.VehiclePlateNumber = "TEST-160";
+            Throws(() => Mapper.Map(i,Context()));
+        });
+        Run("different-VAT delivery keeps sales purpose instead of internal", () => {
+            var i = Invoice(new Fixture { OfficialCode = 158 });
+            var c = Context();
+            c.Delivery = Delivery();
+            var m = Mapper.Build(i,c);
+            Equal(MovePurposeEnum.Sales,m.InvoiceHeader.MovePurpose);
+            var direct = XDocument.Parse(new InvoiceAdapterFactory(new InvoiceTypeResolver())
+                .CreatePayloadMapper(InvoiceProviderCatalog.MyDataKey).Serialize(m,i.InvoiceId));
+            Equal("1",direct.Descendants().Single(e => e.Name.LocalName == "movePurpose").Value);
+        });
+        Run("legacy code 160 litre document is not reclassified as delivery", () => {
+            var i = Invoice(new Fixture { OfficialCode = 160 });
+            Equal(false,HostInvoiceMapper.IsSelfDeliveryDocument(i.InvoiceType));
+            Equal("11.1",Mapper.Build(i,Context()).InvoiceHeader.InvoiceType);
         });
         Console.WriteLine("RESULT: " + passed + " passed, " + failed + " failed.");
         return failed == 0 ? 0 : 1;
@@ -214,7 +607,7 @@ internal static class Program
     {
         var c = Context(); var i = Invoice(f,c);
         if (f.OfficialCode == 158 || f.OfficialCode == 159) c.Delivery = Delivery();
-        if (f.Payment == 3 || f.SameVat || f.ParentCancelled) { Throws(() => Mapper.Map(i,c)); return; }
+        if (f.SameVat || f.ParentCancelled) { Throws(() => Mapper.Map(i,c)); return; }
         var m = Mapper.Build(i,c);
         Equal(f.ExpectedProviderType,m.InvoiceHeader.InvoiceType);
         Equal(f.ExpectedProviderPayment,m.PaymentMethods.Length == 0 ? 0 : (int)m.PaymentMethods[0].Type);

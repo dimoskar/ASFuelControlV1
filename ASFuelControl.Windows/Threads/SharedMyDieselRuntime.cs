@@ -49,7 +49,8 @@ namespace ASFuelControl.Windows.Threads
             // test credentials or a secret saved by an older configuration.
             string uatKey = credential.Environment == FiscalEnvironment.Test ? MyDieselUatCatalog.PrimaryErpApiKey : null;
             return new MyDieselClient(new MyDieselClientOptions {
-                Scope = new MyDieselScope(couponCase.Environment,couponCase.CompanyVat,couponCase.ReservedBranchNum,couponCase.CredentialProfileId),
+                Scope = new MyDieselScope(couponCase.Environment,couponCase.CompanyVat,couponCase.ReservedBranchNum,
+                    couponCase.CredentialProfileId,couponCase.ReservedStationAmdika),
                 AadeUserId = productionUser, ProductionSubscriptionKey = productionKey, UatApiKey = uatKey,
                 CouponCaseId = couponCase.CouponCaseId, InvoiceId = couponCase.InvoiceId, Logger = new SqlEvidenceLogger(database)
             });
@@ -80,6 +81,31 @@ namespace ASFuelControl.Windows.Threads
 
     internal static class SharedMyDieselRuntime
     {
+        internal static string InvoiceEligibilityProblem(Guid invoiceId)
+        {
+            if (invoiceId == Guid.Empty) return "Δεν έχει δημιουργηθεί παραστατικό.";
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                var invoice = db.Invoices.SingleOrDefault(value => value.InvoiceId == invoiceId);
+                if (invoice == null) return "Δεν βρέθηκε το παραστατικό.";
+                if (!invoice.TraderId.HasValue)
+                    return "Επιλέξτε πελάτη πριν χρησιμοποιήσετε κουπόνι myDiesel.";
+
+                var lines = invoice.InvoiceLines.ToArray();
+                if (lines.Length == 0 || lines.Any(value => value.Volume <= 0))
+                    return "Το myDiesel απαιτεί θετική ποσότητα λίτρων.";
+
+                var fuelCodes = lines.Select(value => value.FuelType == null
+                    ? (int?)null
+                    : value.FuelType.EnumeratorValue).ToArray();
+                if (fuelCodes.Any(value => !value.HasValue || !MyDieselFuelRules.IsEligible(value.Value)))
+                    return "Το επιλεγμένο καύσιμο δεν είναι επιλέξιμο για myDiesel.";
+                if (fuelCodes.Select(value => value.Value).Distinct().Count() != 1)
+                    return "Το παραστατικό πρέπει να περιέχει ένα μόνο επιλέξιμο καύσιμο myDiesel.";
+            }
+            return null;
+        }
+
         internal static MyDieselCouponService CreateService(SharedInvoiceConfiguration configuration = null)
         {
             var current = configuration ?? SharedInvoicingSettings.LoadRuntime();
@@ -91,7 +117,10 @@ namespace ASFuelControl.Windows.Threads
         {
             var profile = configuration == null ? null : configuration.MyDiesel;
             if (profile == null || !profile.Enabled) throw new InvalidOperationException("Η δημιουργία νέων δεσμεύσεων myDiesel δεν είναι ενεργή.");
-            return new MyDieselScope(profile.Environment,profile.CompanyVat,profile.BranchNum,profile.CredentialProfileId);
+            string amdika = Data.Implementation.OptionHandler.Instance.GetOption("AMDIKA", "");
+            if (string.IsNullOrWhiteSpace(amdika))
+                throw new InvalidOperationException("Δεν έχει οριστεί ΑΜΔΙΚΑ στις γενικές ρυθμίσεις.");
+            return new MyDieselScope(profile.Environment,profile.CompanyVat,profile.BranchNum,profile.CredentialProfileId,amdika);
         }
 
         internal static SharedMyDieselStatus ReadInvoice(Guid invoiceId, bool includeHistory = false)

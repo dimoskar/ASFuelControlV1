@@ -134,8 +134,10 @@ namespace Exedron.Invoicing.Adapters
         {
             if (request == null) throw new ArgumentNullException(nameof(request));
             RequireCompany(request.CompanyVat);
+            RequireStation(request.BranchNum, request.Amdika);
             var body = new JObject {
                 ["couponCode"] = request.CouponCode, ["companyVat"] = request.CompanyVat, ["branchNum"] = request.BranchNum,
+                ["amdika"] = request.Amdika,
                 ["invoiceType"] = request.InvoiceType, ["mark"] = request.Mark
             };
             return Send(MyDieselOperation.Redeem, HttpMethod.Put, "secured/erp/coupon/redeem", body, ValidateCoupon);
@@ -155,7 +157,9 @@ namespace Exedron.Invoicing.Adapters
         {
             if (request == null) throw new ArgumentNullException(nameof(request));
             RequireCompany(request.CompanyVat);
-            var body = new JObject { ["couponCode"] = request.CouponCode, ["companyVat"] = request.CompanyVat, ["branchNum"] = request.BranchNum };
+            RequireStation(request.BranchNum, request.Amdika);
+            var body = new JObject { ["couponCode"] = request.CouponCode, ["companyVat"] = request.CompanyVat,
+                ["branchNum"] = request.BranchNum, ["amdika"] = request.Amdika };
             return Send(operation, method, path, body, ValidateCoupon);
         }
 
@@ -227,6 +231,13 @@ namespace Exedron.Invoicing.Adapters
         {
             if (!string.Equals(options.Scope.CompanyVat, companyVat, StringComparison.Ordinal))
                 throw new ArgumentException("The request company VAT must match the frozen myDiesel scope.", nameof(companyVat));
+        }
+
+        private void RequireStation(int branchNum, string amdika)
+        {
+            if (options.Scope.BranchNum == branchNum &&
+                !string.Equals(options.Scope.StationAmdika, amdika, StringComparison.Ordinal))
+                throw new ArgumentException("The request station must match the frozen myDiesel branch and AMDIKA.", nameof(amdika));
         }
 
         private static MyDieselCompany ValidateCompany(JToken token)

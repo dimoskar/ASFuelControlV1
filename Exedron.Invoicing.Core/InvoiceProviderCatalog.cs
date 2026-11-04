@@ -31,7 +31,8 @@ namespace Exedron.Invoicing.Core
 
         private static readonly InvoiceProviderDefinition[] Providers =
         {
-            new InvoiceProviderDefinition(MyDataKey, "myDATA (direct ERP)", null),
+            new InvoiceProviderDefinition(MyDataKey, "myDATA (direct ERP)", null,
+                supportsInvoiceMarkCancellation: true),
             new InvoiceProviderDefinition(DirectIlydaKey, "Ilyda (απευθείας)", DirectIlydaProviderId, DirectIlydaSoftwareLicence),
 
             // AADE assigns TECHNORAN/iTimologia provider code 034 (https://www.aade.gr/node/14610).
@@ -60,12 +61,14 @@ namespace Exedron.Invoicing.Core
 
     public sealed class InvoiceProviderDefinition
     {
-        internal InvoiceProviderDefinition(string key, string displayName, int? aadeProviderId, string softwareLicence = null)
+        internal InvoiceProviderDefinition(string key, string displayName, int? aadeProviderId,
+            string softwareLicence = null, bool supportsInvoiceMarkCancellation = false)
         {
             Key = key;
             DisplayName = displayName;
             AadeProviderId = aadeProviderId;
             SoftwareLicence = softwareLicence;
+            SupportsInvoiceMarkCancellation = supportsInvoiceMarkCancellation;
         }
 
         public string Key { get; private set; }
@@ -74,5 +77,9 @@ namespace Exedron.Invoicing.Core
         public string AadeProviderCode => AadeProviderId?.ToString("000",CultureInfo.InvariantCulture);
         public int? GBridgeProviderId => AadeProviderId;
         public string SoftwareLicence { get; private set; }
+        // The AADE ERP channel exposes CancelInvoice. The certified-provider
+        // channel does not expose financial-invoice MARK cancellation; its only
+        // cancellation operation is CancelDeliveryNote for movement documents.
+        public bool SupportsInvoiceMarkCancellation { get; private set; }
     }
 }

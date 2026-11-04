@@ -72,6 +72,10 @@ namespace ASFuelControl.Reports.Invoices
 
         public void SetSupplyNumber(Data.Invoice inv, string myDataUrl)
         {
+            // Page-header expressions do not consistently receive Fields in the
+            // physical printer renderer. Freeze the invoice date while the report
+            // is configured so every caller, including legacy ones, prints it.
+            this.SetTransactionDate(inv.TransactionDate);
             this.textBoxPreDiscount.Value = inv.NettoAmount.Value.ToString("N2");
             this.textBoxDiscount.Value = inv.DiscountAmount.ToString("N2");
             this.textBox15.Value = inv.VatAmount.HasValue ? inv.VatAmount.Value.ToString("N2") : (0).ToString("N2");
@@ -83,6 +87,13 @@ namespace ASFuelControl.Reports.Invoices
 
             if (inv.Trader != null)
             {
+                this.textBoxTraderAfm.Visible = true;
+                this.textBoxTraderDoy.Visible = true;
+                this.textBoxTraderNameData.Visible = true;
+                this.textBoxVehicleNumberData.Visible = true;
+                this.shape4.Visible = true;
+                this.shape1.Location = new PointU(
+                    this.shape1.Location.X,new Unit(3.3, UnitType.Cm));
                 this.textBoxTraderAfm.Value = "ÁÖÌ: " + inv.Trader.TaxRegistrationNumber;
                 this.textBoxTraderDoy.Value = "ÄÏÕ: " + inv.Trader.TaxRegistrationOffice;
                 this.textBoxTraderNameData.Value = "ÐåëÜôçò: " + inv.Trader.Name;
@@ -96,9 +107,17 @@ namespace ASFuelControl.Reports.Invoices
                 this.textBoxTraderDoy.Value = "";
                 this.textBoxTraderNameData.Value = "";
                 this.textBoxVehicleNumberData.Value = "";
+                this.textBoxTraderAfm.Visible = false;
+                this.textBoxTraderDoy.Visible = false;
+                this.textBoxTraderNameData.Visible = false;
+                this.textBoxVehicleNumberData.Visible = false;
                 this.shape4.Visible = false;
-                this.pageHeaderSection1.Height = new Unit(3.9, UnitType.Cm);
-                this.PageSettings.PaperSize = new SizeU(new Unit(80, UnitType.Mm), new Unit(pageHeight - 10, UnitType.Mm));
+                // Preserve the original non-trader header area and add 0.3 cm
+                // clearance for the physical printer renderer.
+                this.shape1.Location = new PointU(
+                    this.shape1.Location.X,new Unit(3.3, UnitType.Cm));
+                this.pageHeaderSection1.Height = new Unit(4.2, UnitType.Cm);
+                this.PageSettings.PaperSize = new SizeU(new Unit(80, UnitType.Mm), new Unit(pageHeight, UnitType.Mm));
             }
 
             string brandData = BrandData.SetBrandData(inv);
@@ -133,6 +152,13 @@ namespace ASFuelControl.Reports.Invoices
                 if (!line.FuelType.SupportsSupplyNumber.HasValue || !line.FuelType.SupportsSupplyNumber.Value)
                     continue;
                 this.textBoxVehicleNumberData.Value = "Êùä. Çë. Ðëçñ. ÄÅÇ:" + inv.SupplyNumber;
+                this.textBoxVehicleNumberData.Visible = true;
+                if (inv.Trader == null)
+                {
+                    this.shape1.Location = new PointU(
+                        this.shape1.Location.X,new Unit(3.3, UnitType.Cm));
+                    this.pageHeaderSection1.Height = new Unit(4.2, UnitType.Cm);
+                }
                 break;
             }
 
@@ -143,8 +169,6 @@ namespace ASFuelControl.Reports.Invoices
 
             if (str == null || str == "")
             {
-                int currentHeight = (int)this.PageSettings.PaperSize.Height.Value;
-                this.PageSettings.PaperSize = new SizeU(new Unit(80, UnitType.Mm), new Unit(currentHeight - 20, UnitType.Mm));
                 pageFooterSection1.Height = new Unit(4.30, UnitType.Cm);
                 this.pictureBox1.Visible = false;
                 this.textBox1.Visible = false;

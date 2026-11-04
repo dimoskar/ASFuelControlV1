@@ -31,7 +31,9 @@ namespace ASFuelControl.Invoicing.Persistence
             ValidateDocument(lease, updated.Request);
             database.Write(lease, Entry(updated), expectedRevision,
                 updated.State != FiscalSigningState.Rejected && updated.State != FiscalSigningState.FailedBeforeDispatch,
-                old => FiscalStateTransitions.CanTransition((FiscalSigningState)Enum.Parse(typeof(FiscalSigningState), old.State), updated.State));
+                old => FiscalStateTransitions.CanTransitionSigning(
+                    (FiscalSigningState)Enum.Parse(typeof(FiscalSigningState), old.State), updated.State,
+                    updated.State == FiscalSigningState.Signing));
         }
         private static void ValidateDocument(IFiscalDocumentLease lease, FiscalSigningRequest request)
         {

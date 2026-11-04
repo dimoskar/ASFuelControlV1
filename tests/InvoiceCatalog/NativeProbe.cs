@@ -87,6 +87,12 @@ internal static class NativeProbe
             await Until(() => grid.Enabled);
             Check(vm.Invoices.Length == 2 && vm.Invoices.All(i => i.Number == 14 || i.Number == 15), "native grid binds only the latest overlapping search");
             Check(grid.Rows.Count == 2 && object.ReferenceEquals(vm.Invoices, vm.Invoices), "all returned rows are bound to a stable array");
+            Check(grid.Columns.Count > 3 && grid.Columns[3].Name == "FiscalFailure",
+                "fiscal failure indicator follows the checkbox columns");
+            var failureMethod = typeof(InvoiceCatalogViewModel).GetMethod("FiscalFailure",BindingFlags.Instance | BindingFlags.NonPublic);
+            var failed = vm.Invoices.Single(i => i.Number == 14);
+            Check(!string.IsNullOrWhiteSpace((string)failureMethod.Invoke(vm,new object[] { failed.InvoiceId })),
+                "failed invoice carries the catalog warning tooltip");
             decimal total = vm.GetSummary(4, "TotalAmount"), rest = vm.GetSummary(4, "RestAmount");
             Check(total == 19.18m && rest == -1.37m, "native view model retains legacy signed total rules");
             grid.FilterDescriptors.Add(new FilterDescriptor("TotalAmount", FilterOperator.IsEqualTo, 19.18m));

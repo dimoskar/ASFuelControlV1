@@ -17,7 +17,7 @@ using Telerik.Reporting.Processing;
 namespace ASFuelControl.Windows.Threads
 {
     /// <summary>
-    /// Renders laser invoices with the established invoice reports. The resulting
+    /// Renders invoices with the established laser or thermal invoice reports. The resulting
     /// PNG pages are persisted by FiscalPrintService, so retries never query or
     /// recreate the report after the first handoff attempt.
     /// </summary>
@@ -25,8 +25,8 @@ namespace ASFuelControl.Windows.Threads
     {
         internal static byte[] Render(InvoiceWorkflowSnapshot snapshot, InvoiceResponse response, SharedPrinterProfile profile)
         {
-            if (profile == null || profile.Thermal)
-                throw new InvalidOperationException("A laser printer profile is required for the invoice report.");
+            if (profile == null)
+                throw new InvalidOperationException("A printer profile is required for the invoice report.");
 
             // This also validates that all mandatory provider print evidence is
             // present before a page is frozen in the print operation.
@@ -36,6 +36,9 @@ namespace ASFuelControl.Windows.Threads
             {
                 var invoice = db.Invoices.Single(i => i.InvoiceId == snapshot.InvoiceId);
                 var qrCodeUrl = response == null ? invoice.QRCodeData : response.QrCodeUrl;
+                if (profile.Thermal)
+                    return RenderThermalReport(db,invoice,qrCodeUrl,profile,fiscalFooter,response);
+
                 if (invoice.InvoiceType.IsInternal == true)
                 {
                     using (var report = new Reports.Invoices.InvoiceReport())
@@ -53,6 +56,98 @@ namespace ASFuelControl.Windows.Threads
                     ConfigureShortReport(report,invoice,qrCodeUrl);
                     return RenderPages(report,profile,fiscalFooter);
                 }
+            }
+        }
+
+        private static byte[] RenderThermalReport(Data.DatabaseModel db, Data.Invoice invoice,
+            string qrCodeUrl, SharedPrinterProfile profile, string fiscalFooter, InvoiceResponse response)
+        {
+            using (var report = new Reports.Invoices.InvoiceReportNarrow())
+            {
+                report.ApplyThermalPrintSafety();
+                var options = Data.Implementation.OptionHandler.Instance;
+                var fontSize = Math.Max(9m,options.GetDecimalOption("ThermalPrintFontSize",9));
+                var fontName = options.GetOption("ThermalPrintFontName","Tahoma");
+                report.SetFont(fontName,(float)fontSize);
+                report.ApplyThermalTypography(fontName,(float)fontSize);
+
+                var lines = db.InvoicePrintViews.Where(line => line.InvoiceId == invoice.InvoiceId).ToArray();
+                foreach (var line in lines)
+                {
+                    line.InvoiceNettoAmount = invoice.NettoAmount.GetValueOrDefault();
+                    line.InvoiceTotalAmount = invoice.TotalAmount.GetValueOrDefault();
+                    line.InvoiceVatAmount = invoice.VatAmount.GetValueOrDefault();
+                    line.InvoiceDiscountAmount = invoice.DiscountAmount;
+                    line.InvoiceNettoAfterDiscountAmount = invoice.NettoAfterDiscount;
+                }
+
+                using (var reportData = new OpenAccessDataSource(lines,""))
+                {
+                    report.DataSource = reportData;
+                    ConfigureThermalReport(report,invoice,qrCodeUrl,options);
+                    report.ApplySharedThermalLayout(
+                        response == null || string.IsNullOrWhiteSpace(response.InvoiceSignature)
+                            ? invoice.InvoiceSignature
+                            : response.InvoiceSignature,
+                        ThermalEvidence(fiscalFooter,response));
+                    report.FlowFooterAfterDetails();
+                    // Fiscal evidence remains in the established receipt footer,
+                    // which now flows after the detail rows on the fixed paper.
+                    return RenderPages(report,profile,null);
+                }
+            }
+        }
+
+        private static string ThermalEvidence(string fiscalFooter, InvoiceResponse response)
+        {
+            var lines = (fiscalFooter ?? "")
+                .Split(new[] { "\r\n" },StringSplitOptions.RemoveEmptyEntries)
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .ToList();
+            string mark = lines.FirstOrDefault(line => line.StartsWith("MARK:",StringComparison.OrdinalIgnoreCase));
+            string uid = lines.FirstOrDefault(line => line.StartsWith("UID:",StringComparison.OrdinalIgnoreCase));
+            lines.RemoveAll(line => string.Equals(line,mark,StringComparison.Ordinal) ||
+                string.Equals(line,uid,StringComparison.Ordinal) ||
+                response != null && !string.IsNullOrWhiteSpace(response.InvoiceSignature) &&
+                string.Equals(line,response.InvoiceSignature,StringComparison.Ordinal));
+            var ordered = new List<string>();
+            if (!string.IsNullOrWhiteSpace(mark)) ordered.Add(mark);
+            if (!string.IsNullOrWhiteSpace(uid)) ordered.Add(uid);
+            ordered.AddRange(lines);
+            return string.Join("\r\n",ordered);
+        }
+
+        private static void ConfigureThermalReport(Reports.Invoices.InvoiceReportNarrow report,
+            Data.Invoice invoice, string qrCodeUrl, Data.Implementation.OptionHandler options)
+        {
+            report.ReportParameters["InvoiceId"].Value = invoice.InvoiceId.ToString().ToLowerInvariant();
+            report.ReportParameters["PrintBarcode"].Value = options.GetBoolOption("PrintInvoiceBarcode",false);
+            report.ReportParameters["CompanyName"].Value = options.GetOption("CompanyName");
+            report.ReportParameters["Occupation"].Value = options.GetOption("CompanyOccupation");
+            report.ReportParameters["Address"].Value = options.GetOption("CompanyAddress") + " " + options.GetOption("CompanyCity");
+            report.ReportParameters["City"].Value = options.GetOption("CompanyCity");
+            report.ReportParameters["VATNumber"].Value = options.GetOption("CompanyTIN");
+            report.ReportParameters["TaxOffice"].Value = options.GetOption("CompanyTaxOffice");
+            report.ReportParameters["Phone"].Value = options.GetOption("CompanyPhone");
+            report.ReportParameters["Fax"].Value = options.GetOption("CompanyFax");
+            report.ReportParameters["MainAddress"].Value = options.GetOption("CompanyMainAddress");
+            report.ReportParameters["efk"].Value = options.GetOption("CompanyEFK") ?? "";
+            report.SetTransactionDate(invoice.TransactionDate);
+
+            // SetSupplyNumber contains legacy VAT-exemption display logic which
+            // changes persisted line objects. Rendering must never change invoice
+            // values, so restore the prices immediately after report setup.
+            var prices = invoice.InvoiceLines
+                .Select(line => new { Line = line, UnitPrice = line.UnitPrice })
+                .ToArray();
+            try
+            {
+                report.SetSupplyNumber(invoice,qrCodeUrl);
+            }
+            finally
+            {
+                foreach (var price in prices)
+                    price.Line.UnitPrice = price.UnitPrice;
             }
         }
 
@@ -109,6 +204,15 @@ namespace ASFuelControl.Windows.Threads
 
         private static void ConfigurePaper(Telerik.Reporting.Report report, SharedPrinterProfile profile)
         {
+            if (profile.Thermal)
+            {
+                report.PageSettings.PaperKind = PaperKind.Custom;
+                report.PageSettings.Landscape = false;
+                report.PageSettings.PaperSize = new SizeU(
+                    Unit.Mm(profile.WidthHundredths * 0.254),
+                    Unit.Mm(profile.HeightHundredths * 0.254));
+                return;
+            }
             bool a5 = string.Equals(profile.NonThermalPaperSize,"A5",StringComparison.OrdinalIgnoreCase);
             report.PageSettings.PaperKind = a5 ? PaperKind.A5 : PaperKind.A4;
             report.PageSettings.Landscape = a5;

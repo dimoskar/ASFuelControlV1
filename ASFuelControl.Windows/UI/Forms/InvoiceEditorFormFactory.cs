@@ -29,13 +29,26 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
-                var type = db.Invoices.Where(invoice => invoice.InvoiceId == invoiceId)
-                    .Select(invoice => invoice.InvoiceType)
+                var invoiceTypeId = db.Invoices
+                    .Where(invoice => invoice.InvoiceId == invoiceId)
+                    .Select(invoice => invoice.InvoiceTypeId)
                     .SingleOrDefault();
-                return type == null ? Create(ViewModels.InvoiceEditorScenario.General) :
-                    CreateForType(type.TransactionType, type.IsInternal == true,
-                        type.RetailInvoice == true, type.Printable,
-                        type.DispenserType == true, type.IsLaserPrint);
+                return CreateForInvoiceType(db, invoiceTypeId);
+            }
+        }
+
+        public static InvoiceFormEx OpenInvoice(Guid invoiceId)
+        {
+            var form = CreateForInvoice(invoiceId);
+            try
+            {
+                form.LoadInvoice(invoiceId);
+                return form;
+            }
+            catch
+            {
+                form.Dispose();
+                throw;
             }
         }
 
@@ -43,12 +56,19 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
-                var type = db.InvoiceTypes.SingleOrDefault(invoiceType => invoiceType.InvoiceTypeId == invoiceTypeId);
-                return type == null ? Create(ViewModels.InvoiceEditorScenario.General) :
-                    CreateForType(type.TransactionType, type.IsInternal == true,
-                        type.RetailInvoice == true, type.Printable,
-                        type.DispenserType == true, type.IsLaserPrint);
+                return CreateForInvoiceType(db, invoiceTypeId);
             }
+        }
+
+        private static InvoiceFormEx CreateForInvoiceType(Data.DatabaseModel db,
+            Guid invoiceTypeId)
+        {
+            var type = db.InvoiceTypes.SingleOrDefault(
+                invoiceType => invoiceType.InvoiceTypeId == invoiceTypeId);
+            return type == null ? Create(ViewModels.InvoiceEditorScenario.General) :
+                CreateForType(type.TransactionType, type.IsInternal == true,
+                    type.RetailInvoice == true, type.Printable,
+                    type.DispenserType == true, type.IsLaserPrint);
         }
 
         private static InvoiceFormEx CreateForType(int transactionType, bool isInternal,
@@ -59,10 +79,8 @@ namespace ASFuelControl.Windows.UI.Forms
             bool compact = printable && (dispenserType || isLaserPrint != true);
             if (scenario == ViewModels.InvoiceEditorScenario.Retail && compact)
                 return new RetailReceiptForm();
-            // A VAT-exclusive compact type is an exceptional configuration. Keep
-            // it on the legacy editor until it receives an explicit fifth form.
             if (scenario == ViewModels.InvoiceEditorScenario.Wholesale && compact)
-                return new InvoiceFormEx();
+                return new CompactWholesaleInvoiceForm();
             return Create(scenario);
         }
 

@@ -30,17 +30,31 @@ namespace Exedron.Invoicing.Core
                 if (previous != null)
                 {
                     if (previous.State == FiscalSigningState.Signed || previous.State == FiscalSigningState.Prepared) return previous;
-                    if (previous.State == FiscalSigningState.Signing || previous.State == FiscalSigningState.Unknown) return Recover(lease, previous);
+                    if (previous.State == FiscalSigningState.Signing || previous.State == FiscalSigningState.Unknown)
+                    {
+                        previous = Recover(lease, previous);
+                        var retried = RetryFrozenIfAllowed(lease,previous);
+                        return retried ?? previous;
+                    }
+                    if (previous.State == FiscalSigningState.Rejected)
+                    {
+                        previous = RecoverRecorded(lease,previous);
+                        if (previous.State == FiscalSigningState.Signed) return previous;
+                    }
+                    var automatic = RetryFrozenIfAllowed(lease,previous);
+                    if (automatic != null) return automatic;
                     if (!retryDefinitiveFailure) return previous;
                 }
                 if (prepare == null) throw new ArgumentNullException(nameof(prepare));
                 var request = prepare(lease);
                 if (request == null || request.Document.Kind != document.Kind || request.Document.DocumentId != document.DocumentId)
                     throw new InvalidOperationException("The prepared signing request belongs to a different document.");
-                if (previous != null && !SameScope(previous.Request.Scope, request.Scope))
+                if (previous != null && !SameScope(previous.Request.Scope, request.Scope) &&
+                    !(retryDefinitiveFailure && previous.State == FiscalSigningState.Rejected &&
+                      SameIssuerScope(previous.Request.Scope, request.Scope)))
                     throw new InvalidOperationException("A signing retry must retain its historical device and issuer scope.");
                 var attempt = store.Begin(lease, request, DateTime.UtcNow);
-                return Dispatch(lease, attempt);
+                return Dispatch(lease, attempt, false);
             }
         }
 
@@ -52,7 +66,7 @@ namespace Exedron.Invoicing.Core
             {
                 var saved = Required(lease);
                 if (saved.State != FiscalSigningState.Prepared) throw new InvalidOperationException("Only a prepared signing request can be resumed.");
-                return Dispatch(lease, saved);
+                return Dispatch(lease, saved, false);
             }
         }
         public FiscalSigningAttempt Recover(FiscalDocumentReference document)
@@ -60,7 +74,8 @@ namespace Exedron.Invoicing.Core
             using (var lease = store.Acquire(document)) return Recover(lease, Required(lease));
         }
 
-        private FiscalSigningAttempt Dispatch(IFiscalDocumentLease lease, FiscalSigningAttempt attempt)
+        private FiscalSigningAttempt Dispatch(IFiscalDocumentLease lease, FiscalSigningAttempt attempt,
+            bool automaticFrozenRequestRetry)
         {
             IFiscalSigner signer = null;
             try
@@ -71,20 +86,63 @@ namespace Exedron.Invoicing.Core
                     return Save(lease, attempt, FiscalSigningState.FailedBeforeDispatch, null,
                         "Local signing validation failed: " + ex.GetType().Name);
                 }
-                // A failure here must prevent all external I/O.
-                attempt = Save(lease, attempt, FiscalSigningState.Signing);
-                FiscalSigningResult result;
-                try { result = CheckResult(attempt.Request, signer.Sign(attempt.Request)); }
-                catch (Exception ex)
+                var policy = signer as IFiscalSignerAutomaticRetryPolicy;
+                int dispatched = DispatchCount(lease,attempt.Request.AttemptId);
+                bool retry = automaticFrozenRequestRetry;
+                do
                 {
-                    result = FiscalSigningResult.Unknown(attempt.Request.AttemptId, null,
-                        "The signing call did not return a confirmed outcome: " + ex.GetType().Name);
+                    // A failure here must prevent all external I/O. Retried calls
+                    // transition the same attempt and retain the same request bytes.
+                    attempt = Save(lease, attempt, FiscalSigningState.Signing, null, null, retry);
+                    dispatched++;
+                    FiscalSigningResult result;
+                    try { result = CheckResult(attempt.Request, signer.Sign(attempt.Request)); }
+                    catch (Exception ex)
+                    {
+                        result = FiscalSigningResult.Unknown(attempt.Request.AttemptId, null,
+                            "The signing call did not return a confirmed outcome: " + ex.GetType().Name);
+                    }
+                    // Never swallow a failed outcome save or return an undurable signature.
+                    attempt = Save(lease, attempt, result.State, result);
+                    retry = policy != null && dispatched < policy.MaximumAutomaticDispatches &&
+                        policy.CanRetry(attempt.Request,result);
                 }
-                // Never swallow a failed outcome save or return an undurable signature.
-                return Save(lease, attempt, result.State, result);
+                while (retry);
+                if (policy != null && dispatched >= policy.MaximumAutomaticDispatches &&
+                    attempt.State == FiscalSigningState.Unknown && policy.CanRetry(attempt.Request,attempt.Result))
+                {
+                    var exhausted = FiscalSigningResult.Unknown(attempt.Request.AttemptId,
+                        attempt.Result.Response,"Automatic signing retries were exhausted after " + dispatched +
+                        " dispatches. " + attempt.Result.Diagnostic);
+                    attempt = Save(lease,attempt,FiscalSigningState.Unknown,exhausted);
+                }
+                return attempt;
             }
             finally { (signer as IDisposable)?.Dispose(); }
         }
+
+        private FiscalSigningAttempt RetryFrozenIfAllowed(IFiscalDocumentLease lease,
+            FiscalSigningAttempt saved)
+        {
+            if (saved == null || (saved.State != FiscalSigningState.Unknown &&
+                saved.State != FiscalSigningState.Rejected) || saved.Result == null)
+                return null;
+            IFiscalSigner signer = null;
+            try
+            {
+                signer = Resolve(saved.Request);
+                var policy = signer as IFiscalSignerAutomaticRetryPolicy;
+                int dispatched = DispatchCount(lease,saved.Request.AttemptId);
+                if (policy == null || dispatched >= policy.MaximumAutomaticDispatches ||
+                    !policy.CanRetry(saved.Request,saved.Result)) return null;
+            }
+            catch { return null; }
+            finally { (signer as IDisposable)?.Dispose(); }
+            return Dispatch(lease,saved,true);
+        }
+
+        private int DispatchCount(IFiscalDocumentLease lease, Guid attemptId) =>
+            store.LoadHistory(lease,attemptId).Count(item => item.State == FiscalSigningState.Signing);
 
         private FiscalSigningAttempt Recover(IFiscalDocumentLease lease, FiscalSigningAttempt saved)
         {
@@ -97,6 +155,15 @@ namespace Exedron.Invoicing.Core
             try
             {
                 signer = Resolve(saved.Request);
+                var recorded = signer as IFiscalSignerRecordedResponseRecovery;
+                if (saved.State == FiscalSigningState.Unknown && recorded != null &&
+                    !string.IsNullOrWhiteSpace(saved.Result?.Response))
+                {
+                    result = CheckResult(saved.Request, recorded.RecoverRecorded(saved.Request,
+                        saved.Result.Response,saved.Result.Diagnostic));
+                    if (result.State != FiscalSigningState.Unknown)
+                        return Save(lease, saved, result.State, result);
+                }
                 var recovery = signer as IFiscalSignerRecovery;
                 if (recovery == null) return saved; // No invented lookup or second Sign.
                 result = CheckResult(saved.Request, recovery.Recover(saved.Request));
@@ -107,6 +174,25 @@ namespace Exedron.Invoicing.Core
             }
             finally { (signer as IDisposable)?.Dispose(); }
             return Save(lease, saved, result.State, result);
+        }
+        private FiscalSigningAttempt RecoverRecorded(IFiscalDocumentLease lease,
+            FiscalSigningAttempt saved)
+        {
+            if (saved?.Result == null || string.IsNullOrWhiteSpace(saved.Result.Response)) return saved;
+            IFiscalSigner signer = null;
+            FiscalSigningResult result;
+            try
+            {
+                signer = Resolve(saved.Request);
+                var recorded = signer as IFiscalSignerRecordedResponseRecovery;
+                if (recorded == null) return saved;
+                result = CheckResult(saved.Request,recorded.RecoverRecorded(saved.Request,
+                    saved.Result.Response,saved.Result.Diagnostic));
+            }
+            catch { return saved; }
+            finally { (signer as IDisposable)?.Dispose(); }
+            if (result.State == saved.State) return saved;
+            return Save(lease,saved,result.State,result);
         }
         private IFiscalSigner Resolve(FiscalSigningRequest request)
         {
@@ -124,11 +210,15 @@ namespace Exedron.Invoicing.Core
         private FiscalSigningAttempt Required(IFiscalDocumentLease lease)
         { return store.Load(lease).LastOrDefault() ?? throw new InvalidOperationException("No saved signing request exists."); }
         private FiscalSigningAttempt Save(IFiscalDocumentLease lease, FiscalSigningAttempt old, FiscalSigningState state,
-            FiscalSigningResult result = null, string diagnostic = null)
+            FiscalSigningResult result = null, string diagnostic = null,
+            bool automaticFrozenRequestRetry = false)
         {
             var now = DateTime.UtcNow;
             if (now < old.UpdatedUtc) now = old.UpdatedUtc;
             var updated = new FiscalSigningAttempt(old.Request, state, old.Revision + 1, old.CreatedUtc, now, result, diagnostic);
+            if (automaticFrozenRequestRetry && state == FiscalSigningState.Signing &&
+                !FiscalStateTransitions.CanTransitionSigning(old.State,state,true))
+                throw new InvalidOperationException("The saved signing state cannot retry its frozen request.");
             store.Save(lease, old.Revision, updated);
             return updated;
         }
@@ -140,6 +230,14 @@ namespace Exedron.Invoicing.Core
         public static bool SameScope(FiscalSigningScope a, FiscalSigningScope b) => a != null && b != null &&
             a.SignerKey == b.SignerKey && a.DeviceId == b.DeviceId && a.Environment == b.Environment &&
             a.IssuerVat == b.IssuerVat && a.IssuerBranch == b.IssuerBranch;
+
+        // A definitive rejection is authoritative evidence that the old request was
+        // not signed. It may therefore be retried through a re-saved profile for the
+        // same signer and issuer, while environment/VAT/branch changes remain blocked.
+        public static bool SameIssuerScope(FiscalSigningScope a, FiscalSigningScope b) =>
+            a != null && b != null && a.SignerKey == b.SignerKey &&
+            a.Environment == b.Environment && a.IssuerVat == b.IssuerVat &&
+            a.IssuerBranch == b.IssuerBranch;
 
     }
 }

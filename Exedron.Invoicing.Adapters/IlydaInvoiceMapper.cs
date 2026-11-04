@@ -19,6 +19,7 @@ namespace Exedron.Invoicing.Adapters
                 throw new InvalidOperationException("Ilyda: Λείπουν τα απαιτούμενα στοιχεία παραστατικού.");
             var h = invoice.InvoiceHeader;
             var type = h.InvoiceType;
+            var movementOnly = type == "9.1" || type == "9.2" || type == "9.3" || type == "10.1";
             if ((invoice.TaxesTotals ?? new TaxesTotal[0]).Length != 0 || h.SelfPricing || h.VATPaymentSuspension || (h.ExchangeRate != 0 && h.ExchangeRate != 1))
                 throw new InvalidOperationException("Ilyda: Η τρέχουσα διασύνδεση δεν υποστηρίζει πρόσθετους φόρους, αυτοτιμολόγηση, αναστολή ΦΠΑ ή μετατροπή νομίσματος.");
             if (!new[] { "1.1", "1.2", "1.3", "1.4", "1.6", "2.1", "2.2", "2.3", "5.1", "5.2", "11.1", "11.2", "11.4", "9.1", "9.2", "9.3", "10.1" }.Contains(type))
@@ -152,7 +153,7 @@ namespace Exedron.Invoicing.Adapters
                     invoice.Issuer.Branch.ToString(CultureInfo.InvariantCulture), type, h.Series, h.AA),
                 ["seriesNumber"] = h.Series, ["serialNumber"] = h.AA, ["invoiceIssueDate"] = FormatIssueDate(h.IssueDate),
                 ["invoiceTypeCode"] = type == "5.1" || type == "5.2" || type == "11.4" ? "381" : "380",
-                ["invoiceCurrencyCode"] = h.Currency, ["b2g"] = false, ["selfPricing"] = h.SelfPricing, ["vatPaidByBuyer"] = h.VATPaymentSuspension,
+                ["b2g"] = false, ["selfPricing"] = h.SelfPricing, ["vatPaidByBuyer"] = h.VATPaymentSuspension,
                 ["paymentTerms"] = invoice.PaymentTerms,
                 ["seller"] = Party(invoice.Issuer, true), ["invoiceLines"] = lines, ["vatBreakdowns"] = vat,
                 ["paymentMethods"] = new JArray((invoice.PaymentMethods ?? new PaymentMethod[0]).Select(p => new JObject { ["type"] = (int)p.Type, ["amount"] = p.Amount })),
@@ -162,6 +163,7 @@ namespace Exedron.Invoicing.Adapters
                     ["documentLevelChargesSum"] = 0, ["documentLevelAllowancesSum"] = 0 },
                 ["additionalSupportDocs"] = new JArray(new JObject { ["description"] = "##InvoicesDoc##", ["reference"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(xml)) })
             };
+            if (!movementOnly && !string.IsNullOrWhiteSpace(h.Currency)) payload["invoiceCurrencyCode"] = h.Currency;
             if (invoice.CounterPart != null && (!type.StartsWith("11.", StringComparison.Ordinal) || retailDelivery || supplyAccount != null)) payload["buyer"] = Party(invoice.CounterPart, false);
             if (specialCategory.HasValue)
                 payload["aadeData"] = new JObject { ["aadeSpecialInvoiceCategory"] = specialCategory.Value };

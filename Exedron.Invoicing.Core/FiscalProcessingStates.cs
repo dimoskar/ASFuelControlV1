@@ -48,7 +48,9 @@ namespace Exedron.Invoicing.Core
                 CanTransitionExternal((int)from, (int)to);
         }
         // The three external-operation enums intentionally share these stable numeric states.
-        // Reconciliation may resolve Unknown only with authoritative evidence of acceptance/rejection.
+        // Reconciliation may resolve Unknown with authoritative evidence. Signing
+        // additionally permits a bounded, adapter-authorized resend of the exact
+        // persisted request after an uncertain or transient outcome.
         private static bool CanTransitionExternal(int from, int to)
         {
             switch (from)
@@ -58,6 +60,19 @@ namespace Exedron.Invoicing.Core
                 case 6: return to == 4 || to == 5 || to == 6; // Persist another inconclusive lookup, not another send.
                 default: return false;
             }
+        }
+        public static bool CanTransitionSigning(FiscalSigningState from, FiscalSigningState to,
+            bool automaticFrozenRequestRetry)
+        {
+            // A newer adapter may safely reinterpret the exact recorded response
+            // of an older build (for example, transient or duplicate-UID evidence).
+            if (from == FiscalSigningState.Rejected &&
+                (to == FiscalSigningState.Unknown || to == FiscalSigningState.Signed))
+                return true;
+            if (automaticFrozenRequestRetry && to == FiscalSigningState.Signing &&
+                (from == FiscalSigningState.Unknown || from == FiscalSigningState.Rejected))
+                return true;
+            return CanTransition(from,to);
         }
         public static bool CanTransition(FiscalPrintState from, FiscalPrintState to)
         {

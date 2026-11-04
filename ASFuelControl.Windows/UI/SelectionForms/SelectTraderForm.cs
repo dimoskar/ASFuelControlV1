@@ -221,6 +221,7 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             this.database.Add(newVehicle);
             newVehicle.TraderId = trader.TraderId;
             newVehicle.Trader = trader;
+            newVehicle.PlateNumber = "";
             trader.Vehicles.Add(newVehicle);
             this.vehiclesBindingSource.ResetBindings(false);
         }
@@ -277,7 +278,7 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             this.database.Add(newVehicle);
             newVehicle.TraderId = trader.TraderId;
             newVehicle.Trader = trader;
-            newVehicle.PlateNumber = "Χωρίς Πινακίδα";
+            newVehicle.PlateNumber = "";
             trader.Vehicles.Add(newVehicle);
             this.vehiclesBindingSource.ResetBindings(false);
         }

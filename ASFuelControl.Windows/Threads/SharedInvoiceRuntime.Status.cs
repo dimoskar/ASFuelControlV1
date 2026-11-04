@@ -157,7 +157,7 @@ namespace ASFuelControl.Windows.Threads
             try { return ProviderSubmissionService.ReadAcceptedResponse(accepted).InvoiceSignature; }
             catch { return null; }
         }
-        private static string CurrentPrintDestination(Guid id)
+        private static string CurrentPrintDestination(Guid id, string selectedPrinter = null)
         {
             // Reprints preserve the original rendered document, but routing is
             // recalculated from the invoice type actually stored in the database.
@@ -167,9 +167,15 @@ namespace ASFuelControl.Windows.Threads
                 var invoice = db.Invoices.SingleOrDefault(i => i.InvoiceId == id);
                 if (invoice == null) throw new InvalidOperationException("Το παραστατικό δεν βρέθηκε.");
                 var route = current.Route(invoice);
+                if (!string.IsNullOrWhiteSpace(selectedPrinter))
+                    route.Printer.PrinterName = selectedPrinter.Trim();
                 var printer = SharedInvoicePrinting.ResolveProfile(route.Printer,current.DefaultPrinter);
                 return JsonConvert.SerializeObject(printer);
             }
+        }
+        internal static string CurrentPrinterName(Guid id)
+        {
+            return JsonConvert.DeserializeObject<SharedPrinterProfile>(CurrentPrintDestination(id)).PrinterName;
         }
         private static FiscalSigningService SigningService() => new FiscalSigningService(sql.Value,scope =>
             new SamtecFiscalSigner((settings.Value.Devices ?? new SamtecDeviceProfile[0]).Single(p => FiscalSigningCoordinator.SameScope(p.Scope,scope))));
@@ -201,6 +207,8 @@ namespace ASFuelControl.Windows.Threads
         {
             if (new SqlHeatingCorrectionStore(sql.Value).IsChild(id,true))
                 throw new InvalidOperationException("Η επανέκδοση συνεχίζεται μόνο από την παρτίδα διόρθωσης επιδόματος θέρμανσης.");
+            if (new SqlInvoiceTypeCorrectionStore(sql.Value).IsChild(id,true))
+                throw new InvalidOperationException("Η επανέκδοση συνεχίζεται μόνο από την παρτίδα διόρθωσης τύπου myDATA.");
             using (var lease = sql.Value.EnterInvoice(id))
             {
                 var status = ReadStatus(id);
@@ -211,8 +219,13 @@ namespace ASFuelControl.Windows.Threads
                     if (status.Attempts.Any(a => a.Family != "Signing")) throw new InvalidOperationException("Υπάρχει άλλη εξωτερική προσπάθεια. Απαιτείται έλεγχος.");
                     SigningService().ResumePrepared(new FiscalDocumentReference(FiscalDocumentKind.Invoice,id));
                 }
-                return workflow.Value.Process(id,null,false,retryRejected: status.State("Submission") == "Rejected" ||
-                    status.State("Submission") == "RetryAuthorized",
+                bool rejectedSigning = status.State("Signing") == "Rejected";
+                // A definitive device rejection may be corrected from the current
+                // invoice calculation. Source.Prepare recalculates and remaps the
+                // full workflow before a new Samtec request is persisted.
+                IInvoiceWorkflowSource correctionSource = rejectedSigning ? new Source(false) : null;
+                return workflow.Value.Process(id,correctionSource,false,retryRejected: rejectedSigning ||
+                    status.State("Submission") == "Rejected" || status.State("Submission") == "RetryAuthorized",
                     retryDeclinedPayment: status.State("Payment") == "Declined" || status.State("Payment") == "Failed");
             }
         }
@@ -265,7 +278,7 @@ namespace ASFuelControl.Windows.Threads
                 using (var lease = sql.Value.EnterInvoice(creditInvoiceId))
                     printed = new FiscalPrintService(sql.Value,new SharedInvoicePrinting(() => settings.Value.DefaultPrinter)).Print(lease,
                         result.Submission.AttemptId,snapshot.PrintDestination,snapshot.PrintFormat,
-                        () => SharedInvoicePrinting.Render(snapshot,result.Submission.Response));
+                        () => SharedInvoicePrinting.Render(snapshot,result.Submission.Response,SharedInvoiceLaserReportRenderer.Render));
                 ProjectRefund(creditInvoiceId,result,printed);
             }
             return result;

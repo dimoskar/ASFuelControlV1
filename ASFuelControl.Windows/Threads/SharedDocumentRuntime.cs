@@ -78,6 +78,8 @@ namespace ASFuelControl.Windows.Threads
         {
             if (!Enabled) throw new InvalidOperationException("First issuance through the shared workflow is disabled.");
             var route = settings.Value.Documents[document.Kind];
+            // Balance and tank-delivery reports always print once. The
+            // configurable laser-invoice copy count does not apply to them.
             var printer = new SharedPrinterProfile { Thermal = false, NonThermalPaperSize = "A4",
                 WidthHundredths = 315, HeightHundredths = 1100, Copies = 1, FontSize = 8 };
             if (printPhysical) printer = SharedInvoicePrinting.ResolveProfile(printer,null);

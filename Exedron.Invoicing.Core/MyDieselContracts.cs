@@ -85,10 +85,12 @@ namespace Exedron.Invoicing.Core
                     return to == MyDieselCaseStage.Redeemed || to == MyDieselCaseStage.VerificationPending ||
                         to == MyDieselCaseStage.Final || to == MyDieselCaseStage.InterventionRequired;
                 case MyDieselCaseStage.Redeemed:
-                    return to == MyDieselCaseStage.VerificationPending || to == MyDieselCaseStage.Final ||
+                    return to == MyDieselCaseStage.RedeemUnknown ||
+                        to == MyDieselCaseStage.VerificationPending || to == MyDieselCaseStage.Final ||
                         to == MyDieselCaseStage.InterventionRequired;
                 case MyDieselCaseStage.VerificationPending:
-                    return to == MyDieselCaseStage.Redeemed || to == MyDieselCaseStage.Final ||
+                    return to == MyDieselCaseStage.RedeemUnknown ||
+                        to == MyDieselCaseStage.Redeemed || to == MyDieselCaseStage.Final ||
                         to == MyDieselCaseStage.InterventionRequired;
                 case MyDieselCaseStage.InterventionRequired:
                     return to == MyDieselCaseStage.Reserved || to == MyDieselCaseStage.Released ||
@@ -133,11 +135,63 @@ namespace Exedron.Invoicing.Core
                 throw new ArgumentOutOfRangeException(nameof(value), "The myDiesel excise discount must be positive, no greater than 10 euros per litre, and have at most four decimals.");
             return value;
         }
+
+        public static decimal CalculateExciseDiscount(decimal voucherLitres, decimal invoiceLitres, decimal rate)
+        {
+            if (voucherLitres <= 0) throw new ArgumentOutOfRangeException(nameof(voucherLitres));
+            if (invoiceLitres < 0) throw new ArgumentOutOfRangeException(nameof(invoiceLitres));
+            rate = NormalizeExciseDiscountPerLitre(rate);
+            return decimal.Round(Math.Min(voucherLitres, invoiceLitres) * rate, 2);
+        }
+
+        public static decimal CalculateVatInclusiveExciseDiscount(decimal voucherLitres,
+            decimal invoiceLitres, decimal rate, decimal vatPercentage)
+        {
+            if (voucherLitres <= 0) throw new ArgumentOutOfRangeException(nameof(voucherLitres));
+            if (invoiceLitres < 0) throw new ArgumentOutOfRangeException(nameof(invoiceLitres));
+            if (vatPercentage < 0) throw new ArgumentOutOfRangeException(nameof(vatPercentage));
+            rate = NormalizeExciseDiscountPerLitre(rate);
+
+            // Calculate from the VAT-inclusive unit reduction before rounding the
+            // line amount. At 24% VAT the statutory 0.4100 EFK becomes 0.5084/L.
+            decimal grossRate = rate * (100m + vatPercentage) / 100m;
+            return decimal.Round(Math.Min(voucherLitres, invoiceLitres) * grossRate, 2,
+                MidpointRounding.ToEven);
+        }
+
+        public static decimal CalculateNetDiscountFromGross(decimal grossDiscount,
+            decimal vatPercentage)
+        {
+            if (grossDiscount < 0) throw new ArgumentOutOfRangeException(nameof(grossDiscount));
+            if (vatPercentage < 0) throw new ArgumentOutOfRangeException(nameof(vatPercentage));
+            return decimal.Round(grossDiscount * 100m / (100m + vatPercentage), 2,
+                MidpointRounding.ToEven);
+        }
+
+    }
+
+    public static class MyDieselFuelRules
+    {
+        // AADE myDiesel currently exposes the two diesel fuel codes documented
+        // for the ERP flow. Keep this rule in Core so every UI and background
+        // entry point makes the same eligibility decision.
+        private static readonly int[] EligibleCodes = { 20, 21 };
+
+        public static bool IsEligible(int aadeFuelCode)
+        {
+            return EligibleCodes.Contains(aadeFuelCode);
+        }
+
+        public static IReadOnlyCollection<int> GetEligibleCodes()
+        {
+            return Array.AsReadOnly((int[])EligibleCodes.Clone());
+        }
     }
 
     public sealed class MyDieselScope
     {
-        public MyDieselScope(FiscalEnvironment environment, string companyVat, int branchNum, string credentialProfileId)
+        public MyDieselScope(FiscalEnvironment environment, string companyVat, int branchNum, string credentialProfileId,
+            string stationAmdika = null)
         {
             if (environment != FiscalEnvironment.Test && environment != FiscalEnvironment.Production)
                 throw new ArgumentException("A myDiesel test or production environment is required.", nameof(environment));
@@ -146,12 +200,16 @@ namespace Exedron.Invoicing.Core
             if (branchNum < 0) throw new ArgumentOutOfRangeException(nameof(branchNum), "Branch number cannot be negative.");
             BranchNum = branchNum;
             CredentialProfileId = Required(credentialProfileId, "Credential profile ID");
+            StationAmdika = string.IsNullOrWhiteSpace(stationAmdika) ? null : stationAmdika.Trim();
+            if (StationAmdika != null && StationAmdika.Length > 128)
+                throw new ArgumentException("Station AMDIKA is too long.", nameof(stationAmdika));
         }
 
         public FiscalEnvironment Environment { get; }
         public string CompanyVat { get; }
         public int BranchNum { get; }
         public string CredentialProfileId { get; }
+        public string StationAmdika { get; }
 
         private static string Required(string value, string name)
         {
@@ -225,31 +283,43 @@ namespace Exedron.Invoicing.Core
 
     public sealed class MyDieselLookupRequest
     {
-        public MyDieselLookupRequest(string couponCode, string companyVat, int branchNum)
+        public MyDieselLookupRequest(string couponCode, string companyVat, int branchNum, string amdika)
         {
             CouponCode = MyDieselCouponIdentity.NormalizeCouponCode(couponCode);
             CompanyVat = MyDieselCouponIdentity.NormalizeVat(companyVat, "Company VAT");
             if (branchNum < 0) throw new ArgumentOutOfRangeException(nameof(branchNum));
             BranchNum = branchNum;
+            Amdika = RequiredAmdika(amdika);
         }
         public string CouponCode { get; }
         public string CompanyVat { get; }
         public int BranchNum { get; }
+        public string Amdika { get; }
+
+        public static string RequiredAmdika(string value)
+        {
+            string amdika = (value ?? "").Trim();
+            if (amdika.Length == 0 || amdika.Length > 128)
+                throw new ArgumentException("Station AMDIKA is required and cannot exceed 128 characters.", nameof(value));
+            return amdika;
+        }
     }
 
     public sealed class MyDieselRedeemRequest
     {
-        public MyDieselRedeemRequest(string couponCode, string companyVat, int branchNum, string mark)
+        public MyDieselRedeemRequest(string couponCode, string companyVat, int branchNum, string amdika, string mark)
         {
             CouponCode = MyDieselCouponIdentity.NormalizeCouponCode(couponCode);
             CompanyVat = MyDieselCouponIdentity.NormalizeVat(companyVat, "Company VAT");
             if (branchNum < 0) throw new ArgumentOutOfRangeException(nameof(branchNum));
             BranchNum = branchNum;
+            Amdika = MyDieselLookupRequest.RequiredAmdika(amdika);
             Mark = NormalizeMark(mark);
         }
         public string CouponCode { get; }
         public string CompanyVat { get; }
         public int BranchNum { get; }
+        public string Amdika { get; }
         public string InvoiceType => "INVOICE";
         public string Mark { get; }
 

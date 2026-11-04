@@ -18,6 +18,9 @@ namespace ASFuelControl.Windows.UI.Forms
         private bool suspendDiscountChange = false;
         private bool suspendPriceChange = false;
         private bool suspendVolumeChange = false;
+        private bool suspendLookupSelection = false;
+        private Guid requestedNozzleId;
+        private Guid requestedInvoiceTypeId;
         private Data.Dispenser currentDispenser = null;
         private Data.Nozzle currentNozzle = null;
         private Data.InvoiceType invoiceType = null;
@@ -28,16 +31,11 @@ namespace ASFuelControl.Windows.UI.Forms
 
         public Guid InvoiceTypeId
         {
-            get { return this.invoiceType.InvoiceTypeId; }
+            get { return this.invoiceType == null ? Guid.Empty : this.invoiceType.InvoiceTypeId; }
             set
             {
-                if (value == Guid.Empty)
-                {
-                    this.invoiceType = null;
-                    return;
-                }
-                this.invoiceType = this.db.InvoiceTypes.Where(i => i.InvoiceTypeId == value).FirstOrDefault();
-                this.radDropDownList2.SelectedValue = value;
+                this.requestedInvoiceTypeId = value;
+                ApplyRequestedInvoiceType();
             }
         }
 
@@ -48,19 +46,18 @@ namespace ASFuelControl.Windows.UI.Forms
             {
                 try
                 {
-                    if (value == null)
-                        this.InvoiceToCancel = null;
-                    else
+                    this.invoiceToCancel = value == null ? null :
+                        this.db.Invoices.Where(i => i.InvoiceId == value.InvoiceId).FirstOrDefault();
+                    if (this.invoiceToCancel != null)
                     {
-                        this.DispenserId = value.InvoiceLines[0].SalesTransaction.Nozzle.DispenserId;
-                        this.NozzleId = value.InvoiceLines[0].SalesTransaction.NozzleId;
-
-                        this.invoiceToCancel = this.db.Invoices.Where(i => i.InvoiceId == value.InvoiceId).FirstOrDefault();
+                        ApplySourceSalePoint(this.invoiceToCancel);
                         this.radTextBox3.Text = this.invoiceToCancel.Description;
                         this.unitPrice1.Value = this.invoiceToCancel.InvoiceLines[0].UnitPrice;
                         this.volume1.Value = this.invoiceToCancel.InvoiceLines[0].Volume;
                         this.priceTotal1.Value = this.invoiceToCancel.TotalAmount.Value;
-                        this.discount.Value = 100 * (this.InvoiceToReplace.DiscountAmount) / this.invoiceToReplace.PreDiscountTotal;
+                        this.discount.Value = this.invoiceToCancel.PreDiscountTotal == 0 ? 0 :
+                            100 * this.invoiceToCancel.DiscountAmount /
+                            this.invoiceToCancel.PreDiscountTotal;
                         this.currentVehicle = this.invoiceToCancel.Vehicle;
                         this.radCheckBox2.Checked = true;
                         if (this.currentVehicle != null)
@@ -80,13 +77,11 @@ namespace ASFuelControl.Windows.UI.Forms
             set
             {
                 if (value == null)
-                    this.InvoiceToCancel = null;
+                    this.invoiceToReplace = null;
                 else
                 {
-                    this.DispenserId = value.InvoiceLines[0].SalesTransaction.Nozzle.DispenserId;
-                    this.NozzleId = value.InvoiceLines[0].SalesTransaction.NozzleId;
-
                     this.invoiceToReplace = this.db.Invoices.Where(i => i.InvoiceId == value.InvoiceId).FirstOrDefault();
+                    ApplySourceSalePoint(this.invoiceToReplace);
                     this.radTextBox1.Text = invoiceToReplace.Description;
                     this.unitPrice1.Value = this.invoiceToReplace.InvoiceLines[0].UnitPrice;
                     this.volume1.Value = this.invoiceToReplace.InvoiceLines[0].Volume;
@@ -107,12 +102,10 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             set 
             { 
-                this.nozzleId = value;
-                if (this.currentDispenser == null)
-                    return;
-                this.radDropDownList1.SelectedValue = this.nozzleId;
+                this.requestedNozzleId = value;
+                ApplyRequestedNozzle();
             }
-            get { return this.nozzleId; }
+            get { return this.currentNozzle == null ? Guid.Empty : this.currentNozzle.NozzleId; }
         }
 
         public Guid DispenserId 
@@ -122,17 +115,21 @@ namespace ASFuelControl.Windows.UI.Forms
                 this.dispenserId = value;
                 this.currentNozzle = null;
                 this.currentDispenser = this.db.Dispensers.Where(d => d.DispenserId == this.dispenserId).FirstOrDefault();
-                
-                if (this.currentDispenser != null)
+                this.suspendLookupSelection = true;
+                try
                 {
-                    this.radDropDownList1.DataSource = this.currentDispenser.Nozzles;
+                    this.radDropDownList1.DataSource = this.currentDispenser == null
+                        ? new Data.Nozzle[0]
+                        : this.currentDispenser.Nozzles.OrderBy(nozzle => nozzle.OrderId).ToArray();
                     this.radDropDownList1.DisplayMember = "Description";
                     this.radDropDownList1.ValueMember = "NozzleId";
+                    this.radDropDownList1.SelectedIndex = -1;
                 }
-
-                this.radDropDownList2.DataSource = this.db.InvoiceTypes.Where(it => it.Printable && (!it.IsInternal.HasValue || !it.IsInternal.Value) && it.TransactionType == 0).OrderBy(it => it.Description);
-                this.radDropDownList2.DisplayMember = "Description";
-                this.radDropDownList2.ValueMember = "InvoiceTypeId";
+                finally
+                {
+                    this.suspendLookupSelection = false;
+                }
+                ApplyRequestedNozzle();
             }
             get { return this.dispenserId; } 
         }
@@ -141,15 +138,111 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             InitializeComponent();
 
+            PopulateInvoiceTypes();
+
             this.paymentTypeDropDownList.DataSource = Common.Enumerators.EnumToList.EnumList<Common.Enumerators.PaymentTypeEnum>();
             this.paymentTypeDropDownList.DisplayMember = "Description";
             this.paymentTypeDropDownList.ValueMember = "Value";
 
-            this.paymentTypeDropDownList.SelectedValue = 1;
+            this.paymentTypeDropDownList.SelectedValue =
+                (int)Common.Enumerators.PaymentTypeEnum.Cash;
 
             this.radLabel11.Enabled = Program.AdminConnected;
             this.radTextBox4.Enabled = Program.AdminConnected;
             this.Disposed += CreateInvoiceForm_Disposed;
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            if (this.invoiceToCancel != null || this.invoiceToReplace != null)
+            {
+                Common.Enumerators.EnumItem ignored;
+                ValidateLookupSelections(out ignored, true);
+            }
+        }
+
+        private void PopulateInvoiceTypes()
+        {
+            var allowedTypes = this.db.InvoiceTypes
+                .Where(item => item.Printable &&
+                    (!item.IsInternal.HasValue || !item.IsInternal.Value) &&
+                    item.TransactionType == 0)
+                .OrderBy(item => item.Description)
+                .ToArray();
+            this.suspendLookupSelection = true;
+            try
+            {
+                this.radDropDownList2.DataSource = allowedTypes;
+                this.radDropDownList2.DisplayMember = "Description";
+                this.radDropDownList2.ValueMember = "InvoiceTypeId";
+                this.radDropDownList2.SelectedIndex = -1;
+            }
+            finally
+            {
+                this.suspendLookupSelection = false;
+            }
+            ApplyRequestedInvoiceType();
+        }
+
+        private void ApplyRequestedInvoiceType()
+        {
+            var allowedTypes = this.radDropDownList2.DataSource as Data.InvoiceType[];
+            this.invoiceType = allowedTypes == null ? null : allowedTypes
+                .FirstOrDefault(item => item.InvoiceTypeId == this.requestedInvoiceTypeId);
+            this.suspendLookupSelection = true;
+            try
+            {
+                this.radDropDownList2.SelectedValue = this.invoiceType == null
+                    ? null
+                    : (object)this.invoiceType.InvoiceTypeId;
+                if (this.invoiceType == null)
+                    this.radDropDownList2.SelectedIndex = -1;
+            }
+            finally
+            {
+                this.suspendLookupSelection = false;
+            }
+            ApplyInvoiceTypeState();
+        }
+
+        private void ApplyRequestedNozzle()
+        {
+            this.currentNozzle = this.currentDispenser == null ? null :
+                this.currentDispenser.Nozzles.FirstOrDefault(
+                    nozzle => nozzle.NozzleId == this.requestedNozzleId);
+            this.nozzleId = this.currentNozzle == null ? Guid.Empty : this.currentNozzle.NozzleId;
+            this.suspendLookupSelection = true;
+            try
+            {
+                this.radDropDownList1.SelectedValue = this.currentNozzle == null
+                    ? null
+                    : (object)this.currentNozzle.NozzleId;
+                if (this.currentNozzle == null)
+                    this.radDropDownList1.SelectedIndex = -1;
+            }
+            finally
+            {
+                this.suspendLookupSelection = false;
+            }
+            if (this.currentNozzle != null && this.currentNozzle.FuelType != null)
+                this.unitPrice1.Value = this.currentNozzle.FuelType.CurrentPrice;
+        }
+
+        private void ApplySourceSalePoint(Data.Invoice invoice)
+        {
+            var line = invoice == null ? null : invoice.InvoiceLines.FirstOrDefault();
+            var sale = line == null ? null : line.SalesTransaction;
+            var nozzle = sale == null ? null : sale.Nozzle;
+            if (nozzle == null)
+            {
+                this.DispenserId = Guid.Empty;
+                this.requestedNozzleId = Guid.Empty;
+                ApplyRequestedNozzle();
+                return;
+            }
+            this.DispenserId = nozzle.DispenserId;
+            this.NozzleId = nozzle.NozzleId;
         }
 
         private void CreateInvoiceForm_Disposed(object sender, EventArgs e)
@@ -166,25 +259,117 @@ namespace ASFuelControl.Windows.UI.Forms
             return true;
         }
 
+        private void ApplyInvoiceTypeState()
+        {
+            bool needsVehicle = this.invoiceType != null &&
+                this.invoiceType.NeedsVehicle == true;
+            bool isCancellation = this.invoiceType != null &&
+                this.invoiceType.IsCancelation == true;
+            this.radButton3.Enabled = needsVehicle;
+            this.radLabel9.Enabled = needsVehicle;
+            this.radCheckBox2.Enabled = isCancellation;
+            this.radCheckBox1.Enabled = this.invoiceType != null && !isCancellation;
+            this.radGroupBox1.Enabled = this.IsGroupEnabled();
+        }
+
         private void radDropDownList1_SelectedIndexChanged(object sender, Telerik.WinControls.UI.Data.PositionChangedEventArgs e)
         {
-            Data.Nozzle nz = this.radDropDownList1.SelectedItem.DataBoundItem as Data.Nozzle;
-            if (nz == null)
+            if (this.suspendLookupSelection)
                 return;
+            Data.Nozzle nz = this.radDropDownList1.SelectedItem == null ? null :
+                this.radDropDownList1.SelectedItem.DataBoundItem as Data.Nozzle;
+            if (nz == null)
+            {
+                this.currentNozzle = null;
+                this.requestedNozzleId = Guid.Empty;
+                this.nozzleId = Guid.Empty;
+                return;
+            }
+            if (this.currentDispenser == null || nz.DispenserId != this.currentDispenser.DispenserId)
+            {
+                this.currentNozzle = null;
+                this.requestedNozzleId = Guid.Empty;
+                this.nozzleId = Guid.Empty;
+                return;
+            }
             this.currentNozzle = nz;
+            this.requestedNozzleId = nz.NozzleId;
+            this.nozzleId = nz.NozzleId;
             this.unitPrice1.Value = nz.FuelType.CurrentPrice;
         }
 
         private void radDropDownList2_SelectedIndexChanged(object sender, Telerik.WinControls.UI.Data.PositionChangedEventArgs e)
         {
-            this.invoiceType = this.radDropDownList2.SelectedItem.DataBoundItem as Data.InvoiceType;
-            
-            this.radButton3.Enabled = (invoiceType.NeedsVehicle.HasValue && invoiceType.NeedsVehicle.Value);
-            this.radLabel9.Enabled = (invoiceType.NeedsVehicle.HasValue && invoiceType.NeedsVehicle.Value);
-            this.radCheckBox2.Enabled = (invoiceType.IsCancelation.HasValue && invoiceType.IsCancelation.Value);
-            this.radCheckBox1.Enabled = (!invoiceType.IsCancelation.HasValue || !invoiceType.IsCancelation.Value);
-            
-            this.radGroupBox1.Enabled = this.IsGroupEnabled();
+            if (this.suspendLookupSelection)
+                return;
+            this.invoiceType = this.radDropDownList2.SelectedItem == null ? null :
+                this.radDropDownList2.SelectedItem.DataBoundItem as Data.InvoiceType;
+            this.requestedInvoiceTypeId = this.invoiceType == null
+                ? Guid.Empty
+                : this.invoiceType.InvoiceTypeId;
+            ApplyInvoiceTypeState();
+        }
+
+        private bool ValidateLookupSelections(out Common.Enumerators.EnumItem paymentItem,
+            bool showMessage)
+        {
+            paymentItem = this.paymentTypeDropDownList.SelectedItem == null ? null :
+                this.paymentTypeDropDownList.SelectedItem.DataBoundItem as Common.Enumerators.EnumItem;
+            var errors = new List<string>();
+
+            var allowedTypes = this.radDropDownList2.DataSource as Data.InvoiceType[];
+            bool validType = this.invoiceType != null && allowedTypes != null &&
+                allowedTypes.Any(item => item.InvoiceTypeId == this.invoiceType.InvoiceTypeId) &&
+                object.Equals(this.radDropDownList2.SelectedValue,
+                    this.invoiceType.InvoiceTypeId);
+            if (!validType)
+                errors.Add("Δεν έχει επιλεγεί έγκυρος τύπος παραστατικού.");
+
+            if (this.currentDispenser == null ||
+                this.currentDispenser.DispenserId != this.dispenserId)
+                errors.Add("Δεν έχει επιλεγεί έγκυρη αντλία.");
+
+            bool validNozzle = this.currentDispenser != null && this.currentNozzle != null &&
+                this.currentNozzle.DispenserId == this.currentDispenser.DispenserId &&
+                this.currentDispenser.Nozzles.Any(
+                    nozzle => nozzle.NozzleId == this.currentNozzle.NozzleId) &&
+                object.Equals(this.radDropDownList1.SelectedValue,
+                    this.currentNozzle.NozzleId);
+            if (!validNozzle)
+                errors.Add("Το ακροσωλήνιο δεν ανήκει στην επιλεγμένη αντλία.");
+            else if (this.currentNozzle.FuelType == null ||
+                this.currentNozzle.FuelTypeId == Guid.Empty ||
+                !this.db.FuelTypes.Any(
+                    fuelType => fuelType.FuelTypeId == this.currentNozzle.FuelTypeId))
+                errors.Add("Το καύσιμο του ακροσωληνίου δεν είναι διαθέσιμο.");
+
+            int paymentValue = -1;
+            try
+            {
+                if (paymentItem != null)
+                    paymentValue = Convert.ToInt32(paymentItem.Value);
+            }
+            catch
+            {
+                paymentValue = -1;
+            }
+            if (paymentItem == null ||
+                !Enum.IsDefined(typeof(Common.Enumerators.PaymentTypeEnum), paymentValue) ||
+                !object.Equals(this.paymentTypeDropDownList.SelectedValue,
+                    paymentItem.Value))
+                errors.Add("Δεν έχει επιλεγεί έγκυρος τρόπος πληρωμής.");
+
+            if (errors.Count == 0)
+                return true;
+            if (showMessage)
+            {
+                RadMessageBox.Show(
+                    "Η δημιουργία του παραστατικού ακυρώθηκε επειδή υπάρχουν ασυνεπείς επιλογές:\r\n\r\n" +
+                    string.Join("\r\n", errors.Distinct().Select(error => "• " + error)),
+                    "Έλεγχος επιλογών παραστατικού", MessageBoxButtons.OK,
+                    RadMessageIcon.Error);
+            }
+            return false;
         }
 
         private void volume1_ValueChanged(object sender, EventArgs e)
@@ -248,7 +433,8 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void radButton1_Click(object sender, EventArgs e)
         {
-            if (this.invoiceType == null)
+            Common.Enumerators.EnumItem paymentItem;
+            if (!ValidateLookupSelections(out paymentItem, true))
                 return;
 
             if (this.invoiceType.IsCancelation.HasValue && this.invoiceType.IsCancelation.Value && this.invoiceToCancel == null)
@@ -265,9 +451,20 @@ namespace ASFuelControl.Windows.UI.Forms
 
             if (this.invoiceType.IsCancelation.HasValue && this.invoiceType.IsCancelation.Value && this.invoiceToCancel != null)
             {
-                if (invoiceToCancel.InvoiceType.IsCancelation.HasValue && invoiceToCancel.InvoiceType.IsCancelation.Value)
+                if (invoiceToCancel.InvoiceType.IsCancelation == true &&
+                    this.invoiceType.OfficialEnumerator != 215)
                 {
                     RadMessageBox.Show("Δεν μπορείτε να ακυρώσετε Ακυρωτικό", "Σφάλμα Επιλογής", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
+                    return;
+                }
+                try
+                {
+                    Threads.SharedInvoiceRuntime.ValidateCancellationTransformation(
+                        new[] { invoiceToCancel.InvoiceId }, this.invoiceType.InvoiceTypeId);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    RadMessageBox.Show(ex.Message, "Ακύρωση παραστατικού", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
                     return;
                 }
 
@@ -348,11 +545,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 invoice.InvoiceLines[0].SalesTransaction.TotalPrice = -this.invoiceToCancel.InvoiceLines[0].SalesTransaction.TotalPrice;
             }
 
-            Common.Enumerators.EnumItem item = this.paymentTypeDropDownList.SelectedItem.DataBoundItem as Common.Enumerators.EnumItem;
-            if (item == null)
-                invoice.PaymentType = (int)Common.Enumerators.PaymentTypeEnum.Cash;
-            else
-                invoice.PaymentType = (int)item.Value;
+            invoice.PaymentType = Convert.ToInt32(paymentItem.Value);
 
             this.db.SaveChanges();
             this.Close();
@@ -390,6 +583,7 @@ namespace ASFuelControl.Windows.UI.Forms
                     return;
                 this.radTextBox3.Text = spif.SelectedInvoice.Description;
                 this.invoiceToCancel = this.db.Invoices.Where(i => i.InvoiceId == spif.SelectedInvoice.InvoiceId).FirstOrDefault();
+                ApplySourceSalePoint(this.invoiceToCancel);
                 this.volume1.Value = this.invoiceToCancel.InvoiceLines[0].Volume;
                 this.priceTotal1.Value = this.invoiceToCancel.TotalAmount.Value;
                 this.unitPrice1.Value = this.invoiceToCancel.InvoiceLines[0].UnitPrice;
@@ -412,6 +606,7 @@ namespace ASFuelControl.Windows.UI.Forms
                     return;
                 this.radTextBox1.Text = spif.SelectedInvoice.Description;
                 this.invoiceToReplace = this.db.Invoices.Where(i => i.InvoiceId == spif.SelectedInvoice.InvoiceId).FirstOrDefault();
+                ApplySourceSalePoint(this.invoiceToReplace);
                 this.volume1.Value = this.invoiceToReplace.InvoiceLines[0].Volume;
                 this.priceTotal1.Value = this.invoiceToReplace.TotalAmount.Value;
                 this.unitPrice1.Value = this.invoiceToReplace.InvoiceLines[0].UnitPrice;

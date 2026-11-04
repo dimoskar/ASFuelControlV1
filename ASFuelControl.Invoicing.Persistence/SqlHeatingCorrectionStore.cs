@@ -83,6 +83,17 @@ WHERE OriginalInvoiceId=@id AND State<>'Completed'","@state",state,"@message",me
                 return new JObject { ["Invoice"]=invoice,["Lines"]=new JArray(ReadRows(c,"InvoiceLine",LineColumns,id)) };
             }
         }
+        // A frozen JObject is serialized inside a correction plan.  On reload,
+        // JSON represents SQL decimal/small integer values with different CLR
+        // numeric types even though their canonical values are unchanged.
+        // Compare their parsed JSON values so the guard detects real mutations
+        // without rejecting that harmless persistence round-trip.
+        public static bool SameHost(JObject left,JObject right)
+        {
+            if(left==null||right==null)return left==right;
+            return JToken.DeepEquals(JToken.Parse(left.ToString(Formatting.None)),
+                JToken.Parse(right.ToString(Formatting.None)));
+        }
         private static JObject[] ReadRows(SqlConnection c,string table,string columns,Guid id,SqlTransaction transaction=null)
         {
             using(var cmd=SqlFiscalDatabase.Command(c,transaction,"SELECT "+columns+" FROM dbo."+table+" WHERE InvoiceId=@id"+(table=="InvoiceLine"?" ORDER BY InvoiceLineId":""),"@id",id))

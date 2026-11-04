@@ -13,6 +13,8 @@
     <!-- Explicit source items are required for reliable classic Visual Studio project tracking. -->
     <Compile Include="HostInvoiceMapper.cs" />
     <Compile Include="MappingContext.cs" />
+    <Compile Include="TransformationEditPolicy.cs" />
+    <Compile Include="TransformationUnitPrice.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ASFuelControl.Data\ASFuelControl.Data.csproj"><Project>{16EE9704-B2F3-4CBB-AB0E-93B26B4676E6}</Project><Name>ASFuelControl.Data</Name></ProjectReference>
