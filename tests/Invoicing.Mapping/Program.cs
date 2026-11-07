@@ -249,7 +249,111 @@ internal static class Program
         Reject("UTC fiscal date", (i,c) => i.TransactionDate = DateTime.UtcNow);
         Reject("unknown country", (i,c) => i.Trader.Country = "XX");
         Reject("ambiguous country", (i,c) => c.Countries = c.Countries.Concat(new[] { new CountryInput { CountryCode = "GR" } }));
-        Reject("foreign VAT without country", (i,c) => { i.Trader.Country = ""; i.Trader.TaxRegistrationNumber = "DE111"; });
+        Run("Greece remains the default for an unprefixed VAT", () => {
+            var country = TraderCountryResolver.Resolve(Context().Countries,null,"123456789");
+            Equal("GR",country.CountryCode);
+        });
+        Run("Greek EL VAT prefix resolves to ISO GR", () => {
+            var country = TraderCountryResolver.Resolve(Context().Countries,"GR","EL123456789");
+            Equal("GR",country.CountryCode);
+        });
+        Run("configured EU VAT prefixes override the legacy GR default", () => {
+            foreach (var value in new[] { new { Vat = "BG204985348", Country = "BG" },
+                                          new { Vat = "DE111111111", Country = "DE" } })
+            {
+                var i = Invoice(new Fixture { Gross = 100m,Vat = 0m,Rate = 0m,ExpectedNet = 100m });
+                i.Trader.Country = "GR";
+                i.Trader.TaxRegistrationNumber = value.Vat;
+                var model = Mapper.Build(i,Context());
+                Equal(value.Country,model.CounterPart.Country);
+                Equal("1.2",model.InvoiceHeader.InvoiceType);
+                Equal(VATExemptionCategoryEnum.Article28,
+                    (VATExemptionCategoryEnum)model.InvoiceDetails[0].VATExemptionCategory);
+            }
+        });
+        Run("foreign customer charged Greek VAT keeps type 1.1 in every channel", () =>
+        {
+            var invoice = Invoice();
+            invoice.Trader.Country = "GR";
+            invoice.Trader.TaxRegistrationNumber = "BG204985348";
+            var model = Mapper.Build(invoice, Context());
+            Equal("BG", model.CounterPart.Country);
+            Equal("1.1", model.InvoiceHeader.InvoiceType);
+            Equal(VATCategoryEnum.VAT24, model.InvoiceDetails[0].VATCategory);
+            Equal(24m, model.InvoiceDetails[0].VATAmount);
+            Equal("E3_561_001",
+                model.InvoiceDetails[0].IncomeClassification.ClassificationType);
+
+            var factory = new InvoiceAdapterFactory(new InvoiceTypeResolver());
+            string directPayload = factory.CreatePayloadMapper(
+                InvoiceProviderCatalog.MyDataKey).Serialize(model,
+                    invoice.InvoiceId);
+            var direct = XDocument.Parse(directPayload);
+            Equal("1.1", direct.Descendants().Single(element =>
+                element.Name.LocalName == "invoiceType").Value);
+
+            string timPayload = factory.CreatePayloadMapper(
+                InvoiceProviderCatalog.ITimologiaKey).Serialize(model,
+                    invoice.InvoiceId);
+            var tim = JObject.Parse(timPayload);
+            Equal("1.1", (string)tim["invoice_header"]["invoice_type"]);
+
+            string ilydaPayload = factory.CreatePayloadMapper(
+                InvoiceProviderCatalog.DirectIlydaKey).Serialize(model,
+                    invoice.InvoiceId);
+            var ilyda = JObject.Parse(ilydaPayload);
+            var support = ilyda["additionalSupportDocs"].Single(document =>
+                (string)document["description"] == "##InvoicesDoc##");
+            byte[] reference = Convert.FromBase64String(
+                (string)support["reference"]);
+            string ilydaXmlPayload = System.Text.Encoding.UTF8.GetString(
+                reference);
+            var ilydaXml = XDocument.Parse(ilydaXmlPayload);
+            Equal("1.1", ilydaXml.Descendants().Single(element =>
+                element.Name.LocalName == "invoiceType").Value);
+        });
+        Run("VAT-exempt foreign country reaches myDATA and both invoice providers", () => {
+            var i = Invoice(new Fixture { Gross = 100m,Vat = 0m,Rate = 0m,ExpectedNet = 100m });
+            i.Trader.Country = "GR";
+            i.Trader.TaxRegistrationNumber = "BG204985348";
+            var model = Mapper.Build(i,Context());
+            var factory = new InvoiceAdapterFactory(new InvoiceTypeResolver());
+
+            var direct = XDocument.Parse(factory.CreatePayloadMapper(InvoiceProviderCatalog.MyDataKey)
+                .Serialize(model,i.InvoiceId));
+            var directCounterpart = direct.Descendants()
+                .Single(value => value.Name.LocalName == "counterpart");
+            Equal("BG",directCounterpart.Elements().Single(value => value.Name.LocalName == "country").Value);
+            Equal("BG204985348",directCounterpart.Elements().Single(value => value.Name.LocalName == "vatNumber").Value);
+
+            var tim = JObject.Parse(factory.CreatePayloadMapper(InvoiceProviderCatalog.ITimologiaKey)
+                .Serialize(model,i.InvoiceId));
+            Equal("BG",(string)tim["counterpart"]["country"]);
+            Equal("BG204985348",(string)tim["counterpart"]["vat_number"]);
+
+            var ilyda = JObject.Parse(factory.CreatePayloadMapper(InvoiceProviderCatalog.DirectIlydaKey)
+                .Serialize(model,i.InvoiceId));
+            Equal("BG204985348",(string)ilyda["buyer"]["buyerVatIdentifier"]);
+            Equal("BG",(string)ilyda["buyer"]["buyerPostalAddress"]["buyerCountryCode"]);
+        });
+        Run("configured non-EU VAT prefix resolves as export", () => {
+            var i = Invoice(new Fixture { Gross = 100m,Vat = 0m,Rate = 0m,ExpectedNet = 100m });
+            i.Trader.Country = "GR";
+            i.Trader.TaxRegistrationNumber = "US123456789";
+            var model = Mapper.Build(i,Context());
+            Equal("US",model.CounterPart.Country);
+            Equal("1.3",model.InvoiceHeader.InvoiceType);
+            Equal(VATExemptionCategoryEnum.Article24,
+                (VATExemptionCategoryEnum)model.InvoiceDetails[0].VATExemptionCategory);
+        });
+        Reject("VAT prefix conflicts with selected non-Greek country", (i,c) => {
+            i.Trader.Country = "DE";
+            i.Trader.TaxRegistrationNumber = "BG204985348";
+        });
+        Reject("unrecognized foreign VAT prefix", (i,c) => {
+            i.Trader.Country = "";
+            i.Trader.TaxRegistrationNumber = "XX111111111";
+        });
         Reject("missing wholesale customer VAT", (i,c) => i.Trader.TaxRegistrationNumber = "");
         Run("anonymous retail and wholesale-code precedence", () => { var i = Invoice(); i.Trader = null; i.InvoiceType.OfficialEnumerator = 200; i.InvoiceType.RetailInvoice = false; Equal("11.1",Mapper.Build(i,Context()).InvoiceHeader.InvoiceType); });
         Run("wholesale flag does not override configured codes", () => { var i = Invoice(); i.InvoiceType.RetailInvoice = true; Equal("1.1",Mapper.Build(i,Context()).InvoiceHeader.InvoiceType); });
@@ -290,6 +394,31 @@ internal static class Program
         Reject("AADE series length", (i,c) => i.Series = new string('S',51));
         Run("VAT arithmetic is validated", () => Throws(() => Mapper.Build(Invoice(new Fixture { Gross = 124, Vat = 23 }), Context())));
         Run("explicit services classification", () => { var c = Context(); c.Items[FuelId] = new ItemMapping { SalesItemType = 2, MeasurementUnit = 0 }; var m = Mapper.Build(Invoice(),c); Equal("2.1",m.InvoiceHeader.InvoiceType); Equal("category1_3",m.InvoiceDetails[0].IncomeClassification.ClassificationCategory); Equal(false,m.InvoiceHeader.FuelInvoice); });
+        Run("foreign service type also follows its VAT treatment", () =>
+        {
+            var context = Context();
+            context.Items[FuelId] = new ItemMapping
+            {
+                SalesItemType = 2,
+                MeasurementUnit = 0
+            };
+            var vatBearingInvoice = Invoice();
+            vatBearingInvoice.Trader.TaxRegistrationNumber = "BG204985348";
+            var vatBearingModel = Mapper.Build(vatBearingInvoice, context);
+            Equal("2.1", vatBearingModel.InvoiceHeader.InvoiceType);
+
+            var exemptFixture = new Fixture
+            {
+                Gross = 100m,
+                Vat = 0m,
+                Rate = 0m,
+                ExpectedNet = 100m
+            };
+            var exemptInvoice = Invoice(exemptFixture);
+            exemptInvoice.Trader.TaxRegistrationNumber = "BG204985348";
+            var exemptModel = Mapper.Build(exemptInvoice, context);
+            Equal("2.2", exemptModel.InvoiceHeader.InvoiceType);
+        });
         Run("mixed fuel and merchandise uses per-line units", () => {
             var i = Invoice(new Fixture { Gross = 248, Vat = 48, TwoLines = true }); var c = Context();
             var itemId = Guid.NewGuid(); i.InvoiceLines[1].FuelType = new FuelType { FuelTypeId = itemId, Name = "Merchandise", Code = "AB" };
@@ -536,6 +665,12 @@ internal static class Program
             var model = Mapper.Build(i,c);
             Equal("1.1",model.InvoiceHeader.InvoiceType);
             Equal(false,model.InvoiceHeader.DeliveryNote);
+            var tim = JObject.Parse(new InvoiceAdapterFactory(new InvoiceTypeResolver())
+                .CreatePayloadMapper(InvoiceProviderCatalog.ITimologiaKey)
+                .Serialize(model,i.InvoiceId));
+            Equal(null,tim["invoice_header"]["is_delivery_note"]);
+            Equal(null,tim["invoice_header"]["other_delivery_note_header"]);
+            Equal(null,tim["counterpart"]["address"]);
         });
         Run("code 160 self delivery accepts same VAT and reaches every channel as internal 9.3", () => {
             var i = Invoice(new Fixture { OfficialCode = 160, SameVat = true });
@@ -635,7 +770,7 @@ internal static class Program
         Environment = FiscalEnvironment.Test, IncludeSaleCorrelations = true,
         WholesaleCodes = new System.Collections.Generic.HashSet<int>(new[] { 100,158,159 }),
         Company = new CompanySettings { CompanyTaxId = "000000000", CompanyBranch = "0", CompanyName = "SYNTHETIC ISSUER", CompanyEmail = "issuer@example.invalid", CompanyAddress = "Issuer Road 10", CompanyCity = "Test City", CompanyZipCode = "10000" },
-        Countries = new[] { new CountryInput { CountryCode = "GR", IsEu = true }, new CountryInput { CountryCode = "DE", IsEu = true }, new CountryInput { CountryCode = "US", IsEu = false } }
+        Countries = new[] { new CountryInput { CountryCode = "GR", IsEu = true }, new CountryInput { CountryCode = "BG", IsEu = true }, new CountryInput { CountryCode = "DE", IsEu = true }, new CountryInput { CountryCode = "US", IsEu = false } }
     };
     static Entity Invoice(Fixture f = null, MappingContext c = null)
     {

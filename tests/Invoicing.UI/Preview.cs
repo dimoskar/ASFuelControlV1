@@ -290,6 +290,25 @@ internal static class Preview
                     SharedInvoiceRuntime.OnRetry = null;
                 }
             }
+            var approvedRetry = PaymentEvidence("Unknown",null,null,"GBridge.F4.v1");
+            SharedInvoiceRuntime.Status.Attempts = new[] { approvedRetry };
+            SharedInvoiceRuntime.Status.RetryPaymentAttemptId = approvedRetry.AttemptId;
+            SharedInvoiceRuntime.RetryResultState = "Approved";
+            panel.LoadInvoice(invoice.InvoiceId);
+            var processCallsBeforeApproval = SharedInvoiceRuntime.ProcessCalls;
+            retryButton.PerformClick();
+            var approvedWait = System.Diagnostics.Stopwatch.StartNew();
+            while(panel.Busy && approvedWait.ElapsedMilliseconds < 5000)
+            {
+                Application.DoEvents();
+                System.Threading.Thread.Sleep(10);
+            }
+            if (panel.Busy || SharedInvoiceRuntime.ProcessCalls != processCallsBeforeApproval + 1 ||
+                SharedInvoiceRuntime.LastInvoice != invoice.InvoiceId || !SharedInvoiceRuntime.LastPrint)
+            {
+                throw new Exception("An approved payment retry did not continue provider issuance and printing.");
+            }
+            SharedInvoiceRuntime.RetryResultState = "Unknown";
             SharedInvoiceRuntime.Status.RetryPaymentAttemptId = null;
             SharedInvoiceRuntime.Status.Attempts = new[] { PaymentEvidence("Unknown",null,"Ελλιπής απάντηση POS. Λείπουν πεδία: PaymentType. Επιλέξτε Ανάκτηση κατάστασης.") };
             panel.LoadInvoice(invoice.InvoiceId);
@@ -555,6 +574,7 @@ namespace ASFuelControl.Windows.Threads
         internal static Action OnRetry;
         internal static int RetryCalls;
         internal static Guid LastRetryAttempt;
+        internal static string RetryResultState = "Unknown";
         internal static bool Enabled => false;
         internal static bool SupportsIris => false;
         internal static SharedInvoiceStatus ReadStatus(Guid id) { if (FailRead) throw new InvalidOperationException("Synthetic read failure"); return Status; }
@@ -563,7 +583,7 @@ namespace ASFuelControl.Windows.Threads
         {
             System.Threading.Interlocked.Increment(ref RetryCalls); LastInvoice = id; LastRetryAttempt = expectedAttemptId; OnRetry?.Invoke();
             var result = new ProviderPaymentResult();
-            typeof(ProviderPaymentResult).GetProperty("Payment").SetValue(result,new ProviderPaymentAttempt { Id = expectedAttemptId,State = "Unknown" },null);
+            typeof(ProviderPaymentResult).GetProperty("Payment").SetValue(result,new ProviderPaymentAttempt { Id = expectedAttemptId,State = RetryResultState },null);
             return result;
         }
         internal static ASFuelControl.Invoicing.Persistence.PaymentCompensationRecord VoidPayment(Guid id,string reason) { throw new InvalidOperationException("No transport in preview"); }

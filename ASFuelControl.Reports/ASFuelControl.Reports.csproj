@@ -167,6 +167,10 @@
       <DependentUpon>InvoiceReportNarrow.cs</DependentUpon>
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Invoices\InvoiceReportNarrow.QrCodes.cs">
+      <DependentUpon>InvoiceReportNarrow.cs</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Invoices\InvoiceReportNarrow.ThermalTypography.cs">
       <DependentUpon>InvoiceReportNarrow.cs</DependentUpon>
       <SubType>Component</SubType>

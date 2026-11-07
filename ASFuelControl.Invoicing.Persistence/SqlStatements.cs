@@ -21,8 +21,18 @@ WHERE a.DocumentKind=1 AND a.DocumentId=@id AND a.Family='Signing'
 ORDER BY a.AttemptSequence DESC;
 IF ISNULL(@state,'')<>N'Rejected'
 BEGIN RAISERROR('Only a definitively rejected signing request can be regenerated.',16,1); RETURN; END;
-IF EXISTS(SELECT 1 FROM dbo.FiscalAttempt WHERE DocumentKind=1 AND DocumentId=@id AND Family<>'Signing')
-BEGIN RAISERROR('Another fiscal operation already uses the saved workflow.',16,1); RETURN; END;
+UPDATE dbo.FiscalInvoiceWorkflow SET Payload=@payload,PayloadSha256=@hash,FencingToken=@token
+WHERE InvoiceId=@id AND PayloadSha256=@expectedHash AND Payload=@expected;
+IF @@ROWCOUNT<>1 BEGIN RAISERROR('The saved workflow changed. Reload before continuing.',16,1); RETURN; END;";
+        internal const string ReplaceWorkflowAfterRejectedSubmission = @"
+DECLARE @state nvarchar(32);
+SELECT TOP (1) @state=r.State
+FROM dbo.FiscalAttempt a
+JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+WHERE a.DocumentKind=1 AND a.DocumentId=@id AND a.Family='Submission'
+ORDER BY a.AttemptSequence DESC;
+IF ISNULL(@state,'') NOT IN (N'Rejected',N'RetryAuthorized')
+BEGIN RAISERROR('Only a rejected provider submission can be regenerated.',16,1); RETURN; END;
 UPDATE dbo.FiscalInvoiceWorkflow SET Payload=@payload,PayloadSha256=@hash,FencingToken=@token
 WHERE InvoiceId=@id AND PayloadSha256=@expectedHash AND Payload=@expected;
 IF @@ROWCOUNT<>1 BEGIN RAISERROR('The saved workflow changed. Reload before continuing.',16,1); RETURN; END;";
@@ -133,6 +143,47 @@ END;
 CLOSE pending; DEALLOCATE pending;
 UPDATE dbo.InvoiceType SET LastNumber=@last WHERE InvoiceTypeId=@type;
 SELECT Number FROM dbo.Invoice WHERE InvoiceId=@id;";
+        internal const string AllocateIssueDateReissueIdentity = @"
+DECLARE @type uniqueidentifier,@last int,@number int,@series nvarchar(255),@date datetime;
+SELECT @type=InvoiceTypeId,@number=Number,@series=ISNULL(Series,''),@date=TransactionDate
+FROM dbo.Invoice WITH(UPDLOCK,HOLDLOCK) WHERE InvoiceId=@id;
+IF @type IS NULL BEGIN RAISERROR('Invoice/type not found.',16,1); RETURN; END;
+IF @number<>@oldNumber OR @series<>@oldSeries OR @date<>@oldDate
+BEGIN RAISERROR('The invoice identity changed. Reload before reissuing.',16,1); RETURN; END;
+IF @number<=0 OR EXISTS(SELECT 1 FROM dbo.Invoice WHERE InvoiceId=@id AND
+    (NULLIF(InvoiceSignature,'') IS NOT NULL OR NULLIF(QRCodeData,'') IS NOT NULL)) OR
+    EXISTS(SELECT 1 FROM dbo.MyDataInvoice WHERE InvoiceId=@id AND Mark>0)
+BEGIN RAISERROR('An issued invoice cannot be renumbered.',16,1); RETURN; END;
+SELECT @last=LastNumber FROM dbo.InvoiceType WITH(UPDLOCK,HOLDLOCK) WHERE InvoiceTypeId=@type;
+IF @last IS NULL BEGIN RAISERROR('Invoice counter not found.',16,1); RETURN; END;
+IF EXISTS(
+    SELECT 1 FROM (
+        SELECT TOP (10) Number FROM dbo.Invoice
+        WHERE InvoiceTypeId=@type AND ISNULL(Series,'')=@series AND Number>0 AND InvoiceId<>@id
+        ORDER BY TransactionDate DESC,Number DESC,InvoiceId DESC
+    ) recent WHERE recent.Number>@last
+)
+BEGIN RAISERROR('Invoice counter is behind issued history.',16,1); RETURN; END;
+SET @last=@last+1;
+-- Some legacy forms set IsPrinted before provider acceptance. The fiscal journal
+-- is authoritative here: this guarded path permits only rejected submissions and
+-- no print/sign/payment evidence, so the replacement identity is unprinted.
+UPDATE dbo.Invoice SET Number=@last,TransactionDate=@newDate,IsPrinted=0 WHERE InvoiceId=@id;
+UPDATE dbo.InvoiceType SET LastNumber=@last WHERE InvoiceTypeId=@type;
+SELECT @last;";
+        internal const string ReplaceWorkflowForIssueDateReissue = @"
+IF EXISTS(SELECT 1 FROM dbo.FiscalAttempt a
+    JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+    WHERE a.DocumentKind=1 AND a.DocumentId=@id AND
+    (a.Family<>'Submission' OR r.State<>'Rejected'))
+BEGIN RAISERROR('Only definitively rejected provider attempts permit issue-date reissuance.',16,1); RETURN; END;
+IF NOT EXISTS(SELECT 1 FROM dbo.FiscalAttempt a
+    JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+    WHERE a.DocumentKind=1 AND a.DocumentId=@id AND a.Family='Submission' AND r.State='Rejected')
+BEGIN RAISERROR('A rejected provider attempt is required.',16,1); RETURN; END;
+UPDATE dbo.FiscalInvoiceWorkflow SET Payload=@payload,PayloadSha256=@hash,FencingToken=@token
+WHERE InvoiceId=@id AND PayloadSha256=@expectedHash AND Payload=@expected;
+IF @@ROWCOUNT<>1 BEGIN RAISERROR('The saved workflow changed. Reload before continuing.',16,1); RETURN; END;";
         internal const string SessionOptions =
             "SET ANSI_NULLS ON; SET ANSI_PADDING ON; SET ANSI_WARNINGS ON; SET ARITHABORT ON; " +
             "SET CONCAT_NULL_YIELDS_NULL ON; SET QUOTED_IDENTIFIER ON; SET NUMERIC_ROUNDABORT OFF;";
@@ -150,6 +201,23 @@ SELECT Number FROM dbo.Invoice WHERE InvoiceId=@id;";
             "FROM dbo.FiscalAttempt a JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId " +
             "WHERE a.DocumentKind=@kind AND a.DocumentId=@id AND a.Family=@family " +
             "AND (@attempt IS NULL OR a.AttemptId=@attempt) AND (@history=1 OR r.Revision=a.CurrentRevision) ORDER BY a.AttemptSequence,r.Revision;";
+        internal const string ReadDeferredSamtecInvoiceRetries = @"
+SELECT TOP (@maximum) a.DocumentId
+FROM dbo.FiscalAttempt a
+JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+WHERE a.DocumentKind=1 AND a.Family='Signing' AND a.Operation='Sign'
+  AND a.PayloadFormat='samtec-sign-json/v1' AND a.BlocksNewAttempt=1
+  AND r.State='Unknown' AND r.RecordedUtc<=@due
+  AND r.SnapshotJson LIKE @diagnostic
+ORDER BY r.RecordedUtc,a.AttemptSequence;";
+        internal const string CountDeferredSamtecInvoiceRetries = @"
+SELECT COUNT(*)
+FROM dbo.FiscalAttempt a
+JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+WHERE a.DocumentKind=1 AND a.Family='Signing' AND a.Operation='Sign'
+  AND a.PayloadFormat='samtec-sign-json/v1' AND a.BlocksNewAttempt=1
+  AND r.State='Unknown' AND r.RecordedUtc<=@due
+  AND r.SnapshotJson LIKE @diagnostic;";
         internal const string UpdateProjection =
             "UPDATE dbo.FiscalAttempt SET CurrentRevision=@revision,BlocksNewAttempt=@blocking WHERE AttemptId=@attempt AND CurrentRevision=@expected;";
         internal const string InsertAttempt =

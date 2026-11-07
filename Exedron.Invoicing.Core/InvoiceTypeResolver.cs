@@ -49,8 +49,10 @@ namespace Exedron.Invoicing.Core
             }
             int validMarks = linked.Count(p => p != null && p.Transmission != null && p.Transmission.Status == 3 &&
                 p.Transmission.Mark.GetValueOrDefault() > 0 && !p.Transmission.CancelationMark.HasValue && !p.Transmission.CanceledByMark.HasValue);
+            bool usesForeignVatExemption = UsesForeignVatExemption(invoice, country);
             var resolved = ResolveKind((MyDataDocumentKind)type.MyDataDocumentKind,
                 type.InvoiceTypeMode, type.IsRetail, country.CountryCode, country.IsEu,
+                usesForeignVatExemption,
                 credit || cancellation ? linked.Length : 0,
                 credit || cancellation ? validMarks : 0);
             // A customer delivery linked to the tanker's loading MARK is correlated
@@ -64,7 +66,8 @@ namespace Exedron.Invoicing.Core
         }
 
         private static string ResolveKind(MyDataDocumentKind kind, InvoiceMode mode,
-            bool isRetail, string countryCode, bool isEu, int parentCount, int validMarkCount)
+            bool isRetail, string countryCode, bool isEu, bool usesForeignVatExemption,
+            int parentCount, int validMarkCount)
         {
             if (mode != InvoiceMode.Normal && mode != InvoiceMode.Credit && mode != InvoiceMode.Cancel)
                 throw new ProviderInvoiceValidationException("The invoice mode is not supported.");
@@ -91,10 +94,49 @@ namespace Exedron.Invoicing.Core
             if (kind == MyDataDocumentKind.CorrelatedQuantityReceipt) return "10.1";
             if (isRetail) return kind == MyDataDocumentKind.Goods ? "11.1" : "11.2";
             string prefix = kind == MyDataDocumentKind.Goods ? "1." : "2.";
-            return prefix + (string.Equals(countryCode, "GR", StringComparison.OrdinalIgnoreCase) ? "1" : isEu ? "2" : "3");
+            bool foreignCountry = !string.Equals(countryCode, "GR",
+                StringComparison.OrdinalIgnoreCase);
+            if (!foreignCountry || !usesForeignVatExemption)
+            {
+                return prefix + "1";
+            }
+
+            return prefix + (isEu ? "2" : "3");
         }
 
-        private static string Clean(string value) { return string.IsNullOrWhiteSpace(value) ? null : value.Trim(); }
-        private static void Require(bool condition, string message) { if (!condition) throw new ProviderInvoiceValidationException(message); }
+        internal static bool UsesForeignVatExemption(InvoiceInput invoice,
+            CountryInput country)
+        {
+            if (invoice == null || country == null ||
+                string.Equals(country.CountryCode, "GR", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            InvoiceLineInput[] lines = (invoice.InvoiceLines ??
+                new List<InvoiceLineInput>()).ToArray();
+            if (lines.Length == 0)
+            {
+                return false;
+            }
+
+            return lines.All(line => line != null && line.VATPercentage == 0 &&
+                line.VatAmount.HasValue && line.VatAmount.Value == 0 &&
+                line.SalesItem != null &&
+                line.SalesItem.VATExcemptionArticle.GetValueOrDefault() > 0);
+        }
+
+        private static string Clean(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static void Require(bool condition, string message)
+        {
+            if (!condition)
+            {
+                throw new ProviderInvoiceValidationException(message);
+            }
+        }
     }
 }

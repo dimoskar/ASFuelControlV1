@@ -54,6 +54,8 @@ namespace Exedron.Invoicing.Core
                 Require(invoice.Number > 0 && invoice.PrintedDateTime != default(DateTime), "The invoice number or issue date is missing.");
             var type = invoice.InvoiceSeries.InvoiceType;
             bool retail = type.IsRetail;
+            bool foreignVatExemption = InvoiceTypeResolver.UsesForeignVatExemption(
+                invoice, country);
             bool movementOnly = invoiceType == "9.1" || invoiceType == "9.3" || invoiceType == "9.2" || invoiceType == "10.1";
             Require((invoiceType != "9.2" && invoiceType != "10.1") || tanker != null,
                 "This document must be created through the tanker route workflow.");
@@ -245,8 +247,9 @@ namespace Exedron.Invoicing.Core
                     {
                         Amount = net,
                         ClassificationCategory = "category1_" + (line.SalesItem.SalesItemType + 1).ToString(CultureInfo.InvariantCulture),
-                        ClassificationType = countryCode == "GR" ? (retail ? "E3_561_003" : "E3_561_001")
-                            : country.IsEu ? "E3_561_005" : "E3_561_006"
+                        ClassificationType = foreignVatExemption
+                            ? (country.IsEu ? "E3_561_005" : "E3_561_006")
+                            : (retail ? "E3_561_003" : "E3_561_001")
                     };
                 }
                 int? officialFuelCode = line.OfficialFuelCode ?? line.SalesItem.OfficialFuelCode;

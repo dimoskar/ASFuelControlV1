@@ -49,8 +49,8 @@ namespace Exedron.Invoicing.Core
         }
         // The three external-operation enums intentionally share these stable numeric states.
         // Reconciliation may resolve Unknown with authoritative evidence. Signing
-        // additionally permits a bounded, adapter-authorized resend of the exact
-        // persisted request after an uncertain or transient outcome.
+        // additionally permits adapter-authorized immediate or deferred resends of
+        // the exact persisted request after an uncertain or transient outcome.
         private static bool CanTransitionExternal(int from, int to)
         {
             switch (from)

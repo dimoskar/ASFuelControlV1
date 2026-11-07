@@ -113,7 +113,8 @@ namespace Exedron.Invoicing.Core
                 {
                     var exhausted = FiscalSigningResult.Unknown(attempt.Request.AttemptId,
                         attempt.Result.Response,"Automatic signing retries were exhausted after " + dispatched +
-                        " dispatches. " + attempt.Result.Diagnostic);
+                        " dispatches. Deferred retry remains scheduled when supported. " +
+                        attempt.Result.Diagnostic);
                     attempt = Save(lease,attempt,FiscalSigningState.Unknown,exhausted);
                 }
                 return attempt;
@@ -128,17 +129,28 @@ namespace Exedron.Invoicing.Core
                 saved.State != FiscalSigningState.Rejected) || saved.Result == null)
                 return null;
             IFiscalSigner signer = null;
+            bool allowed = false;
             try
             {
                 signer = Resolve(saved.Request);
                 var policy = signer as IFiscalSignerAutomaticRetryPolicy;
                 int dispatched = DispatchCount(lease,saved.Request.AttemptId);
-                if (policy == null || dispatched >= policy.MaximumAutomaticDispatches ||
-                    !policy.CanRetry(saved.Request,saved.Result)) return null;
+                if (policy != null && dispatched < policy.MaximumAutomaticDispatches &&
+                    policy.CanRetry(saved.Request,saved.Result))
+                    allowed = true;
+                else
+                {
+                    var deferred = signer as IFiscalSignerDeferredRetryPolicy;
+                    var delay = deferred?.DeferredRetryDelay ?? TimeSpan.Zero;
+                    var now = DateTime.UtcNow;
+                    allowed = deferred != null && delay > TimeSpan.Zero && now >= saved.UpdatedUtc &&
+                        now - saved.UpdatedUtc >= delay &&
+                        deferred.CanRetryAfterDelay(saved.Request,saved.Result);
+                }
             }
             catch { return null; }
             finally { (signer as IDisposable)?.Dispose(); }
-            return Dispatch(lease,saved,true);
+            return allowed ? Dispatch(lease,saved,true) : null;
         }
 
         private int DispatchCount(IFiscalDocumentLease lease, Guid attemptId) =>

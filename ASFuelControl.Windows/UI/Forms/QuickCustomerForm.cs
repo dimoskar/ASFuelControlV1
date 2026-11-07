@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using ASFuelControl.Invoicing.Mapping;
 using Exedron.Invoicing.Core;
 using Telerik.WinControls;
 using Telerik.WinControls.UI;
@@ -272,7 +273,13 @@ namespace ASFuelControl.Windows.UI.Forms
                 model.Address = address.Text.Trim();
                 model.City = city.Text.Trim();
                 model.ZipCode = postalCode.Text.Trim();
-                model.Country = "GR";
+                model.Country = TraderCountryResolver.Resolve(
+                    Data.Implementation.Country.GetCountries().Select(country => new CountryInput
+                    {
+                        CountryCode = country.CodeValue,
+                        DisplayMember = country.DisplayValue,
+                        IsEu = country.IsEu
+                    }), null, normalizedVat).CountryCode;
                 model.IsCustomer = true;
                 model.InvoiceTypeId = selectedType.InvoiceTypeId;
                 model.AddVehicle();

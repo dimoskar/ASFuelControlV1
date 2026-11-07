@@ -36,6 +36,9 @@ namespace ASFuelControl.Windows.Threads
         internal bool IsRefundPayment;
         internal ProviderResendAssessment ProviderResend;
         internal bool CanChangePaymentMethod;
+        internal bool IssueDateMismatchRejected;
+        internal bool CanReissueAfterIssueDateMismatch;
+        internal string IssueDateReissueBlockReason;
         internal int PaymentType;
         internal string State(string family) => Attempts.LastOrDefault(a => a.Family == family)?.State ?? "Δεν ξεκίνησε";
     }
@@ -78,7 +81,20 @@ namespace ASFuelControl.Windows.Threads
                         invoice?.IsPrinted == true && invoice.Number > 0;
                     status.PaymentType = invoice?.PaymentType ??
                         (int)Common.Enumerators.PaymentTypeEnum.Cash;
+                    if (entries.Length > 0 && invoice != null)
+                    {
+                        try
+                        {
+                            SharedInvoiceRoute currentRoute = settings.Value.Route(invoice);
+                            status.ConfiguredProvider = currentRoute.Provider;
+                        }
+                        catch
+                        {
+                            status.ConfiguredProvider = null;
+                        }
+                    }
                     status.CanChangePaymentMethod = PaymentMethodCanChange(db,invoice,status,entries);
+                    AssessIssueDateMismatchReissue(db,invoice,status,entries);
                     if (status.Snapshot == null && entries.Length == 0)
                     {
                         bool hasLegacy = db.MyDataInvoices.Any(i => i.InvoiceId == id);
@@ -94,6 +110,48 @@ namespace ASFuelControl.Windows.Threads
                 catch { status.ProviderResend = null; }
             }
             return status;
+        }
+        private static void AssessIssueDateMismatchReissue(Data.DatabaseModel db,
+            Data.Invoice invoice, SharedInvoiceStatus status, FiscalAttemptEvidence[] entries)
+        {
+            var snapshot = status?.Snapshot;
+            var savedInvoice = snapshot?.Invoice?.Invoice;
+            var submission = entries.LastOrDefault(entry => entry.Family == "Submission");
+            status.IssueDateMismatchRejected = ProviderSubmissionService.IsIssueDateMismatchRejection(submission);
+            if (!status.IssueDateMismatchRejected) return;
+            Action<string> block = reason => status.IssueDateReissueBlockReason = reason;
+            if (invoice == null || savedInvoice == null || snapshot?.Provider == null || snapshot.LocalOnly)
+            { block("Δεν υπάρχει πλήρης αποθηκευμένη ροή παρόχου για ασφαλή επανέκδοση."); return; }
+            if (snapshot.Signing != null || entries.Any(entry => entry.Family == "Signing"))
+            { block("Υπάρχει ιστορικό σήμανσης. Δεν επιτρέπεται αυτόματη αλλαγή φορολογικής ταυτότητας."); return; }
+            if (snapshot.Payment != null || entries.Any(entry => entry.Family == "Payment" || entry.Family == "ProviderSession"))
+            { block("Υπάρχει συναλλαγή POS/IRIS ή υπογραφή πληρωμής. Πρέπει πρώτα να συμφωνηθεί η ακύρωση ή επανασύνδεσή της με τη νέα φορολογική ταυτότητα."); return; }
+            if (snapshot.MyDieselCouponCaseId.HasValue || entries.Any(entry => entry.Family == "MyDiesel"))
+            { block("Υπάρχει υπόθεση myDiesel. Πρέπει πρώτα να ανακτηθεί ή να διορθωθεί η κατάστασή της."); return; }
+            if (invoice.Number <= 0)
+            { block("Το παραστατικό δεν έχει αποθηκευμένο αρχικό αριθμό."); return; }
+            if (!string.IsNullOrWhiteSpace(invoice.InvoiceSignature) ||
+                !string.IsNullOrWhiteSpace(invoice.QRCodeData))
+            { block("Το παραστατικό έχει ήδη αποθηκευμένη σήμανση ή QR."); return; }
+            if (db.MyDataInvoices.Any(value => value.InvoiceId == invoice.InvoiceId && value.Mark > 0))
+            { block("Το παραστατικό έχει ήδη MARK."); return; }
+            var other = entries.FirstOrDefault(entry => entry.Family != "Submission" || entry.State != "Rejected");
+            if (other != null)
+            { block("Υπάρχει πρόσθετο φορολογικό ιστορικό: " + other.Family + " / " + other.State + "."); return; }
+            bool originalIdentity = invoice.Number == savedInvoice.Number &&
+                string.Equals(invoice.Series ?? string.Empty,savedInvoice.Series ?? string.Empty,
+                    StringComparison.Ordinal) && invoice.TransactionDate == savedInvoice.PrintedDateTime;
+            // If the process stopped immediately after allocating the confirmed
+            // replacement number, allow the operator to complete the same recovery
+            // rather than consuming another number.
+            bool pendingReplacement = invoice.Number > savedInvoice.Number &&
+                string.Equals(invoice.Series ?? string.Empty,savedInvoice.Series ?? string.Empty,
+                    StringComparison.Ordinal) && invoice.TransactionDate.Date == DateTime.Today;
+            if (!originalIdentity && !pendingReplacement)
+            { block("Ο αποθηκευμένος αριθμός, η σειρά ή η ημερομηνία έχουν ήδη αλλάξει. Απαιτείται έλεγχος πριν από νέα αρίθμηση."); return; }
+            if (originalIdentity && invoice.TransactionDate.Date >= DateTime.Today)
+            { block("Η αποθηκευμένη ημερομηνία δεν είναι παλαιότερη από τη σημερινή."); return; }
+            status.CanReissueAfterIssueDateMismatch = true;
         }
         internal static string ChangePaymentMethod(Guid id, int paymentType)
         {
@@ -413,13 +471,103 @@ namespace ASFuelControl.Windows.Threads
                 RecoverStaleDirectPumpDispatchDate(id,lease,status);
                 bool retryableSigning = status.State("Signing") == "Rejected" ||
                     status.State("Signing") == "FailedBeforeDispatch";
+                bool retryableSubmission = status.State("Submission") == "Rejected" ||
+                    status.State("Submission") == "RetryAuthorized";
                 // A definitive device rejection may be corrected from the current
                 // invoice calculation. Source.Prepare recalculates and remaps the
                 // full workflow before a new Samtec request is persisted.
-                IInvoiceWorkflowSource correctionSource = retryableSigning ? new Source(false) : null;
+                IInvoiceWorkflowSource correctionSource = retryableSigning ||
+                    retryableSubmission ? new Source(false) : null;
                 return workflow.Value.Process(id,correctionSource,false,retryRejected: retryableSigning ||
-                    status.State("Submission") == "Rejected" || status.State("Submission") == "RetryAuthorized",
+                    retryableSubmission,
                     retryDeclinedPayment: status.State("Payment") == "Declined" || status.State("Payment") == "Failed");
+            }
+        }
+        internal static InvoiceWorkflowResult ReissueAfterIssueDateMismatch(Guid id)
+        {
+            using (var lease = sql.Value.EnterInvoice(id))
+            {
+                var status = ReadStatus(id);
+                if (status?.CanReissueAfterIssueDateMismatch != true)
+                    throw new InvalidOperationException(
+                        "Το παραστατικό δεν είναι πλέον διαθέσιμο για επανέκδοση λόγω ημερομηνίας. Ανανεώστε τη σύνοψη και ελέγξτε το ιστορικό.");
+                var saved = status.Snapshot;
+                var savedInvoice = saved.Invoice.Invoice;
+                var previousNumber = savedInvoice.Number;
+                var previousSeries = savedInvoice.Series ?? string.Empty;
+                var previousIssueDate = savedInvoice.PrintedDateTime;
+                var currentIssueDate = DateTime.Now;
+                int number;
+                string series;
+                DateTime issueDate;
+                using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                {
+                    var invoice = db.Invoices.Single(value => value.InvoiceId == id);
+                    bool originalIdentity = invoice.Number == previousNumber &&
+                        string.Equals(invoice.Series ?? string.Empty,previousSeries,StringComparison.Ordinal) &&
+                        invoice.TransactionDate == previousIssueDate;
+                    if (originalIdentity)
+                    {
+                        number = new SqlInvoiceWorkflowStore(sql.Value).AllocateIssueDateReissueIdentity(
+                            lease,previousNumber,previousSeries,previousIssueDate,currentIssueDate);
+                        series = previousSeries;
+                        issueDate = currentIssueDate;
+                    }
+                    else
+                    {
+                        // Recovery after a process stop between atomic counter
+                        // allocation and workflow regeneration.
+                        number = invoice.Number;
+                        series = invoice.Series ?? string.Empty;
+                        issueDate = invoice.TransactionDate;
+                    }
+                }
+
+                var replacement = new Source(false).Prepare(lease);
+                if (replacement?.Provider == null || replacement.LocalOnly ||
+                    replacement.Signing != null || replacement.Payment != null ||
+                    replacement.MyDieselCouponCaseId.HasValue)
+                    throw new InvalidOperationException(
+                        "Η νέα έκδοση δεν διατηρεί ασφαλή διαδρομή παρόχου χωρίς σήμανση, POS ή myDiesel.");
+                if (!SameProviderIdentity(saved.Provider,replacement.Provider))
+                    throw new InvalidOperationException(
+                        "Η νέα έκδοση πρέπει να χρησιμοποιήσει τον ίδιο πάροχο, εκδότη και περιβάλλον.");
+                var replacementInvoice = replacement.Invoice?.Invoice;
+                if (replacementInvoice == null || replacementInvoice.Number != number ||
+                    !string.Equals(replacementInvoice.Series ?? string.Empty,series,StringComparison.Ordinal) ||
+                    replacementInvoice.PrintedDateTime != issueDate)
+                    throw new InvalidOperationException(
+                        "Η νέα φορολογική ταυτότητα δεν συμφωνεί με τον αριθμό και την ημερομηνία που αποθηκεύτηκαν.");
+
+                // Keep immutable routing/printer choices. Only the identity-derived
+                // provider and printable payloads are regenerated from the host row.
+                replacement.Provider = saved.Provider;
+                replacement.PrintDestination = saved.PrintDestination;
+                replacement.PrintFormat = saved.PrintFormat;
+                replacement.Version = Math.Max(saved.Version,replacement.Version);
+                replacement.PaymentMethodChanges = saved.PaymentMethodChanges;
+                replacement.DispatchDateChanges = saved.DispatchDateChanges;
+                replacement.IssueDateReissues = saved.IssueDateReissues == null
+                    ? new System.Collections.Generic.List<InvoiceIssueDateReissue>()
+                    : new System.Collections.Generic.List<InvoiceIssueDateReissue>(saved.IssueDateReissues);
+                var oldModel = new InvoiceBuilder(new InvoiceTypeResolver()).Build(saved.Invoice);
+                var newModel = new InvoiceBuilder(new InvoiceTypeResolver()).Build(replacement.Invoice);
+                if (!string.Equals(oldModel.InvoiceHeader.InvoiceType,newModel.InvoiceHeader.InvoiceType,
+                    StringComparison.Ordinal))
+                    throw new InvalidOperationException("Η επανέκδοση δεν επιτρέπεται να αλλάξει τύπο myDATA.");
+                replacement.IssueDateReissues.Add(new InvoiceIssueDateReissue {
+                    PreviousNumber = previousNumber, PreviousSeries = previousSeries,
+                    PreviousIssueDate = previousIssueDate, Number = number, Series = series,
+                    IssueDate = issueDate, InvoiceType = oldModel.InvoiceHeader.InvoiceType,
+                    ChangedBy = Program.CurrentUserName ?? Environment.UserName,
+                    ChangedUtc = DateTime.UtcNow,
+                    Reason = "Ο πάροχος απέρριψε την αρχική ημερομηνία έκδοσης ως μη τρέχουσα."
+                });
+                var store = new SqlInvoiceWorkflowStore(sql.Value);
+                var original = store.Load(lease);
+                var replacementBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(replacement));
+                store.ReplaceAfterIssueDateReissue(lease,original,replacementBytes);
+                return workflow.Value.Process(id,null,false,retryRejected:true);
             }
         }
         internal static InvoiceWorkflowResult AuthorizeAndResumeSubmission(Guid id)
@@ -427,7 +575,8 @@ namespace ASFuelControl.Windows.Threads
             var providers = new ProviderSubmissionService(sql.Value,new CurrentCredentials());
             providers.AuthorizeResend(id,Program.CurrentUserName,
                 "Ο χειριστής επιβεβαίωσε νέα διαβίβαση μετά από μη επιβεβαιωμένη έκβαση παρόχου.");
-            return workflow.Value.Process(id,null,false,retryRejected:true);
+            var source = new Source(false);
+            return workflow.Value.Process(id,source,false,retryRejected:true);
         }
         internal static ProviderPaymentResult RetryPayment(Guid id, Guid expectedAttemptId)
         {
@@ -498,7 +647,6 @@ namespace ASFuelControl.Windows.Threads
                 var invoice = db.Invoices.Single(i => i.InvoiceId == invoiceId);
                 var response = result.Submission.Response;
                 if (!string.IsNullOrWhiteSpace(response.InvoiceSignature)) invoice.InvoiceSignature = response.InvoiceSignature;
-                invoice.QRCodeData = response.QrCodeUrl;
                 long mark;
                 if (long.TryParse(response.Mark,out mark) && mark > 0)
                 {

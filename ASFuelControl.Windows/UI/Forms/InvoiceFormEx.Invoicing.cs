@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows.Forms;
 using ASFuelControl.Windows.UI.Controls;
 using Exedron.Invoicing.Core;
+using Telerik.WinControls.UI;
 
 namespace ASFuelControl.Windows.UI.Forms
 {
@@ -18,6 +19,7 @@ namespace ASFuelControl.Windows.UI.Forms
         private bool lockedForIssuance;
         private bool myDieselDiscountLocked;
         private bool discountEditorEnabledBeforeMyDiesel;
+        private Control fiscalPrimaryAction;
         private void InitializeFiscalStatus()
         {
             fiscalPanel = new FiscalDocumentPanel { Dock = DockStyle.Fill };
@@ -31,17 +33,32 @@ namespace ASFuelControl.Windows.UI.Forms
             bool fixedEditor = editorLayout != ViewModels.InvoiceEditorLayout.Legacy;
             if (fiscalStatusVisible)
             {
-                invoicingStatusHost = new Panel { Dock = DockStyle.Bottom,Height = fixedEditor ? 260 : (myDieselVisible ? 342 : 210) };
-                invoicingStatusHost.Controls.Add(fiscalPanel);
-                if (myDieselVisible && fixedEditor)
-                    fiscalPanel.AddPage("myDiesel",myDieselPanel);
-                else if (myDieselVisible)
+                if (fixedEditor)
                 {
-                    myDieselPanel.Dock = DockStyle.Top;
-                    invoicingStatusHost.Controls.Add(myDieselPanel);
+                    invoicingStatusHost = fixedInvoicingStatusHost;
                 }
-                ClientSize = new System.Drawing.Size(ClientSize.Width,ClientSize.Height + invoicingStatusHost.Height);
-                Controls.Add(invoicingStatusHost);
+                else
+                {
+                    invoicingStatusHost = new Panel
+                    {
+                        Dock = DockStyle.Bottom,
+                        Height = 210
+                    };
+                }
+                invoicingStatusHost.Controls.Add(fiscalPanel);
+                if (myDieselVisible)
+                    fiscalPanel.AddPage("myDiesel",myDieselPanel);
+                if (fixedEditor && fixedFiscalPrimaryActionHost != null)
+                {
+                    fiscalPanel.AttachPrimaryAction(fixedFiscalPrimaryActionHost);
+                    fiscalPrimaryAction = fiscalPanel.PrimaryAction;
+                }
+                if (!fixedEditor)
+                {
+                    ClientSize = new System.Drawing.Size(ClientSize.Width,
+                        ClientSize.Height + invoicingStatusHost.Height);
+                    Controls.Add(invoicingStatusHost);
+                }
             }
             var signatureBinding = radLabel13 == null ? null : radLabel13.DataBindings["Text"];
             if (signatureBinding != null)
@@ -132,8 +149,16 @@ namespace ASFuelControl.Windows.UI.Forms
         }
         private void LockInvoiceControl(Control control)
         {
-            if (control == fiscalPanel || control == myDieselPanel || control == invoicingStatusHost || control == btnPrint) return;
-            if (control.Contains(btnPrint))
+            if (control == fiscalPanel || control == myDieselPanel ||
+                control == invoicingStatusHost || control == btnPrint ||
+                control == fiscalPrimaryAction) return;
+            bool pageNavigation = control is RadPageView || control is RadPageViewPage;
+            bool containsPrintButton = control.Contains(btnPrint);
+            bool containsFiscalPanel = fiscalPanel != null && control.Contains(fiscalPanel);
+            bool containsFiscalPrimaryAction = fiscalPrimaryAction != null &&
+                control.Contains(fiscalPrimaryAction);
+            if (pageNavigation || containsPrintButton || containsFiscalPanel ||
+                containsFiscalPrimaryAction)
             {
                 foreach (Control child in control.Controls) LockInvoiceControl(child);
                 return;

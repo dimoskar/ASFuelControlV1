@@ -79,8 +79,6 @@ namespace Samtec.WebService.Models
         public decimal NetAmount { get; set; }
         public decimal VatAmount { get; set; }
         public decimal GrossAmount { get; set; }
-        public int DMType { set; get; }
-        public decimal DMValue { set; get; }
         public string VatRate { get; set; }
         public int VatExCategory { get; set; }
         public int FeeCategory { get; set; }

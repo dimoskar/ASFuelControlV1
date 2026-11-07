@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,19 +19,26 @@ namespace ASFuelControl.Windows.UI.Controls
         private readonly RadPageView pages = new RadPageView { Dock = DockStyle.Fill };
         private readonly RadTextBox summary, history, payment, printing, evidence;
         private readonly RadPageViewPage fiscalAttemptPage = new RadPageViewPage { Text = "Fiscal Attempt" };
+        private readonly RadPageViewPage fiscalAttemptRequestPage = new RadPageViewPage { Text = "Αίτημα" };
         private readonly RadLabel fiscalAttemptInfo = new RadLabel { Dock = DockStyle.Top, Height = 24 };
         private readonly RadTextBox fiscalAttemptRequest = PayloadBox(), fiscalAttemptResponse = PayloadBox();
+        private readonly RadButton fiscalAttemptPrintPreview = new RadButton {
+            Text = "Προεπισκόπηση εγγράφου", Dock = DockStyle.Top, Height = 32, Visible = false
+        };
         private readonly FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill,WrapContents = true };
         private readonly FlowLayoutPanel paymentActions = new FlowLayoutPanel {
             Dock = DockStyle.Fill,WrapContents = false,AutoScroll = true,
             FlowDirection = FlowDirection.LeftToRight
         };
+        private readonly TableLayoutPanel rootLayout;
+        private TableLayoutPanel paymentLayout;
         private readonly RadButton recover, retryPayment, resume, reconcile, changePayment, voidPayment, recoverVoid, refundPayment, recoverRefund, diagnostics;
         private Guid invoiceId;
         private SharedInvoiceStatus status;
         private string lastActionMessage;
         private Guid lastActionInvoiceId;
         private bool fiscalAttemptPageAdded;
+        private byte[][] fiscalAttemptPrintPages;
         private string CurrentActionMessage => lastActionInvoiceId == invoiceId ? lastActionMessage : null;
         internal bool Owned => status?.Snapshot != null || status?.Attempts.Any() == true;
         internal string InvoiceSignature => status?.InvoiceSignature;
@@ -40,12 +48,13 @@ namespace ASFuelControl.Windows.UI.Controls
         internal event EventHandler ActionCompleted;
         internal FiscalDocumentPanel()
         {
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill,ColumnCount = 1,RowCount = 2,Margin = new Padding(0) };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent,100));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute,42));
-            layout.Controls.Add(pages,0,0); layout.Controls.Add(actions,0,1);
-            Controls.Add(layout);
+            rootLayout = new TableLayoutPanel { Dock = DockStyle.Fill,ColumnCount = 1,RowCount = 2,Margin = new Padding(0) };
+            rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent,100));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute,42));
+            rootLayout.Controls.Add(pages,0,0); rootLayout.Controls.Add(actions,0,1);
+            Controls.Add(rootLayout);
+            pages.SelectedPageChanged += PagesSelectedPageChanged;
             summary = Page("Σύνοψη"); history = Page("Ιστορικό");
             payment = Page("Πληρωμή",paymentActions);
             printing = Page("Εκτύπωση"); evidence = Page("Τεκμήρια");
@@ -62,13 +71,30 @@ namespace ASFuelControl.Windows.UI.Controls
             retryPayment = Button("Επανάληψη πληρωμής",async () => {
                 if (Busy || status?.RetryPaymentAttemptId == null) return;
                 var id = invoiceId; var attemptId = status.RetryPaymentAttemptId.Value;
+                ASFuelControl.Invoicing.InvoiceWorkflowResult issuanceResult = null;
                 await Run(() => {
-                    var result = SharedInvoiceRuntime.RetryPayment(id,attemptId);
+                    var paymentResult = SharedInvoiceRuntime.RetryPayment(id,attemptId);
+                    var paymentState = paymentResult.Payment?.State;
                     lastActionInvoiceId = id;
-                    lastActionMessage = "Πληρωμή: " + StateLabel(result.Payment?.State) +
-                        (string.IsNullOrWhiteSpace(result.Payment?.ErrorMessage) ? "" : "\r\n" + result.Payment.ErrorMessage);
-                    if (result.Payment?.State == "Approved") lastActionMessage += "\r\nΗ πληρωμή εγκρίθηκε. Η έκδοση μπορεί να συνεχιστεί με την ίδια πληρωμή.";
+                    var paymentStateLabel = StateLabel(paymentState);
+                    var paymentError = paymentResult.Payment?.ErrorMessage;
+                    lastActionMessage = "Πληρωμή: " + paymentStateLabel +
+                        (string.IsNullOrWhiteSpace(paymentError) ? "" : "\r\n" + paymentError);
+                    if (paymentState != "Approved" && paymentState != "Invoiced")
+                    {
+                        return;
+                    }
+
+                    // The approved payment is durable. Re-entering the complete
+                    // workflow reuses it, submits the invoice to the provider and
+                    // continues printing without authorizing a second payment.
+                    issuanceResult = SharedInvoiceRuntime.Process(id,true,null);
+                    RecordResult(id,issuanceResult);
                 });
+                if (!IsDisposed && invoiceId == id && issuanceResult != null)
+                {
+                    ShowResult(issuanceResult,"Έκδοση μετά την πληρωμή");
+                }
             },paymentActions);
             retryPayment.Enabled = false; retryPayment.Visible = false;
             changePayment = Button("Αλλαγή τρόπου πληρωμής",async () => {
@@ -121,6 +147,36 @@ namespace ASFuelControl.Windows.UI.Controls
             resume = Button("Διαβίβαση",async () => {
                 if (!Owned) { await SubmitPrintedInvoice(); return; }
                 var id = invoiceId;
+                if (status?.IssueDateMismatchRejected == true &&
+                    status.CanReissueAfterIssueDateMismatch != true)
+                {
+                    RadMessageBox.Show("Η απόρριψη αφορά την ημερομηνία έκδοσης, αλλά δεν μπορεί να γίνει ασφαλής νέα αρίθμηση.\r\n\r\n" +
+                        (status.IssueDateReissueBlockReason ?? "Απαιτείται έλεγχος του φορολογικού ιστορικού."),
+                        "Αλλαγή ημερομηνίας",MessageBoxButtons.OK,RadMessageIcon.Exclamation);
+                    return;
+                }
+                if (status?.CanReissueAfterIssueDateMismatch == true)
+                {
+                    var saved = status.Snapshot?.Invoice?.Invoice;
+                    var oldIdentity = saved == null ? string.Empty :
+                        "\r\n\r\nΑρχικό παραστατικό: " + (saved.Series ?? string.Empty) + saved.Number +
+                        " / " + saved.PrintedDateTime.ToString("dd/MM/yyyy");
+                    var reissueQuestion = "Ο πάροχος απέρριψε το παραστατικό επειδή η ημερομηνία έκδοσης δεν είναι η σημερινή." +
+                        oldIdentity +
+                        "\r\n\r\nΝα εκδοθεί ξανά με τη σημερινή ημερομηνία και νέο επόμενο αριθμό;" +
+                        "\r\n\r\nΟ αρχικός αριθμός δεν θα επαναχρησιμοποιηθεί και η απόρριψη θα παραμείνει στο ιστορικό.";
+                    if (RadMessageBox.Show(reissueQuestion,"Νέα αρίθμηση και έκδοση",
+                        MessageBoxButtons.YesNo,RadMessageIcon.Exclamation) != DialogResult.Yes) return;
+                    ASFuelControl.Invoicing.InvoiceWorkflowResult reissued = null;
+                    await Run(() => { reissued = SharedInvoiceRuntime.ReissueAfterIssueDateMismatch(id);
+                        RecordResult(id,reissued); });
+                    if (!IsDisposed && invoiceId == id && reissued != null)
+                        ShowResult(reissued,"Νέα έκδοση");
+                    return;
+                }
+                // Date-mismatch recovery has precedence over every ordinary
+                // provider resend path because the rejected fiscal identity must
+                // never be posted again with its obsolete issue date.
                 if (status?.ProviderResend?.CanResend == true) { await ConfirmProviderResend(id,null); return; }
                 bool rejectedSubmission = status.State("Submission") == "Rejected";
                 bool rejectedSigning = status.State("Signing") == "Rejected";
@@ -148,6 +204,7 @@ namespace ASFuelControl.Windows.UI.Controls
                 if (!AskPrintOutcome(out reason,out confirmed)) return;
                 await Run(() => SharedInvoiceRuntime.ReconcilePrint(id,job.AttemptId,confirmed,reason));
             });
+            UpdateActionLayoutHeights();
         }
         private RadTextBox Page(string title, FlowLayoutPanel pageActions = null)
         {
@@ -157,15 +214,48 @@ namespace ASFuelControl.Windows.UI.Controls
                 page.Controls.Add(text);
             else
             {
-                var layout = new TableLayoutPanel { Dock = DockStyle.Fill,ColumnCount = 1,RowCount = 2,Margin = new Padding(0) };
-                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-                layout.RowStyles.Add(new RowStyle(SizeType.Percent,100));
-                layout.RowStyles.Add(new RowStyle(SizeType.Absolute,50));
-                layout.Controls.Add(text,0,0);
-                layout.Controls.Add(pageActions,0,1);
-                page.Controls.Add(layout);
+                var pageLayout = new TableLayoutPanel { Dock = DockStyle.Fill,ColumnCount = 1,RowCount = 2,Margin = new Padding(0) };
+                pageLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+                pageLayout.RowStyles.Add(new RowStyle(SizeType.Percent,100));
+                pageLayout.RowStyles.Add(new RowStyle(SizeType.Absolute,50));
+                pageLayout.Controls.Add(text,0,0);
+                pageLayout.Controls.Add(pageActions,0,1);
+                page.Controls.Add(pageLayout);
+                if (pageActions == paymentActions)
+                {
+                    paymentLayout = pageLayout;
+                }
             }
             pages.Pages.Add(page); return text;
+        }
+        private void PagesSelectedPageChanged(object sender, EventArgs e)
+        {
+            UpdateActionLayoutHeights();
+        }
+        private void ActionButtonVisibleChanged(object sender, EventArgs e)
+        {
+            UpdateActionLayoutHeights();
+        }
+        private void UpdateActionLayoutHeights()
+        {
+            bool globalActionsVisible = HasVisibleControls(actions);
+            rootLayout.RowStyles[1].Height = globalActionsVisible ? 42F : 0F;
+            if (paymentLayout != null)
+            {
+                bool paymentActionsVisible = HasVisibleControls(paymentActions);
+                paymentLayout.RowStyles[1].Height = paymentActionsVisible ? 50F : 0F;
+            }
+        }
+        private static bool HasVisibleControls(Control host)
+        {
+            foreach (Control control in host.Controls)
+            {
+                if (control.Visible)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
         private static RadTextBox PayloadBox()
         {
@@ -181,11 +271,20 @@ namespace ASFuelControl.Windows.UI.Controls
         private void BuildFiscalAttemptPage()
         {
             var payloads = new RadPageView { Dock = DockStyle.Fill };
-            var requestPage = new RadPageViewPage { Text = "Αίτημα" };
             var responsePage = new RadPageViewPage { Text = "Απάντηση" };
-            requestPage.Controls.Add(fiscalAttemptRequest);
+            var requestLayout = new TableLayoutPanel {
+                Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2,
+                Margin = new Padding(0)
+            };
+            requestLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            requestLayout.RowStyles.Add(new RowStyle(SizeType.Percent,100));
+            requestLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            requestLayout.Controls.Add(fiscalAttemptRequest,0,0);
+            requestLayout.Controls.Add(fiscalAttemptPrintPreview,0,1);
+            fiscalAttemptRequestPage.Controls.Add(requestLayout);
+            fiscalAttemptPrintPreview.Click += FiscalAttemptPrintPreviewClick;
             responsePage.Controls.Add(fiscalAttemptResponse);
-            payloads.Pages.Add(requestPage);
+            payloads.Pages.Add(fiscalAttemptRequestPage);
             payloads.Pages.Add(responsePage);
             fiscalAttemptPage.Controls.Add(payloads);
             fiscalAttemptPage.Controls.Add(fiscalAttemptInfo);
@@ -211,11 +310,13 @@ namespace ASFuelControl.Windows.UI.Controls
                 pages.Pages.Remove(fiscalAttemptPage);
                 fiscalAttemptPageAdded = false;
                 fiscalAttemptInfo.Text = fiscalAttemptRequest.Text = fiscalAttemptResponse.Text = "";
+                ResetFiscalPrintPreview();
             }
         }
         private void RefreshFiscalAttempt()
         {
             if (!Program.AdminConnected || !fiscalAttemptPageAdded) return;
+            ResetFiscalPrintPreview();
             var attempt = status?.Attempts.LastOrDefault();
             if (attempt == null)
             {
@@ -226,8 +327,125 @@ namespace ASFuelControl.Windows.UI.Controls
             fiscalAttemptInfo.Text = attempt.Family + " · " + attempt.Operation + " · " +
                 StateLabel(attempt.State) + " · " + attempt.UpdatedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") +
                 " · " + attempt.AttemptId;
-            fiscalAttemptRequest.Text = DecodePayload(attempt.RequestPayload,attempt.PayloadFormat);
+            bool printAttempt = string.Equals(attempt.Family,"Print",
+                StringComparison.Ordinal);
+            if (printAttempt)
+            {
+                ShowFiscalPrintDocument(attempt);
+            }
+            else
+            {
+                fiscalAttemptRequest.Text = DecodePayload(attempt.RequestPayload,
+                    attempt.PayloadFormat);
+            }
             fiscalAttemptResponse.Text = attempt.SnapshotJson ?? "";
+        }
+        private void ResetFiscalPrintPreview()
+        {
+            fiscalAttemptPrintPages = null;
+            fiscalAttemptPrintPreview.Visible = false;
+            fiscalAttemptRequestPage.Text = "Αίτημα";
+        }
+        private void ShowFiscalPrintDocument(
+            ASFuelControl.Invoicing.Persistence.FiscalAttemptEvidence attempt)
+        {
+            fiscalAttemptRequestPage.Text = "Έγγραφο";
+            fiscalAttemptPrintPages = ReadPrintPages(attempt.RequestPayload);
+            bool previewAvailable = fiscalAttemptPrintPages != null &&
+                fiscalAttemptPrintPages.Length > 0;
+            fiscalAttemptPrintPreview.Visible = previewAvailable;
+
+            long renderedSize = previewAvailable
+                ? fiscalAttemptPrintPages.Sum(page => (long)page.Length)
+                : 0L;
+            string pageCount = previewAvailable
+                ? fiscalAttemptPrintPages.Length.ToString()
+                : "Μη διαθέσιμο";
+            string renderedSizeText = previewAvailable
+                ? FormatByteCount(renderedSize)
+                : "Μη διαθέσιμο";
+            string payloadSizeText = FormatByteCount(attempt.RequestPayload.Length);
+            fiscalAttemptRequest.Text =
+                "Αποθηκευμένο έγγραφο εκτύπωσης\r\n\r\n" +
+                "Μορφή: " + (attempt.PayloadFormat ?? "-") + "\r\n" +
+                "Σελίδες: " + pageCount + "\r\n" +
+                "Μέγεθος εικόνων: " + renderedSizeText + "\r\n" +
+                "Μέγεθος αποθηκευμένου payload: " + payloadSizeText + "\r\n" +
+                "SHA-256: " + (attempt.RequestSha256 ?? "-") +
+                (previewAvailable ? string.Empty :
+                    "\r\n\r\nΗ προεπισκόπηση δεν είναι διαθέσιμη για αυτό το αποθηκευμένο έγγραφο.");
+        }
+        private static byte[][] ReadPrintPages(byte[] payload)
+        {
+            if (payload == null || payload.Length == 0)
+            {
+                return null;
+            }
+            try
+            {
+                string serializedPages = Encoding.UTF8.GetString(payload);
+                byte[][] printPages = JsonConvert.DeserializeObject<byte[][]>(
+                    serializedPages);
+                if (printPages == null || printPages.Length == 0 ||
+                    printPages.Any(page => page == null || page.Length == 0))
+                {
+                    return null;
+                }
+                foreach (byte[] printPage in printPages)
+                {
+                    using (var stream = new MemoryStream(printPage,false))
+                    using (var image = Image.FromStream(stream))
+                    {
+                        if (image.Width <= 0 || image.Height <= 0)
+                        {
+                            return null;
+                        }
+                    }
+                }
+                return printPages;
+            }
+            catch (Exception ex) when (ex is JsonException ||
+                ex is ArgumentException || ex is OutOfMemoryException)
+            {
+                return null;
+            }
+        }
+        private static string FormatByteCount(long bytes)
+        {
+            if (bytes < 1024L)
+            {
+                return bytes + " bytes";
+            }
+            double kilobytes = bytes / 1024D;
+            if (kilobytes < 1024D)
+            {
+                return kilobytes.ToString("N1") + " KB";
+            }
+            double megabytes = kilobytes / 1024D;
+            return megabytes.ToString("N1") + " MB";
+        }
+        private void FiscalAttemptPrintPreviewClick(object sender, EventArgs e)
+        {
+            if (fiscalAttemptPrintPages == null ||
+                fiscalAttemptPrintPages.Length == 0)
+            {
+                return;
+            }
+            try
+            {
+                using (var preview = new FiscalPrintPreviewForm(
+                    fiscalAttemptPrintPages))
+                {
+                    DialogResult previewResult = preview.ShowDialog(this);
+                }
+            }
+            catch (Exception ex)
+            {
+                string errorMessage = "Δεν ήταν δυνατή η εμφάνιση του αποθηκευμένου εγγράφου.\r\n\r\n" +
+                    ex.Message;
+                RadMessageBox.Show(errorMessage,"Προεπισκόπηση εκτύπωσης",
+                    MessageBoxButtons.OK,RadMessageIcon.Exclamation);
+            }
         }
         private static string DecodePayload(byte[] payload,string format)
         {
@@ -256,12 +474,36 @@ namespace ASFuelControl.Windows.UI.Controls
             page.Controls.Add(content);
             pages.Pages.Add(page);
         }
+        internal Control PrimaryAction
+        {
+            get
+            {
+                return resume;
+            }
+        }
+        internal void AttachPrimaryAction(Control host)
+        {
+            if (host == null)
+            {
+                throw new ArgumentNullException(nameof(host));
+            }
+            if (resume.Parent != null)
+            {
+                resume.Parent.Controls.Remove(resume);
+            }
+            resume.Dock = DockStyle.Fill;
+            resume.Margin = new Padding(3);
+            host.Controls.Add(resume);
+            UpdateActionLayoutHeights();
+        }
         private RadButton Button(string title,Func<Task> action,
             FlowLayoutPanel host = null)
         {
             var button = new RadButton { Text = title,Width = 175,Height = 30 };
             button.Click += async (s,e) => await action();
-            (host ?? actions).Controls.Add(button);
+            button.VisibleChanged += ActionButtonVisibleChanged;
+            var buttonHost = host ?? actions;
+            buttonHost.Controls.Add(button);
             return button;
         }
         internal void LoadInvoice(Guid id)
@@ -314,6 +556,11 @@ namespace ASFuelControl.Windows.UI.Controls
                 if (!string.IsNullOrWhiteSpace(status.ConnectionProblem)) summary.Text += "\r\nΈλεγχος σύνδεσης: " + status.ConnectionProblem;
                 if (status.State("Submission") == "Rejected")
                     summary.Text += "\r\nΗ προηγούμενη διαβίβαση απορρίφθηκε. Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια με το διορθωμένο αίτημα.";
+                if (status.CanReissueAfterIssueDateMismatch)
+                    summary.Text += "\r\nΗ απόρριψη αφορά παλιά ημερομηνία έκδοσης. Η επανάληψη θα ζητήσει επιβεβαίωση για σημερινή ημερομηνία και νέο αριθμό.";
+                else if (status.IssueDateMismatchRejected)
+                    summary.Text += "\r\nΗ απόρριψη αφορά την ημερομηνία έκδοσης, αλλά η νέα αρίθμηση εμποδίζεται: " +
+                        (status.IssueDateReissueBlockReason ?? "Απαιτείται έλεγχος του φορολογικού ιστορικού.");
                 if (status.ProviderResend?.CanResend == true)
                     summary.Text += "\r\nΗ έκβαση δεν επιβεβαιώθηκε. Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια μετά από ρητή επιβεβαίωση του κινδύνου διπλής έκδοσης.";
                 if (string.IsNullOrWhiteSpace(CurrentActionMessage) && snapshot.Provider != null && snapshot.Payment == null && snapshot.Signing == null && !status.Attempts.Any(a => a.Family == "Submission"))
@@ -356,8 +603,11 @@ namespace ASFuelControl.Windows.UI.Controls
                 printing.Text = PrintStatus() + "\r\n" + snapshot.PrintDestination + "\r\nΗ παράδοση στα Windows δεν επιβεβαιώνει φυσική εκτύπωση.\r\n" + Details("Print");
                 if (status.State("Signing") == "Unknown")
                 {
-                    summary.Text += "\r\nΕλέγξτε την έκβαση στον μηχανισμό. Δεν επιτρέπεται νέα σήμανση.";
                     var signingDiagnostic = SigningDiagnostic();
+                    summary.Text += (signingDiagnostic ?? "").StartsWith(
+                        "Automatic signing retries were exhausted",StringComparison.Ordinal)
+                        ? "\r\nΗ αυτόματη επανάληψη σήμανσης παραμένει ενεργή ανά 5 λεπτά με το ίδιο Invoice UID."
+                        : "\r\nΕλέγξτε την έκβαση στον μηχανισμό. Δεν επιτρέπεται νέα σήμανση.";
                     if (!string.IsNullOrWhiteSpace(signingDiagnostic)) summary.Text += "\r\n" + signingDiagnostic;
                 }
                 evidence.Text = string.Join("\r\n",status.Attempts.Select(a => a.Family + " · " + a.AttemptId + "\r\nSHA-256: " + a.RequestSha256)) +
@@ -512,7 +762,21 @@ namespace ASFuelControl.Windows.UI.Controls
         {
             var assessment = status?.ProviderResend;
             if (assessment?.CanResend != true || invoiceId != id) return;
-            var message = (string.IsNullOrWhiteSpace(recoveryMessage) ? "" : recoveryMessage + "\r\n\r\n") + assessment.Warning;
+            string receiverMessage = string.Empty;
+            if (status?.ConfiguredProvider != null)
+            {
+                string previousReceiver = SharedInvoiceConfiguration.TransmissionLabel(
+                    status.Snapshot?.Provider);
+                string currentReceiver = SharedInvoiceConfiguration.TransmissionLabel(
+                    status.ConfiguredProvider);
+                receiverMessage = "Η νέα προσπάθεια θα δημιουργηθεί από τις τρέχουσες ρυθμίσεις." +
+                    "\r\nΠροηγούμενος προορισμός: " + previousReceiver +
+                    "\r\nΝέος προορισμός: " + currentReceiver + "\r\n\r\n";
+            }
+            string recoveryPrefix = string.IsNullOrWhiteSpace(recoveryMessage)
+                ? string.Empty
+                : recoveryMessage + "\r\n\r\n";
+            string message = recoveryPrefix + receiverMessage + assessment.Warning;
             if (RadMessageBox.Show(message,"Επανάληψη διαβίβασης",MessageBoxButtons.YesNo,RadMessageIcon.Exclamation) != DialogResult.Yes) return;
             ASFuelControl.Invoicing.InvoiceWorkflowResult result = null;
             await Run(() => { result = SharedInvoiceRuntime.AuthorizeAndResumeSubmission(id); RecordResult(id,result); });

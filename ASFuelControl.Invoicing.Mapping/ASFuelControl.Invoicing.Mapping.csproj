@@ -13,6 +13,7 @@
     <!-- Explicit source items are required for reliable classic Visual Studio project tracking. -->
     <Compile Include="HostInvoiceMapper.cs" />
     <Compile Include="MappingContext.cs" />
+    <Compile Include="TraderCountryResolver.cs" />
     <Compile Include="TransformationEditPolicy.cs" />
     <Compile Include="TransformationUnitPrice.cs" />
   </ItemGroup>

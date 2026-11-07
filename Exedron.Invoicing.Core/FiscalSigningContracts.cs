@@ -150,6 +150,14 @@ namespace Exedron.Invoicing.Core
         int MaximumAutomaticDispatches { get; }
         bool CanRetry(FiscalSigningRequest originalRequest, FiscalSigningResult result);
     }
+    // Optional policy for retrying the exact persisted request after the initial
+    // bounded burst has been exhausted. Hosts call the coordinator again when a
+    // durable attempt becomes due; the coordinator never sleeps while holding a lease.
+    public interface IFiscalSignerDeferredRetryPolicy
+    {
+        TimeSpan DeferredRetryDelay { get; }
+        bool CanRetryAfterDelay(FiscalSigningRequest originalRequest, FiscalSigningResult result);
+    }
     // Optional capability. Implement only when the device can identify the original request.
     public interface IFiscalSignerRecovery
     {

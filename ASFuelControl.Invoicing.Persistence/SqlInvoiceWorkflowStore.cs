@@ -94,6 +94,35 @@ namespace ASFuelControl.Invoicing.Persistence
                 return replacementSnapshot;
             });
         }
+        public byte[] ReplaceAfterRejectedSubmission(IFiscalDocumentLease lease,
+            byte[] expectedSnapshot, byte[] replacementSnapshot)
+        {
+            RequireInvoice(lease);
+            if (expectedSnapshot == null || expectedSnapshot.Length == 0 ||
+                replacementSnapshot == null || replacementSnapshot.Length == 0)
+            {
+                throw new ArgumentException("Both workflow snapshots are required.");
+            }
+
+            string expectedHash = SqlFiscalDatabase.Hash(expectedSnapshot);
+            string replacementHash = SqlFiscalDatabase.Hash(replacementSnapshot);
+            return database.Locked(lease, (held, tx) =>
+            {
+                using (var command = SqlFiscalDatabase.Command(held.Connection, tx,
+                    SqlStatements.ReplaceWorkflowAfterRejectedSubmission,
+                    "@id", lease.Document.DocumentId,
+                    "@expected", expectedSnapshot,
+                    "@expectedHash", expectedHash,
+                    "@payload", replacementSnapshot,
+                    "@hash", replacementHash,
+                    "@token", lease.FencingToken))
+                {
+                    command.ExecuteNonQuery();
+                }
+
+                return replacementSnapshot;
+            });
+        }
         // A direct-pump invoice-delivery that never completed issuance may be
         // dispatched on a later day. The host invoice row is deliberately not
         // updated: only the fingerprinted workflow payload changes under the
@@ -153,6 +182,40 @@ namespace ASFuelControl.Invoicing.Persistence
                 using (var command = SqlFiscalDatabase.Command(held.Connection, tx, SqlStatements.AllocateInvoiceNumbers,
                     "@id", lease.Document.DocumentId, "@firstDate", firstInvoiceDate ?? new DateTime(1753,1,1)))
                     return Convert.ToInt32(command.ExecuteScalar());
+            });
+        }
+        public int AllocateIssueDateReissueIdentity(IFiscalDocumentLease lease,
+            int previousNumber, string previousSeries, DateTime previousIssueDate,
+            DateTime issueDate)
+        {
+            RequireInvoice(lease);
+            if (previousNumber <= 0) throw new ArgumentOutOfRangeException(nameof(previousNumber));
+            if (issueDate.Kind == DateTimeKind.Utc)
+                throw new ArgumentException("The issue date must be local fiscal time.",nameof(issueDate));
+            return database.Locked(lease,(held,tx) => {
+                using (var command = SqlFiscalDatabase.Command(held.Connection,tx,
+                    SqlStatements.AllocateIssueDateReissueIdentity,
+                    "@id",lease.Document.DocumentId,"@oldNumber",previousNumber,
+                    "@oldSeries",previousSeries ?? string.Empty,"@oldDate",previousIssueDate,
+                    "@newDate",issueDate))
+                    return Convert.ToInt32(command.ExecuteScalar());
+            });
+        }
+        public byte[] ReplaceAfterIssueDateReissue(IFiscalDocumentLease lease,
+            byte[] expectedSnapshot, byte[] replacementSnapshot)
+        {
+            RequireInvoice(lease);
+            if (expectedSnapshot == null || expectedSnapshot.Length == 0 ||
+                replacementSnapshot == null || replacementSnapshot.Length == 0)
+                throw new ArgumentException("Both workflow snapshots are required.");
+            return database.Locked(lease,(held,tx) => {
+                using (var command = SqlFiscalDatabase.Command(held.Connection,tx,
+                    SqlStatements.ReplaceWorkflowForIssueDateReissue,
+                    "@id",lease.Document.DocumentId,"@expected",expectedSnapshot,
+                    "@expectedHash",SqlFiscalDatabase.Hash(expectedSnapshot),
+                    "@payload",replacementSnapshot,"@hash",SqlFiscalDatabase.Hash(replacementSnapshot),
+                    "@token",held.FencingToken)) command.ExecuteNonQuery();
+                return replacementSnapshot;
             });
         }
         private static void RequireInvoice(IFiscalDocumentLease lease)

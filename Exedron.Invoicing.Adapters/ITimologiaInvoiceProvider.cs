@@ -9,9 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Exedron.Invoicing.Adapters
@@ -21,8 +19,6 @@ namespace Exedron.Invoicing.Adapters
     /// </summary>
     public sealed class ITimologiaInvoiceProvider : IInvoiceProvider, IInvoiceProviderPaymentSigner, IInvoiceProviderRecovery, IInvoiceProviderLookup
     {
-        private const string TokenCachePrefix = "EXEDRON_INVOICING_ITIMOLOGIA_TOKEN_";
-        private const string TokenMutexPrefix = @"Local\EXEDRON_ITIMOLOGIA_TOKEN_LOCK_";
         private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
         {
             NullValueHandling = NullValueHandling.Ignore,
@@ -31,10 +27,9 @@ namespace Exedron.Invoicing.Adapters
 
         private readonly ITimologiaProviderOptions options;
         private readonly HttpClient httpClient;
+        private readonly ITimologiaCommunicationTokenManager tokenManager;
         private readonly bool ownsHttpClient;
-        private static readonly object TokenSync = new object();
         private string communicationToken;
-        private string memoryTokenCache;
         internal int PosSignatureFormat { get { return options.PosSignatureFormat; } }
         // Settings describe the desired ordering, not the provider's wire-level selector.
         // Captured endpoint responses (2026-10-14): 0 => payment/net/VAT/gross,
@@ -55,6 +50,25 @@ namespace Exedron.Invoicing.Adapters
             httpClient.Timeout = options.Timeout > TimeSpan.Zero
                 ? options.Timeout
                 : TimeSpan.FromSeconds(15);
+            string baseEndpoint = BuildEndpoint("");
+            string cacheKey = ITimologiaCommunicationTokenManager.CreateCacheKey(
+                baseEndpoint,
+                options.SubscriptionId,
+                options.MasterToken);
+            string cacheSuffix = cacheKey.Substring(
+                ITimologiaCommunicationTokenManager.SharedCachePrefix.Length);
+            tokenManager = new ITimologiaCommunicationTokenManager(
+                new ITimologiaCommunicationTokenManagerOptions
+                {
+                    BaseEndpoint = baseEndpoint,
+                    MasterToken = options.MasterToken,
+                    SubscriptionId = options.SubscriptionId,
+                    TokenCache = options.TokenCache,
+                    CacheKey = cacheKey,
+                    LegacyCacheKey = ITimologiaCommunicationTokenManager.LegacyCachePrefix + cacheSuffix,
+                    MutexName = ITimologiaCommunicationTokenManager.CreateMutexName(cacheKey)
+                },
+                httpClient);
         }
 
         public InvoiceProviderDefinition Descriptor
@@ -410,113 +424,13 @@ namespace Exedron.Invoicing.Adapters
 
         private string GetCommunicationToken(bool forceRefresh)
         {
-            lock (TokenSync)
-            {
-                var variable = TokenCacheVariableName;
-                if (options.TokenCache == null)
-                    return GetCommunicationTokenUnderLock(variable, forceRefresh);
-
-                // The host cache is shared with other processes. A process-local lock
-                // alone cannot prevent both applications from renewing the same token.
-                using (var mutex = new Mutex(false,
-                    TokenMutexPrefix + variable.Substring(TokenCachePrefix.Length)))
-                {
-                    bool acquired = false;
-                    try
-                    {
-                        try { acquired = mutex.WaitOne(TimeSpan.FromSeconds(60)); }
-                        catch (AbandonedMutexException) { acquired = true; }
-                        if (!acquired)
-                            throw new TimeoutException("Timed out waiting for the shared iTimologia token cache.");
-
-                        // Another process may have renewed the token while this process
-                        // waited, so the shared cache must only be read after acquisition.
-                        return GetCommunicationTokenUnderLock(variable, forceRefresh);
-                    }
-                    finally
-                    {
-                        if (acquired) mutex.ReleaseMutex();
-                    }
-                }
-            }
-        }
-
-        private string GetCommunicationTokenUnderLock(string variable, bool forceRefresh)
-        {
-                TokenCache cached = null;
-                var json = options.TokenCache == null ? memoryTokenCache : options.TokenCache.Load(variable);
-                if (!string.IsNullOrWhiteSpace(json))
-                {
-                    try { cached = JsonConvert.DeserializeObject<TokenCache>(json); }
-                    catch (JsonException) { /* An invalid cache is replaced only after successful authentication. */ }
-                }
-                if (cached != null && !string.IsNullOrWhiteSpace(cached.ConnectionToken) &&
-                    cached.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(1) &&
-                    (!forceRefresh || cached.ConnectionToken != communicationToken))
-                {
-                    communicationToken = cached.ConnectionToken;
-                    return communicationToken;
-                }
-
-                var previousToken = cached == null ? communicationToken : cached.ConnectionToken;
-                var renew = !string.IsNullOrWhiteSpace(previousToken);
-                object request = renew
-                    ? (object)new TokenRenewRequest { Token = previousToken }
-                    : new TokenCreateRequest { SubscriptionId = options.SubscriptionId.Trim() };
-                ApiResult result = SendJson(
-                    HttpMethod.Post,
-                    BuildEndpoint(renew ? "tokens/renew" : "tokens/create"),
-                    options.MasterToken.Trim(),
-                    request);
-                if (!result.IsSuccess)
-                {
-                    throw new InvalidOperationException(DescribeFailure(result));
-                }
-
-                TokenReply reply;
-                try
-                {
-                    reply = JsonConvert.DeserializeObject<TokenReply>(result.Body, JsonSettings);
-                }
-                catch (JsonException ex)
-                {
-                    throw new InvalidOperationException("iTimologia returned an invalid token response.", ex);
-                }
-
-                if (reply == null || string.IsNullOrWhiteSpace(reply.Token))
-                {
-                    string error = reply == null ? null : FirstNonEmpty(reply.Error, reply.Message);
-                    throw new InvalidOperationException(
-                        FirstNonEmpty(error, "iTimologia did not return a communication token."));
-                }
-
-                if (!string.IsNullOrWhiteSpace(reply.Error) || !reply.ExpiresAt.HasValue ||
-                    reply.ExpiresAt.Value <= DateTimeOffset.UtcNow)
-                    throw new InvalidOperationException(FirstNonEmpty(reply.Error,
-                        "iTimologia did not return a valid communication-token expiration time."));
-
-                var cachedJson = JsonConvert.SerializeObject(new TokenCache
-                {
-                    ConnectionToken = reply.Token,
-                    ExpiresAt = reply.ExpiresAt.Value.ToUniversalTime()
-                }, JsonSettings);
-                if (options.TokenCache != null) options.TokenCache.Save(variable, cachedJson);
-                memoryTokenCache = cachedJson;
-                communicationToken = reply.Token;
-                return communicationToken;
+            communicationToken = tokenManager.GetToken(forceRefresh);
+            return communicationToken;
         }
 
         public string TokenCacheVariableName
         {
-            get
-            {
-                // Never put credentials in the variable name; changing credentials isolates the cache too.
-                var scope = JsonConvert.SerializeObject(new[] { BuildEndpoint(""),
-                    (options.SubscriptionId ?? "").Trim(), (options.MasterToken ?? "").Trim() });
-                using (var hash = SHA256.Create())
-                    return TokenCachePrefix +
-                        BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(scope))).Replace("-", "");
-            }
+            get { return tokenManager.CacheKey; }
         }
 
         private ApiResult SendJson(HttpMethod method, string endpoint, string bearerToken, object body, Guid? invoiceId = null)
@@ -719,13 +633,15 @@ namespace Exedron.Invoicing.Adapters
                 .Select(value => MapDetail(value, isDeliveryNote || IsStandaloneDeliveryNote(source.InvoiceHeader.InvoiceType),
                     MyDataLineFields.IncludeQuantityAndUnit(source.InvoiceHeader.InvoiceType)))
                 .ToList();
-            var counterpart = isRetail && !isRetailDelivery && supplyAccount == null ? null : MapTrader<CounterpartRequest>(source.CounterPart);
+            var counterpart = isRetail && !isRetailDelivery && supplyAccount == null
+                ? null
+                : MapTrader<CounterpartRequest>(source.CounterPart,isDeliveryNote);
             if (counterpart != null) counterpart.SupplyAccountNumber = supplyAccount;
             return new ITimologiaInvoiceRequest
             {
                 ExternalSystemId = externalSystemId,
                 Notes = EmptyToNull(source.PaymentTerms),
-                Issuer = MapTrader<IssuerRequest>(source.Issuer),
+                Issuer = MapTrader<IssuerRequest>(source.Issuer, isDeliveryNote),
                 Counterpart = counterpart,
                 Header = MapHeader(source.InvoiceHeader, specialCategory, isDeliveryNote, movePurpose, deliveryHeader),
                 PaymentMethods = (source.PaymentMethods ?? new PaymentMethod[0])
@@ -739,7 +655,7 @@ namespace Exedron.Invoicing.Adapters
             };
         }
 
-        private static T MapTrader<T>(Trader source) where T : TraderRequest, new()
+        private static T MapTrader<T>(Trader source, bool delivery = false) where T : TraderRequest, new()
         {
             if (source == null)
             {
@@ -752,7 +668,13 @@ namespace Exedron.Invoicing.Adapters
                 Name = EmptyToNull(source.Name),
                 Country = EmptyToNull(source.Country),
                 Branch = source.Branch >= 0 ? (int?)source.Branch : null,
-                Address = MapAddress(source.Address)
+                // AADE does not require domestic addresses on ordinary invoices.
+                // Match the direct-myDATA XML representation and include an address
+                // only for delivery documents or foreign parties.
+                Address = delivery || !string.Equals(source.Country,"GR",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? MapAddress(source.Address)
+                    : null
             };
         }
 
@@ -770,6 +692,16 @@ namespace Exedron.Invoicing.Adapters
                 PostalCode = EmptyToNull(source.PostalCode),
                 City = EmptyToNull(source.City)
             };
+            // The AADE AddressType sequence makes postalCode and city mandatory.
+            // A normal Greek invoice does not require an address, so do not let
+            // iTimologia turn a partially populated optional address into invalid
+            // XML (for example <city> while AADE is still expecting postalCode).
+            // Delivery and foreign documents are validated as complete by the
+            // shared myDATA representation before this mapping is reached.
+            if (mapped.PostalCode == null || mapped.City == null)
+            {
+                return null;
+            }
             return mapped.Street == null && mapped.Number == null && mapped.PostalCode == null && mapped.City == null
                 ? null
                 : mapped;
@@ -1183,41 +1115,6 @@ namespace Exedron.Invoicing.Adapters
 
             [JsonProperty("signature_b64")]
             public string SignatureBase64 { get; set; }
-
-            [JsonProperty("error")]
-            public string Error { get; set; }
-
-            [JsonProperty("message")]
-            public string Message { get; set; }
-        }
-
-        private sealed class TokenCreateRequest
-        {
-            [JsonProperty("subscription_id")]
-            public string SubscriptionId { get; set; }
-        }
-
-        private sealed class TokenRenewRequest
-        {
-            [JsonProperty("token")]
-            public string Token { get; set; }
-        }
-
-        private sealed class TokenCache
-        {
-            [JsonProperty("connectionToken")]
-            public string ConnectionToken { get; set; }
-            [JsonProperty("expiresAt")]
-            public DateTimeOffset ExpiresAt { get; set; }
-        }
-
-        private sealed class TokenReply
-        {
-            [JsonProperty("expires_at")]
-            public DateTimeOffset? ExpiresAt { get; set; }
-
-            [JsonProperty("token")]
-            public string Token { get; set; }
 
             [JsonProperty("error")]
             public string Error { get; set; }

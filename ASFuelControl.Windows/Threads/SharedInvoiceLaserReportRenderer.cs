@@ -37,7 +37,22 @@ namespace ASFuelControl.Windows.Threads
                 var invoice = db.Invoices.Single(i => i.InvoiceId == snapshot.InvoiceId);
                 var qrCodeUrl = response == null ? invoice.QRCodeData : response.QrCodeUrl;
                 if (profile.Thermal)
-                    return RenderThermalReport(db,invoice,qrCodeUrl,profile,fiscalFooter,response);
+                {
+                    string fiscalDeviceUrl = snapshot.Signing == null
+                        ? null
+                        : invoice.QRCodeData;
+                    string responseQrCodeUrl = response?.QrCodeUrl;
+                    bool responseRepeatsFiscalQr = !string.IsNullOrWhiteSpace(
+                            fiscalDeviceUrl) &&
+                        string.Equals(fiscalDeviceUrl, responseQrCodeUrl,
+                            StringComparison.OrdinalIgnoreCase);
+                    string documentUrl = snapshot.Provider == null ||
+                        responseRepeatsFiscalQr
+                        ? null
+                        : responseQrCodeUrl;
+                    return RenderThermalReport(db, invoice, fiscalDeviceUrl,
+                        documentUrl, profile, fiscalFooter, response);
+                }
 
                 if (invoice.InvoiceType.IsInternal == true)
                 {
@@ -60,7 +75,8 @@ namespace ASFuelControl.Windows.Threads
         }
 
         private static byte[] RenderThermalReport(Data.DatabaseModel db, Data.Invoice invoice,
-            string qrCodeUrl, SharedPrinterProfile profile, string fiscalFooter, InvoiceResponse response)
+            string fiscalDeviceUrl, string documentUrl, SharedPrinterProfile profile,
+            string fiscalFooter, InvoiceResponse response)
         {
             using (var report = new Reports.Invoices.InvoiceReportNarrow())
             {
@@ -84,7 +100,8 @@ namespace ASFuelControl.Windows.Threads
                 using (var reportData = new OpenAccessDataSource(lines,""))
                 {
                     report.DataSource = reportData;
-                    ConfigureThermalReport(report,invoice,qrCodeUrl,options);
+                    ConfigureThermalReport(report, invoice, fiscalDeviceUrl,
+                        documentUrl, options);
                     report.ApplySharedThermalLayout(
                         response == null || string.IsNullOrWhiteSpace(response.InvoiceSignature)
                             ? invoice.InvoiceSignature
@@ -118,7 +135,8 @@ namespace ASFuelControl.Windows.Threads
         }
 
         private static void ConfigureThermalReport(Reports.Invoices.InvoiceReportNarrow report,
-            Data.Invoice invoice, string qrCodeUrl, Data.Implementation.OptionHandler options)
+            Data.Invoice invoice, string fiscalDeviceUrl, string documentUrl,
+            Data.Implementation.OptionHandler options)
         {
             report.ReportParameters["InvoiceId"].Value = invoice.InvoiceId.ToString().ToLowerInvariant();
             report.ReportParameters["PrintBarcode"].Value = options.GetBoolOption("PrintInvoiceBarcode",false);
@@ -142,7 +160,8 @@ namespace ASFuelControl.Windows.Threads
                 .ToArray();
             try
             {
-                report.SetSupplyNumber(invoice,qrCodeUrl);
+                report.SetSupplyNumber(invoice, documentUrl);
+                report.CompactQrCodes(fiscalDeviceUrl, documentUrl);
             }
             finally
             {
@@ -186,11 +205,13 @@ namespace ASFuelControl.Windows.Threads
             AddFiscalFooter(report,fiscalFooter);
 
             var source = new InstanceReportSource { ReportDocument = report };
+            int horizontalDpi = profile.Thermal ? profile.ThermalDpi : 150;
+            int verticalDpi = profile.Thermal ? profile.ThermalDpi : 150;
             var deviceInfo = new Hashtable
             {
                 { "OutputFormat", "TIFF" },
-                { "DpiX", 150 },
-                { "DpiY", 150 }
+                { "DpiX", horizontalDpi },
+                { "DpiY", verticalDpi }
             };
             var result = new ReportProcessor().RenderReport("IMAGE",source,deviceInfo);
             if (result.HasErrors)
@@ -198,7 +219,8 @@ namespace ASFuelControl.Windows.Threads
             if (result.DocumentBytes == null || result.DocumentBytes.Length == 0)
                 throw new InvalidOperationException("The invoice report produced no printable pages.");
 
-            var pages = ConvertTiffToPngPages(result.DocumentBytes);
+            var pages = ConvertTiffToPngPages(result.DocumentBytes,
+                profile.Thermal);
             return Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(pages));
         }
 
@@ -242,7 +264,8 @@ namespace ASFuelControl.Windows.Threads
             footer.Items.Add(textBox);
         }
 
-        private static IList<byte[]> ConvertTiffToPngPages(byte[] tiff)
+        private static IList<byte[]> ConvertTiffToPngPages(byte[] tiff,
+            bool thermal)
         {
             var pages = new List<byte[]>();
             using (var input = new MemoryStream(tiff))
@@ -262,11 +285,15 @@ namespace ASFuelControl.Windows.Threads
                             graphics.Clear(Color.White);
                             graphics.DrawImageUnscaled(image,0,0);
                         }
-                        using (var output = new MemoryStream())
-                        {
-                            page.Save(output,ImageFormat.Png);
-                            pages.Add(output.ToArray());
-                        }
+                        int roundedHorizontalDpi = (int)Math.Round(horizontal,
+                            MidpointRounding.AwayFromZero);
+                        int horizontalInsetPixels = thermal
+                            ? SharedInvoicePrinting.ThermalSafetyInsetPixels(
+                                roundedHorizontalDpi)
+                            : 0;
+                        byte[] pageBytes = SharedInvoicePrinting.EncodePagePng(
+                            page, horizontalInsetPixels);
+                        pages.Add(pageBytes);
                     }
                 }
             }

@@ -252,15 +252,9 @@ namespace ASFuelControl.Invoicing.Mapping
 
         private CountryInput Country(Entity source, MappingContext context)
         {
-            string code = Clean(source.Trader == null ? null : source.Trader.Country);
-            string vat = Clean(source.Trader == null ? null : source.Trader.TaxRegistrationNumber);
-            if (code == null)
-            {
-                Require(vat == null || vat.All(c => c >= '0' && c <= '9'), "A foreign VAT number requires an explicit country.");
-                code = "GR";
-            }
-            var result = builder.ResolveCountry(context.Countries, code);
-            return new CountryInput { CountryCode = result.CountryCode.Trim().ToUpperInvariant(), DisplayMember = result.DisplayMember, IsEu = result.IsEu };
+            return TraderCountryResolver.Resolve(context.Countries,
+                source.Trader == null ? null : source.Trader.Country,
+                source.Trader == null ? null : source.Trader.TaxRegistrationNumber);
         }
 
         private static InvoiceInput Identity(Entity source, MappingContext context)
@@ -272,7 +266,9 @@ namespace ASFuelControl.Invoicing.Mapping
             bool invoiceWithDelivery = IsInvoiceWithDelivery(source.InvoiceType);
             return new InvoiceInput
             {
-                InvoiceId = source.InvoiceId, TraderId = source.TraderId ?? (t == null ? Guid.Empty : t.TraderId),
+                InvoiceId = source.InvoiceId,
+                TraderId = source.TraderId ?? (t == null ? Guid.Empty : t.TraderId),
+                VehicleId = source.VehicleId,
                 Number = source.Number, Series = Clean(source.Series), PrintedDateTime = source.TransactionDate,
                 SupplyCode = Clean(source.SupplyNumber),
                 Trader = new TraderInput { TaxRegistrationId = Clean(t == null ? null : t.TaxRegistrationNumber),

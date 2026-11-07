@@ -8,6 +8,8 @@ using System.Drawing.Printing;
 using ASFuelControl.Communication.Enums;
 using System.Xml.Serialization;
 using System.Diagnostics;
+using ASFuelControl.Invoicing.Mapping;
+using Exedron.Invoicing.Core;
 
 namespace ASFuelControl.Windows.Threads
 {
@@ -641,6 +643,8 @@ namespace ASFuelControl.Windows.Threads
             try
             {
                 report.SetSupplyNumber(invoice, myDataQrCode);
+                string fiscalDeviceUrl = invoice.QRCodeData;
+                report.CompactQrCodes(fiscalDeviceUrl, myDataQrCode);
             }
             finally
             {
@@ -2658,11 +2662,13 @@ namespace ASFuelControl.Windows.Threads
                         if (relatedSale.UnitPrice <= 0)
                             throw new InvalidOperationException(
                                 "A sale-linked Samtec line requires a positive SalesTransaction retail unit price.");
-                        trans.ItemAmount = decimal.Round(relatedSale.UnitPrice,3);
+                        trans.ItemAmount = decimal.Round(relatedSale.UnitPrice,5,
+                            MidpointRounding.ToEven);
                     }
                     else if(invLine.VatPercentage == 0 && invLine.UnitPriceWhole > 0)
                     {
-                        trans.ItemAmount = decimal.Round(invLine.UnitPriceWhole,3);
+                        trans.ItemAmount = decimal.Round(invLine.UnitPriceWhole,5,
+                            MidpointRounding.ToEven);
                     }
                     else
                     {
@@ -2670,7 +2676,8 @@ namespace ASFuelControl.Windows.Threads
                         if(retail <= 0)
                             throw new InvalidOperationException(
                                 "A Samtec line requires a positive stored retail unit price; it cannot be reconstructed from UnitPriceWhole.");
-                        trans.ItemAmount = decimal.Round(retail,3);
+                        trans.ItemAmount = decimal.Round(retail,5,
+                            MidpointRounding.ToEven);
                     }
                     trans.MeasurementUnit = 3;
                     trans.SaleQty = decimal.Round(invLine.Volume, 3);
@@ -2684,22 +2691,35 @@ namespace ASFuelControl.Windows.Threads
                     else
                         trans.VatExCategory = 0;
                     trans.FeeCategory = 0;
-                    trans.SaleQty = ReconcileLegacySamtecSaleQuantity(invLine,
-                        trans.ItemAmount,trans.SaleQty,Math.Abs(trans.GrossAmount));
-                    decimal discountGross = decimal.Round(trans.ItemAmount * trans.SaleQty, 2) -
-                        Math.Abs(trans.GrossAmount);
-                    if(discountGross < 0)
-                        throw new InvalidOperationException(
-                            "A Samtec line gross total exceeds its rounded quantity and retail unit price.");
-                    if(discountGross > 0)
+                    decimal finalGross = Math.Abs(trans.GrossAmount);
+                    if (HasLegacySamtecDiscount(invLine))
                     {
-                        trans.DMType = 1;
-                        trans.DMValue = (isNegative ? -1 : 1) * discountGross;
+                        decimal originalGross = decimal.Round(trans.ItemAmount * trans.SaleQty,
+                            2,MidpointRounding.ToEven);
+                        if(finalGross > originalGross)
+                            throw new InvalidOperationException(
+                                "A discounted Samtec line cannot exceed its original VAT-inclusive unit price.");
+                        trans.ItemAmount = Exedron.Invoicing.Adapters.Samtec.SamtecFiscalSigner
+                            .EffectiveVatInclusiveItemAmount(finalGross,trans.SaleQty);
                     }
+                    else
+                        trans.SaleQty = ReconcileLegacySamtecSaleQuantity(invLine,
+                            trans.ItemAmount,trans.SaleQty,finalGross);
+                    if(decimal.Round(trans.ItemAmount * trans.SaleQty,2,
+                        MidpointRounding.ToEven) != finalGross)
+                        throw new InvalidOperationException(
+                            "A Samtec line total does not match its VAT-inclusive item amount and quantity.");
                     transactionLines.Add(trans);
                 }
             }
             req.Doc.TransactionLines = transactionLines.ToArray();
+        }
+
+        private static bool HasLegacySamtecDiscount(Data.InvoiceLine line)
+        {
+            return decimal.Round(Math.Abs(line.DiscountAmount),2,MidpointRounding.ToEven) > 0 ||
+                decimal.Round(Math.Abs(line.DiscountAmountRetail),2,MidpointRounding.ToEven) > 0 ||
+                decimal.Round(Math.Abs(line.DiscountAmountWhole),2,MidpointRounding.ToEven) > 0;
         }
 
         private static decimal ReconcileLegacySamtecSaleQuantity(Data.InvoiceLine line,
@@ -4452,6 +4472,19 @@ namespace ASFuelControl.Windows.Threads
 
     public class InvoiceHelper
     {
+        private static CountryInput ResolveTraderCountry(Data.Trader trader)
+        {
+            return TraderCountryResolver.Resolve(
+                Data.Implementation.Country.GetCountries().Select(country => new CountryInput
+                {
+                    CountryCode = country.CodeValue,
+                    DisplayMember = country.DisplayValue,
+                    IsEu = country.IsEu
+                }),
+                trader == null ? null : trader.Country,
+                trader == null ? null : trader.TaxRegistrationNumber);
+        }
+
         public static bool RecalculateInvoicePrices(Data.Invoice invoice, Data.InvoiceLine[] invoiceItems)
         {
             var disc = invoiceItems.Sum(i => i.DiscountAmount);
@@ -4582,28 +4615,10 @@ namespace ASFuelControl.Windows.Threads
             {
                 vatExemption = true;
             }
-            string country = "GR";
-            if (invoice.Trader != null && !string.IsNullOrEmpty(invoice.Trader.Country))
-            {
-                country = invoice.Trader.Country;
-            }
-            else
-            {
-                if(invoice.Trader != null && !char.IsDigit(invoice.Trader.TaxRegistrationNumber[0]))
-                {
-                    country = "";
-                }
-            }
-            bool isGreece = false;
-            bool isEu = false;
-            if (country == "GR")
-                isGreece = true;
-            else
-            {
-                //vatExemption = true;
-                isGreece = false;
-                isEu = Data.Implementation.Country.IsEuCountry(country);
-            }
+            var resolvedCountry = ResolveTraderCountry(invoice.Trader);
+            string country = resolvedCountry.CountryCode;
+            bool isGreece = string.Equals(country, "GR", StringComparison.OrdinalIgnoreCase);
+            bool isEu = !isGreece && resolvedCountry.IsEu;
 
             inv.Issuer = new Exedron.MyData.InvoiceModels.Issuer();
             inv.Issuer.Country = "GR";
@@ -4916,28 +4931,10 @@ namespace ASFuelControl.Windows.Threads
             {
                 vatExemption = true;
             }
-            string country = "GR";
-            if (invoice.Trader != null && !string.IsNullOrEmpty(invoice.Trader.Country))
-            {
-                country = invoice.Trader.Country;
-            }
-            else
-            {
-                if (invoice.Trader != null && !char.IsDigit(invoice.Trader.TaxRegistrationNumber[0]))
-                {
-                    country = "";
-                }
-            }
-            bool isGreece = false;
-            bool isEu = false;
-            if (country == "GR")
-                isGreece = true;
-            else
-            {
-                //vatExemption = true;
-                isGreece = false;
-                isEu = Data.Implementation.Country.IsEuCountry(country);
-            }
+            var resolvedCountry = ResolveTraderCountry(invoice.Trader);
+            string country = resolvedCountry.CountryCode;
+            bool isGreece = string.Equals(country, "GR", StringComparison.OrdinalIgnoreCase);
+            bool isEu = !isGreece && resolvedCountry.IsEu;
 
             inv.Issuer = new Exedron.ProviderInvoicing.Trader();
             inv.Issuer.Country = "GR";
@@ -5189,28 +5186,10 @@ namespace ASFuelControl.Windows.Threads
             bool isCanceling = invType.IsCancelation.HasValue && invType.IsCancelation.Value;
             bool isRetail = !wholeSaleCodes.Contains(invType.OfficialEnumerator);
 
-            string country = "GR";
-            if (invoice.Trader != null && !string.IsNullOrEmpty(invoice.Trader.Country))
-            {
-                country = invoice.Trader.Country;
-            }
-            else
-            {
-                if (invoice.Trader != null && !char.IsDigit(invoice.Trader.TaxRegistrationNumber[0]))
-                {
-                    country = "";
-                }
-            }
-            bool isGreece = false;
-            bool isEu = false;
-            if (country == "GR")
-                isGreece = true;
-            else
-            {
-                //vatExemption = true;
-                isGreece = false;
-                isEu = Data.Implementation.Country.IsEuCountry(country);
-            }
+            var resolvedCountry = ResolveTraderCountry(invoice.Trader);
+            string country = resolvedCountry.CountryCode;
+            bool isGreece = string.Equals(country, "GR", StringComparison.OrdinalIgnoreCase);
+            bool isEu = !isGreece && resolvedCountry.IsEu;
 
             
             bool isDelivery = ASFuelControl.Invoicing.Mapping.HostInvoiceMapper.IsDeliveryDocument(invoice.InvoiceType);

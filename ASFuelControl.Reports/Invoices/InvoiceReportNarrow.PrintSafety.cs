@@ -122,10 +122,29 @@ namespace ASFuelControl.Reports.Invoices
             // SetSupplyNumber may hide the first QR and shorten the footer before
             // the accepted myDATA/provider QR is assigned to pictureBox2.
             double requiredQrFooterHeightCm = pageFooterSection1.Height.Value;
-            if (pictureBox1.Value != null || pictureBox2.Value != null)
-                requiredQrFooterHeightCm = System.Math.Max(requiredQrFooterHeightCm,7.55D);
-            if (pictureBox3.Value != null)
-                requiredQrFooterHeightCm = System.Math.Max(requiredQrFooterHeightCm,11.50D);
+            int qrCodeCount = 0;
+            if (pictureBox1.Visible && pictureBox1.Value != null)
+            {
+                qrCodeCount++;
+            }
+            if (pictureBox2.Visible && pictureBox2.Value != null)
+            {
+                qrCodeCount++;
+            }
+            if (pictureBox3.Visible && pictureBox3.Value != null)
+            {
+                qrCodeCount++;
+            }
+            if (qrCodeCount > 0 && qrCodeCount <= 2)
+            {
+                requiredQrFooterHeightCm = System.Math.Max(
+                    requiredQrFooterHeightCm,TwoQrFooterHeightCm);
+            }
+            if (qrCodeCount > 2)
+            {
+                requiredQrFooterHeightCm = System.Math.Max(
+                    requiredQrFooterHeightCm,ThreeQrFooterHeightCm);
+            }
             if (requiredQrFooterHeightCm > pageFooterSection1.Height.Value)
                 pageFooterSection1.Height = Telerik.Reporting.Drawing.Unit.Cm(requiredQrFooterHeightCm);
 

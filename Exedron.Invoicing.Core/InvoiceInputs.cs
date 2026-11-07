@@ -25,6 +25,7 @@ namespace Exedron.Invoicing.Core
     {
         public Guid InvoiceId { get; set; }
         public Guid TraderId { get; set; }
+        public Guid? VehicleId { get; set; }
         public InvoiceSeriesInput InvoiceSeries { get; set; }
         public TraderInput Trader { get; set; }
         public int Number { get; set; }

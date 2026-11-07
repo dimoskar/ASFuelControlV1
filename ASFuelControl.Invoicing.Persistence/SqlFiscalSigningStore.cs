@@ -18,6 +18,34 @@ namespace ASFuelControl.Invoicing.Persistence
         { return database.Load(lease, "Signing").Select(e => Restore(lease.Document, e)).ToArray(); }
         public IReadOnlyList<FiscalSigningAttempt> LoadHistory(IFiscalDocumentLease lease, Guid attemptId)
         { return database.Load(lease, "Signing", attemptId, true).Select(e => Restore(lease.Document, e)).ToArray(); }
+        public IReadOnlyList<Guid> LoadDeferredSamtecInvoiceRetries(DateTime dueBeforeUtc,
+            int maximumCount)
+        {
+            if (dueBeforeUtc.Kind != DateTimeKind.Utc)
+                throw new ArgumentException("Deferred retry cutoff must be UTC.",nameof(dueBeforeUtc));
+            if (maximumCount < 1 || maximumCount > 1000)
+                throw new ArgumentOutOfRangeException(nameof(maximumCount));
+            var result = new List<Guid>();
+            using (var connection = database.Open())
+            using (var command = SqlFiscalDatabase.Command(connection,null,
+                SqlStatements.ReadDeferredSamtecInvoiceRetries,
+                "@maximum",maximumCount,"@due",dueBeforeUtc,
+                "@diagnostic","%\"ResultDiagnostic\":\"Automatic signing retries were exhausted%"))
+            using (var reader = command.ExecuteReader())
+                while (reader.Read()) result.Add(reader.GetGuid(0));
+            return result;
+        }
+        public int CountDeferredSamtecInvoiceRetries(DateTime dueBeforeUtc)
+        {
+            if (dueBeforeUtc.Kind != DateTimeKind.Utc)
+                throw new ArgumentException("Deferred retry cutoff must be UTC.",nameof(dueBeforeUtc));
+            using (var connection = database.Open())
+            using (var command = SqlFiscalDatabase.Command(connection,null,
+                SqlStatements.CountDeferredSamtecInvoiceRetries,
+                "@due",dueBeforeUtc,
+                "@diagnostic","%\"ResultDiagnostic\":\"Automatic signing retries were exhausted%"))
+                return Convert.ToInt32(command.ExecuteScalar());
+        }
         public FiscalSigningAttempt Begin(IFiscalDocumentLease lease, FiscalSigningRequest request, DateTime createdUtc)
         {
             ValidateDocument(lease, request);

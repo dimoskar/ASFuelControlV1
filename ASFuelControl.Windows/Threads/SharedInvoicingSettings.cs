@@ -53,6 +53,16 @@ namespace ASFuelControl.Windows.Threads
         {
             if (value == null) return null;
             value.EnsureWholesaleCodes();
+            value.Mapping.Countries = Data.Implementation.Country.GetCountries()
+                .Select(country => new CountryInput
+                {
+                    CountryCode = country.CodeValue,
+                    DisplayMember = country.DisplayValue,
+                    IsEu = country.IsEu
+                })
+                .ToArray();
+            if (!value.Mapping.Countries.Any())
+                throw new InvalidOperationException("Δεν έχουν ρυθμιστεί χώρες στην εφαρμογή.");
             ApplySamtecApplicationOptions(value);
             if (value.DefaultPrinter == null) value.DefaultPrinter = new SharedPrinterProfile();
             short optionCopies = GetLaserCopiesOption();

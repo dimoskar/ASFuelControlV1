@@ -20,6 +20,7 @@
     <Compile Include="InvoiceIssuanceService.cs" />
     <Compile Include="InvoiceProviderRegistry.cs" />
     <Compile Include="InvoicingService.cs" />
+    <Compile Include="ITimologiaCommunicationTokenManager.cs" />
     <Compile Include="ITimologiaInvoiceProvider.cs" />
     <Compile Include="LoggedHttpClient.cs" />
     <Compile Include="MyDataClient.cs" />

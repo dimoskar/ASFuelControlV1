@@ -19,7 +19,8 @@ namespace ASFuelControl.Windows.UI.SettingForms
         private RadCheckBox sharedDeviceEnabled, sharedBalances, sharedFillings;
         private RadTextBox sharedDeviceEndpoint, sharedDeviceTerminalId;
         private RadDropDownList sharedPrinterName, sharedThermalPrinterName, sharedNonThermalPaperSize;
-        private RadSpinEditor sharedPaperWidth, sharedPaperHeight, sharedCopies, sharedFontSize;
+        private RadSpinEditor sharedPaperWidth, sharedPaperHeight, sharedCopies,
+            sharedFontSize, sharedThermalDpi;
         private RadCheckBox sharedPrintBalances, sharedPrintAlerts, sharedPrintOtherReports;
 
         private void InitializeSharedPrinter()
@@ -56,7 +57,7 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 RowCount = 3, AutoScroll = true, Margin = new Padding(0), Padding = new Padding(0) };
             printingLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
             printingLayout.RowStyles.Add(new RowStyle(SizeType.Absolute,135));
-            printingLayout.RowStyles.Add(new RowStyle(SizeType.Absolute,205));
+            printingLayout.RowStyles.Add(new RowStyle(SizeType.Absolute,230));
             printingLayout.RowStyles.Add(new RowStyle(SizeType.Absolute,175));
             printing.Controls.Add(printingLayout);
 
@@ -77,6 +78,9 @@ namespace ASFuelControl.Windows.UI.SettingForms
             thermalFields.Row("Εφεδρικός εκτυπωτής",sharedThermalPrinterName);
             sharedPaperWidth = thermalFields.Row("Πλάτος χαρτιού (mm)",Millimetres(p.WidthHundredths,200,1200));
             sharedPaperHeight = thermalFields.Row("Μήκος χαρτιού (mm)",Millimetres(p.HeightHundredths,400,2000));
+            RadSpinEditor thermalDpiEditor = Number(p.ThermalDpi, 100, 600);
+            sharedThermalDpi = thermalFields.Row("Ανάλυση θερμικού (DPI)",
+                thermalDpiEditor);
             sharedFontSize = thermalFields.Row("Μέγεθος γραμμάτων",Number((decimal)p.FontSize,6,20));
             thermalFields.Note("Πώληση αντλίας: εκτυπωτής αντλίας → εφεδρικός θερμικός → προεπιλεγμένος Windows.\r\n" +
                 "Άλλο θερμικό: εκτυπωτής τύπου → εφεδρικός θερμικός → προεπιλεγμένος Windows.");
@@ -154,7 +158,10 @@ namespace ASFuelControl.Windows.UI.SettingForms
                 var value = JsonConvert.DeserializeObject<SharedInvoiceConfiguration>(JsonConvert.SerializeObject(sharedPrinterConfiguration));
                 value.DefaultPrinter = new SharedPrinterProfile { PrinterName = SelectedPrinter(sharedPrinterName),
                     ThermalPrinterName = SelectedPrinter(sharedThermalPrinterName), WidthHundredths = ToHundredthsOfInch(sharedPaperWidth.Value),
-                    HeightHundredths = ToHundredthsOfInch(sharedPaperHeight.Value), Copies = 1, LaserCopies = (short)sharedCopies.Value, FontSize = (float)sharedFontSize.Value,
+                    HeightHundredths = ToHundredthsOfInch(sharedPaperHeight.Value),
+                    ThermalDpi = (int)sharedThermalDpi.Value, Copies = 1,
+                    LaserCopies = (short)sharedCopies.Value,
+                    FontSize = (float)sharedFontSize.Value,
                     NonThermalPaperSize = sharedNonThermalPaperSize.SelectedIndex == 1 ? "A5" : "A4" };
                 SharedInvoicePrinting.CheckProfile(value.DefaultPrinter);
                 if (sharedPrintBalances.IsChecked)

@@ -49,6 +49,26 @@ internal static partial class Program
             Equal(0, state.Renews);
         });
 
+        Test("iTimologia migrates the supplied ASSalesManager legacy token key", () => {
+            var cache = new MemoryCommunicationTokenCache();
+            var state = new TokenHttpState();
+            using (var provider = Provider(cache, state))
+            {
+                string suffix = provider.TokenCacheVariableName.Substring(
+                    ITimologiaCommunicationTokenManager.SharedCachePrefix.Length);
+                cache.Save(
+                    ITimologiaCommunicationTokenManager.LegacyCachePrefix + suffix,
+                    JsonConvert.SerializeObject(new {
+                        connectionToken = "synthetic-legacy-value",
+                        expiresAt = new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero)
+                    }));
+                provider.LookupInvoice(Guid.NewGuid());
+                Equal(true, cache.Load(provider.TokenCacheVariableName).Contains("synthetic-legacy-value"));
+            }
+            Equal(0, state.Creates);
+            Equal(0, state.Renews);
+        });
+
         Test("Concurrent iTimologia provider instances perform at most one token renewal", () => {
             var cache = new MemoryCommunicationTokenCache();
             var state = new TokenHttpState { DelayRenewal = true };
@@ -82,6 +102,36 @@ internal static partial class Program
             }
             Equal(1, state.Creates);
             Equal(0, state.Renews);
+        });
+
+        Test("iTimologia renewal HTTP 401 never creates a replacement token", () => {
+            var cache = new MemoryCommunicationTokenCache();
+            var state = new TokenHttpState { RenewStatus = HttpStatusCode.Unauthorized };
+            using (var provider = Provider(cache, state))
+            {
+                cache.Save(provider.TokenCacheVariableName, JsonConvert.SerializeObject(new {
+                    connectionToken = "synthetic-expired-value",
+                    expiresAt = DateTimeOffset.UtcNow.AddMinutes(-1)
+                }));
+                provider.LookupInvoice(Guid.NewGuid());
+            }
+            Equal(0, state.Creates);
+            Equal(1, state.Renews);
+        });
+
+        Test("iTimologia renewal HTTP 403 creates one replacement token", () => {
+            var cache = new MemoryCommunicationTokenCache();
+            var state = new TokenHttpState { RenewStatus = HttpStatusCode.Forbidden };
+            using (var provider = Provider(cache, state))
+            {
+                cache.Save(provider.TokenCacheVariableName, JsonConvert.SerializeObject(new {
+                    connectionToken = "synthetic-expired-value",
+                    expiresAt = DateTimeOffset.UtcNow.AddMinutes(-1)
+                }));
+                provider.LookupInvoice(Guid.NewGuid());
+            }
+            Equal(1, state.Creates);
+            Equal(1, state.Renews);
         });
     }
 
@@ -142,6 +192,7 @@ internal static partial class Program
         public int Creates;
         public int Renews;
         public bool DelayRenewal;
+        public HttpStatusCode? RenewStatus;
     }
 
     private sealed class TokenHttpHandler : HttpMessageHandler
@@ -167,6 +218,10 @@ internal static partial class Program
             {
                 Interlocked.Increment(ref state.Renews);
                 if (state.DelayRenewal) Thread.Sleep(100);
+                if (state.RenewStatus.HasValue)
+                    return Task.FromResult(new HttpResponseMessage(state.RenewStatus.Value) {
+                        Content = new StringContent("{}")
+                    });
                 return Task.FromResult(TokenResponse());
             }
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound) {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Printing;
 using System.IO;
@@ -31,6 +32,10 @@ namespace ASFuelControl.Windows.Threads
         // separate installation value so laser copies do not affect thermal jobs.
         public short LaserCopies { get; set; }
         public float FontSize { get; set; } = 8;
+        // Thermal pages are frozen at the target device resolution. Most POS
+        // printers use 203 DPI; installations with a 300-DPI device may override
+        // this value in the printer settings before the fiscal page is created.
+        public int ThermalDpi { get; set; } = 203;
 
         internal static short NormalizeLaserCopies(int copies)
         {
@@ -39,7 +44,8 @@ namespace ASFuelControl.Windows.Threads
     }
     internal sealed class SharedInvoicePrinting : IFiscalPrintTransport
     {
-        internal const string Format = "invoice-png-pages/v1";
+        internal const string LegacyFormat = "invoice-png-pages/v1";
+        internal const string Format = "invoice-png-pages/v2";
         internal const int ThermalContentMarginPixels = 24; // 4.064 mm at 150 dpi
         internal const string MissingPrinterMessage = "Δεν βρέθηκε εκτυπωτής για την έκδοση. Ορίστε έναν εγκατεστημένο εκτυπωτή ως προεπιλεγμένο στην εγκατάσταση ή στα Windows.";
         private readonly Func<SharedPrinterProfile> installationDefault;
@@ -109,12 +115,16 @@ namespace ASFuelControl.Windows.Threads
             if (reportRenderer != null)
                 return reportRenderer(snapshot,response,profile);
             var text = Encoding.UTF8.GetString(snapshot.PrintContent) + "\r\n" + Footer(snapshot,response);
-            const int dpi = 150;
+            int dpi = profile.Thermal ? profile.ThermalDpi : 150;
             int pageWidth, pageHeight;
             bool landscape;
             PageGeometry(profile,out pageWidth,out pageHeight,out landscape);
             int width = (landscape ? pageHeight : pageWidth) * dpi / 100;
             int height = (landscape ? pageWidth : pageHeight) * dpi / 100;
+            int contentMarginPixels = profile.Thermal
+                ? (int)Math.Round(ThermalContentMarginPixels * dpi / 150D,
+                    MidpointRounding.AwayFromZero)
+                : ThermalContentMarginPixels;
             var pages = new List<byte[]>();
             bool qrCodesPrinted = false;
             using (var font = new Font("Consolas", profile.FontSize))
@@ -132,20 +142,28 @@ namespace ASFuelControl.Windows.Threads
                         {
                             graphics.Clear(Color.White);
                             int chars, lines;
-                            var area = new RectangleF(ThermalContentMarginPixels,ThermalContentMarginPixels,
-                                width - ThermalContentMarginPixels * 2,height - ThermalContentMarginPixels * 2);
+                            var area = new RectangleF(contentMarginPixels,
+                                contentMarginPixels,
+                                width - contentMarginPixels * 2,
+                                height - contentMarginPixels * 2);
                             graphics.MeasureString(text, font, area.Size, format, out chars, out lines);
                             if (chars <= 0) throw new InvalidOperationException("The invoice cannot fit the configured paper.");
                             graphics.DrawString(text.Substring(0, chars), font, Brushes.Black, area, format);
                             text = text.Substring(chars);
                             if (text.Length == 0 && (fiscalQrImage != null || companyQrImage != null))
                             {
-                                int top = ThermalContentMarginPixels * 2 + (int)Math.Ceiling(font.GetHeight(graphics) * lines);
+                                int top = contentMarginPixels * 2 +
+                                    (int)Math.Ceiling(font.GetHeight(graphics) * lines);
                                 qrCodesPrinted = DrawQrCodes(graphics,fiscalQrImage,companyQrImage,width,height,top,font,
-                                    ThermalContentMarginPixels) >= 0;
+                                    contentMarginPixels) >= 0;
                             }
                         }
-                        using (var output = new MemoryStream()) { page.Save(output, ImageFormat.Png); pages.Add(output.ToArray()); }
+                        int horizontalInsetPixels = profile.Thermal
+                            ? ThermalSafetyInsetPixels(dpi)
+                            : 0;
+                        byte[] pageBytes = EncodePagePng(page,
+                            horizontalInsetPixels);
+                        pages.Add(pageBytes);
                     }
                 }
                 if ((fiscalQrImage != null || companyQrImage != null) && !qrCodesPrinted)
@@ -157,13 +175,21 @@ namespace ASFuelControl.Windows.Threads
                         {
                             graphics.Clear(Color.White);
                             int bottom = DrawQrCodes(graphics,fiscalQrImage,companyQrImage,width,height,
-                                ThermalContentMarginPixels,font,ThermalContentMarginPixels);
+                                contentMarginPixels,font,contentMarginPixels);
                             if (bottom < 0) throw new InvalidOperationException("The QR codes cannot fit the configured paper.");
                             graphics.DrawString("Invoice: " + snapshot.InvoiceId + "\r\nMARK: " + response?.Mark + "\r\n" + response?.QrCodeUrl,
-                                font, Brushes.Black, new RectangleF(ThermalContentMarginPixels,bottom + ThermalContentMarginPixels,
-                                    width - ThermalContentMarginPixels * 2,height - bottom - ThermalContentMarginPixels * 2));
+                                font, Brushes.Black, new RectangleF(
+                                    contentMarginPixels,
+                                    bottom + contentMarginPixels,
+                                    width - contentMarginPixels * 2,
+                                    height - bottom - contentMarginPixels * 2));
                         }
-                        using (var output = new MemoryStream()) { page.Save(output, ImageFormat.Png); pages.Add(output.ToArray()); }
+                        int horizontalInsetPixels = profile.Thermal
+                            ? ThermalSafetyInsetPixels(dpi)
+                            : 0;
+                        byte[] pageBytes = EncodePagePng(page,
+                            horizontalInsetPixels);
+                        pages.Add(pageBytes);
                     }
                 }
             }
@@ -205,9 +231,76 @@ namespace ASFuelControl.Windows.Threads
         {
             if (p == null || p.Copies < 1 || p.Copies > 10 ||
                 p.WidthHundredths < 200 || p.WidthHundredths > 1200 || p.HeightHundredths < 400 || p.HeightHundredths > 2000 ||
-                p.FontSize < 6 || p.FontSize > 20) throw new InvalidOperationException("Ελέγξτε τις ρυθμίσεις χαρτιού, αντιγράφων και μεγέθους γραμμάτων.");
+                p.FontSize < 6 || p.FontSize > 20 || p.ThermalDpi < 100 ||
+                p.ThermalDpi > 600)
+            {
+                throw new InvalidOperationException(
+                    "Ελέγξτε τις ρυθμίσεις χαρτιού, αντιγράφων, ανάλυσης και μεγέθους γραμμάτων.");
+            }
             if (!p.Thermal && p.NonThermalPaperSize != "A4" && p.NonThermalPaperSize != "A5")
                 throw new InvalidOperationException("Επιλέξτε μέγεθος χαρτιού Laser A4 ή A5.");
+        }
+
+        internal static byte[] EncodePagePng(Bitmap source,
+            int horizontalInsetPixels)
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException("source");
+            }
+
+            using (var output = new MemoryStream())
+            using (var preparedPage = PrepareThermalPage(source,
+                horizontalInsetPixels))
+            {
+                preparedPage.Save(output, ImageFormat.Png);
+                return output.ToArray();
+            }
+        }
+
+        internal static int ThermalSafetyInsetPixels(int dpi)
+        {
+            const float insetInches = 0.08F;
+            float inset = dpi * insetInches;
+            return (int)Math.Round(inset, MidpointRounding.AwayFromZero);
+        }
+
+        private static Bitmap PrepareThermalPage(Bitmap source,
+            int horizontalInsetPixels)
+        {
+            if (horizontalInsetPixels <= 0)
+            {
+                var sourceBounds = new Rectangle(0, 0, source.Width,
+                    source.Height);
+                return source.Clone(sourceBounds,
+                    PixelFormat.Format24bppRgb);
+            }
+
+            int availableWidth = source.Width - horizontalInsetPixels * 2;
+            if (availableWidth <= 0)
+            {
+                throw new InvalidOperationException(
+                    "The configured thermal safety inset leaves no printable width.");
+            }
+
+            var prepared = new Bitmap(source.Width, source.Height,
+                PixelFormat.Format24bppRgb);
+            prepared.SetResolution(source.HorizontalResolution,
+                source.VerticalResolution);
+            using (var graphics = Graphics.FromImage(prepared))
+            {
+                graphics.Clear(Color.White);
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                var destination = new Rectangle(horizontalInsetPixels, 0,
+                    availableWidth, source.Height);
+                var sourceBounds = new Rectangle(0, 0, source.Width,
+                    source.Height);
+                graphics.DrawImage(source, destination, sourceBounds,
+                    GraphicsUnit.Pixel);
+            }
+
+            return prepared;
         }
         internal static void PageGeometry(SharedPrinterProfile profile, out int width, out int height, out bool landscape)
         {
@@ -280,7 +373,11 @@ namespace ASFuelControl.Windows.Threads
         }
         public void Validate(string destination, string format, byte[] document)
         {
-            if (format != Format) throw new InvalidOperationException("Unsupported saved print format.");
+            bool supportedFormat = format == Format || format == LegacyFormat;
+            if (!supportedFormat)
+            {
+                throw new InvalidOperationException("Unsupported saved print format.");
+            }
             var p = ResolveProfile(JsonConvert.DeserializeObject<SharedPrinterProfile>(destination),installationDefault());
             var printer = new PrinterSettings { PrinterName = p.PrinterName };
             if (!printer.IsValid) throw new InvalidOperationException(MissingPrinterMessage);
@@ -318,17 +415,57 @@ namespace ASFuelControl.Windows.Threads
                     using (var stream = new MemoryStream(pages[index++]))
                     using (var image = Image.FromStream(stream))
                     {
-                        // Account for the physical printer's non-printable margins.
                         var reportedArea = args.PageSettings.PrintableArea;
-                        var area = ApplyThermalSafetyInset(
-                            NormalizePrintableArea(reportedArea,image.Width,image.Height),p.Thermal);
+                        var area = NormalizePrintableArea(reportedArea,
+                            image.Width, image.Height);
                         bool swapped = area.Width == reportedArea.Height && area.Height == reportedArea.Width &&
                             (reportedArea.Width != reportedArea.Height);
                         float hardMarginX = swapped ? args.PageSettings.HardMarginY : args.PageSettings.HardMarginX;
                         float hardMarginY = swapped ? args.PageSettings.HardMarginX : args.PageSettings.HardMarginY;
                         args.Graphics.TranslateTransform(-hardMarginX,-hardMarginY);
-                        float scale = Math.Min(area.Width / image.Width, area.Height / image.Height);
-                        args.Graphics.DrawImage(image, area.X, area.Y, image.Width * scale, image.Height * scale);
+                        bool nativeThermalPage = p.Thermal && format == Format;
+                        if (nativeThermalPage)
+                        {
+                            // The report already contains its safe hardware margins.
+                            // Draw the frozen page at the physical size for which it
+                            // was rendered; another fit-to-width pass softens text and
+                            // applies the margin twice.
+                            args.Graphics.InterpolationMode =
+                                InterpolationMode.NearestNeighbor;
+                            args.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
+                            float horizontalResolution =
+                                image.HorizontalResolution > 0F
+                                    ? image.HorizontalResolution
+                                    : p.ThermalDpi;
+                            float verticalResolution =
+                                image.VerticalResolution > 0F
+                                    ? image.VerticalResolution
+                                    : p.ThermalDpi;
+                            float physicalWidth = image.Width * 100F /
+                                horizontalResolution;
+                            float physicalHeight = image.Height * 100F /
+                                verticalResolution;
+                            var thermalPageBounds = new RectangleF(0F, 0F,
+                                physicalWidth, physicalHeight);
+                            var source = new RectangleF(0F, 0F, image.Width,
+                                image.Height);
+                            args.Graphics.DrawImage(image, thermalPageBounds, source,
+                                GraphicsUnit.Pixel);
+                        }
+                        else
+                        {
+                            if (p.Thermal)
+                            {
+                                area = ApplyThermalSafetyInset(area, true);
+                            }
+                            float horizontalScale = area.Width / image.Width;
+                            float verticalScale = area.Height / image.Height;
+                            float scale = Math.Min(horizontalScale, verticalScale);
+                            float renderedWidth = image.Width * scale;
+                            float renderedHeight = image.Height * scale;
+                            args.Graphics.DrawImage(image, area.X, area.Y,
+                                renderedWidth, renderedHeight);
+                        }
                     }
                     args.HasMorePages = index < pages.Length;
                 };

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -212,6 +213,123 @@ internal static partial class Program
             Equal("Rejected",result.FiscalState); Check(result.Response.Errors.Any(e => e.Contains("Synthetic invoice validation failed")),"rejection details discarded");
             Equal(1,http.Posts); Equal(0,printer.Calls); Equal("Rejected",Latest(id).State);
         });
+        Test("definitive provider rejection starts a new attempt with regenerated fiscal identity", () =>
+        {
+            var source = new Source();
+            Guid invoiceId = source.Id;
+            ProviderRoute route = Route(InvoiceProviderCatalog.ITimologiaKey);
+            var http = new Http(invoiceId, InvoiceProviderCatalog.ITimologiaKey)
+            {
+                InvoicePost = body => Reply(
+                    "{\"errors\":[{\"message\":\"Synthetic validation rejection\"}]}",
+                    422)
+            };
+            ProviderSubmissionService service = Service(http);
+            ProviderSubmissionResult rejected = service.Send(invoiceId, route,
+                source);
+            Equal("Rejected", rejected.State);
+
+            source.Invoice.Number += 1;
+            http.InvoicePost = body =>
+            {
+                string responseJson = TimReply(invoiceId);
+                HttpResponseMessage response = Reply(responseJson);
+                return response;
+            };
+            ProviderSubmissionResult accepted = service.Send(invoiceId, route,
+                source, true);
+            Check(accepted.Accepted,
+                "the regenerated attempt after a definitive rejection was blocked");
+            Equal(2, http.Posts);
+            FiscalAttemptEvidence[] attempts = History(invoiceId);
+            Equal(2, attempts.Length);
+        });
+        Test("composed workflow replaces a definitively rejected invoice snapshot", () =>
+        {
+            var source = new WorkflowSource();
+            Guid invoiceId = source.Source.Id;
+            ProviderRoute route = Route(InvoiceProviderCatalog.ITimologiaKey);
+            InvoiceBuildRequest originalRequest = source.Source.Prepare(invoiceId,
+                route);
+            source.Snapshot = new InvoiceWorkflowSnapshot
+            {
+                InvoiceId = invoiceId,
+                Provider = route,
+                Invoice = originalRequest,
+                PrintDestination = "unused",
+                PrintFormat = "test/v1",
+                PrintContent = Encoding.UTF8.GetBytes("rejected invoice")
+            };
+            var http = new Http(invoiceId, InvoiceProviderCatalog.ITimologiaKey)
+            {
+                InvoicePost = body => Reply(
+                    "{\"errors\":[{\"message\":\"Synthetic validation rejection\"}]}",
+                    422)
+            };
+            var printer = new Printer();
+            InvoiceWorkflowService workflow = Workflow(http, printer);
+            InvoiceWorkflowResult rejected = workflow.Process(invoiceId, source,
+                false);
+            Equal("Rejected", rejected.FiscalState);
+
+            source.Snapshot.Invoice.Invoice.Number += 1;
+            source.Snapshot.PrintContent = Encoding.UTF8.GetBytes(
+                "regenerated invoice");
+            http.InvoicePost = body =>
+            {
+                string responseJson = TimReply(invoiceId);
+                HttpResponseMessage response = Reply(responseJson);
+                return response;
+            };
+            InvoiceWorkflowResult accepted = workflow.Process(invoiceId, source,
+                false, retryRejected: true);
+            Check(accepted.Accepted,
+                "the composed workflow retained the definitively rejected snapshot");
+
+            using (var lease = database.EnterInvoice(invoiceId))
+            {
+                var store = new SqlInvoiceWorkflowStore(database);
+                byte[] savedBytes = store.Load(lease);
+                string savedJson = Encoding.UTF8.GetString(savedBytes);
+                var saved = JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(
+                    savedJson);
+                Equal(43, saved.Invoice.Invoice.Number);
+                string printContent = Encoding.UTF8.GetString(saved.PrintContent);
+                Equal("regenerated invoice", printContent);
+            }
+        });
+        Test("audited issue-date reissue may replace a definitively rejected provider identity", () => {
+            var source=new WorkflowSource();var id=source.Source.Id;var route=Route("iTimologia");
+            source.Snapshot=new InvoiceWorkflowSnapshot { InvoiceId=id,Provider=route,
+                Invoice=source.Source.Prepare(id,route),PrintDestination="unused",PrintFormat="test/v1",
+                PrintContent=Encoding.UTF8.GetBytes("old invoice") };
+            var http=new Http(id,"iTimologia") { InvoicePost=body=>Reply(
+                "{\"message\":\"IssueDate is invalid, it must be equal with current date\"}",452) };
+            var workflow=Workflow(http,new Printer());
+            Equal("Rejected",workflow.Process(id,source,false).FiscalState);
+            Check(ProviderSubmissionService.IsIssueDateMismatchRejection(Latest(id)),
+                "provider-neutral current issue-date rejection was not recognized");
+            byte[] original,replacement;
+            using(var lease=database.EnterInvoice(id))
+            {
+                var store=new SqlInvoiceWorkflowStore(database);original=store.Load(lease);
+                var snapshot=JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(Encoding.UTF8.GetString(original));
+                var old=snapshot.Invoice.Invoice;var oldModel=new InvoiceBuilder(new InvoiceTypeResolver()).Build(snapshot.Invoice);
+                var oldNumber=old.Number;var oldDate=old.PrintedDateTime;
+                old.Number++;old.PrintedDateTime=oldDate.AddDays(1);
+                snapshot.PrintContent=Encoding.UTF8.GetBytes("new invoice");
+                snapshot.IssueDateReissues=new System.Collections.Generic.List<InvoiceIssueDateReissue> {
+                    new InvoiceIssueDateReissue { PreviousNumber=oldNumber,PreviousSeries=old.Series,
+                        PreviousIssueDate=oldDate,Number=old.Number,Series=old.Series,
+                        IssueDate=old.PrintedDateTime,InvoiceType=oldModel.InvoiceHeader.InvoiceType,
+                        ChangedBy="test",ChangedUtc=DateTime.UtcNow,Reason="date mismatch" } };
+                replacement=Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(snapshot));
+                store.ReplaceAfterIssueDateReissue(lease,original,replacement);
+            }
+            http.InvoicePost=body=>Reply(TimReply(id));
+            Check(workflow.Process(id,null,false,retryRejected:true).Accepted,"reissued identity was not accepted");
+            Equal(2,http.Posts);
+        });
         Test("POS approval and invoice acceptance survive printer failure without a new charge", () => {
             var source = new WorkflowSource(); source.Source.Invoice.PaymentType = 2;
             using(var lease = database.EnterInvoice(source.Source.Id)) source.Prepare(lease);
@@ -331,7 +449,7 @@ internal static partial class Program
                 PrintContent = Encoding.UTF8.GetBytes("ΔΟΚΙΜΑΣΤΙΚΟ ΠΡΑΤΗΡΙΟ\r\nΑΦΜ: 000000000\r\nΤΙΜΟΛΟΓΙΟ TEST 42\r\nΗμερ/νία: 15/10/2026 10:30\r\nΠΕΛΑΤΗΣ: Συνθετικός πελάτης\r\nΠετρέλαιο θέρμανσης\r\nΠοσότητα: 50,000 Λίτρα\r\nΚαθαρή αξία: 100,00\r\nΦΠΑ 24%: 24,00\r\nΣΥΝΟΛΟ: 124,00 EUR") };
             var bytes = ASFuelControl.Windows.Threads.SharedInvoicePrinting.Render(snapshot,new Exedron.Invoicing.Core.Models.InvoiceResponse { Mark = "900010",Uid = "TEST-UID",QrCodeUrl = "https://example.invalid/invoice/42" });
             var pages = JsonConvert.DeserializeObject<byte[][]>(Encoding.UTF8.GetString(bytes)); Equal(1,pages.Length);
-            using(var stream = new System.IO.MemoryStream(pages[0])) using(var image = System.Drawing.Image.FromStream(stream)) { Equal(472,image.Width); Equal(1650,image.Height); }
+            using(var stream = new System.IO.MemoryStream(pages[0])) using(var image = System.Drawing.Image.FromStream(stream)) { Equal(639,image.Width); Equal(2233,image.Height); }
             System.IO.File.WriteAllBytes(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"render-preview.png"),pages[0]);
         });
         Test("thermal invoices print the optional company QR beside the fiscal QR", () => {
@@ -439,6 +557,38 @@ internal static partial class Program
             Equal(315,paper.Width);
             Equal(1100,paper.Height);
         });
+        Test("thermal page encoding retains RGB and the configured DPI", () => {
+            byte[] encodedPage;
+            using (var bitmap = new System.Drawing.Bitmap(640,480,
+                System.Drawing.Imaging.PixelFormat.Format24bppRgb))
+            {
+                bitmap.SetResolution(203,203);
+                using (var graphics = System.Drawing.Graphics.FromImage(bitmap))
+                using (var font = new System.Drawing.Font("Tahoma",12))
+                {
+                    graphics.Clear(System.Drawing.Color.White);
+                    graphics.DrawString("ΔΟΚΙΜΗ ΘΕΡΜΙΚΗΣ ΕΚΤΥΠΩΣΗΣ",
+                        font,System.Drawing.Brushes.Black,20,20);
+                    graphics.FillRectangle(System.Drawing.Brushes.Black,
+                        20,80,300,300);
+                }
+                int insetPixels = SharedInvoicePrinting
+                    .ThermalSafetyInsetPixels(203);
+                Equal(16,insetPixels);
+                encodedPage = SharedInvoicePrinting.EncodePagePng(bitmap,
+                    insetPixels);
+            }
+            using (var stream = new System.IO.MemoryStream(encodedPage))
+            using (var image = new System.Drawing.Bitmap(stream))
+            {
+                Equal(System.Drawing.Imaging.PixelFormat.Format24bppRgb,
+                    image.PixelFormat);
+                float dpiDifference = Math.Abs(203f -
+                    image.HorizontalResolution);
+                Check(dpiDifference < 0.1f,
+                    "The RGB PNG did not preserve the thermal DPI.");
+            }
+        });
         Test("issuance, acceptance projection and independent print handoff", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer();
             int projections = 0; var workflow = Workflow(http,printer,(id,r) => { projections++; Check(r.Accepted,"projected unaccepted result"); if (r.Print == null) Equal(0,printer.Calls); });
@@ -528,9 +678,153 @@ internal static partial class Program
             try { Throws(() => Workflow(http,printer).Process(source.Source.Id,source)); Equal(0,http.Calls); Equal(0,printer.Calls); }
             finally { Execute(connection,"DROP TRIGGER RejectSnapshot;"); }
         });
-        Test("unknown submission never prints or sends again", () => {
-            var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey) { InvoicePost = b => { throw new System.Net.Http.HttpRequestException("timeout"); } }; var printer = new Printer(); var workflow = Workflow(http,printer);
-            Check(!workflow.Process(source.Source.Id,source).Accepted,"unknown accepted"); workflow.Process(source.Source.Id,null); Equal(1,http.Posts); Equal(0,printer.Calls); Equal(1,source.Loads);
+        Test("unknown submission requires operator confirmation before resend", () =>
+        {
+            var source = new WorkflowSource();
+            Guid invoiceId = source.Source.Id;
+            var http = new Http(invoiceId, InvoiceProviderCatalog.MyDataKey)
+            {
+                InvoicePost = body =>
+                {
+                    throw new System.Net.Http.HttpRequestException("timeout");
+                }
+            };
+            var printer = new Printer();
+            InvoiceWorkflowService workflow = Workflow(http, printer);
+            InvoiceWorkflowResult unknown = workflow.Process(invoiceId, source);
+            Check(!unknown.Accepted, "unknown accepted");
+
+            InvoiceWorkflowResult recovered = workflow.Process(invoiceId, null);
+            Equal("Unknown", recovered.FiscalState);
+            Equal(1, http.Posts);
+            Equal(0, printer.Calls);
+            Equal(1, source.Loads);
+
+            ProviderSubmissionService service = Service(http);
+            ProviderResendAssessment assessment = service.GetResendAssessment(invoiceId);
+            Check(assessment.CanResend && assessment.RequiresAuthorization,
+                "the unknown provider result did not offer an explicit resend");
+            service.AuthorizeResend(invoiceId, "synthetic-operator",
+                "confirmed duplicate risk");
+            http.InvoicePost = body => Reply(MyDataReply);
+            InvoiceWorkflowResult accepted = workflow.Process(invoiceId, null, false,
+                retryRejected: true);
+            Check(accepted.Accepted,
+                "the operator-authorized resend did not complete");
+            Equal(2, http.Posts);
+            Equal(0, printer.Calls);
+        });
+        Test("operator-authorized unknown submission may change receiver", () =>
+        {
+            var source = new WorkflowSource();
+            Guid invoiceId = source.Source.Id;
+            ProviderRoute originalRoute = Route(InvoiceProviderCatalog.ITimologiaKey);
+            using (var lease = database.EnterInvoice(invoiceId))
+            {
+                source.Prepare(lease);
+            }
+            source.Snapshot.Provider = originalRoute;
+            source.Snapshot.Invoice = source.Source.Prepare(invoiceId, originalRoute);
+            var http = new Http(invoiceId, InvoiceProviderCatalog.ITimologiaKey)
+            {
+                InvoicePost = body =>
+                {
+                    throw new HttpRequestException("timeout");
+                }
+            };
+            http.Lookup = () => Reply("{}", 404);
+            var printer = new Printer();
+            InvoiceWorkflowService workflow = Workflow(http, printer);
+            InvoiceWorkflowResult unknown = workflow.Process(invoiceId, source,
+                false);
+            Equal("Unknown", unknown.FiscalState);
+
+            ProviderSubmissionService service = Service(http);
+            service.AuthorizeResend(invoiceId, "synthetic-operator",
+                "change receiver after unknown outcome");
+            ProviderRoute newRoute = Route(InvoiceProviderCatalog.MyDataKey);
+            source.Snapshot.Provider = newRoute;
+            source.Snapshot.Invoice = source.Source.Prepare(invoiceId, newRoute);
+            source.Snapshot.Invoice.Invoice.Trader.TaxRegistrationId =
+                "BG204985348";
+            source.Snapshot.Invoice.Country = new CountryInput
+            {
+                CountryCode = "BG",
+                IsEu = true
+            };
+            http.InvoicePost = body => Reply(MyDataReply);
+            InvoiceWorkflowResult accepted = workflow.Process(invoiceId, source,
+                false, retryRejected: true);
+            Check(accepted.Accepted,
+                "the operator-authorized receiver change was blocked");
+            Equal(2, http.Posts);
+            Check(http.LastPayload.Contains("<country>BG</country>"),
+                "the resend did not rebuild the current counterpart country");
+
+            using (var lease = database.EnterInvoice(invoiceId))
+            {
+                var store = new SqlInvoiceWorkflowStore(database);
+                byte[] savedBytes = store.Load(lease);
+                string savedJson = Encoding.UTF8.GetString(savedBytes);
+                var saved = JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(
+                    savedJson);
+                Equal(InvoiceProviderCatalog.MyDataKey,
+                    saved.Provider.ProviderKey);
+            }
+        });
+        Test("receiver change reuses an approved payment without a second charge", () =>
+        {
+            var source = new WorkflowSource();
+            Guid invoiceId = source.Source.Id;
+            source.Source.Invoice.PaymentType = 2;
+            using (var lease = database.EnterInvoice(invoiceId))
+            {
+                source.Prepare(lease);
+            }
+            ProviderRoute originalRoute = Route(InvoiceProviderCatalog.ITimologiaKey);
+            source.Snapshot.Provider = originalRoute;
+            source.Snapshot.Invoice = source.Source.Prepare(invoiceId, originalRoute);
+            source.Snapshot.Payment = PaymentRoute.ForMode(originalRoute,
+                "http://gateway.invalid:1234", "TID-1", "EDPS");
+            var http = new Http(invoiceId, InvoiceProviderCatalog.ITimologiaKey)
+            {
+                InvoicePost = body =>
+                {
+                    throw new HttpRequestException("timeout");
+                }
+            };
+            http.Lookup = () => Reply("{}", 404);
+            var gateway = new Gateway();
+            var printer = new Printer();
+            var credentials = new Credentials();
+            var paymentService = new ProviderPaymentService(database, credentials,
+                route => http, route => gateway);
+            InvoiceWorkflowService workflow = new InvoiceWorkflowService(database,
+                Service(http, credentials), paymentService, null,
+                new FiscalPrintService(database, printer),
+                (snapshot, response) => snapshot.PrintContent,
+                (id, result) => { });
+            InvoiceWorkflowResult unknown = workflow.Process(invoiceId, source,
+                false);
+            Equal("Approved", unknown.PaymentState);
+            Equal("Unknown", unknown.FiscalState);
+            Equal(1, gateway.Calls);
+
+            ProviderSubmissionService service = Service(http, credentials);
+            service.AuthorizeResend(invoiceId, "synthetic-operator",
+                "change receiver after unknown outcome");
+            ProviderRoute newRoute = Route(InvoiceProviderCatalog.MyDataKey);
+            source.Snapshot.Provider = newRoute;
+            source.Snapshot.Payment = null;
+            source.Snapshot.Signing = null;
+            source.Snapshot.Invoice = source.Source.Prepare(invoiceId, newRoute);
+            http.InvoicePost = body => Reply(MyDataReply);
+            InvoiceWorkflowResult accepted = workflow.Process(invoiceId, source,
+                false, retryRejected: true);
+            Check(accepted.Accepted,
+                "the receiver change after an approved payment was blocked");
+            Equal(1, gateway.Calls);
+            Equal(2, http.Posts);
         });
         foreach (var key in new[] { InvoiceProviderCatalog.ITimologiaKey,InvoiceProviderCatalog.DirectIlydaKey })
             Test(key + " operator-authorized resend continues the frozen workflow", () => {
@@ -576,6 +870,151 @@ internal static partial class Program
             var result = workflow.Process(source.Source.Id,null,false,retryRejected:true);
             Check(result.Accepted,"the signed direct-myDATA submission retry was not accepted");
             Equal(1,signer.Calls); Equal(2,http.Posts);
+        });
+        Test("a signed resend retains fiscal values and accepts current trader metadata", () =>
+        {
+            var source = new WorkflowSource();
+            using (var lease = database.EnterInvoice(source.Source.Id))
+            {
+                source.Prepare(lease);
+            }
+
+            Guid signedTraderId = source.Snapshot.Invoice.Invoice.TraderId;
+            Guid signedVehicleId = Guid.NewGuid();
+            source.Snapshot.Invoice.Invoice.VehicleId = signedVehicleId;
+            source.Snapshot.Invoice.Invoice.Trader.TaxRegistrationId = "BG204985348";
+            source.Snapshot.Invoice.Country = new CountryInput
+            {
+                CountryCode = "GR",
+                IsEu = true
+            };
+            var document = new FiscalDocumentReference(FiscalDocumentKind.Invoice,
+                source.Source.Id);
+            var scope = new FiscalSigningScope(SamtecFiscalSigner.Key, "device-v1",
+                FiscalEnvironment.Test, "000000000", 0);
+            byte[] rejectedSigningPayload = Encoding.UTF8.GetBytes(
+                "rejected signing bytes");
+            Guid rejectedSigningAttemptId = Guid.NewGuid();
+            source.Snapshot.Signing = new FiscalSigningRequest(
+                rejectedSigningAttemptId, document, scope, "fake/v1",
+                rejectedSigningPayload);
+            var http = new Http(source.Source.Id, InvoiceProviderCatalog.MyDataKey);
+            http.InvoicePost = body =>
+            {
+                string rejection = "<ResponseDoc><response><statusCode>ValidationError" +
+                    "</statusCode><errors><error><code>202</code>" +
+                    "<message>Invalid Greek VAT number</message></error></errors>" +
+                    "</response></ResponseDoc>";
+                HttpResponseMessage response = Reply(rejection);
+                return response;
+            };
+            var signer = new RejectThenSign();
+            var printer = new Printer();
+            InvoiceWorkflowService workflow = Workflow(http, printer, signer: signer);
+            InvoiceWorkflowResult signingRejected = workflow.Process(source.Source.Id,
+                source, false);
+            Equal("Rejected", signingRejected.FiscalState);
+            Equal(0, http.Posts);
+
+            byte[] signingPayload = Encoding.UTF8.GetBytes("signed bytes");
+            Guid signingAttemptId = Guid.NewGuid();
+            source.Snapshot.Signing = new FiscalSigningRequest(signingAttemptId,
+                document, scope, "fake/v1", signingPayload);
+            InvoiceWorkflowResult rejected = workflow.Process(source.Source.Id,
+                source, false, retryRejected: true);
+            Equal("Rejected", rejected.FiscalState);
+            string rejectedPayload = http.LastPayload;
+            bool sentGreekCountry = rejectedPayload.Contains("<country>GR</country>");
+            bool sentDomesticType = rejectedPayload.Contains("<invoiceType>1.1</invoiceType>");
+            Check(sentGreekCountry && sentDomesticType,
+                "the synthetic old payload was not domestic");
+
+            source.Snapshot.Invoice.Country = new CountryInput
+            {
+                CountryCode = "BG",
+                IsEu = true
+            };
+            source.Snapshot.Invoice.Invoice.NettoAmount = 800m;
+            source.Snapshot.Invoice.Invoice.VATAmount = 199m;
+            source.Snapshot.Invoice.Invoice.TotalAmount = 999m;
+            source.Snapshot.Invoice.Invoice.VehicleId = Guid.NewGuid();
+            byte[] regeneratedSigningPayload = Encoding.UTF8.GetBytes(
+                "regenerated provider-specific signing bytes");
+            Guid regeneratedSigningAttemptId = Guid.NewGuid();
+            source.Snapshot.Signing = new FiscalSigningRequest(regeneratedSigningAttemptId,
+                document, scope, "fake/v1", regeneratedSigningPayload);
+            http.InvoicePost = body =>
+            {
+                HttpResponseMessage response = Reply(MyDataReply);
+                return response;
+            };
+            InvoiceWorkflowResult accepted = workflow.Process(source.Source.Id,
+                source, false, retryRejected: true);
+            Check(accepted.Accepted,
+                "the signed invoice was not resent with its frozen payload");
+            string acceptedPayload = http.LastPayload;
+            bool usedCurrentCountry = acceptedPayload.Contains(
+                "<country>BG</country>");
+            bool retainedSignedTotal = acceptedPayload.Contains(
+                "<totalGrossValue>124.00</totalGrossValue>");
+            Check(usedCurrentCountry && retainedSignedTotal,
+                "the resend did not combine current trader metadata with the signed totals");
+            Equal(2, signer.Calls);
+            Equal(2, http.Posts);
+            using (var lease = database.EnterInvoice(source.Source.Id))
+            {
+                byte[] savedBytes = new SqlInvoiceWorkflowStore(database).Load(lease);
+                string savedJson = Encoding.UTF8.GetString(savedBytes);
+                InvoiceWorkflowSnapshot savedSnapshot =
+                    JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(savedJson);
+                string savedSigningPayload = Encoding.UTF8.GetString(
+                    savedSnapshot.Signing.Payload);
+                Equal("signed bytes", savedSigningPayload);
+                Equal("BG", savedSnapshot.Invoice.Country.CountryCode);
+                Equal(124m, savedSnapshot.Invoice.Invoice.TotalAmount);
+                Equal(signedTraderId, savedSnapshot.Invoice.Invoice.TraderId);
+                Equal(signedVehicleId,
+                    savedSnapshot.Invoice.Invoice.VehicleId.Value);
+            }
+        });
+        Test("a rejected signing attempt may rebuild through the current provider route", () =>
+        {
+            var source = new WorkflowSource();
+            Guid invoiceId = source.Source.Id;
+            using (var lease = database.EnterInvoice(invoiceId))
+            {
+                source.Prepare(lease);
+            }
+
+            var document = new FiscalDocumentReference(FiscalDocumentKind.Invoice,
+                invoiceId);
+            var scope = new FiscalSigningScope(SamtecFiscalSigner.Key, "device-v1",
+                FiscalEnvironment.Test, "000000000", 0);
+            source.Snapshot.Signing = new FiscalSigningRequest(Guid.NewGuid(),
+                document, scope, "fake/v1", Encoding.UTF8.GetBytes(
+                    "rejected signing bytes"));
+            var signer = new AmountMismatchSigner
+            {
+                AlwaysReject = true
+            };
+            var http = new Http(invoiceId, InvoiceProviderCatalog.ITimologiaKey);
+            InvoiceWorkflowService workflow = Workflow(http, new Printer(),
+                signer: signer);
+            InvoiceWorkflowResult rejected = workflow.Process(invoiceId, source,
+                false);
+            Equal("Rejected", rejected.FiscalState);
+            Equal(0, http.Posts);
+
+            ProviderRoute providerRoute = Route(InvoiceProviderCatalog.ITimologiaKey);
+            source.Snapshot.Provider = providerRoute;
+            source.Snapshot.Invoice = source.Source.Prepare(invoiceId, providerRoute);
+            source.Snapshot.Signing = null;
+            InvoiceWorkflowResult accepted = workflow.Process(invoiceId, source,
+                false, retryRejected: true);
+            Check(accepted.Accepted,
+                "the rejected signing attempt did not rebuild through the provider");
+            Equal(1, signer.Calls);
+            Equal(1, http.Posts);
         });
         Test("definitive Samtec rejection regenerates a recalculated workflow before retry", () => {
             var source = new WorkflowSource(); var id = source.Source.Id;
@@ -754,6 +1193,7 @@ internal static partial class Program
             Equal(1,http.Posts); Equal(0,printer.Calls);
         });
         NumberingTests();
+        IssueDateReissueTests();
         PaymentMethodChangeTests();
         DispatchDateRecoveryStoreTests();
         foreach(var kind in new[] { FiscalDocumentKind.Balance,FiscalDocumentKind.TankFilling })
@@ -854,6 +1294,42 @@ internal static partial class Program
             {
                 c.Open(); cmd.CommandText = "SELECT SUM(Number) FROM dbo.Invoice WHERE InvoiceTypeId=@type AND InvoiceId<>@current";
                 cmd.Parameters.AddWithValue("@type",type); cmd.Parameters.AddWithValue("@current",current); Equal(0,Convert.ToInt32(cmd.ExecuteScalar()));
+            }
+        });
+    }
+    static void IssueDateReissueTests()
+    {
+        Test("issue-date reissue consumes the next number and changes the host issue date atomically", () => {
+            var type=Guid.NewGuid();var id=Guid.NewGuid();var issueDate=new DateTime(2026,11,6,9,30,0);
+            Execute(connection,"INSERT dbo.InvoiceType VALUES('"+type+"',50,'R'); " +
+                "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,PaymentType,IsPrinted) VALUES('"+id+"','"+type+"',49,'R','20261105 21:00',1,1);");
+            using(var lease=database.EnterInvoice(id))
+                Equal(51,new SqlInvoiceWorkflowStore(database).AllocateIssueDateReissueIdentity(
+                    lease,49,"R",new DateTime(2026,11,5,21,0,0),issueDate));
+            using(var cn=new System.Data.SqlClient.SqlConnection(connection))using(var cmd=cn.CreateCommand())
+            {
+                cn.Open();cmd.CommandText="SELECT i.Number,i.TransactionDate,t.LastNumber,i.IsPrinted FROM dbo.Invoice i JOIN dbo.InvoiceType t ON t.InvoiceTypeId=i.InvoiceTypeId WHERE i.InvoiceId=@id";
+                cmd.Parameters.AddWithValue("@id",id);
+                using(var reader=cmd.ExecuteReader())
+                {Check(reader.Read(),"reissued invoice");Equal(51,reader.GetInt32(0));Equal(issueDate,reader.GetDateTime(1));Equal(51,reader.GetInt32(2));Equal(false,reader.GetBoolean(3));}
+            }
+        });
+        Test("Ilyda ER-30 is the only structured date rejection that enables reissue", () => {
+            var type=Guid.NewGuid();var source=new Source();
+            Execute(connection,"INSERT dbo.InvoiceType VALUES('"+type+"',60,'R'); " +
+                "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,PaymentType) VALUES('"+source.Id+"','"+type+"',60,'R','20261105',1);");
+            var original=Encoding.UTF8.GetBytes("{\"identity\":\"old\"}");
+            using(var lease=database.EnterInvoice(source.Id))new SqlInvoiceWorkflowStore(database).Save(lease,original);
+            var http=new Http(source.Id,InvoiceProviderCatalog.DirectIlydaKey) { InvoicePost = body => Reply(
+                "{\"invoiceMarking\":null,\"errors\":[{\"code\":\"ER-30\",\"fatal\":true,\"message\":\"invoiceIssueDate must be current date\"}]}",422) };
+            Equal("Rejected",Service(http).Send(source.Id,Route(InvoiceProviderCatalog.DirectIlydaKey),source).State);
+            Check(ProviderSubmissionService.IsIssueDateMismatchRejection(Latest(source.Id)),"ER-30 date rejection");
+            var replacement=Encoding.UTF8.GetBytes("{\"identity\":\"new\"}");
+            using(var lease=database.EnterInvoice(source.Id))
+            {
+                var store=new SqlInvoiceWorkflowStore(database);
+                store.ReplaceAfterIssueDateReissue(lease,original,replacement);
+                Equal(Encoding.UTF8.GetString(replacement),Encoding.UTF8.GetString(store.Load(lease)));
             }
         });
     }

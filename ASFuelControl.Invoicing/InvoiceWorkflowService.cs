@@ -37,6 +37,19 @@ namespace ASFuelControl.Invoicing
         // Its issued identity and host transaction date stay unchanged; only the
         // planned dispatch timestamp in the frozen electronic payload is moved.
         public List<InvoiceDispatchDateChange> DispatchDateChanges { get; set; }
+        // A provider may reject an otherwise unissued document because its issue
+        // date is no longer the current date.  Reissuing it is a new fiscal
+        // identity: the abandoned number/date and the replacement identity are
+        // retained here while the original rejected provider attempt remains in
+        // the fiscal journal.
+        public List<InvoiceIssueDateReissue> IssueDateReissues { get; set; }
+        // A user-requested resend may rebuild the current counterpart country or
+        // invoice type. The previous attempt remains immutable in the fiscal
+        // journal while this records the regenerated document identity.
+        public List<InvoiceForeignPartyCorrection> ForeignPartyCorrections { get; set; }
+        // A user-requested resend uses the currently configured receiver. The
+        // previous attempt remains immutable in the fiscal journal.
+        public List<InvoiceSubmissionReceiverChange> SubmissionReceiverChanges { get; set; }
         InvoiceBuildRequest IInvoiceSubmissionSource.Prepare(Guid id, ProviderRoute route)
         {
             if (id != InvoiceId || JsonConvert.SerializeObject(route) != JsonConvert.SerializeObject(Provider)) throw new InvalidOperationException("Workflow route mismatch.");
@@ -62,11 +75,48 @@ namespace ASFuelControl.Invoicing
         public string ChangedBy { get; set; }
         public DateTime ChangedUtc { get; set; }
     }
+    public sealed class InvoiceIssueDateReissue
+    {
+        public int PreviousNumber { get; set; }
+        public string PreviousSeries { get; set; }
+        public DateTime PreviousIssueDate { get; set; }
+        public int Number { get; set; }
+        public string Series { get; set; }
+        public DateTime IssueDate { get; set; }
+        public string InvoiceType { get; set; }
+        public string ChangedBy { get; set; }
+        public DateTime ChangedUtc { get; set; }
+        public string Reason { get; set; }
+    }
+    public sealed class InvoiceForeignPartyCorrection
+    {
+        public string VatNumber { get; set; }
+        public string PreviousCountry { get; set; }
+        public string Country { get; set; }
+        public string PreviousInvoiceType { get; set; }
+        public string InvoiceType { get; set; }
+        public DateTime ChangedUtc { get; set; }
+        public string Reason { get; set; }
+    }
+    public sealed class InvoiceSubmissionReceiverChange
+    {
+        public Guid PreviousAttemptId { get; set; }
+        public string PreviousProviderKey { get; set; }
+        public string ProviderKey { get; set; }
+        public string PreviousAccount { get; set; }
+        public string Account { get; set; }
+        public bool PreviousTestMode { get; set; }
+        public bool TestMode { get; set; }
+        public bool ReusedApprovedPayment { get; set; }
+        public DateTime ChangedUtc { get; set; }
+        public string Reason { get; set; }
+    }
     public sealed class InvoiceWorkflowResult
     {
         public string FiscalState { get; internal set; }
         public Guid? AcceptedAttemptId { get; internal set; }
         public InvoiceResponse Response { get; internal set; }
+        public string FiscalQrCodeUrl { get; internal set; }
         public string PaymentState { get; internal set; }
         public FiscalOperationRecord Print { get; internal set; }
         public bool Accepted => AcceptedAttemptId.HasValue;
@@ -204,10 +254,11 @@ namespace ASFuelControl.Invoicing
                         {
                             var signed = history.Load(lease,FiscalJournalFamily.Signing).Last(a => a.State == "Signed");
                             var signingEvidence = Newtonsoft.Json.Linq.JObject.Parse(signed.SnapshotJson);
+                            result.FiscalQrCodeUrl = (string)signingEvidence["QrCode"];
                             if (result.Response == null) result.Response = new InvoiceResponse();
                             result.Response.InvoiceSignature = (string)signingEvidence["Signature"];
                             if (string.IsNullOrWhiteSpace(result.Response.QrCodeUrl))
-                                result.Response.QrCodeUrl = (string)signingEvidence["QrCode"];
+                                result.Response.QrCodeUrl = result.FiscalQrCodeUrl;
                         }
                     }
                     result.Print = previousPrint;
@@ -215,6 +266,43 @@ namespace ASFuelControl.Invoicing
                 }
                 else
                 {
+                    var submissionHistory = history.Load(lease,
+                        FiscalJournalFamily.Submission);
+                    var previousSubmission = submissionHistory.LastOrDefault();
+                    bool regenerateRejectedSubmission = retryRejected && source != null &&
+                        previousSubmission != null &&
+                        (previousSubmission.State == "Rejected" ||
+                            previousSubmission.State == "RetryAuthorized");
+                    if (regenerateRejectedSubmission)
+                    {
+                        InvoiceWorkflowSnapshot regeneratedSubmission = source.Prepare(lease);
+                        if (regeneratedSubmission == null)
+                        {
+                            throw new InvalidOperationException(
+                                "The corrected provider workflow could not be regenerated.");
+                        }
+
+                        var signingHistory = history.Load(lease,
+                            FiscalJournalFamily.Signing);
+                        FiscalAttemptEvidence previousSigning = signingHistory.LastOrDefault();
+                        bool hasSignedFiscalRequest = signingHistory.Any(item =>
+                            item.State == FiscalSigningState.Signed.ToString());
+                        var paymentHistory = history.Load(lease,
+                            FiscalJournalFamily.Payment);
+                        FiscalAttemptEvidence previousPayment =
+                            paymentHistory.LastOrDefault();
+                        bool hasApprovedPayment = previousPayment != null &&
+                            (previousPayment.State == "Approved" ||
+                                previousPayment.State == "Invoiced");
+                        snapshot = MergeRegeneratedSubmission(snapshot,
+                            regeneratedSubmission, invoiceId, previousSubmission,
+                            hasSignedFiscalRequest, hasApprovedPayment);
+                        string replacementJson = JsonConvert.SerializeObject(snapshot);
+                        byte[] replacement = Encoding.UTF8.GetBytes(replacementJson);
+                        bytes = snapshots.ReplaceAfterRejectedSubmission(lease, bytes,
+                            replacement);
+                    }
+
                     if (snapshot.LocalOnly) result.FiscalState = "LocalOnly";
                     if (snapshot.Signing != null)
                     {
@@ -245,22 +333,37 @@ namespace ASFuelControl.Invoicing
                             else
                                 snapshot.Signing = SamtecFiscalSigner.CorrectLineAmountsForRetry(snapshot.Signing);
                         }
-                        var signed = signing.Sign(snapshot.Signing.Document, snapshot.Signing.Scope, snapshot,
-                            retryDefinitiveFailure: retrySigning);
-                        // A corrected retry has a new immutable request/attempt ID.
-                        // Keep the in-memory workflow aligned for direct-myDATA
-                        // submission and for recovery after a process restart.
-                        snapshot.Signing = signed.Request;
-                        result.FiscalState = signed.State.ToString();
-                        if (signed.State != FiscalSigningState.Signed)
+                        if (snapshot.Signing != null)
                         {
-                            string diagnostic = signed.Result?.Diagnostic ?? signed.Diagnostic;
-                            if (!string.IsNullOrWhiteSpace(diagnostic))
-                                result.Response = new InvoiceResponse { Errors = new[] { diagnostic } };
-                            return result;
+                            var signed = signing.Sign(snapshot.Signing.Document,
+                                snapshot.Signing.Scope, snapshot,
+                                retryDefinitiveFailure: retrySigning);
+                            // A corrected retry has a new immutable request/attempt ID.
+                            // Keep the in-memory workflow aligned for direct-myDATA
+                            // submission and for recovery after a process restart.
+                            snapshot.Signing = signed.Request;
+                            result.FiscalState = signed.State.ToString();
+                            if (signed.State != FiscalSigningState.Signed)
+                            {
+                                string diagnostic = signed.Result?.Diagnostic ??
+                                    signed.Diagnostic;
+                                if (!string.IsNullOrWhiteSpace(diagnostic))
+                                {
+                                    result.Response = new InvoiceResponse
+                                    {
+                                        Errors = new[] { diagnostic }
+                                    };
+                                }
+                                return result;
+                            }
+                            result.AcceptedAttemptId = signed.Request.AttemptId;
+                            result.FiscalQrCodeUrl = signed.Result.QrCode;
+                            result.Response = new InvoiceResponse
+                            {
+                                InvoiceSignature = signed.Result.Signature,
+                                QrCodeUrl = signed.Result.QrCode
+                            };
                         }
-                        result.AcceptedAttemptId = signed.Request.AttemptId;
-                        result.Response = new InvoiceResponse { InvoiceSignature = signed.Result.Signature, QrCodeUrl = signed.Result.QrCode };
                     }
                     if (snapshot.Provider != null)
                     {
@@ -429,7 +532,12 @@ namespace ASFuelControl.Invoicing
                 bool integratedSamtecPos = pos && value.Payment == null && value.Signing != null &&
                     value.Provider.ProviderKey == InvoiceProviderCatalog.MyDataKey && value.Signing.Scope != null &&
                     value.Signing.Scope.SignerKey == SamtecFiscalSigner.Key;
-                if (pos != (value.Payment != null) && !integratedSamtecPos)
+                InvoiceSubmissionReceiverChange receiverChange =
+                    value.SubmissionReceiverChanges?.LastOrDefault();
+                bool reusedApprovedPayment = pos && value.Payment == null &&
+                    receiverChange?.ReusedApprovedPayment == true;
+                if (pos != (value.Payment != null) && !integratedSamtecPos &&
+                    !reusedApprovedPayment)
                     throw new InvalidOperationException("Explicit POS route required exactly for card/IRIS invoices unless Samtec performs the integrated POS transaction.");
                 if (value.Signing != null && (value.Provider.ProviderKey != InvoiceProviderCatalog.MyDataKey ||
                     value.Signing.Scope.IssuerVat != value.Provider.IssuerVat || value.Signing.Scope.IssuerBranch != value.Provider.IssuerBranch ||
@@ -441,36 +549,188 @@ namespace ASFuelControl.Invoicing
             InvoiceWorkflowSnapshot regenerated, Guid invoiceId)
         {
             Validate(regenerated,invoiceId);
-            if (saved?.Signing == null || regenerated.Signing == null ||
-                !FiscalSigningCoordinator.SameIssuerScope(saved.Signing.Scope,regenerated.Signing.Scope))
-                throw new InvalidOperationException("A corrected signing request must retain the saved Samtec device and issuer scope.");
-            if (saved.LocalOnly != regenerated.LocalOnly ||
-                !SameProviderIdentity(saved.Provider,regenerated.Provider) ||
-                (saved.Payment == null) != (regenerated.Payment == null))
-                throw new InvalidOperationException("Recalculation cannot change the saved fiscal or payment route.");
-            if (saved.MyDieselCouponCaseId != regenerated.MyDieselCouponCaseId ||
-                JsonConvert.SerializeObject(saved.MyDieselScope) != JsonConvert.SerializeObject(regenerated.MyDieselScope))
-                throw new InvalidOperationException("Recalculation cannot change the saved myDiesel case or scope.");
+            if (saved == null)
+            {
+                throw new InvalidOperationException(
+                    "The rejected signing workflow is unavailable.");
+            }
 
-            // Routes, credentials, printer selection and coupon identity remain
-            // fixed. Calculation-derived provider, print and signing data are
-            // replaced together before the new request can be dispatched.
-            saved.Version = Math.Max(saved.Version,regenerated.Version);
             var recoveredDispatch = saved.Invoice?.Delivery?.Departure;
             var dispatchChanges = saved.DispatchDateChanges;
-            saved.Invoice = regenerated.Invoice;
-            // Recalculation repairs calculation-derived signing data. It must not
-            // undo an independently audited next-day dispatch recovery.
+            var paymentMethodChanges = saved.PaymentMethodChanges;
+            var issueDateReissues = saved.IssueDateReissues;
+            var foreignPartyCorrections = saved.ForeignPartyCorrections;
+            var receiverChanges = saved.SubmissionReceiverChanges;
+            if (dispatchChanges != null && dispatchChanges.Count > 0 &&
+                recoveredDispatch.HasValue && regenerated.Invoice?.Delivery != null)
+            {
+                regenerated.Invoice.Delivery.Departure = recoveredDispatch.Value;
+            }
+
+            regenerated.PaymentMethodChanges = paymentMethodChanges;
+            regenerated.DispatchDateChanges = dispatchChanges;
+            regenerated.IssueDateReissues = issueDateReissues;
+            regenerated.ForeignPartyCorrections = foreignPartyCorrections;
+            regenerated.SubmissionReceiverChanges = receiverChanges;
+            Validate(regenerated,invoiceId);
+            return regenerated;
+        }
+
+        private static InvoiceWorkflowSnapshot MergeRegeneratedSubmission(
+            InvoiceWorkflowSnapshot saved, InvoiceWorkflowSnapshot regenerated,
+            Guid invoiceId, FiscalAttemptEvidence rejectedSubmission,
+            bool hasSignedFiscalRequest, bool hasApprovedPayment)
+        {
+            Validate(regenerated, invoiceId, false);
+            bool receiverChanged = saved?.Provider != null &&
+                regenerated?.Provider != null &&
+                !SameProviderIdentity(saved.Provider, regenerated.Provider);
+            if (saved == null || saved.Provider == null || regenerated.Provider == null)
+            {
+                throw new InvalidOperationException(
+                    "A provider resend requires a currently configured electronic receiver.");
+            }
+
+            if (regenerated.LocalOnly)
+            {
+                throw new InvalidOperationException(
+                    "A provider resend requires an electronic submission route.");
+            }
+
+            var invoiceTypeResolver = new InvoiceTypeResolver();
+            var invoiceBuilder = new InvoiceBuilder(invoiceTypeResolver);
+            InvoiceModel savedModel = invoiceBuilder.Build(saved.Invoice);
+            InvoiceBuildRequest effectiveInvoice = hasSignedFiscalRequest
+                ? MergeSignedInvoiceForSubmission(saved.Invoice,
+                    regenerated.Invoice)
+                : regenerated.Invoice;
+            InvoiceModel regeneratedModel = invoiceBuilder.Build(effectiveInvoice);
+            List<InvoiceForeignPartyCorrection> foreignPartyCorrections =
+                saved.ForeignPartyCorrections;
+            string previousCountry = savedModel.CounterPart?.Country;
+            string country = regeneratedModel.CounterPart?.Country;
+            string previousInvoiceType = savedModel.InvoiceHeader.InvoiceType;
+            string invoiceType = regeneratedModel.InvoiceHeader.InvoiceType;
+            bool changedForeignIdentity = !string.Equals(previousCountry, country,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(previousInvoiceType, invoiceType,
+                    StringComparison.Ordinal);
+            if (changedForeignIdentity)
+            {
+                foreignPartyCorrections = foreignPartyCorrections ??
+                    new List<InvoiceForeignPartyCorrection>();
+                foreignPartyCorrections.Add(new InvoiceForeignPartyCorrection
+                {
+                    VatNumber = regeneratedModel.CounterPart.VATNumber,
+                    PreviousCountry = previousCountry,
+                    Country = country,
+                    PreviousInvoiceType = previousInvoiceType,
+                    InvoiceType = invoiceType,
+                    ChangedUtc = DateTime.UtcNow,
+                    Reason = "User-requested resend regenerated the current invoice data."
+                });
+            }
+
+            var recoveredDispatch = saved.Invoice?.Delivery?.Departure;
+            var dispatchChanges = saved.DispatchDateChanges;
+            var receiverChanges = saved.SubmissionReceiverChanges;
+            saved.Version = Math.Max(saved.Version, regenerated.Version);
+            if (receiverChanged || hasApprovedPayment)
+            {
+                receiverChanges = receiverChanges ??
+                    new List<InvoiceSubmissionReceiverChange>();
+                receiverChanges.Add(new InvoiceSubmissionReceiverChange
+                {
+                    PreviousAttemptId = rejectedSubmission.AttemptId,
+                    PreviousProviderKey = saved.Provider.ProviderKey,
+                    ProviderKey = regenerated.Provider.ProviderKey,
+                    PreviousAccount = saved.Provider.Account,
+                    Account = regenerated.Provider.Account,
+                    PreviousTestMode = saved.Provider.TestMode,
+                    TestMode = regenerated.Provider.TestMode,
+                    ReusedApprovedPayment = hasApprovedPayment,
+                    ChangedUtc = DateTime.UtcNow,
+                    Reason = "User-requested resend through the currently configured receiver."
+                });
+            }
+
+            saved.Provider = regenerated.Provider;
+            saved.Invoice = effectiveInvoice;
+            if (!hasSignedFiscalRequest)
+            {
+                saved.LocalOnly = regenerated.LocalOnly;
+                saved.Payment = hasApprovedPayment ? null : regenerated.Payment;
+                saved.Signing = hasApprovedPayment ? null : regenerated.Signing;
+                saved.PrintDestination = regenerated.PrintDestination;
+                saved.PrintContent = regenerated.PrintContent;
+                saved.PrintFormat = regenerated.PrintFormat;
+                saved.CompanyQrContent = regenerated.CompanyQrContent;
+                saved.MyDieselCouponCaseId = regenerated.MyDieselCouponCaseId;
+                saved.MyDieselScope = regenerated.MyDieselScope;
+                saved.MyDieselExciseDiscountPerLitre =
+                    regenerated.MyDieselExciseDiscountPerLitre;
+            }
+
             if (dispatchChanges != null && dispatchChanges.Count > 0 &&
                 recoveredDispatch.HasValue && saved.Invoice?.Delivery != null)
+            {
                 saved.Invoice.Delivery.Departure = recoveredDispatch.Value;
+            }
+
             saved.DispatchDateChanges = dispatchChanges;
-            saved.PrintContent = regenerated.PrintContent;
-            saved.CompanyQrContent = regenerated.CompanyQrContent;
-            saved.MyDieselExciseDiscountPerLitre = regenerated.MyDieselExciseDiscountPerLitre;
-            saved.Signing = regenerated.Signing;
-            Validate(saved,invoiceId);
+            saved.ForeignPartyCorrections = foreignPartyCorrections;
+            saved.SubmissionReceiverChanges = receiverChanges;
+            Validate(saved, invoiceId);
             return saved;
+        }
+
+        private static InvoiceBuildRequest MergeSignedInvoiceForSubmission(
+            InvoiceBuildRequest saved, InvoiceBuildRequest regenerated)
+        {
+            if (saved?.Invoice == null || regenerated?.Invoice == null)
+            {
+                throw new InvalidOperationException(
+                    "The signed invoice snapshot is incomplete.");
+            }
+
+            InvoiceInput savedInvoice = saved.Invoice;
+            InvoiceInput regeneratedInvoice = regenerated.Invoice;
+            bool traderChanged = savedInvoice.TraderId != regeneratedInvoice.TraderId;
+            bool vehicleChanged = savedInvoice.VehicleId != regeneratedInvoice.VehicleId;
+            regenerated.Company = saved.Company;
+            regenerated.RequireIssuedIdentity = saved.RequireIssuedIdentity;
+            regeneratedInvoice.InvoiceId = savedInvoice.InvoiceId;
+            regeneratedInvoice.TraderId = savedInvoice.TraderId;
+            regeneratedInvoice.VehicleId = savedInvoice.VehicleId;
+            if (traderChanged)
+            {
+                regeneratedInvoice.Trader = savedInvoice.Trader;
+                regenerated.Country = saved.Country;
+            }
+            if (vehicleChanged)
+            {
+                if (saved.Delivery != null && regenerated.Delivery != null)
+                {
+                    regenerated.Delivery.Vehicle = saved.Delivery.Vehicle;
+                }
+                if (saved.Movement != null && regenerated.Movement != null)
+                {
+                    regenerated.Movement.Vehicle = saved.Movement.Vehicle;
+                }
+            }
+            regeneratedInvoice.InvoiceSeries = savedInvoice.InvoiceSeries;
+            regeneratedInvoice.Number = savedInvoice.Number;
+            regeneratedInvoice.PrintedDateTime = savedInvoice.PrintedDateTime;
+            regeneratedInvoice.Series = savedInvoice.Series;
+            regeneratedInvoice.VATPaymentSuspension =
+                savedInvoice.VATPaymentSuspension;
+            regeneratedInvoice.InvoiceLines = savedInvoice.InvoiceLines;
+            regeneratedInvoice.NettoAmount = savedInvoice.NettoAmount;
+            regeneratedInvoice.DiscountAmount = savedInvoice.DiscountAmount;
+            regeneratedInvoice.VATAmount = savedInvoice.VATAmount;
+            regeneratedInvoice.TotalAmount = savedInvoice.TotalAmount;
+            regeneratedInvoice.PaymentType = savedInvoice.PaymentType;
+            return regenerated;
         }
 
         private static bool SameProviderIdentity(ProviderRoute left, ProviderRoute right)

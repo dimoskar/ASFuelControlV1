@@ -687,7 +687,10 @@ namespace ASFuelControl.Windows.Threads
                 if (response != null)
                 {
                     if (!string.IsNullOrWhiteSpace(response.InvoiceSignature)) invoice.InvoiceSignature = response.InvoiceSignature;
-                    invoice.QRCodeData = response.QrCodeUrl;
+                    if (!string.IsNullOrWhiteSpace(result.FiscalQrCodeUrl))
+                    {
+                        invoice.QRCodeData = result.FiscalQrCodeUrl;
+                    }
                     long mark;
                     if (long.TryParse(response.Mark, out mark) && mark > 0)
                     {

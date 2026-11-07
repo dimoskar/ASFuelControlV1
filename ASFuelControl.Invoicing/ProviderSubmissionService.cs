@@ -93,7 +93,13 @@ namespace ASFuelControl.Invoicing
                         signs.Last().State == "Signed" && signs.Last().RequestPayload.SequenceEqual(snapshot.Signing.Payload),
                         "Direct myDATA requires the original workflow's durable signature.");
                 }
-                else Require(signs.Count == 0, "Existing signing history requires the composed workflow.");
+                else
+                {
+                    bool rejectedSigningOnly = signs.Count > 0 && signs.All(item =>
+                        item.State == FiscalSigningState.Rejected.ToString());
+                    Require(signs.Count == 0 || rejectedSigningOnly,
+                        "An unresolved or applied fiscal signature requires the composed workflow.");
+                }
                 foreach (var family in new[] { FiscalJournalFamily.Cancellation, FiscalJournalFamily.Print })
                     Require(history.Load(lease, family).Count == 0,
                         "Existing " + family + " history requires the complete fiscal workflow before submission.");
@@ -106,30 +112,49 @@ namespace ASFuelControl.Invoicing
                 Require(model.Issuer.Branch == route.IssuerBranch, "The invoice branch does not match the selected route.");
                 bool pos = (model.PaymentMethods ?? new PaymentMethod[0]).Any(p => (int)p.Type == 7 || (int)p.Type == 8);
                 var workflow = source as InvoiceWorkflowSnapshot;
+                bool authorizedResend = IsAuthorizedResend(
+                    workflow, previous, route);
                 var previousProviderSessions = history.Load(lease,FiscalJournalFamily.ProviderSession);
                 bool supersededProviderSession = workflow?.PaymentMethodChanges?.Count > 0 &&
                     previousProviderSessions.Count > 0 && previousProviderSessions.All(item =>
                         item.Operation == "SignPayment" && (item.State == "Rejected" ||
                             item.State == "Cancelled" || item.State == "Expired"));
-                Require(previousProviderSessions.Count == 0 || supersededProviderSession,
+                Require(previousProviderSessions.Count == 0 || supersededProviderSession ||
+                    authorizedResend,
                     "Existing ProviderSession history requires the complete fiscal workflow before submission.");
                 var previousPayments = history.Load(lease,FiscalJournalFamily.Payment);
                 bool supersededTerminalPayment = !pos && workflow?.Payment == null &&
                     workflow?.PaymentMethodChanges?.Count > 0 && previousPayments.Count > 0 &&
                     previousPayments.All(item => item.Operation == "Payment" &&
                         (item.State == "Declined" || item.State == "Failed"));
-                Require(previousPayments.Count == 0 || supersededTerminalPayment,
+                bool approvedPreviousPayment = previousPayments.Count > 0 &&
+                    previousPayments.All(item => item.Operation == "Payment" &&
+                        (item.State == "Approved" || item.State == "Invoiced"));
+                Require(previousPayments.Count == 0 || supersededTerminalPayment ||
+                    authorizedResend && approvedPreviousPayment,
                     "Existing payment history requires the complete fiscal workflow before submission.");
                 bool integratedSamtecPos = pos && signingAttemptId.HasValue &&
                     workflow?.Signing?.Scope?.SignerKey == SamtecFiscalSigner.Key;
-                Require(!pos || integratedSamtecPos,
+                Require(!pos || integratedSamtecPos || authorizedResend &&
+                    approvedPreviousPayment,
                     "Card/IRIS issuance requires a configured payment workflow or a completed integrated Samtec transaction; no submission was attempted.");
                 // Validate all channel-specific limitations before authentication or durable dispatch.
                 factory.CreatePayloadMapper(route.ProviderKey).Serialize(model, invoiceId);
                 string routingContext = Context(route, model);
-                if (previous != null)
-                    Require(ReadContext(previous).ToString(Formatting.None) == routingContext,
-                        "A rejected retry must retain its original route and fiscal identity.");
+                if (previous != null && previous.State != "Rejected" &&
+                    previous.State != "RetryAuthorized")
+                {
+                    var previousContext = ReadContext(previous);
+                    JObject currentContext = JObject.Parse(routingContext);
+                    string previousContextJson = previousContext.ToString(Formatting.None);
+                    bool sameContext = previousContextJson == routingContext;
+                    bool auditedDateReissue = IsAuditedIssueDateReissue(workflow,
+                        previousContext, currentContext);
+                    bool auditedForeignParty = IsAuditedForeignPartyCorrection(workflow,
+                        previous, previousContext, currentContext, model);
+                    Require(sameContext || auditedDateReissue || auditedForeignParty,
+                        "An authorized resend after an unresolved outcome must retain its original route and fiscal identity.");
+                }
                 using (var provider = Open(route, routingContext, invoiceId))
                 {
                     var response = provider.SendInvoice(model, invoiceId, null);
@@ -311,27 +336,142 @@ namespace ASFuelControl.Invoicing
             if (saved.State == "RetryAuthorized")
             {
                 result.CanResend = true;
-                result.Warning = "Η επανάληψη έχει ήδη εγκριθεί και δεν ολοκληρώθηκε. Θα συνεχιστεί με τα ίδια αποθηκευμένα στοιχεία.";
+                result.Warning = "Η επανάληψη έχει ήδη εγκριθεί και δεν ολοκληρώθηκε. " +
+                    "Θα δημιουργηθεί νέο αίτημα από τα τρέχοντα στοιχεία και τις τρέχουσες ρυθμίσεις.";
                 return result;
             }
-            var evidence = JObject.Parse(saved.SnapshotJson);
-            if (route.ProviderKey == InvoiceProviderCatalog.ITimologiaKey && saved.State == "Unknown" &&
-                (int?)evidence["StatusCode"] == 404)
+            if (saved.State == "Unknown" || saved.State == "Sending")
             {
                 result.CanResend = result.RequiresAuthorization = true;
-                result.Warning = "Η iTimologia επέστρεψε HTTP 404 και δεν βρήκε το παραστατικό. " +
-                    "Να γίνει νέα διαβίβαση με τα ίδια στοιχεία; Η αρχική προσπάθεια θα παραμείνει στο ιστορικό. " +
-                    "Αν η ενημέρωση του παρόχου έχει καθυστερήσει, υπάρχει κίνδυνος διπλής έκδοσης.";
-            }
-            else if (route.ProviderKey == InvoiceProviderCatalog.DirectIlydaKey &&
-                (saved.State == "Unknown" || saved.State == "Sending"))
-            {
-                result.CanResend = result.RequiresAuthorization = true;
-                result.Warning = "Η Ilyda δεν επιβεβαίωσε την έκβαση της προηγούμενης διαβίβασης. " +
-                    "Να γίνει νέα διαβίβαση με τα ίδια στοιχεία; Η αρχική προσπάθεια θα παραμείνει στο ιστορικό. " +
-                    "Υπάρχει κίνδυνος διπλής έκδοσης και πρέπει πρώτα να ελεγχθεί ο πάροχος.";
+                result.Warning = "Δεν επιβεβαιώθηκε η έκβαση της προηγούμενης διαβίβασης. " +
+                    "Να δημιουργηθεί και να αποσταλεί νέο αίτημα από τα τρέχοντα στοιχεία και τις τρέχουσες ρυθμίσεις; " +
+                    "Η προηγούμενη προσπάθεια θα παραμείνει στο ιστορικό. Υπάρχει κίνδυνος διπλής έκδοσης και " +
+                    "ο χειριστής είναι υπεύθυνος να ελέγξει πρώτα τον προηγούμενο παραλήπτη.";
             }
             return result;
+        }
+        private static bool IsAuthorizedResend(
+            InvoiceWorkflowSnapshot workflow, FiscalAttemptEvidence previous,
+            ProviderRoute route)
+        {
+            InvoiceSubmissionReceiverChange change =
+                workflow?.SubmissionReceiverChanges?.LastOrDefault();
+            bool retryable = previous?.State == "Rejected" ||
+                previous?.State == "RetryAuthorized";
+            if (change == null || !retryable ||
+                route == null)
+            {
+                return false;
+            }
+
+            return change.PreviousAttemptId == previous.AttemptId &&
+                string.Equals(change.ProviderKey, route.ProviderKey,
+                    StringComparison.Ordinal) &&
+                string.Equals(change.Account, route.Account,
+                    StringComparison.Ordinal) &&
+                change.TestMode == route.TestMode;
+        }
+        public static bool IsIssueDateMismatchRejection(FiscalAttemptEvidence saved)
+        {
+            if (saved == null || saved.Family != FiscalJournalFamily.Submission.ToString() ||
+                saved.State != "Rejected") return false;
+            JObject context;
+            JObject evidence;
+            try
+            {
+                context = ReadContext(saved);
+                evidence = JObject.Parse(saved.SnapshotJson);
+            }
+            catch (Exception ex) when (ex is JsonException || ex is InvalidOperationException)
+            {
+                return false;
+            }
+            var route = context["Route"].ToObject<ProviderRoute>();
+            if (route == null || route.ProviderKey == InvoiceProviderCatalog.MyDataKey)
+                return false;
+
+            // Use the retained response rather than a provider-specific envelope.
+            // This covers every invoicing-provider adapter, including plain-text,
+            // nested JSON and future provider error wrappers. Direct myDATA is not
+            // a provider route and deliberately remains outside this recovery.
+            var text = saved.SnapshotJson.ToLowerInvariant();
+            bool issueDate = new[] { "issuedate", "issue_date", "issue date", "issued date",
+                "date mismatch", "ημερομηνία έκδοσης", "ημ/νία έκδοσης" }
+                .Any(value => text.Contains(value));
+            bool currentDate = new[] { "current date", "today", "same date", "τρέχουσ",
+                "σημεριν", "ίδια ημερομηνία" }.Any(value => text.Contains(value));
+            bool documentedDateCode = evidence.DescendantsAndSelf().OfType<JProperty>().Any(property =>
+                string.Equals(property.Name,"code",StringComparison.OrdinalIgnoreCase) &&
+                string.Equals((string)property.Value,"ER-30",StringComparison.OrdinalIgnoreCase));
+            return documentedDateCode || issueDate && currentDate;
+        }
+        private static bool IsAuditedIssueDateReissue(InvoiceWorkflowSnapshot workflow,
+            JObject previousContext, JObject currentContext)
+        {
+            var change = workflow?.IssueDateReissues?.LastOrDefault();
+            if (change == null || previousContext == null || currentContext == null ||
+                !JToken.DeepEquals(previousContext["Route"],currentContext["Route"]))
+                return false;
+            var previous = previousContext["Identity"] as JObject;
+            var current = currentContext["Identity"] as JObject;
+            if (previous == null || current == null) return false;
+            DateTime previousDate, currentDate;
+            return string.Equals((string)previous["Series"],change.PreviousSeries,StringComparison.Ordinal) &&
+                string.Equals((string)previous["AA"],change.PreviousNumber.ToString(CultureInfo.InvariantCulture),StringComparison.Ordinal) &&
+                DateTime.TryParse((string)previous["IssueDate"],CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,out previousDate) && previousDate == change.PreviousIssueDate &&
+                string.Equals((string)current["Series"],change.Series,StringComparison.Ordinal) &&
+                string.Equals((string)current["AA"],change.Number.ToString(CultureInfo.InvariantCulture),StringComparison.Ordinal) &&
+                DateTime.TryParse((string)current["IssueDate"],CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,out currentDate) && currentDate == change.IssueDate &&
+                string.Equals((string)previous["InvoiceType"],change.InvoiceType,StringComparison.Ordinal) &&
+                string.Equals((string)current["InvoiceType"],change.InvoiceType,StringComparison.Ordinal);
+        }
+        private static bool IsAuditedForeignPartyCorrection(
+            InvoiceWorkflowSnapshot workflow, FiscalAttemptEvidence previousAttempt,
+            JObject previousContext, JObject currentContext, InvoiceModel currentModel)
+        {
+            InvoiceForeignPartyCorrection change =
+                workflow?.ForeignPartyCorrections?.LastOrDefault();
+            if (change == null || previousAttempt?.State != "Rejected" ||
+                previousContext == null || currentContext == null ||
+                currentModel?.CounterPart == null)
+            {
+                return false;
+            }
+
+            string evidence = previousAttempt.SnapshotJson ?? string.Empty;
+            bool invalidGreekVat = evidence.IndexOf("<code>202</code>",
+                    StringComparison.OrdinalIgnoreCase) >= 0 &&
+                evidence.IndexOf("Invalid Greek VAT number",
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+            bool sameRoute = JToken.DeepEquals(previousContext["Route"],
+                currentContext["Route"]);
+            JObject previousIdentity = previousContext["Identity"] as JObject;
+            JObject currentIdentity = currentContext["Identity"] as JObject;
+            if (!invalidGreekVat || !sameRoute || previousIdentity == null ||
+                currentIdentity == null)
+            {
+                return false;
+            }
+
+            bool sameIssuedIdentity =
+                JToken.DeepEquals(previousIdentity["Series"], currentIdentity["Series"]) &&
+                JToken.DeepEquals(previousIdentity["AA"], currentIdentity["AA"]) &&
+                JToken.DeepEquals(previousIdentity["IssueDate"],
+                    currentIdentity["IssueDate"]);
+            bool matchesAudit =
+                string.Equals((string)previousIdentity["InvoiceType"],
+                    change.PreviousInvoiceType, StringComparison.Ordinal) &&
+                string.Equals((string)currentIdentity["InvoiceType"],
+                    change.InvoiceType, StringComparison.Ordinal) &&
+                string.Equals(currentModel.CounterPart.VATNumber, change.VatNumber,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(currentModel.CounterPart.Country, change.Country,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(change.PreviousCountry, "GR",
+                    StringComparison.OrdinalIgnoreCase);
+            return sameIssuedIdentity && matchesAudit;
         }
         private static JObject ReadContext(FiscalAttemptEvidence saved)
         {

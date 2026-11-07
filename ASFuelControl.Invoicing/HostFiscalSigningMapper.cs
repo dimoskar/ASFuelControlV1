@@ -49,15 +49,32 @@ namespace ASFuelControl.Invoicing
             {
                 wire.Doc.TransactionLines = lines.Select((l, index) => {
                     decimal price = SamtecVatInclusiveUnitPrice(l, lines.Length == 1);
-                    decimal itemAmount = decimal.Round(price, 3);
+                    // Quantity is a three-decimal physical measure. The Samtec
+                    // contract does not impose that limit on the VAT-inclusive
+                    // unit price, so retain the application's five-decimal price.
+                    decimal itemAmount = decimal.Round(price, 5,
+                        MidpointRounding.ToEven);
                     decimal quantity = decimal.Round(l.Volume, 3);
                     decimal grossAmount = decimal.Round(l.TotalPrice, 2);
                     decimal netAmount = decimal.Round(l.TotalPrice - l.VatAmount, 2);
-                    quantity = ReconcileSamtecSaleQuantity(l, itemAmount, quantity, grossAmount);
-                    decimal preDiscountGross = decimal.Round(itemAmount * quantity, 2);
-                    decimal discountAmount = preDiscountGross - grossAmount;
-                    if (discountAmount < 0)
-                        throw new InvalidOperationException("A Samtec line gross total exceeds its rounded quantity and retail unit price.");
+                    if (HasDiscount(l))
+                    {
+                        decimal originalGross = decimal.Round(itemAmount * quantity, 2,
+                            MidpointRounding.ToEven);
+                        if (grossAmount > originalGross)
+                            throw new InvalidOperationException(
+                                "A discounted Samtec line cannot exceed its original VAT-inclusive unit price.");
+                        // Samtec signs the final line arithmetic. Keep the physical
+                        // quantity and fold the reduction into the VAT-inclusive
+                        // unit price instead of emitting separate discount fields.
+                        itemAmount = SamtecFiscalSigner.EffectiveVatInclusiveItemAmount(
+                            grossAmount,quantity);
+                    }
+                    else
+                        quantity = ReconcileSamtecSaleQuantity(l, itemAmount, quantity, grossAmount);
+                    if (decimal.Round(itemAmount * quantity,2,MidpointRounding.ToEven) != grossAmount)
+                        throw new InvalidOperationException(
+                            "A Samtec line total does not match its VAT-inclusive item amount and quantity.");
                     int fuelCode = l.FuelType?.EnumeratorValue ?? 0;
                     return new Transactionline { LineNo = index + 1, ClassCategory = 1, FuelCode = fuelCode,
                         Code = fuelCode == 0 ? null : fuelCode.ToString(CultureInfo.InvariantCulture),
@@ -66,13 +83,7 @@ namespace ASFuelControl.Invoicing
                         VatAmount = decimal.Round(l.VatAmount, 2), GrossAmount = sign * grossAmount,
                         VatRate = l.VatPercentage.ToString("0.00", CultureInfo.InvariantCulture),
                         VatExCategory = l.VatPercentage == 0 && trader?.VatExemption == true
-                            ? VatExemptionReasonCatalog.GetCodeOrDefault(trader.VatExemptionReason, 11) : 0,
-                        // The legacy Samtec contract uses the VAT-inclusive retail
-                        // ItemAmount: ItemAmount * SaleQty = GrossAmount + DMValue.
-                        // Saved discount columns can differ by VAT/rounding convention,
-                        // so derive the wire discount from the exact rounded wire values.
-                        DMType = discountAmount > 0 ? 1 : 0,
-                        DMValue = discountAmount > 0 ? sign * discountAmount : 0 };
+                            ? VatExemptionReasonCatalog.GetCodeOrDefault(trader.VatExemptionReason, 11) : 0 };
                 }).ToArray();
                 wire.Doc.Payments = new[] { new Payment {
                     Type = integratedPos ? 1 : invoice.PaymentType == 0 || invoice.PaymentType == 3 ? 5 : 0,
@@ -81,6 +92,13 @@ namespace ASFuelControl.Invoicing
                     Value = (code == 169 || code == 175 ? -1 : 1) * decimal.Round(invoice.TotalAmount.Value, 2) } };
             }
             return SamtecFiscalSigner.Prepare(document, scope, wire);
+        }
+
+        private static bool HasDiscount(Data.InvoiceLine line)
+        {
+            return decimal.Round(Math.Abs(line.DiscountAmount),2,MidpointRounding.ToEven) > 0 ||
+                decimal.Round(Math.Abs(line.DiscountAmountRetail),2,MidpointRounding.ToEven) > 0 ||
+                decimal.Round(Math.Abs(line.DiscountAmountWhole),2,MidpointRounding.ToEven) > 0;
         }
 
         private static decimal SamtecVatInclusiveUnitPrice(Data.InvoiceLine line,
@@ -138,7 +156,8 @@ namespace ASFuelControl.Invoicing
             // Compare gross values before discount. This identifies legacy unit-price
             // adjustments that only reconciled the same invoice total, while a real
             // price edit changes the pre-discount total. Discount-only edits continue
-            // to use the physical sale price and are represented by DMValue.
+            // to use the physical sale price before the reduction is folded into
+            // the Samtec VAT-inclusive item amount.
             decimal targetBeforeDiscount = GrossBeforeDiscount(line);
             decimal sourceBeforeDiscount = decimal.Round(
                 sources.Values.Sum(GrossBeforeDiscount), 2);

@@ -10,6 +10,9 @@ namespace ASFuelControl.Windows.UI.Forms
     public partial class InvoiceFormEx
     {
         private static readonly Font EditorFont = new Font("Segoe UI", 9.75F);
+        private const int CompactEditorMinimumHeight = 650;
+        private Panel fixedInvoicingStatusHost;
+        private Panel fixedFiscalPrimaryActionHost;
 
         private void InitializeFixedLayout(ViewModels.InvoiceEditorLayout layout)
         {
@@ -20,31 +23,35 @@ namespace ASFuelControl.Windows.UI.Forms
             SuspendLayout();
             AutoScaleMode = AutoScaleMode.Font;
             Font = EditorFont;
-            MinimumSize = new Size(1050, supplier ? 620 : 760);
-            ClientSize = new Size(1180, supplier ? 650 : 590);
+            MinimumSize = supplier
+                ? new Size(1050, 620)
+                : new Size(1050, CompactEditorMinimumHeight);
+            ClientSize = new Size(supplier ? 1180 : 1120,
+                supplier ? 650 : CompactEditorMinimumHeight);
+            int defaultHeight = MinimumSize.Height;
+            Height = defaultHeight;
             StartPosition = FormStartPosition.CenterScreen;
 
             var root = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = supplier ? 3 : 4,
+                RowCount = 3,
                 Padding = new Padding(6),
                 BackColor = Color.White
             };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, supplier ? 132F : 126F));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, supplier ? 132F : 114F));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            if (!supplier)
-                root.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
 
-            root.Controls.Add(BuildFixedActionBar(layout), 0, 0);
-            root.Controls.Add(BuildFixedHeader(layout), 0, 1);
-            root.Controls.Add(layout == ViewModels.InvoiceEditorLayout.RetailReceipt
+            var actionBar = BuildFixedActionBar(layout);
+            var header = BuildFixedHeader(layout);
+            var body = layout == ViewModels.InvoiceEditorLayout.RetailReceipt
                 ? BuildRetailReceiptBody()
-                : BuildDetailedBody(layout), 0, 2);
-            if (!supplier)
-                root.Controls.Add(BuildFixedSignaturePanel(), 0, 3);
+                : BuildDetailedBody(layout);
+            root.Controls.Add(actionBar, 0, 0);
+            root.Controls.Add(header, 0, 1);
+            root.Controls.Add(body, 0, 2);
             Controls.Add(root);
             ResumeLayout(false);
         }
@@ -206,16 +213,6 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private Control BuildRetailReceiptBody()
         {
-            var body = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 2,
-                Margin = new Padding(0)
-            };
-            body.RowStyles.Add(new RowStyle(SizeType.Absolute, 154F));
-            body.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
             tableLayoutPanel2 = new Controls.DoubleBufferTableLayout
             {
                 Dock = DockStyle.Fill,
@@ -264,8 +261,7 @@ namespace ASFuelControl.Windows.UI.Forms
             }
             tableLayoutPanel2.DataBindings.Add("Enabled", invoiceViewModelBindingSource, "LineEditEnabled", true);
 
-            body.Controls.Add(tableLayoutPanel2, 0, 0);
-            body.Controls.Add(BuildNotesAndSummaryPanel("Παρατηρήσεις Τεχνικού", "Γεν. Σύνολο"), 0, 1);
+            var body = BuildTabbedSalesBody(tableLayoutPanel2, "Παρατηρήσεις Τεχνικού");
             return body;
         }
 
@@ -309,12 +305,208 @@ namespace ASFuelControl.Windows.UI.Forms
 
             radGridView1 = BuildDetailedGrid(supplier);
 
+            if (!supplier)
+            {
+                var lineEditor = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    ColumnCount = 1,
+                    RowCount = 2,
+                    Margin = new Padding(0)
+                };
+                lineEditor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                lineEditor.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+                lineEditor.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                lineEditor.Controls.Add(panel2, 0, 0);
+                lineEditor.Controls.Add(radGridView1, 0, 1);
+
+                var tabbedBody = BuildTabbedSalesBody(lineEditor, "Παρατηρήσεις");
+                return tabbedBody;
+            }
+
             body.Controls.Add(panel2, 0, 0);
             body.Controls.Add(radGridView1, 0, 1);
-            body.Controls.Add(BuildNotesAndSummaryPanel(
-                supplier ? "Παρατηρήσεις Αγοράς" : "Παρατηρήσεις",
-                supplier ? "Συνολική Αξία" : "Γεν. Σύνολο"), 0, 2);
+            var notesAndSummary = BuildNotesAndSummaryPanel(
+                "Παρατηρήσεις Αγοράς", "Συνολική Αξία");
+            body.Controls.Add(notesAndSummary, 0, 2);
             return body;
+        }
+
+        private Control BuildTabbedSalesBody(Control lineEditor, string notesCaption)
+        {
+            var body = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 3,
+                Margin = new Padding(0)
+            };
+            body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            body.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            body.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
+            body.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
+
+            var pages = new RadPageView
+            {
+                Dock = DockStyle.Fill,
+                ThemeName = "TelerikMetroBlue"
+            };
+            var linesPage = new RadPageViewPage
+            {
+                Text = "Γραμμές Παραστατικού"
+            };
+            lineEditor.Dock = DockStyle.Fill;
+            linesPage.Controls.Add(lineEditor);
+
+            var notesPage = new RadPageViewPage
+            {
+                Text = "Παρατηρήσεις"
+            };
+            var notesLayout = BuildNotesPanel(notesCaption);
+            notesPage.Controls.Add(notesLayout);
+
+            var detailsPage = new RadPageViewPage
+            {
+                Text = "Στοιχεία"
+            };
+            fixedInvoicingStatusHost = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0)
+            };
+            detailsPage.Controls.Add(fixedInvoicingStatusHost);
+
+            pages.Pages.Add(linesPage);
+            pages.Pages.Add(notesPage);
+            pages.Pages.Add(detailsPage);
+
+            var totals = BuildCompactPaymentAndTotalsPanel();
+            var footer = BuildFixedFiscalFooter();
+            body.Controls.Add(pages, 0, 0);
+            body.Controls.Add(totals, 0, 1);
+            body.Controls.Add(footer, 0, 2);
+            return body;
+        }
+
+        private Control BuildFixedFiscalFooter()
+        {
+            var footer = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = new Padding(0),
+                Padding = new Padding(3, 2, 3, 2)
+            };
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220F));
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            footer.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            fixedFiscalPrimaryActionHost = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 6, 0)
+            };
+            var signaturePanel = BuildFixedSignaturePanel();
+            footer.Controls.Add(fixedFiscalPrimaryActionHost, 0, 0);
+            footer.Controls.Add(signaturePanel, 1, 0);
+            return footer;
+        }
+
+        private Control BuildNotesPanel(string notesCaption)
+        {
+            var notes = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                Margin = new Padding(0),
+                Padding = new Padding(6)
+            };
+            notes.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            notes.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+            notes.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var caption = NewLabel(notesCaption);
+            radTextBox2 = NewTextBox("Notes");
+            radTextBox2.Multiline = true;
+            notes.Controls.Add(caption, 0, 0);
+            notes.Controls.Add(radTextBox2, 0, 1);
+            return notes;
+        }
+
+        private Control BuildCompactPaymentAndTotalsPanel()
+        {
+            var totals = new Controls.DoubleBufferTableLayout
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 5,
+                RowCount = 1,
+                Margin = new Padding(0),
+                Padding = new Padding(3)
+            };
+            totals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
+            totals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 17F));
+            totals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F));
+            totals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 14F));
+            totals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
+            totals.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            paymentTypeDropDownList = NewPaymentDropDown();
+            radSpinEditor2 = NewSpin("NettoAmount", 2, 999999999);
+            var discountProperty = ivm.PricesIncludeVat ? "DiscountAmount" : "DiscountAmountWhole";
+            radSpinEditor3 = NewSpin(discountProperty, 2, 999999999);
+            radSpinEditor4 = NewSpin("VatAmount", 2, 999999999);
+            radSpinEditor5 = NewSpin("TotalAmount", 2, 999999999);
+            radSpinEditor2.ReadOnly = true;
+            radSpinEditor3.ReadOnly = true;
+            radSpinEditor4.ReadOnly = true;
+            radSpinEditor5.ReadOnly = true;
+
+            var boldFont = new Font(EditorFont, FontStyle.Bold);
+            radSpinEditor5.Font = boldFont;
+
+            var payment = BuildCompactSummaryCell(
+                "Τρόπος Πληρωμής", paymentTypeDropDownList, 115F, false);
+            var netto = BuildCompactSummaryCell(
+                "Καθαρή Αξία", radSpinEditor2, 90F, false);
+            var discount = BuildCompactSummaryCell(
+                "Έκπτωση", radSpinEditor3, 70F, false);
+            var vat = BuildCompactSummaryCell(
+                "Φ.Π.Α.", radSpinEditor4, 50F, false);
+            var total = BuildCompactSummaryCell(
+                "Γεν. Σύνολο", radSpinEditor5, 95F, true);
+            totals.Controls.Add(payment, 0, 0);
+            totals.Controls.Add(netto, 1, 0);
+            totals.Controls.Add(discount, 2, 0);
+            totals.Controls.Add(vat, 3, 0);
+            totals.Controls.Add(total, 4, 0);
+            return totals;
+        }
+
+        private Control BuildCompactSummaryCell(string caption, Control value,
+            float captionWidth, bool boldCaption)
+        {
+            var cell = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = new Padding(0),
+                Padding = new Padding(2)
+            };
+            cell.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, captionWidth));
+            cell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            cell.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var label = NewLabel(caption);
+            if (boldCaption)
+            {
+                label.Font = new Font(EditorFont, FontStyle.Bold);
+            }
+            cell.Controls.Add(label, 0, 0);
+            cell.Controls.Add(value, 1, 0);
+            return cell;
         }
 
         private RadGridView BuildDetailedGrid(bool supplier)

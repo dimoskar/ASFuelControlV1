@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -31,10 +32,13 @@ namespace Exedron.Invoicing.Adapters.Samtec
         public string EftPosTID { get; }
     }
 
-    // No recovery interface: the repository has no verified protocol for retrieving
-    // a signature bound to an uncertain request. Unknown requires reconciliation.
+    // No recovery interface: the repository has no verified read-only lookup.
+    // Transport-unknown requests use the same InvoiceUID and exact persisted bytes
+    // for deferred retry; duplicate evidence without a signature still requires
+    // operator reconciliation.
     public sealed class SamtecFiscalSigner : IFiscalSigner, IFiscalSigningRequestValidator,
-        IFiscalSignerRecordedResponseRecovery, IFiscalSignerAutomaticRetryPolicy, IDisposable
+        IFiscalSignerRecordedResponseRecovery, IFiscalSignerAutomaticRetryPolicy,
+        IFiscalSignerDeferredRetryPolicy, IDisposable
     {
         public const string Key = "Samtec";
         public const string Format = "samtec-sign-json/v1";
@@ -59,6 +63,16 @@ namespace Exedron.Invoicing.Adapters.Samtec
                 ((result.Diagnostic ?? "").StartsWith(RetryableDiagnostic,StringComparison.Ordinal) ||
                  LegacyRetryableDiagnostic(result.Diagnostic));
         }
+        public TimeSpan DeferredRetryDelay => TimeSpan.FromMinutes(5);
+        public bool CanRetryAfterDelay(FiscalSigningRequest originalRequest,
+            FiscalSigningResult result)
+        {
+            return originalRequest != null && result != null &&
+                result.AttemptId == originalRequest.AttemptId &&
+                result.State == FiscalSigningState.Unknown &&
+                (result.Diagnostic ?? "").StartsWith(
+                    "Automatic signing retries were exhausted",StringComparison.Ordinal);
+        }
         private static bool LegacyRetryableDiagnostic(string diagnostic)
         {
             string value = diagnostic ?? "";
@@ -73,7 +87,8 @@ namespace Exedron.Invoicing.Adapters.Samtec
             if (!value.StartsWith(statusPrefix,StringComparison.Ordinal)) return false;
             int end = value.IndexOf(';',statusPrefix.Length), status;
             return end > statusPrefix.Length && int.TryParse(value.Substring(statusPrefix.Length,
-                end - statusPrefix.Length),out status) && (status == 408 || status == 429 || status >= 500);
+                end - statusPrefix.Length),out status) &&
+                (status == 404 || status == 408 || status == 429 || status >= 500);
         }
 
         public static FiscalSigningRequest Prepare(FiscalDocumentReference document, FiscalSigningScope scope, Request wire)
@@ -127,15 +142,14 @@ namespace Exedron.Invoicing.Adapters.Samtec
                     foreach (var line in wire.Doc.TransactionLines ?? new Transactionline[0])
                     {
                         decimal gross = Math.Abs(line.GrossAmount);
-                        decimal discount = Math.Abs(line.DMValue);
+                        decimal product = decimal.Round(line.ItemAmount * line.SaleQty,2,
+                            MidpointRounding.ToEven);
                         if (line.ItemAmount <= 0 || line.SaleQty <= 0 || line.NetAmount < 0 ||
                             line.VatAmount < 0 || gross <= 0 ||
                             decimal.Round(line.NetAmount + line.VatAmount,2) != gross ||
-                            decimal.Round(line.ItemAmount * line.SaleQty,2) !=
-                                decimal.Round(gross + discount,2) ||
-                            (discount == 0 ? line.DMType != 0 : line.DMType != 1))
+                            product != gross)
                             throw new InvalidOperationException(
-                                "A Samtec transaction line must use VAT-inclusive ItemAmount and DMValue consistent with its gross total.");
+                                "A Samtec transaction line must use a VAT-inclusive ItemAmount consistent with its gross total.");
                     }
                     break;
                 case FiscalDocumentKind.Balance:
@@ -166,7 +180,7 @@ namespace Exedron.Invoicing.Adapters.Samtec
                         {
                             int status = (int)response.StatusCode;
                             string diagnostic = "Device HTTP status " + status + "; signing outcome is unconfirmed.";
-                            if (status == 408 || status == 429 || status >= 500)
+                            if (status == 404 || status == 408 || status == 429 || status >= 500)
                                 diagnostic = RetryableDiagnostic + diagnostic;
                             return FiscalSigningResult.Unknown(request.AttemptId, raw, diagnostic);
                         }
@@ -201,9 +215,9 @@ namespace Exedron.Invoicing.Adapters.Samtec
             }
         }
 
-        // A definitive rejection permits a new attempt. Recalculate the Samtec
-        // discount from the immutable wire values so older malformed requests can
-        // be retried without reading mutable invoice data.
+        // A definitive rejection permits a new attempt. Reconcile an immutable
+        // request by folding its final gross amount into the VAT-inclusive item
+        // amount while preserving the saved physical quantity.
         public static FiscalSigningRequest CorrectLineAmountsForRetry(FiscalSigningRequest rejected)
         {
             if (rejected == null || rejected.PayloadFormat != Format || rejected.Scope.SignerKey != Key)
@@ -212,15 +226,27 @@ namespace Exedron.Invoicing.Adapters.Samtec
             foreach (var line in wire.Doc?.TransactionLines ?? new Transactionline[0])
             {
                 decimal gross = Math.Abs(line.GrossAmount);
-                decimal preDiscountGross = decimal.Round(line.ItemAmount * line.SaleQty, 2);
-                decimal discount = preDiscountGross - gross;
-                if (discount < 0)
-                    throw new InvalidOperationException("A Samtec line gross total exceeds its rounded quantity and retail unit price.");
-                int sign = line.GrossAmount < 0 ? -1 : 1;
-                line.DMType = discount > 0 ? 1 : 0;
-                line.DMValue = discount > 0 ? sign * discount : 0;
+                line.ItemAmount = EffectiveVatInclusiveItemAmount(gross,line.SaleQty);
             }
             return Prepare(rejected.Document, rejected.Scope, wire);
+        }
+        public static decimal EffectiveVatInclusiveItemAmount(decimal grossAmount,
+            decimal saleQuantity)
+        {
+            grossAmount = Math.Abs(grossAmount);
+            saleQuantity = Math.Abs(saleQuantity);
+            if (grossAmount <= 0 || saleQuantity <= 0)
+                throw new InvalidOperationException(
+                    "A positive Samtec gross amount and quantity are required.");
+            decimal exact = grossAmount / saleQuantity;
+            // The Samtec template restricts fuel quantity to three decimals but
+            // does not impose the same limit on ItemAmount. Five decimals retain
+            // the effective VAT-inclusive unit price used by existing invoice data.
+            decimal result = decimal.Round(exact,5,MidpointRounding.ToEven);
+            if (decimal.Round(result * saleQuantity,2,MidpointRounding.ToEven) != grossAmount)
+                throw new InvalidOperationException(
+                    "The discounted Samtec item amount cannot represent the saved line total.");
+            return result;
         }
         private static FiscalSigningResult Parse(FiscalSigningRequest request, string raw)
         {
