@@ -41,13 +41,33 @@ namespace ASFuelControl.Windows.Threads
             }
             using (var thermalReport = new Reports.Invoices.InvoiceReportNarrow())
             {
-                thermalReport.ApplyThermalPrintSafety();
+                ConfigureThermalDefinition(thermalReport);
                 byte[] definition = Serialize(thermalReport);
                 InvoiceReportDefinitionRecord record = store.EnsureDefinition(
                     ThermalKey, DefinitionFormat, definition);
                 definitions.Add(ThermalKey, record);
             }
             return definitions;
+        }
+
+        private static void ConfigureThermalDefinition(
+            Reports.Invoices.InvoiceReportNarrow report)
+        {
+            report.ApplyThermalPrintSafety();
+
+            Data.Implementation.OptionHandler options =
+                Data.Implementation.OptionHandler.Instance;
+            decimal configuredFontSize = options.GetDecimalOption(
+                "ThermalPrintFontSize", 9m);
+            decimal normalizedFontSize = Math.Max(9m, configuredFontSize);
+            float fontSize = (float)normalizedFontSize;
+            string fontName = options.GetOption("ThermalPrintFontName", "Tahoma");
+            report.SetFont(fontName, fontSize);
+            report.ApplyThermalTypography(fontName, fontSize);
+
+            // The footer always belongs after the detail rows. Store that
+            // structure in the definition instead of rebuilding it per print.
+            report.FlowFooterAfterDetails();
         }
 
         private static void RemoveRuntimeCompanyData(Report report)

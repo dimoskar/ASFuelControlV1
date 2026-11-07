@@ -254,6 +254,7 @@ namespace ASFuelControl.Windows.Threads
         {
             Data.Invoice invoice = data.RestoreInvoice();
             report.DataSource = data.RestoreThermalLines();
+            bool staticConfiguration = HasStaticThermalConfiguration(report);
             string invoiceId = invoice.InvoiceId.ToString();
             string normalizedInvoiceId = invoiceId.ToLowerInvariant();
             SetParameter(report, "InvoiceId", normalizedInvoiceId);
@@ -269,7 +270,12 @@ namespace ASFuelControl.Windows.Threads
             SetParameter(report, "Fax", data.Company.Fax);
             SetParameter(report, "MainAddress", data.Company.MainAddress);
             SetParameter(report, "efk", data.Company.Efk ?? string.Empty);
-            ApplyFont(report, data.ThermalFontName, data.ThermalFontSize);
+            if (!staticConfiguration)
+            {
+                // Definitions created before typography became part of the
+                // stored template still need the legacy runtime font pass.
+                ApplyFont(report, data.ThermalFontName, data.ThermalFontSize);
+            }
             string transactionDate = invoice.TransactionDate.ToString(
                 "dd/MM/yyyy HH:mm");
             decimal nettoAmount = invoice.NettoAmount.GetValueOrDefault();
@@ -301,7 +307,10 @@ namespace ASFuelControl.Windows.Threads
                 evidence += "\r\n" + data.FiscalFooter.Trim();
             }
             SetText(report, "textBox11", evidence);
-            FlowThermalFooter(report);
+            if (!staticConfiguration)
+            {
+                FlowThermalFooter(report);
+            }
         }
 
         private static void BindSupplyNumber(Report report, Data.Invoice invoice,
@@ -387,12 +396,24 @@ namespace ASFuelControl.Windows.Threads
                 SetText(report, captions[index], visible ? entries[index].Item2 : string.Empty);
                 SetVisible(report, captions[index], visible);
             }
-            ReportSection footer = Find<ReportSection>(report, "pageFooterSection1");
+            ReportSection footer = Find<ReportFooterSection>(report,
+                "thermalReportFooterSection");
+            if (footer == null)
+            {
+                footer = Find<ReportSection>(report, "pageFooterSection1");
+            }
             if (footer != null)
             {
                 footer.Height = Unit.Cm(entries.Count == 0 ? 4.30D :
                     entries.Count <= 2 ? 8.05D : 11.567706108093262D);
             }
+        }
+
+        private static bool HasStaticThermalConfiguration(Report report)
+        {
+            ReportFooterSection footer = Find<ReportFooterSection>(report,
+                "thermalReportFooterSection");
+            return footer != null;
         }
 
         private static void FlowThermalFooter(Report report)
