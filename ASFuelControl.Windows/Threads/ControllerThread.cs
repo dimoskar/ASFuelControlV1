@@ -61,6 +61,8 @@ namespace ASFuelControl.Windows.Threads
         private DateTime lastTankCheck = DateTime.Now.AddMinutes(-1000);
         private string outFolder = "";
         ConcurrentDictionary<Guid, Common.Sales.SaleData> salesToProcess = new ConcurrentDictionary<Guid, Common.Sales.SaleData>();
+        ConcurrentDictionary<Guid, DateTime> saleRetryAfter = new ConcurrentDictionary<Guid, DateTime>();
+        private static readonly TimeSpan SaleRetryDelay = TimeSpan.FromSeconds(2);
         private string signFolder = "";
         private List<Tank.TankWorkFlow> tankWorkFlows = new List<Tank.TankWorkFlow>();
         private System.Threading.Thread th;
@@ -179,7 +181,17 @@ namespace ASFuelControl.Windows.Threads
         /// <param name="sale"></param>
         public void AddSale(Common.Sales.SaleData sale)
         {
+            if (sale == null || sale.SaleProcessed)
+                return;
             this.salesToProcess.TryAdd(sale.SalesId, sale);
+        }
+
+        private void DeferSale(Guid saleId)
+        {
+            this.saleRetryAfter.AddOrUpdate(
+                saleId,
+                DateTime.Now.Add(SaleRetryDelay),
+                (id, retryAt) => DateTime.Now.Add(SaleRetryDelay));
         }
 
         /// <summary>
@@ -331,7 +343,12 @@ namespace ASFuelControl.Windows.Threads
         {
             if (this.salesToProcess.Count == 0)
                 return null;
-            Common.Sales.SaleData sale = this.salesToProcess.Values.FirstOrDefault();
+            DateTime now = DateTime.Now;
+            Common.Sales.SaleData sale = this.salesToProcess.Values.FirstOrDefault(s =>
+            {
+                DateTime retryAt;
+                return !this.saleRetryAfter.TryGetValue(s.SalesId, out retryAt) || retryAt <= now;
+            });
             if (sale == null)
                 return null; 
             if (this.salesToProcess.TryGetValue(sale.SalesId, out sale))
@@ -376,6 +393,8 @@ namespace ASFuelControl.Windows.Threads
         {
             Common.Sales.SaleData sale = null;
             this.salesToProcess.TryRemove(saleId, out sale);
+            DateTime retryAt;
+            this.saleRetryAfter.TryRemove(saleId, out retryAt);
         }
         /// <summary>
         /// Starts all controllers
@@ -850,11 +869,14 @@ namespace ASFuelControl.Windows.Threads
                                 {
                                     if (!manualSale.SaleProcessed)
                                     {
+                                        WorkFlow.SaleCompletedArgs saleArgs = new WorkFlow.SaleCompletedArgs(manualSale);
                                         if (this.SaleAvaliable != null)
-                                            this.SaleAvaliable(this, new WorkFlow.SaleCompletedArgs(manualSale));
-                                        manualSale.SaleProcessed = true;
+                                            this.SaleAvaliable(this, saleArgs);
                                     }
-                                    this.RemoveSale(manualSale.SalesId);
+                                    if (manualSale.SaleProcessed)
+                                        this.RemoveSale(manualSale.SalesId);
+                                    else
+                                        this.DeferSale(manualSale.SalesId);
                                 }
                                 workFlow.CurrentShiftId = Program.CurrentShiftId;
 
@@ -1254,10 +1276,22 @@ namespace ASFuelControl.Windows.Threads
 
         void workFlow_SaleCompleted(object sender, WorkFlow.SaleCompletedArgs e)
         {
-            //this.salesToProcess.Enqueue(e.Sale);
             if (SaleAvaliable != null)
             {
                 this.SaleAvaliable(this, e);
+            }
+            if (e != null && e.Sale != null && !e.Sale.SaleProcessed)
+            {
+                this.AddSale(e.Sale);
+                this.DeferSale(e.Sale.SalesId);
+                Logger.Instance.LogToFile(
+                    "Sale Persistence Queue",
+                    string.Format(
+                        "Sale retained for retry. SalesId:{0}, NozzleId:{1}, TotalizerStart:{2}, TotalizerEnd:{3}",
+                        e.Sale.SalesId,
+                        e.Sale.NozzleId,
+                        e.Sale.TotalizerStart,
+                        e.Sale.TotalizerEnd));
             }
         }
         #endregion

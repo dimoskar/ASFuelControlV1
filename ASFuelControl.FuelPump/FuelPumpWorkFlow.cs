@@ -470,8 +470,13 @@ namespace ASFuelControl.FuelPump
             }
             if(!sale.InvalidSale)
                 this.Dispenser.AddSale(nozzle, sale.TotalVolume, sale.TotalPrice);
-            sale.VehicleId = Guid.Empty;
-            sale.TraderId = Guid.Empty;
+            // Failed persistence is retried asynchronously by ControllerThread. Keep
+            // the sale-specific fleet context until the database commit succeeds.
+            if (sale.SaleProcessed)
+            {
+                sale.VehicleId = Guid.Empty;
+                sale.TraderId = Guid.Empty;
+            }
             this.Dispenser.NextSaleVehicle = Guid.Empty;
             this.Dispenser.NextSaleTrader = Guid.Empty;
             nozzle.CloseSaleDateTime = DateTime.Now;

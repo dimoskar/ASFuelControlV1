@@ -1701,7 +1701,9 @@ namespace ASFuelControl.Data
 
                 InvoicePrint ip = sale.Nozzle.Dispenser.InvoicePrints.FirstOrDefault();
                 if (ip == null)
-                    return null;
+                    throw new InvalidOperationException(string.Format(
+                        "No InvoicePrint configuration was found for dispenser {0}.",
+                        sale.Nozzle.DispenserId));
 
                 Invoice invoice = new Invoice();
                 invoice.ApplicationUserId = DatabaseModel.CurrentUserId;
@@ -1849,7 +1851,7 @@ namespace ASFuelControl.Data
             catch (Exception ex)
             {
                 Logging.Logger.Instance.LogToFile("Create Sale", ex);
-                return null;
+                throw;
             }
         }
 
@@ -1984,7 +1986,7 @@ namespace ASFuelControl.Data
             catch (Exception ex)
             {
                 Logging.Logger.Instance.LogToFile("Create SalesTransaction", ex);
-                return Guid.Empty;
+                throw;
             }
         }
 
