@@ -25,6 +25,22 @@ namespace ASFuelControl.Windows.Threads
     {
         internal static byte[] Render(InvoiceWorkflowSnapshot snapshot, InvoiceResponse response, SharedPrinterProfile profile)
         {
+            byte[] renderedDocument = RenderDocument(snapshot, response, profile,
+                false);
+            return renderedDocument;
+        }
+
+        internal static byte[] RenderPdf(InvoiceWorkflowSnapshot snapshot,
+            InvoiceResponse response, SharedPrinterProfile profile)
+        {
+            byte[] renderedDocument = RenderDocument(snapshot, response, profile,
+                true);
+            return renderedDocument;
+        }
+
+        private static byte[] RenderDocument(InvoiceWorkflowSnapshot snapshot,
+            InvoiceResponse response, SharedPrinterProfile profile, bool pdf)
+        {
             if (profile == null)
                 throw new InvalidOperationException("A printer profile is required for the invoice report.");
 
@@ -51,7 +67,7 @@ namespace ASFuelControl.Windows.Threads
                         ? null
                         : responseQrCodeUrl;
                     return RenderThermalReport(db, invoice, fiscalDeviceUrl,
-                        documentUrl, profile, fiscalFooter, response);
+                        documentUrl, profile, fiscalFooter, response, pdf);
                 }
 
                 if (invoice.InvoiceType.IsInternal == true)
@@ -61,7 +77,8 @@ namespace ASFuelControl.Windows.Threads
                     {
                         report.DataSource = reportData;
                         ConfigureInternalReport(report,invoice,qrCodeUrl);
-                        return RenderPages(report,profile,fiscalFooter);
+                        return RenderReportDocument(report, profile, fiscalFooter,
+                            pdf);
                     }
                 }
 
@@ -69,14 +86,15 @@ namespace ASFuelControl.Windows.Threads
                 {
                     report.DataSource = db.InvoiceLines.Where(line => line.InvoiceId == invoice.InvoiceId).ToArray();
                     ConfigureShortReport(report,invoice,qrCodeUrl);
-                    return RenderPages(report,profile,fiscalFooter);
+                    return RenderReportDocument(report, profile, fiscalFooter,
+                        pdf);
                 }
             }
         }
 
         private static byte[] RenderThermalReport(Data.DatabaseModel db, Data.Invoice invoice,
             string fiscalDeviceUrl, string documentUrl, SharedPrinterProfile profile,
-            string fiscalFooter, InvoiceResponse response)
+            string fiscalFooter, InvoiceResponse response, bool pdf)
         {
             using (var report = new Reports.Invoices.InvoiceReportNarrow())
             {
@@ -110,9 +128,47 @@ namespace ASFuelControl.Windows.Threads
                     report.FlowFooterAfterDetails();
                     // Fiscal evidence remains in the established receipt footer,
                     // which now flows after the detail rows on the fixed paper.
-                    return RenderPages(report,profile,null);
+                    return RenderReportDocument(report, profile, null, pdf);
                 }
             }
+        }
+
+        private static byte[] RenderReportDocument(Telerik.Reporting.Report report,
+            SharedPrinterProfile profile, string fiscalFooter, bool pdf)
+        {
+            if (pdf)
+            {
+                byte[] pdfDocument = RenderPdfDocument(report, profile,
+                    fiscalFooter);
+                return pdfDocument;
+            }
+
+            byte[] pngPages = RenderPages(report, profile, fiscalFooter);
+            return pngPages;
+        }
+
+        internal static byte[] RenderPdfDocument(Telerik.Reporting.Report report,
+            SharedPrinterProfile profile, string fiscalFooter)
+        {
+            ConfigurePaper(report, profile);
+            AddFiscalFooter(report, fiscalFooter);
+
+            var source = new InstanceReportSource { ReportDocument = report };
+            var processor = new ReportProcessor();
+            RenderingResult result = processor.RenderReport("PDF", source, null);
+            if (result.HasErrors)
+            {
+                Exception firstError = result.Errors.FirstOrDefault();
+                throw new InvalidOperationException(
+                    "The invoice report could not be rendered as PDF.", firstError);
+            }
+            if (result.DocumentBytes == null || result.DocumentBytes.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "The invoice report produced an empty PDF document.");
+            }
+
+            return result.DocumentBytes;
         }
 
         private static string ThermalEvidence(string fiscalFooter, InvoiceResponse response)

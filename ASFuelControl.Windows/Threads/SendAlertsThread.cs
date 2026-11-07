@@ -19,6 +19,7 @@ namespace ASFuelControl.Windows.Threads
         private const int SalesBatchSize = 5;
         private const int PriceBatchSize = 1;
         private const int BalanceBatchSize = 1;
+        private const int SubmissionHistoryMonths = 3;
         private const int BalanceCloseWindowMinutes = 10;
         private const int InitialRetryDelaySeconds = 30;
         private const int MaximumRetryDelaySeconds = 15 * 60;
@@ -133,6 +134,17 @@ namespace ASFuelControl.Windows.Threads
                 DateTime.TryParse(datestart, out dtStart);
             }
             officialStartDate = dtStart;
+        }
+
+        private DateTime GetSubmissionSearchStartDate()
+        {
+            DateTime rollingStartDate = DateTime.Now.AddMonths(-SubmissionHistoryMonths);
+            if (this.officialStartDate > rollingStartDate)
+            {
+                return this.officialStartDate;
+            }
+
+            return rollingStartDate;
         }
 
         /// <summary>
@@ -952,9 +964,10 @@ namespace ASFuelControl.Windows.Threads
 
             try
             {
+                DateTime submissionSearchStartDate = this.GetSubmissionSearchStartDate();
                 var sales = database.SalesTransactions
                     .Where(se => !se.SentDateTime.HasValue &&
-                        se.TransactionTimeStamp >= this.officialStartDate &&
+                        se.TransactionTimeStamp >= submissionSearchStartDate &&
                         se.InvoiceLines.Count > 0 &&
                         se.InvoiceLines.Where(il => il.Invoice.InvoiceSignature != null &&
                             il.Invoice.InvoiceSignature != "" &&
@@ -1025,10 +1038,11 @@ namespace ASFuelControl.Windows.Threads
         {
             try
             {
+                DateTime submissionSearchStartDate = this.GetSubmissionSearchStartDate();
                 List<Data.Balance> balances = database.Balances
                     .Where(balance =>
                         !balance.SentDateTime.HasValue &&
-                        balance.EndDate >= this.officialStartDate &&
+                        balance.EndDate >= submissionSearchStartDate &&
                         balance.DocumentSign != null &&
                         balance.DocumentSign.Length > 15 &&
                         !balance.DocumentSign.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ"))
@@ -1092,8 +1106,10 @@ namespace ASFuelControl.Windows.Threads
             int processed = 0;
             try
             {
+                DateTime submissionSearchStartDate = this.GetSubmissionSearchStartDate();
                 var checks = database.TankChecks
                     .Where(t => !t.SentDatetime.HasValue &&
+                        t.CheckDate >= submissionSearchStartDate &&
                         !(t.Tank.FuelType.ExcludeFromBalance.HasValue && t.Tank.FuelType.ExcludeFromBalance.Value))
                     .OrderBy(t => t.CheckDate)
                     .Take(TankCheckBatchSize)
@@ -1105,7 +1121,11 @@ namespace ASFuelControl.Windows.Threads
                         break;
                     try
                     {
-                        this.SendObject(check,"TankCheck",check.TankCheckId,this.tankCheckSendMethods);
+                        this.SendObject(
+                            check,
+                            "TankCheck",
+                            check.TankCheckId,
+                            this.tankCheckSendMethods);
                         processed++;
                     }
                     catch (Exception ex)
@@ -1130,6 +1150,7 @@ namespace ASFuelControl.Windows.Threads
             {
                 this.LastAction = DateTime.Now;
                 DateTime dt = DateTime.Now;
+                DateTime submissionSearchStartDate = this.GetSubmissionSearchStartDate();
 
                 // During station close, the daily balance has a hard midnight
                 // deadline and must go ahead of the normal round-robin streams.
@@ -1142,7 +1163,8 @@ namespace ASFuelControl.Windows.Threads
                 this.CheckForSales(database);
                 database.SaveChanges();
                 //DateTime dtAlertCheck = DateTime.Now.AddMinutes(-1);
-                var q = database.SystemEvents.Where(se => !se.SentDate.HasValue && se.EventDate >= this.officialStartDate
+                var q = database.SystemEvents.Where(se => !se.SentDate.HasValue &&
+                    se.EventDate >= submissionSearchStartDate
                     &&
                     (
                         se.DocumentSign != null &&
@@ -1199,7 +1221,7 @@ namespace ASFuelControl.Windows.Threads
                 database.SaveChanges();
                 var q1 = database.TankFillings
                     .Where(se => !se.SentDateTime.HasValue &&
-                        se.TransactionTime >= this.officialStartDate &&
+                        se.TransactionTime >= submissionSearchStartDate &&
                         se.InvoiceLines.Count > 0 &&
                         !(se.Tank.FuelType.ExcludeFromBalance.HasValue && se.Tank.FuelType.ExcludeFromBalance.Value))
                     .OrderBy(t => t.TransactionTimeEnd)
@@ -1248,7 +1270,7 @@ namespace ASFuelControl.Windows.Threads
                 database.SaveChanges();
                 var q4 = database.FuelTypePrices
                     .Where(se => !se.SentDateTime.HasValue &&
-                        se.ChangeDate >= this.officialStartDate &&
+                        se.ChangeDate >= submissionSearchStartDate &&
                         !(se.FuelType.ExcludeFromBalance.HasValue && se.FuelType.ExcludeFromBalance.Value))
                     .OrderBy(se => se.ChangeDate)
                     .Take(PriceBatchSize)
