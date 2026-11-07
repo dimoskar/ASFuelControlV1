@@ -439,8 +439,11 @@ namespace ASFuelControl.Windows.Threads
                 var engine = new InvoiceWorkflowService(sql.Value,
                     new ProviderSubmissionService(sql.Value, new CurrentCredentials()), null,
                     newFiscalDocument && plan.Original.Signing != null ? SigningService() : null,
-                    new FiscalPrintService(sql.Value, new SharedInvoicePrinting(() => settings.Value.DefaultPrinter)),
-                    (snapshot, response) => SharedInvoicePrinting.Render(snapshot, response, SharedInvoiceLaserReportRenderer.Render),
+                    new FiscalPrintService(sql.Value,
+                        new SharedInvoicePrinting(() => settings.Value.DefaultPrinter),
+                        new StoredInvoicePrintMaterializer(sql.Value)),
+                    (snapshot, response) => SharedInvoiceLaserReportRenderer
+                        .PrepareStoredData(sql.Value, snapshot, response),
                     (invoiceId, result) => { if (result.Accepted) Project(invoiceId, result); });
                 return engine.Process(id, new InvoiceTypeCorrectionSource(plan, credit,
                     newFiscalDocument), false, retryRejected: true);
@@ -475,7 +478,7 @@ namespace ASFuelControl.Windows.Threads
                     var snapshot = new InvoiceWorkflowSnapshot {
                         InvoiceId = invoice.InvoiceId, Provider = plan.Original.Provider,
                         Invoice = plan.Request(credit, invoice.Number, invoice.Series, invoice.TransactionDate),
-                        PrintFormat = SharedInvoicePrinting.Format,
+                        PrintFormat = StoredInvoicePrintMaterializer.StoredFormat,
                         PrintDestination = JsonConvert.SerializeObject(configuredPrinter),
                         PrintContent = Encoding.UTF8.GetBytes(content),
                         CompanyQrContent = Reports.BrandData.SetBrandData(invoice)

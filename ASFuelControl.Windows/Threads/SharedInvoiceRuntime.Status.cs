@@ -618,9 +618,12 @@ namespace ASFuelControl.Windows.Threads
             {
                 FiscalOperationRecord printed;
                 using (var lease = sql.Value.EnterInvoice(creditInvoiceId))
-                    printed = new FiscalPrintService(sql.Value,new SharedInvoicePrinting(() => settings.Value.DefaultPrinter)).Print(lease,
+                    printed = new FiscalPrintService(sql.Value,
+                        new SharedInvoicePrinting(() => settings.Value.DefaultPrinter),
+                        new StoredInvoicePrintMaterializer(sql.Value)).Print(lease,
                         result.Submission.AttemptId,snapshot.PrintDestination,snapshot.PrintFormat,
-                        () => SharedInvoicePrinting.Render(snapshot,result.Submission.Response,SharedInvoiceLaserReportRenderer.Render));
+                        () => SharedInvoiceLaserReportRenderer.PrepareStoredData(
+                            sql.Value,snapshot,result.Submission.Response));
                 ProjectRefund(creditInvoiceId,result,printed);
             }
             return result;

@@ -82,8 +82,12 @@ namespace ASFuelControl.Windows.Threads
                 return new SamtecFiscalSigner(device);
             });
             return new InvoiceWorkflowService(database, providers, payments, signing,
-                new FiscalPrintService(database, new SharedInvoicePrinting(() => settings.Value.DefaultPrinter)),
-                (snapshot,response) => SharedInvoicePrinting.Render(snapshot,response,SharedInvoiceLaserReportRenderer.Render), Project, CurrentConnection,
+                new FiscalPrintService(database,
+                    new SharedInvoicePrinting(() => settings.Value.DefaultPrinter),
+                    new StoredInvoicePrintMaterializer(database)),
+                (snapshot,response) => SharedInvoiceLaserReportRenderer
+                    .PrepareStoredData(database, snapshot, response), Project,
+                CurrentConnection,
                 new SharedMyDieselRedemptionCoordinator(database));
         });
         internal static bool Handles(Guid invoiceId)
@@ -524,7 +528,7 @@ namespace ASFuelControl.Windows.Threads
                     var content = PrintAgent.RenderSharedInvoiceContent(db, invoice);
                     var value = new InvoiceWorkflowSnapshot { InvoiceId = id, Provider = route.Provider, LocalOnly = route.LocalOnly,
                         Payment = invoice.PaymentType == 2 || invoice.PaymentType == 4 ? route.Payment : null,
-                        PrintContent = Encoding.UTF8.GetBytes(content), PrintDestination = JsonConvert.SerializeObject(printer), PrintFormat = SharedInvoicePrinting.Format,
+                        PrintContent = Encoding.UTF8.GetBytes(content), PrintDestination = JsonConvert.SerializeObject(printer), PrintFormat = StoredInvoicePrintMaterializer.StoredFormat,
                         CompanyQrContent = Reports.BrandData.SetBrandData(invoice) };
                     if (coupon != null)
                     {

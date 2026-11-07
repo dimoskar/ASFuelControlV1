@@ -12,12 +12,28 @@ namespace ASFuelControl.Invoicing
         void Validate(string destination, string format, byte[] document);
         string Dispatch(string destination, string format, byte[] document, Guid jobId);
     }
+    public sealed class FiscalPrintMaterialization
+    {
+        public string Format { get; set; }
+        public byte[] Document { get; set; }
+    }
+    public interface IFiscalPrintMaterializer
+    {
+        FiscalPrintMaterialization Materialize(string destination, string storedFormat,
+            byte[] storedPayload);
+    }
     public sealed class FiscalPrintService
     {
         private readonly SqlFiscalOperationStore store;
         private readonly IFiscalPrintTransport transport;
-        public FiscalPrintService(SqlFiscalDatabase database, IFiscalPrintTransport transport)
-        { store = new SqlFiscalOperationStore(database); this.transport = transport ?? throw new ArgumentNullException(nameof(transport)); }
+        private readonly IFiscalPrintMaterializer materializer;
+        public FiscalPrintService(SqlFiscalDatabase database, IFiscalPrintTransport transport,
+            IFiscalPrintMaterializer materializer = null)
+        {
+            store = new SqlFiscalOperationStore(database);
+            this.transport = transport ?? throw new ArgumentNullException(nameof(transport));
+            this.materializer = materializer;
+        }
 
         public FiscalOperationRecord Print(IFiscalDocumentLease lease, Guid? acceptedAttemptId, string destination,
             string format, Func<byte[]> render, string reprintReason = null, bool offlineReceipt = false)
@@ -38,11 +54,27 @@ namespace ASFuelControl.Invoicing
                 // printer. Automatic recovery keeps the original destination.
                 var original = all.FirstOrDefault();
                 var explicitReprint = !string.IsNullOrWhiteSpace(reprintReason);
-                last = store.BeginPrint(lease, original?.OriginalAttemptId ?? acceptedAttemptId,
-                    explicitReprint ? destination : original?.Scope ?? destination, original?.PayloadFormat ?? format,
-                    original?.Payload ?? render(), reprintReason ?? last?.Reason, original?.OfflineReceipt ?? offlineReceipt);
+                Guid? originalAttemptId = original?.OriginalAttemptId ??
+                    acceptedAttemptId;
+                string savedDestination = explicitReprint ? destination :
+                    original?.Scope ?? destination;
+                string savedFormat = original?.PayloadFormat ?? format;
+                byte[] savedPayload = original?.Payload;
+                if (savedPayload == null)
+                {
+                    savedPayload = render();
+                }
+                string savedReason = reprintReason ?? last?.Reason;
+                bool savedOfflineReceipt = original?.OfflineReceipt ?? offlineReceipt;
+                last = store.BeginPrint(lease, originalAttemptId, savedDestination,
+                    savedFormat, savedPayload, savedReason, savedOfflineReceipt);
             }
-            try { transport.Validate(last.Scope, last.PayloadFormat, last.Payload); }
+            FiscalPrintMaterialization materialized;
+            try
+            {
+                materialized = Materialize(last);
+                transport.Validate(last.Scope, materialized.Format, materialized.Document);
+            }
             catch (Exception ex)
             {
                 store.SavePrint(lease, last, FiscalPrintState.FailedBeforeDispatch, ex.Message);
@@ -52,7 +84,8 @@ namespace ASFuelControl.Invoicing
             string receipt;
             try
             {
-                receipt = transport.Dispatch(last.Scope, last.PayloadFormat, last.Payload, last.AttemptId);
+                receipt = transport.Dispatch(last.Scope, materialized.Format,
+                    materialized.Document, last.AttemptId);
                 if (string.IsNullOrWhiteSpace(receipt)) throw new InvalidOperationException("Printer transport returned no handoff receipt.");
             }
             catch (Exception ex)
@@ -64,6 +97,28 @@ namespace ASFuelControl.Invoicing
             // remains durable and the next call cannot send another copy.
             store.SavePrint(lease, last, FiscalPrintState.HandedOff, receipt);
             return last;
+        }
+
+        private FiscalPrintMaterialization Materialize(FiscalOperationRecord record)
+        {
+            if (materializer == null)
+            {
+                return new FiscalPrintMaterialization
+                {
+                    Format = record.PayloadFormat,
+                    Document = record.Payload
+                };
+            }
+
+            FiscalPrintMaterialization result = materializer.Materialize(record.Scope,
+                record.PayloadFormat, record.Payload);
+            if (result == null || string.IsNullOrWhiteSpace(result.Format) ||
+                result.Document == null || result.Document.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "The stored print data could not be materialized.");
+            }
+            return result;
         }
 
         public void Reconcile(IFiscalDocumentLease lease, Guid jobId, bool confirmedPrinted, string evidence)

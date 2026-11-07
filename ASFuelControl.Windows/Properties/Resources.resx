@@ -790,4 +790,7 @@
   <data name="UpdateDatabase66" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\DBScripts\UpdateDatabase66.sql;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
+  <data name="UpdateDatabase67" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\DBScripts\UpdateDatabase67.sql;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
 </root>

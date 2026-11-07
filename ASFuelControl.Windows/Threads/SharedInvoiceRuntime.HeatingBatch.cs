@@ -192,8 +192,11 @@ namespace ASFuelControl.Windows.Threads
                     (credit?"Πλήρης πίστωση":"Επανέκδοση")+" του "+plan.OriginalDescription+" — διόρθωση ένδειξης επιδόματος θέρμανσης. Συμψηφισμός χωρίς νέα είσπραξη.",DateTime.Now);
                 // Preserve the original provider/account/environment; new global settings must not redirect this batch.
                 var engine=new InvoiceWorkflowService(sql.Value,new ProviderSubmissionService(sql.Value,new CurrentCredentials()),null,null,
-                    new FiscalPrintService(sql.Value,new SharedInvoicePrinting(()=>settings.Value.DefaultPrinter)),
-                    (snapshot,response)=>SharedInvoicePrinting.Render(snapshot,response,SharedInvoiceLaserReportRenderer.Render),
+                    new FiscalPrintService(sql.Value,
+                        new SharedInvoicePrinting(()=>settings.Value.DefaultPrinter),
+                        new StoredInvoicePrintMaterializer(sql.Value)),
+                    (snapshot,response)=>SharedInvoiceLaserReportRenderer
+                        .PrepareStoredData(sql.Value,snapshot,response),
                     (invoiceId,result)=>{if(result.Accepted)Project(invoiceId,result);});
                 return engine.Process(id,new HeatingSource(plan,credit),false,retryRejected:true);
             }
@@ -208,7 +211,7 @@ namespace ASFuelControl.Windows.Threads
                     var invoice=db.Invoices.Single(i=>i.InvoiceId==lease.Document.DocumentId);
                     return new InvoiceWorkflowSnapshot{InvoiceId=invoice.InvoiceId,Provider=plan.Original.Provider,
                         Invoice=plan.Request(credit,invoice.Number,invoice.Series,invoice.TransactionDate),
-                        PrintFormat=SharedInvoicePrinting.Format,PrintDestination=JsonConvert.SerializeObject(
+                        PrintFormat=StoredInvoicePrintMaterializer.StoredFormat,PrintDestination=JsonConvert.SerializeObject(
                             settings.Value.Route(invoice).Printer??settings.Value.DefaultPrinter??new SharedPrinterProfile()),
                         PrintContent=Encoding.UTF8.GetBytes(PrintAgent.RenderSharedInvoiceContent(db,invoice)),
                         CompanyQrContent=Reports.BrandData.SetBrandData(invoice)};

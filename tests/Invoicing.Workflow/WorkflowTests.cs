@@ -45,6 +45,23 @@ internal static partial class Program
             return "fake spool receipt " + id;
         }
     }
+    sealed class PrintMaterializer : IFiscalPrintMaterializer
+    {
+        public int Calls;
+        public FiscalPrintMaterialization Materialize(string destination,
+            string storedFormat, byte[] storedPayload)
+        {
+            Calls++;
+            string storedText = Encoding.UTF8.GetString(storedPayload);
+            string materializedText = "materialized:" + storedText;
+            byte[] document = Encoding.UTF8.GetBytes(materializedText);
+            return new FiscalPrintMaterialization
+            {
+                Format = "materialized/v1",
+                Document = document
+            };
+        }
+    }
     sealed class Signer : IFiscalSigner
     {
         public int Calls;
@@ -104,10 +121,27 @@ internal static partial class Program
     }
     static InvoiceWorkflowService Workflow(Http http, Printer printer, Action<Guid,InvoiceWorkflowResult> project = null,
         Func<InvoiceWorkflowSnapshot,Exedron.Invoicing.Core.Models.InvoiceResponse,byte[]> render = null, IFiscalSigner signer = null,
-        Func<ProviderRoute,ProviderRoute> currentConnection = null, Credentials credentials = null, IMyDieselRedemptionCoordinator myDiesel = null) =>
-        new InvoiceWorkflowService(database, Service(http,credentials), new ProviderPaymentService(database,credentials ?? new Credentials(), r => http),
-            new FiscalSigningService(database,s => signer), new FiscalPrintService(database,printer),
-            render ?? ((s,r) => Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(s.PrintContent) + " MARK=" + r.Mark)), project ?? ((id,r) => {}), currentConnection,myDiesel);
+        Func<ProviderRoute,ProviderRoute> currentConnection = null, Credentials credentials = null, IMyDieselRedemptionCoordinator myDiesel = null,
+        IFiscalPrintMaterializer materializer = null)
+    {
+        Credentials effectiveCredentials = credentials ?? new Credentials();
+        ProviderSubmissionService submission = Service(http, credentials);
+        var payment = new ProviderPaymentService(database, effectiveCredentials,
+            route => http);
+        var signing = new FiscalSigningService(database, scope => signer);
+        var printing = new FiscalPrintService(database, printer, materializer);
+        Func<InvoiceWorkflowSnapshot,Exedron.Invoicing.Core.Models.InvoiceResponse,
+            byte[]> effectiveRender = render ?? ((snapshot,response) =>
+            {
+                string content = Encoding.UTF8.GetString(snapshot.PrintContent);
+                string printable = content + " MARK=" + response.Mark;
+                return Encoding.UTF8.GetBytes(printable);
+            });
+        Action<Guid, InvoiceWorkflowResult> effectiveProject = project ??
+            ((invoiceId,result) => { });
+        return new InvoiceWorkflowService(database, submission, payment, signing,
+            printing, effectiveRender, effectiveProject, currentConnection, myDiesel);
+    }
     static FiscalOperationRecord[] Prints(Guid id) { using(var lease = database.EnterInvoice(id)) return new SqlFiscalOperationStore(database).Load(lease,true).ToArray(); }
     static void WorkflowTests()
     {
@@ -594,6 +628,22 @@ internal static partial class Program
             int projections = 0; var workflow = Workflow(http,printer,(id,r) => { projections++; Check(r.Accepted,"projected unaccepted result"); if (r.Print == null) Equal(0,printer.Calls); });
             var result = workflow.Process(source.Source.Id,source); Equal("HandedOff",result.Print.State); Equal(2,projections); Equal(1,http.Posts); Equal(1,printer.Calls);
             Check(Encoding.UTF8.GetString(printer.Bytes).Contains("900010"),"missing MARK");
+        });
+        Test("print journal retains compact data while dispatch uses materialized pages", () => {
+            var source = new WorkflowSource();
+            var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey);
+            var printer = new Printer();
+            var materializer = new PrintMaterializer();
+            byte[] storedData = Encoding.UTF8.GetBytes("stored-datasource");
+            var workflow = Workflow(http,printer,render:(snapshot,response) =>
+                storedData,materializer:materializer);
+            workflow.Process(source.Source.Id,source);
+            FiscalOperationRecord saved = Prints(source.Source.Id).Single();
+            Check(saved.Payload.SequenceEqual(storedData),
+                "The print journal retained rendered pages instead of stored data.");
+            string dispatched = Encoding.UTF8.GetString(printer.Bytes);
+            Equal("materialized:stored-datasource",dispatched);
+            Equal(1,materializer.Calls);
         });
         Test("polling accepted print makes no provider, printer, render or source call", () => {
             var source = new WorkflowSource(); var http = new Http(source.Source.Id,InvoiceProviderCatalog.MyDataKey); var printer = new Printer(); int renders = 0;

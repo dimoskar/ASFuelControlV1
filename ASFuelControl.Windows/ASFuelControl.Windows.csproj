@@ -1711,6 +1711,7 @@
     <Content Include="DBScripts\UpdateDatabase64.sql" />
     <Content Include="DBScripts\UpdateDatabase65.sql" />
     <Content Include="DBScripts\UpdateDatabase66.sql" />
+    <Content Include="DBScripts\UpdateDatabase67.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />
@@ -1863,6 +1864,9 @@
     <Compile Include="Threads\SharedInvoicingSettings.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.Status.cs" />
     <Compile Include="Threads\SharedInvoiceLaserReportRenderer.cs" />
+    <Compile Include="Threads\InvoiceReportDefinitionRegistry.cs" />
+    <Compile Include="Threads\StoredInvoicePrintData.cs" />
+    <Compile Include="Threads\StoredInvoicePrintMaterializer.cs" />
     <Compile Include="UI\Controls\FiscalDocumentPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>

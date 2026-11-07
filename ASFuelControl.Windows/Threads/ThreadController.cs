@@ -177,6 +177,10 @@ namespace ASFuelControl.Windows.Threads
             }
 
             Data.Implementation.OptionHandler.Instance.SetOption(this.database, "DBVersion", Program.CurrentDBVersion);
+            string fiscalConnectionString = Properties.Settings.Default.DBConnection;
+            var fiscalDatabase = new ASFuelControl.Invoicing.Persistence.SqlFiscalDatabase(
+                fiscalConnectionString);
+            InvoiceReportDefinitionRegistry.EnsureCurrent(fiscalDatabase);
             this.databaseUpdateVerified = true;
         }
 

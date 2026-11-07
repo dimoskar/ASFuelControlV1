@@ -350,7 +350,26 @@ namespace ASFuelControl.Windows.UI.Controls
             ASFuelControl.Invoicing.Persistence.FiscalAttemptEvidence attempt)
         {
             fiscalAttemptRequestPage.Text = "Έγγραφο";
-            fiscalAttemptPrintPages = ReadPrintPages(attempt.RequestPayload);
+            byte[] previewPayload = attempt.RequestPayload;
+            string previewFormat = attempt.PayloadFormat;
+            string materializationError = null;
+            try
+            {
+                string connectionString = Properties.Settings.Default.DBConnection;
+                var database = new ASFuelControl.Invoicing.Persistence.SqlFiscalDatabase(
+                    connectionString);
+                var materializer = new Threads.StoredInvoicePrintMaterializer(database);
+                ASFuelControl.Invoicing.FiscalPrintMaterialization materialized =
+                    materializer.Materialize(attempt.Scope, attempt.PayloadFormat,
+                        attempt.RequestPayload);
+                previewPayload = materialized.Document;
+                previewFormat = materialized.Format;
+            }
+            catch (Exception ex)
+            {
+                materializationError = ex.Message;
+            }
+            fiscalAttemptPrintPages = ReadPrintPages(previewPayload);
             bool previewAvailable = fiscalAttemptPrintPages != null &&
                 fiscalAttemptPrintPages.Length > 0;
             fiscalAttemptPrintPreview.Visible = previewAvailable;
@@ -368,12 +387,15 @@ namespace ASFuelControl.Windows.UI.Controls
             fiscalAttemptRequest.Text =
                 "Αποθηκευμένο έγγραφο εκτύπωσης\r\n\r\n" +
                 "Μορφή: " + (attempt.PayloadFormat ?? "-") + "\r\n" +
+                "Μορφή προεπισκόπησης: " + (previewFormat ?? "-") + "\r\n" +
                 "Σελίδες: " + pageCount + "\r\n" +
                 "Μέγεθος εικόνων: " + renderedSizeText + "\r\n" +
                 "Μέγεθος αποθηκευμένου payload: " + payloadSizeText + "\r\n" +
                 "SHA-256: " + (attempt.RequestSha256 ?? "-") +
                 (previewAvailable ? string.Empty :
-                    "\r\n\r\nΗ προεπισκόπηση δεν είναι διαθέσιμη για αυτό το αποθηκευμένο έγγραφο.");
+                    "\r\n\r\nΗ προεπισκόπηση δεν είναι διαθέσιμη για αυτό το αποθηκευμένο έγγραφο." +
+                    (string.IsNullOrWhiteSpace(materializationError) ? string.Empty :
+                        "\r\n" + materializationError));
         }
         private static byte[][] ReadPrintPages(byte[] payload)
         {

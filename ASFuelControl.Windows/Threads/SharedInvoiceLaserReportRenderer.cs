@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using ASFuelControl.Invoicing;
+using ASFuelControl.Invoicing.Persistence;
 using Exedron.Invoicing.Core.Models;
 using Newtonsoft.Json;
 using Telerik.Reporting;
@@ -23,6 +24,51 @@ namespace ASFuelControl.Windows.Threads
     /// </summary>
     internal static class SharedInvoiceLaserReportRenderer
     {
+        internal static byte[] PrepareStoredData(SqlFiscalDatabase fiscalDatabase,
+            InvoiceWorkflowSnapshot snapshot, InvoiceResponse response)
+        {
+            if (fiscalDatabase == null)
+            {
+                throw new ArgumentNullException(nameof(fiscalDatabase));
+            }
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            SharedPrinterProfile profile =
+                JsonConvert.DeserializeObject<SharedPrinterProfile>(
+                    snapshot.PrintDestination);
+            string fiscalFooter = SharedInvoicePrinting.Footer(snapshot, response);
+            StoredInvoicePrintData data;
+            using (var database = new Data.DatabaseModel(
+                Properties.Settings.Default.DBConnection))
+            {
+                Data.Invoice invoice = database.Invoices.Single(value =>
+                    value.InvoiceId == snapshot.InvoiceId);
+                data = StoredInvoicePrintData.Capture(database, invoice, snapshot,
+                    response, profile, fiscalFooter);
+            }
+
+            IReadOnlyDictionary<string, InvoiceReportDefinitionRecord> definitions =
+                InvoiceReportDefinitionRegistry.EnsureCurrent(fiscalDatabase);
+            InvoiceReportDefinitionRecord definition = definitions[data.ReportKey];
+            string dataJson = JsonConvert.SerializeObject(data);
+            byte[] dataPayload = Encoding.UTF8.GetBytes(dataJson);
+            var store = new SqlInvoicePrintArchiveStore(fiscalDatabase);
+            InvoicePrintDataRecord saved = store.GetOrCreatePrintData(
+                snapshot.InvoiceId, definition.ReportDefinitionId,
+                StoredInvoicePrintMaterializer.DataFormat, dataPayload);
+            var reference = new StoredInvoicePrintReference
+            {
+                Version = 1,
+                InvoicePrintDataId = saved.InvoicePrintDataId,
+                ReportDefinitionId = saved.ReportDefinitionId
+            };
+            string referenceJson = JsonConvert.SerializeObject(reference);
+            return Encoding.UTF8.GetBytes(referenceJson);
+        }
+
         internal static byte[] Render(InvoiceWorkflowSnapshot snapshot, InvoiceResponse response, SharedPrinterProfile profile)
         {
             byte[] renderedDocument = RenderDocument(snapshot, response, profile,
