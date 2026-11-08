@@ -33,6 +33,8 @@ namespace Exedron.Invoicing.Core
         public string RequestXml { get; set; }
         public string ResponseXml { get; set; }
         public string[] RecoveryResponsesXml { get; set; }
+        public string ReconciliationUid { get; set; }
+        public string ReconciliationMark { get; set; }
         public int? HttpStatus { get; set; }
         public string State { get; set; }
         public string CommunicationError { get; set; }

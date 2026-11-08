@@ -50,6 +50,11 @@ namespace ASFuelControl.Invoicing
         // A user-requested resend uses the currently configured receiver. The
         // previous attempt remains immutable in the fiscal journal.
         public List<InvoiceSubmissionReceiverChange> SubmissionReceiverChanges { get; set; }
+        // Explicit, audited adoption of a legacy invoice that was incorrectly
+        // signed locally even though its current policy assigns signing to an
+        // invoice provider. The original evidence remains immutable here and is
+        // replaced in the host projection only after provider acceptance.
+        public LegacyFiscalEvidenceReplacement LegacyFiscalReplacement { get; set; }
         InvoiceBuildRequest IInvoiceSubmissionSource.Prepare(Guid id, ProviderRoute route)
         {
             if (id != InvoiceId || JsonConvert.SerializeObject(route) != JsonConvert.SerializeObject(Provider)) throw new InvalidOperationException("Workflow route mismatch.");
@@ -109,6 +114,14 @@ namespace ASFuelControl.Invoicing
         public bool TestMode { get; set; }
         public bool ReusedApprovedPayment { get; set; }
         public DateTime ChangedUtc { get; set; }
+        public string Reason { get; set; }
+    }
+    public sealed class LegacyFiscalEvidenceReplacement
+    {
+        public string PreviousInvoiceSignature { get; set; }
+        public string PreviousQrCode { get; set; }
+        public string AuthorizedBy { get; set; }
+        public DateTime AuthorizedUtc { get; set; }
         public string Reason { get; set; }
     }
     public sealed class InvoiceWorkflowResult
@@ -273,6 +286,10 @@ namespace ASFuelControl.Invoicing
                         previousSubmission != null &&
                         (previousSubmission.State == "Rejected" ||
                             previousSubmission.State == "RetryAuthorized");
+                    Guid? releasedSubmissionAttemptId =
+                        regenerateRejectedSubmission
+                            ? previousSubmission.AttemptId
+                            : (Guid?)null;
                     if (regenerateRejectedSubmission)
                     {
                         InvoiceWorkflowSnapshot regeneratedSubmission = source.Prepare(lease);
@@ -337,7 +354,9 @@ namespace ASFuelControl.Invoicing
                         {
                             var signed = signing.Sign(snapshot.Signing.Document,
                                 snapshot.Signing.Scope, snapshot,
-                                retryDefinitiveFailure: retrySigning);
+                                retryDefinitiveFailure: retrySigning,
+                                releasedSubmissionAttemptId:
+                                    releasedSubmissionAttemptId);
                             // A corrected retry has a new immutable request/attempt ID.
                             // Keep the in-memory workflow aligned for direct-myDATA
                             // submission and for recovery after a process restart.
@@ -397,6 +416,12 @@ namespace ASFuelControl.Invoicing
                             if (string.IsNullOrWhiteSpace(submitted.Response.QrCodeUrl)) submitted.Response.QrCodeUrl = result.Response.QrCodeUrl;
                         }
                         result.Response = submitted.Response;
+                        if (snapshot.LegacyFiscalReplacement != null &&
+                            result.ReadyToPrint)
+                        {
+                            ValidateLegacyFiscalReplacementResponse(
+                                result.Response);
+                        }
                     }
                     // Project acceptance independently of physical printing. If this
                     // write fails, the next call recovers durable fiscal acceptance.
@@ -520,6 +545,28 @@ namespace ASFuelControl.Invoicing
             // device call. Provider issuance obtains its signature from the provider.
             if (value.Provider != null && value.Provider.ProviderKey != InvoiceProviderCatalog.MyDataKey && value.Signing != null)
                 throw new InvalidOperationException("A provider invoice cannot also use a fiscal signing device.");
+            if (value.LegacyFiscalReplacement != null)
+            {
+                bool supportedProvider = value.Provider != null &&
+                    (value.Provider.ProviderKey ==
+                        InvoiceProviderCatalog.ITimologiaKey ||
+                     value.Provider.ProviderKey ==
+                        InvoiceProviderCatalog.DirectIlydaKey);
+                bool hasPreviousEvidence = !string.IsNullOrWhiteSpace(
+                        value.LegacyFiscalReplacement.PreviousInvoiceSignature) ||
+                    !string.IsNullOrWhiteSpace(
+                        value.LegacyFiscalReplacement.PreviousQrCode);
+                if (!supportedProvider || value.LocalOnly || value.Signing != null ||
+                    !hasPreviousEvidence || string.IsNullOrWhiteSpace(
+                        value.LegacyFiscalReplacement.AuthorizedBy) ||
+                    value.LegacyFiscalReplacement.AuthorizedUtc == default(DateTime) ||
+                    string.IsNullOrWhiteSpace(
+                        value.LegacyFiscalReplacement.Reason))
+                {
+                    throw new InvalidOperationException(
+                        "Invalid legacy fiscal-evidence replacement audit.");
+                }
+            }
             if (value.Signing != null && (value.Signing.Document.Kind != FiscalDocumentKind.Invoice || value.Signing.Document.DocumentId != id)) throw new InvalidOperationException("Signing document mismatch.");
             if (value.Payment != null && (value.Signing != null || JsonConvert.SerializeObject(value.Payment.Provider) != JsonConvert.SerializeObject(value.Provider))) throw new InvalidOperationException("Payment route mismatch or unsupported device/POS combination.");
             if (value.Provider != null && validateInvoice)
@@ -542,6 +589,19 @@ namespace ASFuelControl.Invoicing
                 if (value.Signing != null && (value.Provider.ProviderKey != InvoiceProviderCatalog.MyDataKey ||
                     value.Signing.Scope.IssuerVat != value.Provider.IssuerVat || value.Signing.Scope.IssuerBranch != value.Provider.IssuerBranch ||
                     (value.Signing.Scope.Environment == FiscalEnvironment.Test) != value.Provider.TestMode)) throw new InvalidOperationException("Only matching Samtec/direct-myDATA composition is supported.");
+            }
+        }
+
+        private static void ValidateLegacyFiscalReplacementResponse(
+            InvoiceResponse response)
+        {
+            if (response == null ||
+                string.IsNullOrWhiteSpace(response.InvoiceSignature) ||
+                string.IsNullOrWhiteSpace(response.QrCodeUrl))
+            {
+                throw new InvalidOperationException(
+                    "Ο πάροχος αποδέχθηκε το παραστατικό χωρίς πλήρη υπογραφή και QR. " +
+                    "Η παλιά σήμανση δεν αντικαταστάθηκε· απαιτείται ανάκτηση στοιχείων από τον πάροχο.");
             }
         }
 

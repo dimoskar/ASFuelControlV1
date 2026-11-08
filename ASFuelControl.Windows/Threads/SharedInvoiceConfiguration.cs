@@ -151,6 +151,34 @@ namespace ASFuelControl.Windows.Threads
                 throw new InvalidOperationException("Απαιτείται τύπος παραστατικού.");
             return Route(type.InvoiceTypeId,null,type.IsLaserPrint == true);
         }
+        internal bool ProviderOwnsFiscalSigning(Data.Invoice invoice)
+        {
+            if (invoice == null || invoice.InvoiceType == null)
+            {
+                throw new InvalidOperationException(
+                    "Απαιτείται αποθηκευμένος τύπος παραστατικού.");
+            }
+            if (Version == 1)
+            {
+                SharedInvoiceRoute legacyRoute = Route(invoice);
+                return legacyRoute.Provider != null &&
+                    legacyRoute.Provider.ProviderKey !=
+                        InvoiceProviderCatalog.MyDataKey;
+            }
+            InvoiceTypePolicy policy;
+            if (Policies == null ||
+                !Policies.TryGetValue(invoice.InvoiceTypeId, out policy))
+            {
+                throw new InvalidOperationException(
+                    "Δεν έχει αποθηκευτεί πολιτική για τον τύπο παραστατικού.");
+            }
+            policy.Validate();
+            // Provider ownership comes from the reviewed type policy itself.
+            // It must remain authoritative even when a connection, POS profile,
+            // environment or credential is temporarily misconfigured; none of
+            // those errors may fall through to a legacy fiscal device.
+            return policy.Transmission == InvoiceTransmissionMode.Provider;
+        }
         internal SamtecDeviceProfile SamtecDevice(FiscalSigningScope scope)
         {
             if (scope == null || scope.SignerKey != SamtecFiscalSigner.Key) return null;
@@ -238,6 +266,73 @@ namespace ASFuelControl.Windows.Threads
             try { return PendingRoute(invoice,hasLegacySubmission,true).Provider != null; }
             catch (InvalidOperationException) { return false; }
         }
+        internal SharedInvoiceRoute LegacyProviderReplacementRoute(
+            Data.Invoice invoice, bool hasLegacySubmission)
+        {
+            if (!Enabled)
+            {
+                throw new InvalidOperationException(
+                    "Η κοινή τιμολόγηση πρέπει να είναι ενεργή.");
+            }
+            if (invoice == null || invoice.InvoiceType == null ||
+                !invoice.InvoiceType.Printable ||
+                invoice.InvoiceLines.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "Απαιτείται αποθηκευμένο εκτυπώσιμο παραστατικό με γραμμές.");
+            }
+            if (hasLegacySubmission)
+            {
+                throw new InvalidOperationException(
+                    "Υπάρχει ήδη παλιά διαβίβαση. Απαιτείται συμφωνία της πριν από νέα αποστολή.");
+            }
+            bool hasLegacyFiscalEvidence =
+                !string.IsNullOrWhiteSpace(invoice.InvoiceSignature) ||
+                !string.IsNullOrWhiteSpace(invoice.QRCodeData);
+            if (invoice.IsPrinted != true || invoice.Number <= 0 ||
+                !hasLegacyFiscalEvidence)
+            {
+                throw new InvalidOperationException(
+                    "Η ανάκτηση απαιτεί αριθμημένο, εκτυπωμένο παραστατικό με legacy σήμανση ή QR.");
+            }
+            if (invoice.PaymentType == 2 || invoice.PaymentType == 4)
+            {
+                throw new InvalidOperationException(
+                    "Παραστατικό κάρτας ή IRIS απαιτεί πρώτα συμφωνία της πληρωμής· δεν θα ξεκινήσει νέα χρέωση.");
+            }
+            // This is a send-only adoption of an already numbered and printed
+            // document. It must not repeat the tank action associated with a
+            // ForcesDelivery type. The ordinary first-issuance route remains
+            // protected by SpecialWorkflowProblem, while Source.ValidateMyDiesel
+            // still requires the related case to be locally and remotely RESERVED
+            // before the provider receives the invoice.
+            SharedInvoiceRoute route = Route(invoice);
+            bool supportedProvider = route.Provider != null &&
+                (route.Provider.ProviderKey ==
+                    InvoiceProviderCatalog.ITimologiaKey ||
+                 route.Provider.ProviderKey ==
+                    InvoiceProviderCatalog.DirectIlydaKey);
+            if (!supportedProvider || route.Signing != null)
+            {
+                throw new InvalidOperationException(
+                    "Η αντικατάσταση legacy σήμανσης επιτρέπεται μόνο όταν η τρέχουσα ροή χρησιμοποιεί iTimologia ή Ilyda χωρίς φορολογικό μηχανισμό.");
+            }
+            return route;
+        }
+        internal bool CanReplaceLegacyFiscalEvidence(Data.Invoice invoice,
+            bool hasLegacySubmission)
+        {
+            try
+            {
+                SharedInvoiceRoute route = LegacyProviderReplacementRoute(
+                    invoice, hasLegacySubmission);
+                return route != null;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
         // Read-only explanation of the route for the SAVED invoice, using the same
         // startup configuration as PrintAgent. No numbering, mapping or dispatch.
         internal string PendingInvoiceSummary(Data.Invoice invoice, bool hasLegacySubmission)
@@ -274,6 +369,9 @@ namespace ASFuelControl.Windows.Threads
             if (invoice.Number == 0) lines.Add("Αρίθμηση: Εκκρεμεί — θα αποθηκευτεί πριν από την αποστολή.");
             if (CanSubmitPrintedInvoice(invoice,hasLegacySubmission))
                 lines.Add("Ήδη εκτυπωμένο: Επιλέξτε Διαβίβαση για αποστολή με τον υπάρχοντα αριθμό, σειρά και ημερομηνία, χωρίς νέα εκτύπωση. Η αποδοχή ελέγχεται κατά την αποστολή.");
+            else if (CanReplaceLegacyFiscalEvidence(invoice,
+                hasLegacySubmission))
+                lines.Add("Ανάκτηση legacy σήμανσης: Με σύνδεση διαχειριστή επιλέξτε Διαβίβαση. Η παλιά υπογραφή και το QR θα διατηρηθούν στο audit και θα αντικατασταθούν μόνο από την επιβεβαιωμένη υπογραφή και το QR του παρόχου.");
             else
                 try { PendingRoute(invoice,hasLegacySubmission); }
                 catch (InvalidOperationException ex) { lines.Add("Έλεγχος: " + ex.Message); }

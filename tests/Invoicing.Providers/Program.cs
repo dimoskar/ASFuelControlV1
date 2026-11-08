@@ -99,7 +99,10 @@ internal static class Program
                 s.Invoice.TotalAmount = 999; Equal("Unknown",service.Send(s.Id,Route(InvoiceProviderCatalog.ITimologiaKey),s).State);
                 Equal(1,h.Posts); Equal(1,s.Loads); Throws(() => service.LoadParentEvidence(s.Id));
             });
-        foreach (var mode in new[] { "matched", "missing", "different-total", "different-customer", "cancelled", "duplicate", "bad-token" })
+        foreach (var mode in new[] { "matched", "different-description", "missing",
+            "different-total", "different-customer", "different-fuel",
+            "different-quantity", "different-payment", "cancelled", "duplicate",
+            "bad-token" })
             Test("myDATA paginated reconciliation " + mode + " never resubmits", () => {
                 var s = new Source(); var h = new Http(s.Id,"myDATA") { InvoicePost = b => { throw new HttpRequestException("response lost"); } };
                 XNamespace ns = "http://www.aade.gr/myDATA/invoice/v1.0";
@@ -108,6 +111,24 @@ internal static class Program
                     invoice.AddFirst(new XElement(ns + "uid","UID"),new XElement(ns + "mark","900010"));
                     if (mode == "different-total") invoice.Element(ns + "invoiceSummary").Element(ns + "totalNetValue").Value = "101";
                     if (mode == "different-customer") invoice.Element(ns + "counterpart").Element(ns + "vatNumber").Value = "222222222";
+                    if (mode == "different-description")
+                    {
+                        var details = invoice.Element(ns + "invoiceDetails");
+                        var description = details.Element(ns + "itemDescr");
+                        if (description == null)
+                        {
+                            var normalizedDescription = new XElement(ns + "itemDescr",
+                                "AADE normalized description");
+                            details.Add(normalizedDescription);
+                        }
+                        else
+                        {
+                            description.Value = "AADE normalized description";
+                        }
+                    }
+                    if (mode == "different-fuel") invoice.Element(ns + "invoiceDetails").Element(ns + "fuelCode").Value = "99";
+                    if (mode == "different-quantity") invoice.Element(ns + "invoiceDetails").Element(ns + "quantity").Value = "999";
+                    if (mode == "different-payment") invoice.Element(ns + "paymentMethods").Element(ns + "paymentMethodDetails").Element(ns + "type").Value = "7";
                     var root = new XElement(ns + "RequestedDoc");
                     if (h.Gets == 1 || mode == "bad-token") root.Add(new XElement(ns + "continuationToken",new XElement(ns + "nextPartitionKey","part"),new XElement(ns + "nextRowKey","row")));
                     if (h.Gets > 1 && mode != "missing") root.Add(new XElement(ns + "invoicesDoc",invoice,mode == "duplicate" ? new XElement(invoice) : null));
@@ -115,15 +136,184 @@ internal static class Program
                     return Reply(root.ToString());
                 };
                 var service = Service(h); Equal("Unknown",service.Send(s.Id,Route(h.Key),s).State);
-                var result = service.Recover(s.Id); Check(result.State == (mode == "matched" ? "Accepted" : "Unknown"),Errors(result));
+                bool expectedMatch = mode == "matched" || mode == "different-description";
+                var result = service.Recover(s.Id); Check(result.State == (expectedMatch ? "Accepted" : "Unknown"),Errors(result));
                 Equal(1,h.Posts); Equal(2,h.Gets);
                 Equal(2,((JArray)JObject.Parse(Latest(s.Id).SnapshotJson)["RecoveryResponsesXml"]).Count);
             });
+        Test("myDATA error 228 reconciles the same fiscal identity without resubmission", () => {
+            const string uid = "5E09DA750AD7E851C5A19D1001237FD434ABAFE4";
+            const string mark = "400015956253884";
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.MyDataKey);
+            s.Invoice.InvoiceType.OfficialEnumerator = 222;
+            s.Invoice.InvoiceType.TransactionType = 0;
+            s.Invoice.InvoiceType.HasFinancialTransactions = true;
+            s.Invoice.InvoiceType.NeedsVehicle = true;
+            s.Invoice.VehicleId = Guid.NewGuid();
+            s.Invoice.VehiclePlateNumber = "TEST 1000";
+            h.InvoicePost = b => Reply("<ResponseDoc><response><statusCode>ValidationError</statusCode><errors><error><code>228</code><message>The invoice with UID: " + uid + " was already sent (MARK: " + mark + ")</message></error></errors></response></ResponseDoc>");
+            XNamespace ns = "http://www.aade.gr/myDATA/invoice/v1.0";
+            h.Lookup = () => {
+                var invoice = new XElement(XDocument.Parse(h.LastPayload).Root.Element(ns + "invoice"));
+                var header = invoice.Element(ns + "invoiceHeader");
+                var dispatchTime = header.Element(ns + "dispatchTime");
+                Check(dispatchTime != null,"delivery test request has no dispatchTime");
+                dispatchTime.Remove();
+                var currency = header.Element(ns + "currency");
+                var vatPaymentSuspension = new XElement(ns + "vatPaymentSuspension","false");
+                currency.AddBeforeSelf(vatPaymentSuspension);
+                invoice.AddFirst(new XElement(ns + "uid",uid),new XElement(ns + "mark",mark),
+                    new XElement(ns + "qrCodeUrl","https://example.invalid/aade-qr"));
+                return Reply(new XElement(ns + "RequestedDoc",new XElement(ns + "invoicesDoc",invoice)).ToString());
+            };
+            var service = Service(h);
+            Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s).State);
+            Equal(1,h.Posts); Equal(0,h.Gets);
+            var result = service.Recover(s.Id);
+            Check(result.Accepted,Errors(result)); Equal(mark,result.Response.Mark); Equal(uid,result.Response.Uid);
+            Equal("",result.Response.VerificationHash); Equal("https://example.invalid/aade-qr",result.Response.QrCodeUrl);
+            Equal(1,h.Posts); Equal(1,h.Gets); Check(!service.GetResendAssessment(s.Id).CanResend,"accepted 228 recovery offered resend");
+        });
+        Test("myDATA error 228 lookup failure remains blocked without resubmission", () => {
+            const string uid = "5E09DA750AD7E851C5A19D1001237FD434ABAFE4";
+            const string mark = "400015956253884";
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.MyDataKey);
+            h.InvoicePost = b => Reply("<ResponseDoc><response><statusCode>ValidationError</statusCode><errors><error><code>228</code><message>UID: " + uid + " already sent (MARK: " + mark + ")</message></error></errors></response></ResponseDoc>");
+            h.Lookup = () => Reply("{ \"statusCode\": 429, \"message\": \"Rate limit is exceeded. Try again in 153 seconds.\" }",429);
+            var service = Service(h); Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s).State);
+            Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s,true).State);
+            Equal(1,h.Posts); Equal(0,h.Gets);
+            Equal("ReconciliationRequired",service.Recover(s.Id).State);
+            Equal(1,h.Posts); Equal(1,h.Gets); Check(!service.GetResendAssessment(s.Id).CanResend,"myDATA 228 offered a duplicate POST");
+        });
+        Test("myDATA reconciliation HTTP 404 permits another provider route", () => {
+            const string uid = "5E09DA750AD7E851C5A19D1001237FD434ABAFE4";
+            const string mark = "400015956253884";
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.MyDataKey);
+            h.InvoicePost = body => Reply("<ResponseDoc><response><statusCode>ValidationError</statusCode><errors><error><code>228</code><message>UID: " + uid + " already sent (MARK: " + mark + ")</message></error></errors></response></ResponseDoc>");
+            h.Lookup = () => Reply("{}",404);
+            var service = Service(h);
+            Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s).State);
+            Equal("Rejected",service.Recover(s.Id).State);
+            Equal(1,h.Posts); Equal(1,h.Gets);
+            h.InvoicePost = body => Reply(IlydaReply);
+            var fallback = service.Send(s.Id,
+                Route(InvoiceProviderCatalog.DirectIlydaKey),s,true);
+            Check(fallback.Accepted,Errors(fallback));
+            Equal(2,h.Posts); Equal(1,h.Gets);
+        });
+        Test("myDATA error 228 rejects a recovered invoice with a different MARK", () => {
+            const string uid = "5E09DA750AD7E851C5A19D1001237FD434ABAFE4";
+            const string mark = "400015956253884";
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.MyDataKey);
+            h.InvoicePost = b => Reply("<ResponseDoc><response><statusCode>ValidationError</statusCode><errors><error><code>228</code><message>UID: " + uid + " already sent (MARK: " + mark + ")</message></error></errors></response></ResponseDoc>");
+            XNamespace ns = "http://www.aade.gr/myDATA/invoice/v1.0";
+            h.Lookup = () => {
+                var invoice = new XElement(XDocument.Parse(h.LastPayload).Root.Element(ns + "invoice"));
+                invoice.AddFirst(new XElement(ns + "uid",uid),new XElement(ns + "mark","400015956253885"));
+                return Reply(new XElement(ns + "RequestedDoc",new XElement(ns + "invoicesDoc",invoice)).ToString());
+            };
+            var service = Service(h);
+            Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s).State);
+            Equal(1,h.Posts); Equal(0,h.Gets);
+            var result = service.Recover(s.Id);
+            Equal("ReconciliationRequired",result.State); Check(Errors(result).Contains("does not match"),Errors(result));
+            Equal(1,h.Posts); Equal(1,h.Gets);
+        });
         Test("iTimologia timeout lookup acceptance is durably saved", () => {
             var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.ITimologiaKey) { InvoicePost = b => { throw new HttpRequestException("timeout"); } }; var service = Service(h);
             var result = service.Send(s.Id,Route(h.Key),s); Check(result.Accepted,Errors(result)); Equal(1,h.Posts); Equal(1,h.Gets);
             Equal(3,Revisions(s.Id).Length); Equal("Unknown",Revisions(s.Id)[1].State);
             Check(service.Recover(s.Id).Accepted,"cached recovery failed"); Equal(1,h.Gets);
+        });
+        Test("iTimologia error 228 recovers by the same external InvoiceId without resubmission", () => {
+            const string uid = "5E09DA750AD7E851C5A19D1001237FD434ABAFE4";
+            const string mark = "400015956253884";
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.ITimologiaKey);
+            h.InvoicePost = b => Reply(new JObject { ["errors"] = new JArray(new JObject { ["code"] = "228",
+                ["message"] = "UID: " + uid + " already sent (MARK: " + mark + ")" }) }.ToString(),452);
+            h.Lookup = () => Reply(new JObject { ["data"] = new JObject { ["ext_system_id"] = s.Id.ToString("N"),
+                ["uid"] = uid, ["mark"] = mark, ["authentication_code"] = "AUTH", ["signature_code"] = "SIGNATURE",
+                ["web_view"] = "https://example.invalid/recovered" } }.ToString());
+            var service = Service(h);
+            Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s).State);
+            Equal(1,h.Posts); Equal(0,h.Gets);
+            var result = service.Recover(s.Id);
+            Check(result.Accepted,Errors(result)); Equal(mark,result.Response.Mark); Equal(uid,result.Response.Uid);
+            Equal("AUTH",result.Response.VerificationHash); Equal("SIGNATURE",result.Response.InvoiceSignature);
+            Equal(1,h.Posts); Equal(1,h.Gets); Check(!service.GetResendAssessment(s.Id).CanResend,"accepted iTimologia recovery offered resend");
+        });
+        Test("iTimologia error 228 lookup 404 permits another provider route", () => {
+            const string uid = "5E09DA750AD7E851C5A19D1001237FD434ABAFE4";
+            const string mark = "400015956253884";
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.ITimologiaKey);
+            h.InvoicePost = b => Reply("{\"errors\":[{\"code\":\"228\",\"message\":\"UID: " + uid + " already sent (MARK: " + mark + ")\"}]}",452);
+            h.Lookup = () => Reply("{}",404);
+            var service = Service(h); Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s).State);
+            Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s,true).State);
+            Equal(1,h.Posts); Equal(0,h.Gets);
+            Equal("Rejected",service.Recover(s.Id).State);
+            Equal(1,h.Posts); Equal(1,h.Gets);
+            h.InvoicePost = body => Reply(MyDataReply);
+            var recovered = service.Send(s.Id,Route(InvoiceProviderCatalog.MyDataKey),s,true);
+            Check(recovered.Accepted,Errors(recovered));
+            Equal(2,h.Posts); Equal(1,h.Gets);
+        });
+        Test("iTimologia HTTP 452 already registered is retrieved and persisted without resubmission", () => {
+            var s = new Source();
+            var h = new Http(s.Id,InvoiceProviderCatalog.ITimologiaKey);
+            h.InvoicePost = body => Reply(
+                "{\"message\":\"Invoice already registered at myData. Do not resend.\"}",
+                452);
+            h.Lookup = () => Reply(TimReply(s.Id));
+            var service = Service(h);
+
+            var recovered = service.Send(s.Id,Route(h.Key),s);
+            Check(recovered.Accepted,Errors(recovered));
+            Equal("Accepted",Latest(s.Id).State);
+            Equal("900010",recovered.Response.Mark);
+            Equal("UID",recovered.Response.Uid);
+            Equal("https://example.invalid/qr",recovered.Response.QrCodeUrl);
+            Equal(1,h.Posts); Equal(1,h.Gets);
+            Check(!service.GetResendAssessment(s.Id).CanResend,
+                "iTimologia already-registered response offered a duplicate POST");
+
+            var repeated = service.Send(s.Id,Route(h.Key),s,true);
+            Check(repeated.Accepted,Errors(repeated));
+            Equal(1,h.Posts); Equal(1,h.Gets);
+        });
+        Test("iTimologia HTTP 452 lookup 404 permits myDATA fallback", () => {
+            var s = new Source();
+            var h = new Http(s.Id,InvoiceProviderCatalog.ITimologiaKey);
+            h.InvoicePost = body => body.TrimStart().StartsWith("<")
+                ? Reply(MyDataReply)
+                : Reply("{\"message\":\"Invoice already registered at myData. Do not resend.\"}",452);
+            h.Lookup = () => Reply("{}",404);
+            var service = Service(h);
+
+            var first = service.Send(s.Id,Route(h.Key),s);
+            Equal("Rejected",first.State);
+            Equal(1,h.Posts); Equal(1,h.Gets);
+
+            var fallback = service.Send(s.Id,
+                Route(InvoiceProviderCatalog.MyDataKey),s,true);
+            Check(fallback.Accepted,Errors(fallback));
+            Equal("Accepted",fallback.State);
+            Equal(2,h.Posts); Equal(1,h.Gets);
+        });
+        Test("iTimologia error 228 rejects lookup metadata with a different MARK", () => {
+            const string uid = "5E09DA750AD7E851C5A19D1001237FD434ABAFE4";
+            const string mark = "400015956253884";
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.ITimologiaKey);
+            h.InvoicePost = b => Reply("{\"errors\":[{\"code\":\"228\",\"message\":\"UID: " + uid + " already sent (MARK: " + mark + ")\"}]}",452);
+            h.Lookup = () => Reply(new JObject { ["data"] = new JObject { ["ext_system_id"] = s.Id.ToString("N"),
+                ["uid"] = uid, ["mark"] = "400015956253885", ["authentication_code"] = "WRONG" } }.ToString());
+            var service = Service(h);
+            Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s).State);
+            Equal(1,h.Posts); Equal(0,h.Gets);
+            var result = service.Recover(s.Id);
+            Equal("ReconciliationRequired",result.State); Check(Errors(result).Contains("does not match"),Errors(result));
+            Equal(1,h.Posts); Equal(1,h.Gets);
         });
         foreach (string mode in new[] { "not-found", "wrong-id", "missing-id", "zero-mark", "cancelled" })
             Test("iTimologia lookup " + mode + " never permits another POST", () => {
@@ -233,6 +423,68 @@ internal static class Program
             var service = Service(h); Equal("Queued",service.Send(s.Id,Route(h.Key),s).State);
             Check(service.Recover(s.Id).Accepted,"queue recovery failed"); Equal(1,h.Posts); Equal(1,h.Gets);
             Check(Revisions(s.Id)[1].SnapshotJson.Contains("MQ001"),"lost queue evidence");
+        });
+        Test("Ilyda error 228 recovers all returned marking fields without resubmission", () => {
+            const string uid = "5E09DA750AD7E851C5A19D1001237FD434ABAFE4";
+            const string mark = "400015956253884";
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.DirectIlydaKey);
+            h.InvoicePost = b => Reply(new JObject {
+                ["invoiceMarking"] = JValue.CreateNull(),
+                ["errors"] = new JArray(new JObject { ["code"] = "228", ["fatal"] = true,
+                    ["aadeMessage"] = "The invoice with UID: " + uid + " is invalid, it has already been sent for another invoice (MARK: " + mark + ")" })
+            }.ToString());
+            h.Lookup = () => Reply(new JObject {
+                ["uid"] = uid, ["sellerVatIdentifier"] = "000000000",
+                ["invoiceNumber"] = JObject.Parse(h.LastPayload)["invoiceNumber"],
+                ["invoiceState"] = "SUBMITTED", ["mark"] = mark,
+                ["verificationHash"] = "RECOVERED-HASH", ["invoiceId"] = "recovered-provider-id",
+                ["providerUrl"] = "https://test.vs.gr", ["qrCode"] = "https://test.vs.gr/iv/recovered",
+                ["myDataQrCode"] = "https://mydata.example.invalid/recovered",
+                ["invoiceSignatures"] = new JArray("POS-SIGNATURE")
+            }.ToString());
+            var service = Service(h);
+            Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s).State);
+            Equal(1,h.Posts); Equal(0,h.Gets);
+            var result = service.Recover(s.Id);
+            Check(result.Accepted,Errors(result)); Equal(mark,result.Response.Mark); Equal(uid,result.Response.Uid);
+            Equal("RECOVERED-HASH",result.Response.VerificationHash); Equal("recovered-provider-id",result.Response.ProviderInvoiceId);
+            Equal("https://test.vs.gr/iv/recovered",result.Response.QrCodeUrl); Equal(1,h.Posts); Equal(1,h.Gets);
+            var snapshot = JObject.Parse(Latest(s.Id).SnapshotJson);
+            Check(((string)snapshot["QueueResponseJson"]).Contains("myDataQrCode"),"lookup response was not retained");
+            Check(((string)snapshot["ResponseJson"]).Contains("POS-SIGNATURE"),"returned signatures were not retained");
+        });
+        Test("Ilyda reconciliation HTTP 404 permits another provider route", () => {
+            const string uid = "5E09DA750AD7E851C5A19D1001237FD434ABAFE4";
+            const string mark = "400015956253884";
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.DirectIlydaKey);
+            h.InvoicePost = b => Reply("{\"invoiceMarking\":null,\"errors\":[{\"code\":\"228\",\"fatal\":true,\"aadeMessage\":\"UID: " + uid + " already sent (MARK: " + mark + ")\"}]}");
+            h.Lookup = () => Reply("{\"message\":\"not found\"}",404);
+            var service = Service(h); Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s).State);
+            Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s,true).State);
+            Equal(1,h.Posts); Equal(0,h.Gets);
+            Equal("Rejected",service.Recover(s.Id).State);
+            Equal(1,h.Posts); Equal(1,h.Gets);
+            Equal(mark,(string)JObject.Parse(Latest(s.Id).SnapshotJson)["ReconciliationMark"]);
+            h.InvoicePost = body => Reply(MyDataReply);
+            var fallback = service.Send(s.Id,
+                Route(InvoiceProviderCatalog.MyDataKey),s,true);
+            Check(fallback.Accepted,Errors(fallback));
+            Equal(2,h.Posts); Equal(1,h.Gets);
+        });
+        Test("Ilyda error 228 rejects a lookup with a different MARK", () => {
+            const string uid = "5E09DA750AD7E851C5A19D1001237FD434ABAFE4";
+            const string mark = "400015956253884";
+            var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.DirectIlydaKey);
+            h.InvoicePost = b => Reply("{\"invoiceMarking\":null,\"errors\":[{\"code\":\"228\",\"fatal\":true,\"aadeMessage\":\"UID: " + uid + " already sent (MARK: " + mark + ")\"}]}");
+            h.Lookup = () => Reply(new JObject { ["uid"] = uid, ["sellerVatIdentifier"] = "000000000",
+                ["invoiceNumber"] = JObject.Parse(h.LastPayload)["invoiceNumber"], ["invoiceState"] = "SUBMITTED",
+                ["mark"] = "400015956253885", ["verificationHash"] = "WRONG-HASH" }.ToString());
+            var service = Service(h);
+            Equal("ReconciliationRequired",service.Send(s.Id,Route(h.Key),s).State);
+            Equal(1,h.Posts); Equal(0,h.Gets);
+            var result = service.Recover(s.Id);
+            Equal("ReconciliationRequired",result.State); Check(Errors(result).Contains("δεν συμφωνούν"),Errors(result));
+            Equal(1,h.Posts); Equal(1,h.Gets);
         });
         Test("Ilyda queue not-found is still queued", () => {
             var s = new Source(); var h = new Http(s.Id,InvoiceProviderCatalog.DirectIlydaKey) { InvoicePost = b => Reply("{\"invoiceMarking\":{\"invoiceIdentifier\":\"UID\"},\"errors\":[{\"code\":\"MQ002\",\"fatal\":false}]}"), Lookup = () => Reply("{}",404) };

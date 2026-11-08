@@ -91,6 +91,31 @@ namespace ASFuelControl.Windows.Threads
             if (ProtectsInvoices) return true;
             return Owns(invoiceId);
         }
+        internal static void EnsureLegacyFiscalSigningAllowed(
+            Data.Invoice invoice)
+        {
+            if (invoice == null)
+            {
+                throw new ArgumentNullException(nameof(invoice));
+            }
+            SharedInvoiceConfiguration current =
+                SharedInvoicingSettings.LoadRuntime();
+            bool providerOwnsSigning;
+            try
+            {
+                providerOwnsSigning = current.ProviderOwnsFiscalSigning(invoice);
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+            if (providerOwnsSigning)
+            {
+                throw new InvalidOperationException(
+                    "Ο τύπος παραστατικού χρησιμοποιεί πάροχο τιμολόγησης. " +
+                    "Η legacy σήμανση από φορολογικό μηχανισμό απαγορεύτηκε και δεν στάλθηκε αίτημα στη συσκευή.");
+            }
+        }
         internal static bool Owns(Guid invoiceId)
         {
             // Disabling the rollout option cannot send an owned invoice down legacy code.
@@ -444,6 +469,29 @@ namespace ASFuelControl.Windows.Threads
                 return workflow.Value.Process(id,new Source(false,true),false);
             }
         }
+        internal static InvoiceWorkflowResult SubmitLegacySignedInvoiceToProvider(
+            Guid id)
+        {
+            if (!Program.AdminConnected)
+            {
+                throw new InvalidOperationException(
+                    "Απαιτείται σύνδεση διαχειριστή για αντικατάσταση legacy φορολογικών στοιχείων.");
+            }
+            bool owned;
+            using (var lease = sql.Value.EnterInvoice(id))
+            {
+                var ownership = new SqlFiscalOwnershipStore(sql.Value);
+                owned = ownership.Owns(lease);
+            }
+            if (owned)
+            {
+                throw new InvalidOperationException(
+                    "Η κοινή έκδοση έχει ήδη ξεκινήσει. Ανανεώστε τη σύνοψη και συνεχίστε την αποθηκευμένη ροή.");
+            }
+            var source = new Source(false, true,
+                replaceLegacyFiscalEvidence: true);
+            return workflow.Value.Process(id, source, false);
+        }
         internal static void PrintHistoricalCopy(Guid id, string selectedPrinter = null)
         {
             // Pre-shared-workflow invoices have no frozen snapshot or print job.
@@ -468,16 +516,20 @@ namespace ASFuelControl.Windows.Threads
         }
         private sealed class Source : IInvoiceWorkflowSource
         {
-            private readonly bool printRequested, historicalPrinted;
+            private readonly bool printRequested, historicalPrinted,
+                replaceLegacyFiscalEvidence;
             private readonly string selectedPrinter;
             private readonly int? paymentTypeOverride;
             internal Source(bool printRequested, bool historicalPrinted = false, string selectedPrinter = null,
-                int? paymentTypeOverride = null)
+                int? paymentTypeOverride = null,
+                bool replaceLegacyFiscalEvidence = false)
             {
                 this.printRequested = printRequested;
                 this.historicalPrinted = historicalPrinted;
                 this.selectedPrinter = string.IsNullOrWhiteSpace(selectedPrinter) ? null : selectedPrinter.Trim();
                 this.paymentTypeOverride = paymentTypeOverride;
+                this.replaceLegacyFiscalEvidence =
+                    replaceLegacyFiscalEvidence;
             }
             public InvoiceWorkflowSnapshot Prepare(IFiscalDocumentLease lease)
             {
@@ -526,6 +578,23 @@ namespace ASFuelControl.Windows.Threads
                         Payment = invoice.PaymentType == 2 || invoice.PaymentType == 4 ? route.Payment : null,
                         PrintContent = Encoding.UTF8.GetBytes(content), PrintDestination = JsonConvert.SerializeObject(printer), PrintFormat = SharedInvoicePrinting.Format,
                         CompanyQrContent = Reports.BrandData.SetBrandData(invoice) };
+                    if (replaceLegacyFiscalEvidence)
+                    {
+                        string authorizedBy = string.IsNullOrWhiteSpace(
+                                Program.CurrentUserName)
+                            ? Environment.UserName
+                            : Program.CurrentUserName;
+                        value.LegacyFiscalReplacement =
+                            new LegacyFiscalEvidenceReplacement
+                            {
+                                PreviousInvoiceSignature =
+                                    invoice.InvoiceSignature,
+                                PreviousQrCode = invoice.QRCodeData,
+                                AuthorizedBy = authorizedBy,
+                                AuthorizedUtc = DateTime.UtcNow,
+                                Reason = "Replace legacy local fiscal-device evidence with the configured invoice-provider evidence."
+                            };
+                    }
                     if (coupon != null)
                     {
                         value.Version = 2; value.MyDieselCouponCaseId = coupon.CouponCaseId;
@@ -666,9 +735,27 @@ namespace ASFuelControl.Windows.Threads
                     invoice.IsPrinted = false;
                     db.SaveChanges();
                 }
-                if (historicalPrinted && !config.CanSubmitPrintedInvoice(invoice,hasLegacy))
-                    throw new InvalidOperationException("Το παραστατικό δεν είναι διαθέσιμο για διαβίβαση ήδη εκτυπωμένου. Ελέγξτε τη σύνοψη και τα προηγούμενα φορολογικά στοιχεία.");
-                var route = config.PendingRoute(invoice,hasLegacy,historicalPrinted);
+                SharedInvoiceRoute route;
+                if (replaceLegacyFiscalEvidence)
+                {
+                    if (!historicalPrinted)
+                    {
+                        throw new InvalidOperationException(
+                            "Η αντικατάσταση legacy σήμανσης απαιτεί ιστορικό εκτυπωμένο παραστατικό.");
+                    }
+                    route = config.LegacyProviderReplacementRoute(invoice,
+                        hasLegacy);
+                }
+                else
+                {
+                    if (historicalPrinted &&
+                        !config.CanSubmitPrintedInvoice(invoice,hasLegacy))
+                    {
+                        throw new InvalidOperationException("Το παραστατικό δεν είναι διαθέσιμο για διαβίβαση ήδη εκτυπωμένου. Ελέγξτε τη σύνοψη και τα προηγούμενα φορολογικά στοιχεία.");
+                    }
+                    route = config.PendingRoute(invoice,hasLegacy,
+                        historicalPrinted);
+                }
                 if (route.Signing != null && (route.Signing.IssuerVat != Data.Implementation.OptionHandler.Instance.GetOption("CompanyTIN") ||
                     route.Signing.IssuerBranch != Data.Implementation.OptionHandler.Instance.GetIntOption("CompanyBranch",0)))
                     throw new InvalidOperationException("The signing profile differs from the host issuer/branch.");
@@ -686,11 +773,8 @@ namespace ASFuelControl.Windows.Threads
                 var response = result.Response;
                 if (response != null)
                 {
-                    if (!string.IsNullOrWhiteSpace(response.InvoiceSignature)) invoice.InvoiceSignature = response.InvoiceSignature;
-                    if (!string.IsNullOrWhiteSpace(result.FiscalQrCodeUrl))
-                    {
-                        invoice.QRCodeData = result.FiscalQrCodeUrl;
-                    }
+                    InvoiceProviderEvidenceProjection.Apply(invoice, response,
+                        result.FiscalQrCodeUrl);
                     long mark;
                     if (long.TryParse(response.Mark, out mark) && mark > 0)
                     {

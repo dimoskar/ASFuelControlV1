@@ -32,11 +32,11 @@ namespace Exedron.Invoicing.Adapters.Samtec
         public string EftPosTID { get; }
     }
 
-    // No recovery interface: the repository has no verified read-only lookup.
-    // Transport-unknown requests use the same InvoiceUID and exact persisted bytes
-    // for deferred retry; duplicate evidence without a signature still requires
-    // operator reconciliation.
+    // GetLastInvoiceInfo is the documented read-only recovery command. It binds
+    // the response to the immutable InvoiceUID before any recovered signature is
+    // accepted. Transport-unknown requests still retain their exact persisted bytes.
     public sealed class SamtecFiscalSigner : IFiscalSigner, IFiscalSigningRequestValidator,
+        IFiscalSignerRecovery, IFiscalSignerRecoveryPolicy,
         IFiscalSignerRecordedResponseRecovery, IFiscalSignerAutomaticRetryPolicy,
         IFiscalSignerDeferredRetryPolicy, IDisposable
     {
@@ -64,6 +64,14 @@ namespace Exedron.Invoicing.Adapters.Samtec
                  LegacyRetryableDiagnostic(result.Diagnostic));
         }
         public TimeSpan DeferredRetryDelay => TimeSpan.FromMinutes(5);
+        public bool CanRecover(FiscalSigningRequest originalRequest,
+            FiscalSigningResult recordedResult)
+        {
+            return originalRequest != null && recordedResult != null &&
+                recordedResult.AttemptId == originalRequest.AttemptId &&
+                IsMatchingWrongJsonInvoiceUid(originalRequest,
+                    recordedResult.Response);
+        }
         public bool CanRetryAfterDelay(FiscalSigningRequest originalRequest,
             FiscalSigningResult result)
         {
@@ -184,7 +192,18 @@ namespace Exedron.Invoicing.Adapters.Samtec
                                 diagnostic = RetryableDiagnostic + diagnostic;
                             return FiscalSigningResult.Unknown(request.AttemptId, raw, diagnostic);
                         }
-                        return Parse(request, raw);
+                        FiscalSigningResult parsed = Parse(request, raw);
+                        bool checkLastInvoice = ShouldCheckLastInvoice(request,
+                            raw);
+                        if (checkLastInvoice)
+                        {
+                            FiscalSigningResult recovered = Recover(request);
+                            if (recovered.State == FiscalSigningState.Signed)
+                            {
+                                return recovered;
+                            }
+                        }
+                        return parsed;
                     }
                 }
             }
@@ -195,6 +214,51 @@ namespace Exedron.Invoicing.Adapters.Samtec
                 // not a transport retry. Preserve it for operator reconciliation.
                 if (raw == null) diagnostic = RetryableDiagnostic + diagnostic;
                 return FiscalSigningResult.Unknown(request.AttemptId, raw,diagnostic);
+            }
+        }
+        public FiscalSigningResult Recover(FiscalSigningRequest request)
+        {
+            Validate(request);
+            string raw = null;
+            try
+            {
+                var lookup = new
+                {
+                    JobType = "GetLastInvoiceInfo",
+                    JobParams = request.Document.DocumentId.ToString()
+                };
+                string lookupJson = JsonConvert.SerializeObject(lookup);
+                byte[] lookupBytes = new UTF8Encoding(false).GetBytes(lookupJson);
+                using (var message = new HttpRequestMessage(HttpMethod.Post,
+                    profile.Endpoint))
+                {
+                    message.Content = new ByteArrayContent(lookupBytes);
+                    message.Content.Headers.ContentType =
+                        new MediaTypeHeaderValue("text/json");
+                    message.Headers.TryAddWithoutValidation("charset", "UTF-8");
+                    message.Headers.TryAddWithoutValidation("Accept",
+                        "application/json, text/javascript, */*");
+                    var responseTask = client.SendAsync(message);
+                    using (var response = responseTask.GetAwaiter().GetResult())
+                    {
+                        var bodyTask = response.Content.ReadAsStringAsync();
+                        raw = bodyTask.GetAwaiter().GetResult();
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            int status = (int)response.StatusCode;
+                            return FiscalSigningResult.Unknown(request.AttemptId,
+                                raw, "GetLastInvoiceInfo HTTP status " + status +
+                                "; signing recovery remains unconfirmed.");
+                        }
+                        return ParseLastInvoice(request, raw);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return FiscalSigningResult.Unknown(request.AttemptId, raw,
+                    "GetLastInvoiceInfo did not confirm the signing outcome: " +
+                    ex.GetType().Name);
             }
         }
         public FiscalSigningResult RecoverRecorded(FiscalSigningRequest request, string recordedResponse,
@@ -283,6 +347,84 @@ namespace Exedron.Invoicing.Adapters.Samtec
             string qr = null; Uri uri;
             if (parts.Length > 2 && Uri.TryCreate(parts[2].Trim(), UriKind.Absolute, out uri) && uri.Scheme == "https") qr = parts[2].Trim();
             return FiscalSigningResult.Signed(request.AttemptId, parts[1].Trim(), qr, uid, raw);
+        }
+        private static bool ShouldCheckLastInvoice(FiscalSigningRequest request,
+            string raw)
+        {
+            return IsMatchingWrongJsonInvoiceUid(request, raw);
+        }
+        private static bool IsMatchingWrongJsonInvoiceUid(
+            FiscalSigningRequest request, string raw)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(raw))
+            {
+                return false;
+            }
+            try
+            {
+                var response = JObject.Parse(raw);
+                string job = (string)response["JobType"];
+                string uid = (string)response["InvoiceUID"];
+                string code = (string)response["ResultCode"];
+                Guid parsedUid;
+                return string.Equals(job, "Sign", StringComparison.Ordinal) &&
+                    Guid.TryParse(uid, out parsedUid) &&
+                    parsedUid == request.Document.DocumentId &&
+                    !string.IsNullOrWhiteSpace(code) &&
+                    code.IndexOf("Wrong JSON Invoice UID",
+                        StringComparison.OrdinalIgnoreCase) >= 0 &&
+                    code.IndexOf("93/D0/02",
+                        StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
+        private static FiscalSigningResult ParseLastInvoice(
+            FiscalSigningRequest request, string raw)
+        {
+            var response = JObject.Parse(raw);
+            string job = (string)response["JobType"];
+            string uid = (string)response["InvoiceUID"];
+            string code = (string)response["ResultCode"];
+            Guid parsedUid;
+            bool matchingResponse = string.Equals(job, "GetLastInvoiceInfo",
+                    StringComparison.Ordinal) &&
+                Guid.TryParse(uid, out parsedUid) &&
+                parsedUid == request.Document.DocumentId;
+            if (!matchingResponse)
+            {
+                return FiscalSigningResult.Unknown(request.AttemptId, raw,
+                    "GetLastInvoiceInfo did not return the requested InvoiceUID.");
+            }
+            var parts = (code ?? string.Empty).Split(',');
+            string signature = FirstText(response, "Signature",
+                "FiscalSignature", "Sign");
+            if (!ValidSignature(signature) && parts.Length > 1)
+            {
+                signature = parts[1].Trim();
+            }
+            if (!ValidSignature(signature) ||
+                (code ?? string.Empty).StartsWith("Error",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return FiscalSigningResult.Unknown(request.AttemptId, raw,
+                    "GetLastInvoiceInfo found no confirmed signature for the " +
+                    "requested InvoiceUID.");
+            }
+            string qrCode = FirstText(response, "QrCode", "QRCode",
+                "QrCodeUrl");
+            Uri qrUri;
+            if (string.IsNullOrWhiteSpace(qrCode) && parts.Length > 2 &&
+                Uri.TryCreate(parts[2].Trim(), UriKind.Absolute, out qrUri) &&
+                (qrUri.Scheme == Uri.UriSchemeHttp ||
+                 qrUri.Scheme == Uri.UriSchemeHttps))
+            {
+                qrCode = parts[2].Trim();
+            }
+            return FiscalSigningResult.Signed(request.AttemptId, signature,
+                qrCode, uid, raw);
         }
         private static bool IsTransientRejection(string code)
         {

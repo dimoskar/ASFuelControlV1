@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Exedron.Invoicing.Adapters
@@ -92,6 +93,13 @@ namespace Exedron.Invoicing.Adapters
                     if (string.IsNullOrWhiteSpace(previous.RequestJson) ||
                         !JToken.DeepEquals(JToken.Parse(previous.RequestJson), JToken.Parse(currentJson)))
                         return ErrorResponse("The invoice changed after its previous iTimologia submission. Reconcile the original invoice before making corrections.");
+                    if (previous.State == "ReconciliationRequired")
+                    {
+                        return ErrorResponse(
+                            "The existing iTimologia submission requires reconciliation. " +
+                            "No new submission or automatic lookup was performed.");
+                    }
+
                     // Reconcile first. A missing lookup result after a lost response is not a rejection.
                     var lookup = LookupInvoice(invoiceId);
                     return lookup.NotFound ? ErrorResponse("The previous iTimologia submission is unconfirmed. No new invoice was sent; reconcile its saved history first.") : lookup.Response;
@@ -129,7 +137,12 @@ namespace Exedron.Invoicing.Adapters
                     token,
                     request, invoiceId);
 
-                if (result.StatusCode == HttpStatusCode.Unauthorized)
+                string reconciliationUid;
+                string reconciliationMark;
+                bool requiresReconciliation = RequiresReconciliation(
+                    result.StatusCode, result.Body, out reconciliationUid,
+                    out reconciliationMark);
+                if (result.StatusCode == HttpStatusCode.Unauthorized && !requiresReconciliation)
                 {
                     token = GetCommunicationToken(true);
                     result = SendJson(
@@ -137,10 +150,24 @@ namespace Exedron.Invoicing.Adapters
                         BuildEndpoint("invoices"),
                         token,
                         request, invoiceId);
+                    requiresReconciliation = RequiresReconciliation(
+                        result.StatusCode, result.Body, out reconciliationUid,
+                        out reconciliationMark);
                 }
 
+                bool recoverAlreadyRegistered = IsAlreadyRegisteredAtMyData(
+                    result.StatusCode, result.Body);
                 InvoiceResponse invoiceResponse;
-                if (result.StatusCode == HttpStatusCode.Conflict)
+                if (recoverAlreadyRegistered)
+                {
+                    var recoveredInvoiceId = Guid.Parse(externalSystemId);
+                    invoiceResponse = LookupInvoice(recoveredInvoiceId).Response;
+                }
+                else if (requiresReconciliation)
+                {
+                    invoiceResponse = MapResponse(result.Body, externalSystemId);
+                }
+                else if (result.StatusCode == HttpStatusCode.Conflict)
                 {
                     invoiceResponse = RecoverInvoice(externalSystemId, token, result);
                 }
@@ -199,18 +226,38 @@ namespace Exedron.Invoicing.Adapters
                     if (result.StatusCode == HttpStatusCode.Unauthorized)
                         result = SendJson(HttpMethod.Get, endpoint, GetCommunicationToken(true), null);
                     var response = result.IsSuccess ? MapResponse(result.Body, invoiceId.ToString("N", CultureInfo.InvariantCulture)) : ErrorResponse(DescribeFailure(result));
+                    ITimologiaInvoiceData data = null;
                     if (!response.HasErrors)
                     {
-                        var data = JsonConvert.DeserializeObject<ITimologiaInvoiceReply>(result.Body, JsonSettings)?.Data;
+                        var lookupReply = JsonConvert.DeserializeObject<ITimologiaInvoiceReply>(result.Body, JsonSettings);
+                        data = lookupReply?.Data;
                         if (string.IsNullOrWhiteSpace(data?.ExternalSystemId))
                             response = ErrorResponse("iTimologia lookup omitted the external invoice identity. Reconciliation remains unconfirmed.");
                     }
-                    if (saved != null && (saved.State == "Sending" || saved.State == "Unknown"))
+                    bool reconciliationRequired = saved?.State == "ReconciliationRequired";
+                    bool reconciliationNotFound = reconciliationRequired &&
+                        result.StatusCode == HttpStatusCode.NotFound;
+                    if (!response.HasErrors && reconciliationRequired &&
+                        ((!string.IsNullOrWhiteSpace(saved.ReconciliationMark) && saved.ReconciliationMark != data?.Mark) ||
+                         (!string.IsNullOrWhiteSpace(saved.ReconciliationUid) && !string.Equals(saved.ReconciliationUid, data?.Uid, StringComparison.OrdinalIgnoreCase))))
+                    {
+                        response = ErrorResponse("iTimologia lookup returned MARK/UID that does not match the AADE error 228 evidence. Reconciliation remains unconfirmed.");
+                    }
+                    if (reconciliationNotFound)
+                    {
+                        response = ErrorResponse(
+                            "iTimologia returned HTTP 404 for the saved external InvoiceId. " +
+                            "The original provider has no invoice to recover; a new submission " +
+                            "through myDATA or another configured provider is now permitted.");
+                    }
+                    if (saved != null && (saved.State == "Sending" || saved.State == "Unknown" || reconciliationRequired))
                     {
                         saved.StatusCode = (int)result.StatusCode;
                         saved.ResponseJson = result.Body;
                         saved.CompletedUtc = DateTime.UtcNow;
-                        saved.State = response.HasErrors ? "Unknown" : "Accepted";
+                        saved.State = reconciliationNotFound ? "Rejected" :
+                            response.HasErrors && reconciliationRequired ? "ReconciliationRequired" :
+                            response.HasErrors ? "Unknown" : "Accepted";
                         options.SubmissionStore.Complete(saved);
                     }
                     if (accepted != null)
@@ -472,12 +519,25 @@ namespace Exedron.Invoicing.Adapters
                         {
                             trace.ResponseJson = responseBody;
                             trace.State = "Unknown";
-                            if (response.IsSuccessStatusCode && !MapResponse(responseBody, invoiceId.Value.ToString("N")).HasErrors)
+                            var externalSystemId = invoiceId.Value.ToString("N");
+                            var mappedResponse = MapResponse(responseBody, externalSystemId);
+                            if (response.IsSuccessStatusCode && !mappedResponse.HasErrors)
                                 trace.State = "Accepted";
                             // The vendor explicitly rejects 422 input and 452 AADE submissions.
                             // Only 401 is automatically retried; other rejections require an
                             // explicit corrected retry using the original identity/payment.
                             if (IsDefinitiveRejection(response.StatusCode, responseBody)) trace.State = "Rejected";
+                            string reconciliationUid;
+                            string reconciliationMark;
+                            bool requiresReconciliation = RequiresReconciliation(
+                                response.StatusCode, responseBody,
+                                out reconciliationUid, out reconciliationMark);
+                            if (requiresReconciliation)
+                            {
+                                trace.ReconciliationUid = reconciliationUid;
+                                trace.ReconciliationMark = reconciliationMark;
+                                trace.State = "ReconciliationRequired";
+                            }
                         }
                         return new ApiResult(response.StatusCode, response.ReasonPhrase, responseBody);
                     }
@@ -510,6 +570,14 @@ namespace Exedron.Invoicing.Adapters
         private static bool IsDefinitiveRejection(HttpStatusCode status, string body)
         {
             if (status != HttpStatusCode.Unauthorized && (int)status != 422 && (int)status != 452) return false;
+            string reconciliationUid;
+            string reconciliationMark;
+            bool requiresReconciliation = RequiresReconciliation(status, body,
+                out reconciliationUid, out reconciliationMark);
+            if (requiresReconciliation)
+            {
+                return false;
+            }
             // Contradictory fiscal markings are uncertainty, even with a rejection HTTP code.
             try
             {
@@ -518,6 +586,75 @@ namespace Exedron.Invoicing.Adapters
                 if (long.TryParse((string)data?["mark"], out mark) && mark > 0) return false;
             }
             catch (JsonException) { }
+            return true;
+        }
+
+        private static bool RequiresReconciliation(HttpStatusCode status,
+            string body, out string uid, out string mark)
+        {
+            bool error228 = TryReadError228(body, out uid, out mark);
+            if (error228)
+            {
+                return true;
+            }
+
+            return IsAlreadyRegisteredAtMyData(status, body);
+        }
+
+        private static bool IsAlreadyRegisteredAtMyData(HttpStatusCode status,
+            string body)
+        {
+            if ((int)status != 452 || string.IsNullOrWhiteSpace(body))
+            {
+                return false;
+            }
+
+            bool alreadyRegistered = body.IndexOf(
+                "Invoice already registered at myData",
+                StringComparison.OrdinalIgnoreCase) >= 0;
+            bool prohibitsResend = body.IndexOf("Do not resend",
+                StringComparison.OrdinalIgnoreCase) >= 0;
+            return alreadyRegistered && prohibitsResend;
+        }
+
+        private static bool TryReadError228(string body, out string uid, out string mark)
+        {
+            uid = null;
+            mark = null;
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return false;
+            }
+            JToken response;
+            try
+            {
+                response = JToken.Parse(body);
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+            var responseContainer = response as JContainer;
+            if (responseContainer == null)
+            {
+                return false;
+            }
+            bool hasError228 = responseContainer.DescendantsAndSelf().OfType<JProperty>().Any(property =>
+                property.Name == "code" && (string)property.Value == "228");
+            if (!hasError228)
+            {
+                return false;
+            }
+            var uidMatch = Regex.Match(body, "(?:UID\\s*:?\\s*)?([0-9A-F]{40})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var markMatch = Regex.Match(body, "MARK\\s*:?\\s*([0-9]{10,20})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (uidMatch.Success)
+            {
+                uid = uidMatch.Groups[1].Value.ToUpperInvariant();
+            }
+            if (markMatch.Success)
+            {
+                mark = markMatch.Groups[1].Value;
+            }
             return true;
         }
 

@@ -309,6 +309,62 @@ internal static partial class Program
             Check(!config.CanSubmitPrintedInvoice(invoice,false),"printed number zero was accepted");
             invoice.Number = 42;
         });
+        foreach (string providerKey in new[] {
+            InvoiceProviderCatalog.ITimologiaKey,
+            InvoiceProviderCatalog.DirectIlydaKey })
+        {
+            Test(providerKey + " permits an audited provider replacement of legacy fiscal evidence", () => {
+                policy.Transmission = InvoiceTransmissionMode.Provider;
+                policy.SignWithFiscalDevice = false;
+                config.InvoiceProvider = Route(providerKey);
+                invoice.IsPrinted = true;
+                invoice.Number = 42;
+                invoice.PaymentType = 1;
+                invoice.InvoiceSignature = "legacy-device-signature";
+                invoice.QRCodeData = "https://device.invalid/legacy-qr";
+                Check(config.ProviderOwnsFiscalSigning(invoice),
+                    "provider ownership was not detected");
+                ProviderRoute configuredProvider = config.InvoiceProvider;
+                config.InvoiceProvider = null;
+                Check(config.ProviderOwnsFiscalSigning(invoice),
+                    "a connection error fell through to fiscal-device signing");
+                config.InvoiceProvider = configuredProvider;
+                Check(config.CanReplaceLegacyFiscalEvidence(invoice, false),
+                    "eligible legacy evidence was not recoverable");
+                invoice.InvoiceType.ForcesDelivery = true;
+                invoice.InvoiceType.SendToMyData = false;
+                Check(config.CanReplaceLegacyFiscalEvidence(invoice, false),
+                    "send-only provider recovery was blocked by legacy delivery flags");
+                invoice.InvoiceType.ForcesDelivery = false;
+                invoice.InvoiceType.SendToMyData = true;
+                SharedInvoiceRoute replacementRoute =
+                    config.LegacyProviderReplacementRoute(invoice, false);
+                Equal(providerKey, replacementRoute.Provider.ProviderKey);
+                Check(!config.CanSubmitPrintedInvoice(invoice, false),
+                    "ordinary printed submission bypassed legacy evidence");
+                string summary = config.PendingInvoiceSummary(invoice, false);
+                Check(summary.Contains("Ανάκτηση legacy σήμανσης"),
+                    "recovery action was not explained");
+            });
+        }
+        Test("legacy fiscal evidence replacement rejects prior submissions and payment replay", () => {
+            Check(!config.CanReplaceLegacyFiscalEvidence(invoice, true),
+                "an existing submission was ignored");
+            foreach (int paymentType in new[] { 2, 4 })
+            {
+                invoice.PaymentType = paymentType;
+                Check(!config.CanReplaceLegacyFiscalEvidence(invoice, false),
+                    "card or IRIS recovery could start another payment");
+            }
+            invoice.PaymentType = 1;
+            policy.Transmission = InvoiceTransmissionMode.MyData;
+            Check(!config.CanReplaceLegacyFiscalEvidence(invoice, false),
+                "direct myDATA was accepted as a replacement provider");
+            invoice.InvoiceSignature = null;
+            invoice.QRCodeData = null;
+            invoice.IsPrinted = true;
+            invoice.Number = 42;
+        });
         Test("printed submission and credits cannot start a fresh POS payment", () => {
             policy.Transmission = InvoiceTransmissionMode.Provider; config.InvoiceProvider = Route("iTimologia");
             config.Pos = PaymentRoute.ForMode(config.InvoiceProvider,"http://gateway.invalid:1234","TID","VIVA");

@@ -147,6 +147,16 @@ namespace ASFuelControl.Windows.UI.Controls
             resume = Button("Διαβίβαση",async () => {
                 if (!Owned) { await SubmitPrintedInvoice(); return; }
                 var id = invoiceId;
+                if (status?.State("Submission") == "ReconciliationRequired")
+                {
+                    string recovered = null;
+                    await Run(() => recovered = SharedInvoiceRuntime.RecoverStatus(id));
+                    if (!IsDisposed && invoiceId == id && recovered != null)
+                    {
+                        RadMessageBox.Show(recovered,"Ανάκτηση διαβίβασης");
+                    }
+                    return;
+                }
                 if (status?.IssueDateMismatchRejected == true &&
                     status.CanReissueAfterIssueDateMismatch != true)
                 {
@@ -292,9 +302,38 @@ namespace ASFuelControl.Windows.UI.Controls
         }
         private void AdminConnectedChanged(object sender,EventArgs e)
         {
-            if (IsDisposed) return;
-            if (InvokeRequired) { BeginInvoke(new Action(UpdateFiscalAttemptPageVisibility)); return; }
+            if (IsDisposed)
+            {
+                return;
+            }
+            if (InvokeRequired)
+            {
+                Action refreshAdminState = () =>
+                {
+                    UpdateFiscalAttemptPageVisibility();
+                    UpdatePendingSubmissionAction();
+                };
+                BeginInvoke(refreshAdminState);
+                return;
+            }
             UpdateFiscalAttemptPageVisibility();
+            UpdatePendingSubmissionAction();
+        }
+        private void UpdatePendingSubmissionAction()
+        {
+            if (status?.Snapshot != null || Owned)
+            {
+                return;
+            }
+            bool canSubmitPrinted = status?.CanSubmitPrinted == true;
+            bool canReplaceLegacyEvidence =
+                status?.CanReplaceLegacyFiscalEvidence == true;
+            resume.Text = canReplaceLegacyEvidence
+                ? "Ανάκτηση σήμανσης"
+                : "Διαβίβαση";
+            resume.Enabled = !ReadFailed && !Busy &&
+                (canSubmitPrinted ||
+                 canReplaceLegacyEvidence && Program.AdminConnected);
         }
         private void UpdateFiscalAttemptPageVisibility()
         {
@@ -535,7 +574,10 @@ namespace ASFuelControl.Windows.UI.Controls
                 diagnostics.Enabled = diagnostics.Visible;
                 changePayment.Visible = status?.CanChangePaymentMethod == true;
                 changePayment.Enabled = status?.CanChangePaymentMethod == true;
-                resume.Text = status?.State("Submission") == "Rejected" || status?.ProviderResend?.CanResend == true
+                var submissionState = status?.State("Submission");
+                resume.Text = submissionState == "ReconciliationRequired"
+                    ? "Ανάκτηση διαβίβασης"
+                    : submissionState == "Rejected" || status?.ProviderResend?.CanResend == true
                     ? "Επανάληψη διαβίβασης" : "Διαβίβαση";
                 reconcile.Visible = false;
                 if (snapshot == null)
@@ -544,7 +586,7 @@ namespace ASFuelControl.Windows.UI.Controls
                         status?.PendingSummary ?? "Δεν έχει ξεκινήσει η κοινή έκδοση. Επιλέξτε ή αποθηκεύστε το παραστατικό για να εμφανιστεί η διαβίβαση.";
                     history.Text = payment.Text = printing.Text = evidence.Text = "";
                     recover.Enabled = retryPayment.Enabled = resume.Enabled = reconcile.Enabled = false;
-                    resume.Enabled = !Owned && status?.CanSubmitPrinted == true;
+                    UpdatePendingSubmissionAction();
                     return;
                 }
                 var configured = !status.Attempts.Any() ? status.ConfiguredProvider : null;
@@ -563,6 +605,9 @@ namespace ASFuelControl.Windows.UI.Controls
                         (status.IssueDateReissueBlockReason ?? "Απαιτείται έλεγχος του φορολογικού ιστορικού.");
                 if (status.ProviderResend?.CanResend == true)
                     summary.Text += "\r\nΗ έκβαση δεν επιβεβαιώθηκε. Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια μετά από ρητή επιβεβαίωση του κινδύνου διπλής έκδοσης.";
+                if (status.State("Submission") == "ReconciliationRequired")
+                    summary.Text += "\r\nΟ πάροχος ή η ΑΑΔΕ ανέφερε ότι το παραστατικό έχει ήδη διαβιβαστεί. Δεν επιτρέπεται νέα αποστολή. " +
+                        "Επιλέξτε «Ανάκτηση διαβίβασης» για ασφαλή ανάκτηση και επαλήθευση των στοιχείων σήμανσης.";
                 if (string.IsNullOrWhiteSpace(CurrentActionMessage) && snapshot.Provider != null && snapshot.Payment == null && snapshot.Signing == null && !status.Attempts.Any(a => a.Family == "Submission"))
                     summary.Text += "\r\nΈχουν αποθηκευτεί τα στοιχεία έκδοσης, αλλά δεν έχει καταγραφεί αποστολή παραστατικού.\r\nΗ σύνδεση / προετοιμασία μπορεί να μην ολοκληρώθηκε. Η «Διαβίβαση» εμφανίζει το αποτέλεσμα.";
                 history.Text = string.Join("\r\n",status.Revisions.Select(HistoryLine));
@@ -616,9 +661,10 @@ namespace ASFuelControl.Windows.UI.Controls
                 if (configured != null) evidence.Text += "\r\nΠροφίλ από τις τρέχουσες ρυθμίσεις: " + configured.CredentialProfile;
                 recover.Enabled = paymentRecoveryVisible && status.Attempts.Any() &&
                     !status.Attempts.Any(a => a.Family == "Print" && a.Operation != "PrintTF2");
-                resume.Enabled = status.ProviderResend?.CanResend == true ||
+                resume.Enabled = status.State("Submission") == "ReconciliationRequired" ||
+                    status.ProviderResend?.CanResend == true ||
                     !status.Attempts.Any(a => a.Family == "Print" || a.Family == "Cancellation") &&
-                    !status.Attempts.GroupBy(a => a.Family).Select(g => g.Last()).Any(a => a.State == "Unknown" || a.State == "Signing" || a.State == "Sending" || a.State == "Queued" || a.State == "QueueFailed");
+                    !status.Attempts.GroupBy(a => a.Family).Select(g => g.Last()).Any(a => a.State == "Unknown" || a.State == "Signing" || a.State == "Sending" || a.State == "Queued" || a.State == "QueueFailed" || a.State == "ReconciliationRequired");
                 bool printable = snapshot.LocalOnly || status.Attempts.Any(a => a.Operation == "PrintTF2") || (snapshot.Provider != null ? status.State("Submission") == "Accepted" || status.State("Submission") == "Queued" : status.State("Signing") == "Signed");
                 if (printable || status.RetryPaymentAttemptId.HasValue || !string.IsNullOrWhiteSpace(status.ConnectionProblem)) resume.Enabled = false;
                 reconcile.Visible = reconcile.Enabled = status.State("Print") == "Unknown" ||
@@ -681,7 +727,7 @@ namespace ASFuelControl.Windows.UI.Controls
             if (entry == null) return "";
             // Whitelist result fields; session credentials, communication tokens and
             // raw request/response bodies are deliberately not placed in UI controls.
-            var allowed = new[] { "Mark","Uid","Signature","InvoiceSignature","QrCode","QrCodeUrl","TransactionId","ResponseTerminalId","Amount","AmountMinorUnits","OriginalInvoiceId","OriginalPaymentAttemptId","QueueState","QueueErrors" };
+            var allowed = new[] { "Mark","Uid","Signature","InvoiceSignature","QrCode","QrCodeUrl","TransactionId","ResponseTerminalId","Amount","AmountMinorUnits","OriginalInvoiceId","OriginalPaymentAttemptId","InvoiceUid","ReconciliationUid","ReconciliationMark","QueueState","QueueErrors" };
             if (family == "Payment") allowed = allowed.Concat(new[] { "ErrorMessage" }).ToArray();
             if (family == "Signing") allowed = allowed.Concat(new[] { "ResultDiagnostic" }).ToArray();
             var token = JToken.Parse(entry.SnapshotJson);
@@ -733,6 +779,7 @@ namespace ASFuelControl.Windows.UI.Controls
                 case "Rejected": return "Απορρίφθηκε";
                 case "Queued": return "Σε ουρά παρόχου";
                 case "QueueFailed": return "Σφάλμα ουράς — απαιτείται παρέμβαση";
+                case "ReconciliationRequired": return "Απαιτείται ανάκτηση από πάροχο / ΑΑΔΕ";
                 case "RetryAuthorized": return "Εγκρίθηκε νέα διαβίβαση";
                 case "Declined": return "Μη εγκεκριμένο";
                 case "FailedBeforeDispatch": return "Τοπική αποτυχία";
@@ -784,14 +831,51 @@ namespace ASFuelControl.Windows.UI.Controls
         }
         internal async Task SubmitPrintedInvoice()
         {
-            if (ReadFailed || Busy || Owned || status?.CanSubmitPrinted != true) return;
-            if (RadMessageBox.Show("Να διαβιβαστεί το αποθηκευμένο παραστατικό με τον υπάρχοντα αριθμό, σειρά και ημερομηνία; Δεν θα γίνει νέα εκτύπωση.",
-                "Διαβίβαση",MessageBoxButtons.YesNo,RadMessageIcon.Question) != DialogResult.Yes) return;
-            var id = invoiceId;
+            bool canSubmitPrinted = status?.CanSubmitPrinted == true;
+            bool replaceLegacyEvidence =
+                status?.CanReplaceLegacyFiscalEvidence == true;
+            if (ReadFailed || Busy || Owned ||
+                (!canSubmitPrinted && !replaceLegacyEvidence))
+            {
+                return;
+            }
+            if (replaceLegacyEvidence && !Program.AdminConnected)
+            {
+                RadMessageBox.Show(
+                    "Απαιτείται σύνδεση διαχειριστή για την ανάκτηση σήμανσης παρόχου.",
+                    "Ανάκτηση σήμανσης", MessageBoxButtons.OK,
+                    RadMessageIcon.Exclamation);
+                return;
+            }
+            string question = replaceLegacyEvidence
+                ? "Να διαβιβαστεί το ήδη εκτυπωμένο παραστατικό στον τρέχοντα πάροχο με τον υπάρχοντα αριθμό, σειρά και ημερομηνία;\r\n\r\n" +
+                  "Δεν θα γίνει νέα εκτύπωση ή νέα πληρωμή. Η παλιά υπογραφή και το παλιό QR θα διατηρηθούν στο ελεγκτικό ιστορικό και θα αντικατασταθούν στο παραστατικό μόνο αφού ο πάροχος επιστρέψει έγκυρη υπογραφή και QR."
+                : "Να διαβιβαστεί το αποθηκευμένο παραστατικό με τον υπάρχοντα αριθμό, σειρά και ημερομηνία; Δεν θα γίνει νέα εκτύπωση.";
+            string title = replaceLegacyEvidence
+                ? "Ανάκτηση σήμανσης παρόχου"
+                : "Διαβίβαση";
+            RadMessageIcon icon = replaceLegacyEvidence
+                ? RadMessageIcon.Exclamation
+                : RadMessageIcon.Question;
+            DialogResult confirmation = RadMessageBox.Show(question, title,
+                MessageBoxButtons.YesNo, icon);
+            if (confirmation != DialogResult.Yes)
+            {
+                return;
+            }
+            Guid id = invoiceId;
             ASFuelControl.Invoicing.InvoiceWorkflowResult result = null;
-            await Run(() => { result = SharedInvoiceRuntime.SubmitPrintedInvoice(id); RecordResult(id,result); });
+            await Run(() =>
+            {
+                result = replaceLegacyEvidence
+                    ? SharedInvoiceRuntime.SubmitLegacySignedInvoiceToProvider(id)
+                    : SharedInvoiceRuntime.SubmitPrintedInvoice(id);
+                RecordResult(id, result);
+            });
             if (!IsDisposed && invoiceId == id && result != null)
-                ShowResult(result,"Διαβίβαση");
+            {
+                ShowResult(result, title);
+            }
         }
         internal async Task PrintInvoice()
         {

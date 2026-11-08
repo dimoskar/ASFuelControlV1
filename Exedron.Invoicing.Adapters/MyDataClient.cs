@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Exedron.Invoicing.Core;
 using Exedron.Invoicing.Core.Models;
@@ -61,13 +62,20 @@ namespace Exedron.Invoicing.Adapters
                     attempt.HttpStatus = reply.HttpStatus;
                     attempt.ResponseXml = reply.Xml;
                     result = MapResponse(reply.Xml);
-                    var rows = XDocument.Parse(reply.Xml).Descendants().Where(e => e.Name.LocalName == "response").ToArray();
+                    var responseDocument = XDocument.Parse(reply.Xml);
+                    string reconciliationUid;
+                    string reconciliationMark;
+                    bool requiresReconciliation = TryReadError228(responseDocument, out reconciliationUid, out reconciliationMark);
+                    attempt.ReconciliationUid = reconciliationUid;
+                    attempt.ReconciliationMark = reconciliationMark;
+                    var rows = responseDocument.Descendants().Where(e => e.Name.LocalName == "response").ToArray();
                     var row = rows.Length == 1 ? rows[0] : null;
                     string status = Value(row, "statusCode");
                     bool successHttp = reply.HttpStatus >= 200 && reply.HttpStatus < 300;
                     bool rejected = successHttp && row != null && string.IsNullOrEmpty(Value(row, "invoiceMark")) &&
                         string.IsNullOrEmpty(Value(row, "invoiceUid")) && (status == "ValidationError" || status == "XMLSyntaxError");
-                    attempt.State = successHttp && !result.HasErrors ? "Accepted" : rejected ? "Rejected" : "Unknown";
+                    attempt.State = requiresReconciliation ? "ReconciliationRequired" :
+                        successHttp && !result.HasErrors ? "Accepted" : rejected ? "Rejected" : "Unknown";
                     if (!successHttp) result = Error("myDATA HTTP " + reply.HttpStatus.ToString(CultureInfo.InvariantCulture) + ": " + string.Join("; ", result.Errors ?? new string[0]));
                 }
                 catch (Exception ex)
@@ -126,11 +134,36 @@ namespace Exedron.Invoicing.Adapters
             var row = rows[0];
             long mark;
             if (Value(row, "statusCode") == "Success" && long.TryParse(Value(row, "invoiceMark"), out mark) && mark > 0 && !string.IsNullOrWhiteSpace(Value(row, "invoiceUid")))
-                return new InvoiceResponse { Mark = Value(row, "invoiceMark"), Uid = Value(row, "invoiceUid"), QrCodeUrl = Value(row, "qrUrl"), Errors = new string[0], Warnings = new string[0] };
+                return new InvoiceResponse { Mark = Value(row, "invoiceMark"), Uid = Value(row, "invoiceUid"),
+                    QrCodeUrl = Value(row, "qrUrl"), VerificationHash = Value(row, "authenticationCode"),
+                    Errors = new string[0], Warnings = new string[0] };
             var errors = row.Descendants().Where(e => e.Name.LocalName == "error").Select(e => Value(e, "code") + " - " + Value(e, "message")).ToArray();
             return new InvoiceResponse { Errors = errors.Length > 0 ? errors : new[] { "myDATA did not confirm invoice issuance: " + Value(row, "statusCode") }, Warnings = new string[0] };
         }
         private static string Value(XElement parent, string name) { return (string)parent?.Elements().FirstOrDefault(e => e.Name.LocalName == name); }
+        private static bool TryReadError228(XDocument document, out string uid, out string mark)
+        {
+            uid = null;
+            mark = null;
+            var error228 = document.Descendants().FirstOrDefault(element =>
+                element.Name.LocalName == "error" && Value(element, "code") == "228");
+            if (error228 == null)
+            {
+                return false;
+            }
+            var errorText = error228.Value;
+            var uidMatch = Regex.Match(errorText, "(?:UID\\s*:?\\s*)?([0-9A-F]{40})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var markMatch = Regex.Match(errorText, "MARK\\s*:?\\s*([0-9]{10,20})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (uidMatch.Success)
+            {
+                uid = uidMatch.Groups[1].Value.ToUpperInvariant();
+            }
+            if (markMatch.Success)
+            {
+                mark = markMatch.Groups[1].Value;
+            }
+            return true;
+        }
         private static InvoiceResponse Error(string message) { return new InvoiceResponse { Errors = new[] { message }, Warnings = new string[0] }; }
         public void Dispose() { client.Dispose(); }
     }

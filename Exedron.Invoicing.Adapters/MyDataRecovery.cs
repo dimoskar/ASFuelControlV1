@@ -14,10 +14,20 @@ namespace Exedron.Invoicing.Adapters
     public sealed partial class MyDataClient
     {
         private static readonly XNamespace InvoiceNs = "http://www.aade.gr/myDATA/invoice/v1.0";
+        private static readonly HashSet<string> ComparableLineFields =
+            new HashSet<string>(new[]
+            {
+                "lineNumber", "itemCode", "fuelCode", "quantity",
+                "measurementUnit", "netValue", "vatCategory", "vatAmount",
+                "vatExemptionCategory", "incomeClassification",
+                "expensesClassification"
+            }, StringComparer.Ordinal);
         private InvoiceResponse Reconcile(MyDataSubmission saved, Guid id)
         {
             var pages = new List<string>();
             InvoiceResponse result;
+            bool reconciliationRequired = saved.State == "ReconciliationRequired";
+            bool reconciliationNotFound = false;
             try
             {
                 var original = ReadXml(saved.RequestXml).Root.Element(InvoiceNs + "invoice");
@@ -35,7 +45,17 @@ namespace Exedron.Invoicing.Adapters
                     if (page >= 100 || !seen.Add(continuation)) throw new InvalidOperationException("Incomplete or repeating myDATA pagination.");
                     var reply = Send(HttpMethod.Get, path + continuation, null, id);
                     pages.Add(reply.Xml);
-                    if (reply.HttpStatus < 200 || reply.HttpStatus >= 300) throw new InvalidOperationException("myDATA lookup HTTP " + reply.HttpStatus);
+                    if (reply.HttpStatus < 200 || reply.HttpStatus >= 300)
+                    {
+                        reconciliationNotFound = reconciliationRequired &&
+                            reply.HttpStatus == 404;
+                        if (reconciliationNotFound)
+                        {
+                            saved.HttpStatus = reply.HttpStatus;
+                        }
+                        throw new InvalidOperationException("myDATA lookup HTTP " +
+                            reply.HttpStatus);
+                    }
                     var root = ReadXml(reply.Xml).Root;
                     if (root?.Name != InvoiceNs + "RequestedDoc") throw new InvalidOperationException("Unexpected myDATA lookup document.");
                     foreach (var row in root.Element(InvoiceNs + "invoicesDoc")?.Elements(InvoiceNs + "invoice") ?? Enumerable.Empty<XElement>())
@@ -50,22 +70,39 @@ namespace Exedron.Invoicing.Adapters
                 }
                 if (matches.Count != 1) throw new InvalidOperationException("Expected exactly one matching myDATA invoice; found " + matches.Count + ".");
                 var match = matches[0]; long mark;
-                if (!long.TryParse(Value(match,"mark"), out mark) || mark <= 0 || string.IsNullOrWhiteSpace(Value(match,"uid")) ||
-                    cancelled.Contains(Value(match,"mark")) || !string.IsNullOrWhiteSpace(Value(match,"cancelledByMark")) && Value(match,"cancelledByMark") != "0")
+                var recoveredMark = Value(match,"mark");
+                var recoveredUid = Value(match,"uid");
+                if (!long.TryParse(recoveredMark, out mark) || mark <= 0 || string.IsNullOrWhiteSpace(recoveredUid) ||
+                    cancelled.Contains(recoveredMark) || !string.IsNullOrWhiteSpace(Value(match,"cancelledByMark")) && Value(match,"cancelledByMark") != "0")
                     throw new InvalidOperationException("Lookup lacks an active MARK and UID.");
-                if (!XNode.DeepEquals(Comparable(original), Comparable(match)))
+                if ((!string.IsNullOrWhiteSpace(saved.ReconciliationMark) && saved.ReconciliationMark != recoveredMark) ||
+                    (!string.IsNullOrWhiteSpace(saved.ReconciliationUid) && !string.Equals(saved.ReconciliationUid, recoveredUid, StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("The recovered MARK/UID does not match the AADE error 228 evidence.");
+                var originalProjection = Comparable(original);
+                var recoveredProjection = Comparable(match);
+                if (!XNode.DeepEquals(originalProjection, recoveredProjection))
                     throw new InvalidOperationException("The matching myDATA identity has different invoice contents. Manual reconciliation is required.");
+                var recoveredQrCode = Value(match,"qrCodeUrl") ?? "";
+                var recoveredAuthenticationCode = Value(match,"authenticationCode") ?? "";
                 var evidence = new XElement("ResponseDoc", new XElement("response", new XElement("statusCode","Success"),
-                    new XElement("invoiceMark",Value(match,"mark")), new XElement("invoiceUid",Value(match,"uid")), new XElement("qrUrl",Value(match,"qrCodeUrl") ?? "")));
+                    new XElement("invoiceMark",recoveredMark), new XElement("invoiceUid",recoveredUid),
+                    new XElement("qrUrl",recoveredQrCode), new XElement("authenticationCode",recoveredAuthenticationCode)));
                 saved.ResponseXml = evidence.ToString(SaveOptions.DisableFormatting);
                 saved.State = "Accepted"; saved.CommunicationError = null;
                 result = MapResponse(saved.ResponseXml);
             }
             catch (Exception ex)
             {
-                saved.State = "Unknown";
+                saved.State = reconciliationNotFound ? "Rejected" :
+                    reconciliationRequired ? "ReconciliationRequired" : "Unknown";
                 saved.CommunicationError = ex.GetType().FullName;
-                result = Error("myDATA reconciliation remains unconfirmed: " + ex.Message + " No new invoice was sent.");
+                string diagnostic = reconciliationNotFound
+                    ? "myDATA recovery returned HTTP 404. The original route has no " +
+                      "invoice to recover; a new submission through another configured " +
+                      "route is now permitted."
+                    : "myDATA reconciliation remains unconfirmed: " + ex.Message +
+                      " No new invoice was sent.";
+                result = Error(diagnostic);
             }
             saved.RecoveryResponsesXml = pages.ToArray();
             saved.CompletedUtc = DateTimeOffset.UtcNow;
@@ -81,18 +118,175 @@ namespace Exedron.Invoicing.Adapters
         }
         private static XElement Comparable(XElement invoice)
         {
-            var clone = new XElement(invoice);
-            foreach (var name in new[] { "uid", "mark", "cancelledByMark", "authenticationCode", "qrCodeUrl" }) clone.Elements(InvoiceNs + name).Remove();
-            // XML namespace prefixes and decimal formatting are not business values.
-            foreach (var attribute in clone.DescendantsAndSelf().Attributes().Where(a => a.IsNamespaceDeclaration).ToArray()) attribute.Remove();
-            var decimalFields = new HashSet<string>(new[] { "netValue", "vatAmount", "totalNetValue", "totalVatAmount", "totalGrossValue", "totalWithheldAmount", "totalFeesAmount", "totalStampDutyAmount", "totalOtherTaxesAmount", "totalDeductionsAmount", "quantity", "amount" });
-            foreach (var leaf in clone.Descendants().Where(e => !e.HasElements && decimalFields.Contains(e.Name.LocalName)))
+            var comparable = new XElement("invoice");
+
+            var issuer = invoice.Element(InvoiceNs + "issuer");
+            var comparableIssuer = CanonicalSection("issuer", issuer);
+            comparable.Add(comparableIssuer);
+
+            var counterpart = invoice.Element(InvoiceNs + "counterpart");
+            var comparableCounterpart = CanonicalSection("counterpart", counterpart);
+            comparable.Add(comparableCounterpart);
+
+            var header = invoice.Element(InvoiceNs + "invoiceHeader");
+            var comparableHeader = ComparableHeader(header);
+            comparable.Add(comparableHeader);
+
+            var paymentMethods = invoice.Element(InvoiceNs + "paymentMethods");
+            var comparablePayments = ComparablePayments(paymentMethods);
+            comparable.Add(comparablePayments);
+
+            var lines = invoice.Elements(InvoiceNs + "invoiceDetails").ToArray();
+            var comparableLines = lines.Select(ComparableLine)
+                .OrderBy(LineNumber)
+                .ThenBy(element => element.ToString(SaveOptions.DisableFormatting),
+                    StringComparer.Ordinal)
+                .ToArray();
+            comparable.Add(comparableLines);
+
+            var summary = invoice.Element(InvoiceNs + "invoiceSummary");
+            var comparableSummary = ComparableSummary(summary);
+            comparable.Add(comparableSummary);
+
+            return comparable;
+        }
+        private static XElement ComparableHeader(XElement header)
+        {
+            if (header == null)
+            {
+                return new XElement("invoiceHeader");
+            }
+
+            var fields = header.Elements()
+                .Where(element => element.Name.LocalName != "dispatchTime")
+                .Where(element => element.Name.LocalName != "vatPaymentSuspension" ||
+                    !string.Equals(element.Value.Trim(), "false",
+                        StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            return CanonicalContainer("invoiceHeader", fields);
+        }
+        private static XElement ComparablePayments(XElement paymentMethods)
+        {
+            if (paymentMethods == null)
+            {
+                return new XElement("paymentMethods");
+            }
+
+            var comparableDetails = new List<XElement>();
+            foreach (var detail in paymentMethods.Elements(InvoiceNs +
+                "paymentMethodDetails"))
+            {
+                var detailFields = detail.Elements()
+                    .Where(element => element.Name.LocalName == "type" ||
+                        element.Name.LocalName == "amount")
+                    .ToArray();
+                var comparableDetail = CanonicalContainer(
+                    "paymentMethodDetails", detailFields);
+                comparableDetails.Add(comparableDetail);
+            }
+
+            var details = comparableDetails
+                .OrderBy(element => element.ToString(SaveOptions.DisableFormatting),
+                    StringComparer.Ordinal)
+                .ToArray();
+            return CanonicalContainer("paymentMethods", details);
+        }
+        private static XElement ComparableLine(XElement line)
+        {
+            var fields = line.Elements()
+                .Where(element => ComparableLineFields.Contains(element.Name.LocalName) ||
+                    IsAmountField(element.Name.LocalName))
+                .ToArray();
+            return CanonicalContainer("invoiceDetails", fields);
+        }
+        private static XElement ComparableSummary(XElement summary)
+        {
+            if (summary == null)
+            {
+                return new XElement("invoiceSummary");
+            }
+
+            var fields = summary.Elements()
+                .Where(element => IsAmountField(element.Name.LocalName) ||
+                    element.Name.LocalName.EndsWith("Classification",
+                        StringComparison.Ordinal))
+                .ToArray();
+            return CanonicalContainer("invoiceSummary", fields);
+        }
+        private static XElement CanonicalSection(string name, XElement section)
+        {
+            if (section == null)
+            {
+                return new XElement(name);
+            }
+
+            var fields = section.Elements().ToArray();
+            return CanonicalContainer(name, fields);
+        }
+        private static XElement CanonicalContainer(string name,
+            IEnumerable<XElement> fields)
+        {
+            var canonicalFields = fields.Select(CanonicalElement)
+                .OrderBy(element => element.Name.LocalName, StringComparer.Ordinal)
+                .ThenBy(element => element.ToString(SaveOptions.DisableFormatting),
+                    StringComparer.Ordinal)
+                .ToArray();
+            return new XElement(name, canonicalFields);
+        }
+        private static XElement CanonicalElement(XElement source)
+        {
+            var children = source.Elements().ToArray();
+            if (children.Length == 0)
+            {
+                string normalizedValue = NormalizeValue(source.Name.LocalName,
+                    source.Value);
+                return new XElement(source.Name.LocalName, normalizedValue);
+            }
+
+            return CanonicalContainer(source.Name.LocalName, children);
+        }
+        private static string NormalizeValue(string fieldName, string value)
+        {
+            string trimmedValue = (value ?? string.Empty).Trim();
+            if (IsDecimalField(fieldName))
             {
                 decimal number;
-                if (decimal.TryParse(leaf.Value, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out number))
-                    leaf.Value = number.ToString("G29",CultureInfo.InvariantCulture);
+                bool parsed = decimal.TryParse(trimmedValue,
+                    NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+                    CultureInfo.InvariantCulture, out number);
+                if (parsed)
+                {
+                    return number.ToString("G29", CultureInfo.InvariantCulture);
+                }
             }
-            return clone;
+
+            bool boolean;
+            if (bool.TryParse(trimmedValue, out boolean))
+            {
+                return boolean ? "true" : "false";
+            }
+
+            return trimmedValue;
+        }
+        private static bool IsAmountField(string fieldName)
+        {
+            return fieldName.EndsWith("Amount", StringComparison.Ordinal) ||
+                fieldName == "netValue" || fieldName == "totalNetValue" ||
+                fieldName == "totalGrossValue";
+        }
+        private static bool IsDecimalField(string fieldName)
+        {
+            return IsAmountField(fieldName) ||
+                fieldName.EndsWith("Quantity", StringComparison.Ordinal) ||
+                fieldName == "quantity" || fieldName == "exchangeRate";
+        }
+        private static int LineNumber(XElement line)
+        {
+            var numberElement = line.Element("lineNumber");
+            int number;
+            bool parsed = int.TryParse(numberElement?.Value,
+                NumberStyles.Integer, CultureInfo.InvariantCulture, out number);
+            return parsed ? number : int.MaxValue;
         }
         private static XDocument ReadXml(string xml)
         {

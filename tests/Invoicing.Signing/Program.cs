@@ -437,9 +437,89 @@ internal static class Program
             var s = new Source(); var h = new Http(s.Document) { Raw = "{\"JobType\":\"Sign\",\"ResultCode\":\"Error019,Success,ReplyCodeError,137,89,Amounts of JSON transaction line does not match\",\"InvoiceUID\":\"" + s.Document.DocumentId + "\"}" };
             var service = Service(h); var rejected = service.Sign(s.Document,Scope(),s);
             Equal(FiscalSigningState.Rejected,rejected.State); Equal(1,h.Calls);
+            Equal(0,h.Lookups);
             h.Raw = "{\"JobType\":\"Sign\",\"InvoiceUID\":\"" + s.Document.DocumentId + "\",\"ResultCode\":\"ΔΦΣΣ,SIGNATURE\"}";
             Equal(FiscalSigningState.Signed,service.Sign(s.Document,Scope(),s,true).State);
-            Equal(2,h.Calls); Equal(2,s.Loads);
+            Equal(2,h.Calls); Equal(0,h.Lookups); Equal(2,s.Loads);
+        });
+        Test("Error019 recovers the signed invoice through GetLastInvoiceInfo", () =>
+        {
+            var s = new Source();
+            string invoiceUid = s.Document.DocumentId.ToString();
+            var h = new Http(s.Document)
+            {
+                Raw = "{\"JobType\":\"Sign\",\"InvoiceUID\":\"" +
+                    invoiceUid + "\",\"ResultCode\":\"Error019,Success," +
+                    "ReplyCodeError,Wrong JSON Invoice UID,93/D0/02\"}",
+                LookupRaw = "{\"JobType\":\"GetLastInvoiceInfo\"," +
+                    "\"InvoiceUID\":\"" + invoiceUid + "\"," +
+                    "\"ResultCode\":\"ΑΑΠΤΠ,RECOVERED-SIGNATURE," +
+                    "https://example.invalid/recovered\"}"
+            };
+            FiscalSigningAttempt result = Service(h).Sign(s.Document, Scope(),
+                s);
+            Equal(FiscalSigningState.Signed, result.State);
+            Equal("RECOVERED-SIGNATURE", result.Result.Signature);
+            Equal("https://example.invalid/recovered", result.Result.QrCode);
+            Equal(1, h.Calls);
+            Equal(1, h.Lookups);
+            var lookup = JObject.Parse(Encoding.UTF8.GetString(h.LookupBytes));
+            Equal("GetLastInvoiceInfo", (string)lookup["JobType"]);
+            Equal(invoiceUid, (string)lookup["JobParams"]);
+        });
+        Test("Wrong JSON Invoice UID with another code does not query history", () =>
+        {
+            var s = new Source();
+            string invoiceUid = s.Document.DocumentId.ToString();
+            var h = new Http(s.Document)
+            {
+                Raw = "{\"JobType\":\"Sign\",\"InvoiceUID\":\"" +
+                    invoiceUid + "\",\"ResultCode\":\"Error019,Success," +
+                    "ReplyCodeError,Wrong JSON Invoice UID,93/D0/00\"}"
+            };
+            FiscalSigningAttempt result = Service(h).Sign(s.Document, Scope(),
+                s);
+            Equal(FiscalSigningState.Rejected, result.State);
+            Equal(1, h.Calls);
+            Equal(0, h.Lookups);
+        });
+        Test("saved Wrong JSON Invoice UID is recovered without a new Sign", () =>
+        {
+            var s = new Source();
+            string invoiceUid = s.Document.DocumentId.ToString();
+            FiscalSigningRequest original = s.Prepare(s.Document, Scope());
+            string response = "{\"JobType\":\"Sign\",\"InvoiceUID\":\"" +
+                invoiceUid + "\",\"ResultCode\":\"Error019,Success," +
+                "ReplyCodeError,Wrong JSON Invoice UID,93/D0/02\"}";
+            var store = new SqlFiscalSigningStore(database);
+            using (var lease = store.Acquire(s.Document))
+            {
+                FiscalSigningAttempt prepared = store.Begin(lease, original,
+                    DateTime.UtcNow);
+                var signing = new FiscalSigningAttempt(original,
+                    FiscalSigningState.Signing, 1, prepared.CreatedUtc,
+                    prepared.CreatedUtc);
+                store.Save(lease, 0, signing);
+                FiscalSigningResult rejectedResult =
+                    FiscalSigningResult.Rejected(original.AttemptId, response,
+                        "saved rejection");
+                var rejected = new FiscalSigningAttempt(original,
+                    FiscalSigningState.Rejected, 2, prepared.CreatedUtc,
+                    prepared.CreatedUtc, rejectedResult);
+                store.Save(lease, 1, rejected);
+            }
+            var h = new Http(s.Document)
+            {
+                LookupRaw = "{\"JobType\":\"GetLastInvoiceInfo\"," +
+                    "\"InvoiceUID\":\"" + invoiceUid + "\"," +
+                    "\"ResultCode\":\"ΑΑΠΤΠ,RECOVERED-SIGNATURE," +
+                    "https://example.invalid/recovered\"}"
+            };
+            FiscalSigningAttempt recovered = Service(h).Recover(s.Document);
+            Equal(FiscalSigningState.Signed, recovered.State);
+            Equal("RECOVERED-SIGNATURE", recovered.Result.Signature);
+            Equal(0, h.Calls);
+            Equal(1, h.Lookups);
         });
         Test("legacy Unknown Error019 is recovered locally and retried with the effective item amount", () => {
             var s = new Source();
@@ -758,13 +838,30 @@ internal static class Program
     }
     sealed class Http : HttpMessageHandler
     {
-        public FiscalDocumentReference Document; public int Calls; public byte[] Bytes; public int Status = 200;
-        public string Raw; public Func<HttpResponseMessage> Respond;
-        public Http(FiscalDocumentReference document) { Document = document; Raw = "{\"JobType\":\"Sign\",\"InvoiceUID\":\"" + document.DocumentId + "\",\"ResultCode\":\"ΔΦΣΣ,SIGNATURE,https://example.invalid/qr\"}"; }
+        public FiscalDocumentReference Document; public int Calls, Lookups; public byte[] Bytes, LookupBytes; public int Status = 200;
+        public string Raw, LookupRaw; public Func<HttpResponseMessage> Respond;
+        public Http(FiscalDocumentReference document)
+        {
+            Document = document;
+            Raw = "{\"JobType\":\"Sign\",\"InvoiceUID\":\"" + document.DocumentId + "\",\"ResultCode\":\"ΔΦΣΣ,SIGNATURE,https://example.invalid/qr\"}";
+            LookupRaw = "{\"JobType\":\"GetLastInvoiceInfo\",\"JobParams\":\"" + document.DocumentId + "\",\"ResultCode\":\"Error019,Success,GetLastInvoiceInfoUidMismatch\"}";
+        }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token)
         {
-            Calls++; Equal(HttpMethod.Post,request.Method); Equal("device.invalid",request.RequestUri.Host); Equal("text/json",request.Content.Headers.ContentType.MediaType);
-            Bytes = request.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+            Equal(HttpMethod.Post,request.Method); Equal("device.invalid",request.RequestUri.Host); Equal("text/json",request.Content.Headers.ContentType.MediaType);
+            byte[] requestBytes = request.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+            var requestJson = JObject.Parse(Encoding.UTF8.GetString(requestBytes));
+            if ((string)requestJson["JobType"] == "GetLastInvoiceInfo")
+            {
+                Lookups++;
+                LookupBytes = requestBytes;
+                Equal(Document.DocumentId.ToString(),
+                    (string)requestJson["JobParams"]);
+                HttpResponseMessage lookupResponse = Reply(LookupRaw, Status);
+                return Task.FromResult(lookupResponse);
+            }
+            Calls++;
+            Bytes = requestBytes;
             using(var c = new SqlConnection(connection)) using(var cmd = c.CreateCommand()) {
                 c.Open(); cmd.CommandText = "SELECT TOP (1) a.RequestPayload,r.State FROM dbo.FiscalAttempt a JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision WHERE a.DocumentId=@id AND a.Family='Signing' ORDER BY a.AttemptSequence DESC";
                 cmd.Parameters.AddWithValue("@id",Document.DocumentId);

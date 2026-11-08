@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Exedron.Invoicing.Adapters
 {
@@ -66,6 +67,13 @@ namespace Exedron.Invoicing.Adapters
                         {
                             if (!JToken.DeepEquals(JObject.Parse(previous.RequestJson), JObject.Parse(json)))
                                 return Error("Ilyda: Τα στοιχεία άλλαξαν μετά την αποστολή. Ανακτήστε την προηγούμενη έκδοση πριν από οποιαδήποτε διόρθωση.");
+                            if (previous.State == "ReconciliationRequired")
+                            {
+                                return Error(
+                                    "Ilyda: Το παραστατικό χρειάζεται ανάκτηση της υπάρχουσας διαβίβασης. " +
+                                    "Δεν έγινε νέα αποστολή ή αυτόματη ανάκτηση.");
+                            }
+
                             return Recover(previous);
                         }
                     }
@@ -83,6 +91,14 @@ namespace Exedron.Invoicing.Adapters
                             catch (JsonException) { attempt.State = "Unknown"; options.Store.Save(attempt); return Error("Ilyda: Μη έγκυρη απάντηση. Η έκδοση δεν επιβεβαιώθηκε."); }
                             attempt.ResponseJson = body;
                             attempt.InvoiceUid = (string)(data["invoiceMarking"] as JObject)?["invoiceIdentifier"];
+                            string reconciliationUid;
+                            string reconciliationMark;
+                            bool requiresReconciliation = TryReadError228(data, out reconciliationUid, out reconciliationMark);
+                            if (requiresReconciliation)
+                            {
+                                attempt.InvoiceUid = reconciliationUid;
+                                attempt.ReconciliationMark = reconciliationMark;
+                            }
                             var result = MapResponse(data);
                             if (Errors(data).Any(e => (string)e["code"] == "ER-30" && (bool?)e["fatal"] == true))
                             {
@@ -99,7 +115,8 @@ namespace Exedron.Invoicing.Adapters
                             bool rejected = validationStatus && (IsCounterpartValidation(data) || (data["invoiceMarking"]?.Type == JTokenType.Null &&
                                 Errors(data).Any(e => (bool?)e["fatal"] == true) &&
                                 !Errors(data).Any(e => ((string)e["code"] ?? "").StartsWith("I", StringComparison.Ordinal))));
-                            attempt.State = queued ? "Queued" : !result.HasErrors && response.IsSuccessStatusCode ? "Accepted" : rejected ? "Rejected" : "Unknown";
+                            attempt.State = requiresReconciliation ? "ReconciliationRequired" :
+                                queued ? "Queued" : !result.HasErrors && response.IsSuccessStatusCode ? "Accepted" : rejected ? "Rejected" : "Unknown";
                             options.Store.Save(attempt);
                             if (!response.IsSuccessStatusCode) return Error("Ilyda HTTP " + (int)response.StatusCode + ": " + string.Join("; ", result.Errors));
                             return result;
@@ -134,33 +151,110 @@ namespace Exedron.Invoicing.Adapters
         private InvoiceResponse Recover(IlydaSubmission attempt)
         {
             if (attempt.State == "Accepted") return MapResponse(JObject.Parse(attempt.ResponseJson));
-            if ((attempt.State != "Queued" && attempt.State != "QueueFailed") || string.IsNullOrWhiteSpace(attempt.InvoiceUid))
+            bool reconciliation = attempt.State == "ReconciliationRequired";
+            if ((attempt.State != "Queued" && attempt.State != "QueueFailed" && !reconciliation) || string.IsNullOrWhiteSpace(attempt.InvoiceUid))
                 return Error("Ilyda: Δεν έχει επιβεβαιωθεί η έκδοση. Το διαθέσιμο API ανάκτησης αφορά μόνο την ουρά offline. Απαιτείται έλεγχος στον πάροχο πριν από νέα αποστολή.");
-            using (var response = Request(HttpMethod.Get, "/api/invoice/pending/by-uid/" + Uri.EscapeDataString(attempt.InvoiceUid), null))
+            var escapedUid = Uri.EscapeDataString(attempt.InvoiceUid);
+            var lookupPath = "/api/invoice/pending/by-uid/" + escapedUid;
+            using (var response = Request(HttpMethod.Get, lookupPath, null))
             {
-                // A missing queue entry says nothing about normally issued invoices. Never authorize a resend.
-                if (!response.IsSuccessStatusCode) return Error("Ilyda: Απέτυχε ο έλεγχος ουράς (HTTP " + (int)response.StatusCode + "). Δεν έγινε νέα αποστολή.");
-                var entry = JObject.Parse(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+                var responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                attempt.QueueResponseJson = responseBody;
+                if (!response.IsSuccessStatusCode)
+                {
+                    int httpStatus = (int)response.StatusCode;
+                    attempt.QueueState = "HTTP " + httpStatus;
+                    bool reconciliationNotFound = reconciliation &&
+                        httpStatus == 404;
+                    if (reconciliationNotFound)
+                    {
+                        attempt.State = "Rejected";
+                    }
+                    options.Store.Save(attempt);
+                    if (reconciliationNotFound)
+                    {
+                        return Error(
+                            "Ilyda: Η ανάκτηση επέστρεψε HTTP 404. Ο αρχικός πάροχος " +
+                            "δεν έχει το παραστατικό και επιτρέπεται νέα διαβίβαση μέσω " +
+                            "myDATA ή άλλου ρυθμισμένου παρόχου.");
+                    }
+                    return Error("Ilyda: Απέτυχε η ανάκτηση (HTTP " +
+                        httpStatus + "). Δεν έγινε νέα αποστολή.");
+                }
+                JObject entry;
+                try
+                {
+                    entry = JObject.Parse(responseBody);
+                }
+                catch (JsonException)
+                {
+                    attempt.QueueState = "INVALID_RESPONSE";
+                    options.Store.Save(attempt);
+                    return Error("Ilyda: Η ανάκτηση επέστρεψε μη έγκυρη απάντηση. Δεν έγινε νέα αποστολή.");
+                }
+                var data = entry["data"] as JObject;
+                var recovered = data ?? entry;
+                var recoveredMarking = recovered["invoiceMarking"] as JObject;
                 var original = JObject.Parse(attempt.RequestJson);
-                if (!string.Equals((string)entry["uid"], attempt.InvoiceUid, StringComparison.OrdinalIgnoreCase) ||
-                    (string)entry["sellerVatIdentifier"] != attempt.IssuerVat || (string)entry["invoiceNumber"] != (string)original["invoiceNumber"])
+                var returnedUid = FirstString(recovered, recoveredMarking, "uid", "invoiceIdentifier");
+                var returnedIssuerVat = FirstString(recovered, recoveredMarking, "sellerVatIdentifier", "issuerVat", "issuerVatNumber");
+                var returnedInvoiceNumber = FirstString(recovered, recoveredMarking, "invoiceNumber");
+                var originalInvoiceNumber = (string)original["invoiceNumber"];
+                if (!string.Equals(returnedUid, attempt.InvoiceUid, StringComparison.OrdinalIgnoreCase) ||
+                    returnedIssuerVat != attempt.IssuerVat || returnedInvoiceNumber != originalInvoiceNumber)
+                {
+                    attempt.QueueState = "IDENTITY_MISMATCH";
+                    options.Store.Save(attempt);
                     return Error("Ilyda: Η απάντηση ουράς αφορά διαφορετικό παραστατικό. Απαιτείται έλεγχος.");
-                attempt.QueueState = (string)entry["invoiceState"];
-                attempt.QueueErrors = (string)entry["errorsJson"];
+                }
+                attempt.QueueState = FirstString(recovered, recoveredMarking, "invoiceState", "state");
+                attempt.QueueErrors = TokenText(recovered["errorsJson"]);
                 attempt.QueueResponseJson = entry.ToString(Formatting.None);
                 if (attempt.QueueState != "SUBMITTED")
                 {
                     bool terminal = attempt.QueueState == "SUBMISSION_ERRORS" || attempt.QueueState == "MAX_RETRIES_REACHED";
-                    attempt.State = terminal ? "QueueFailed" : "Queued";
+                    if (!reconciliation)
+                    {
+                        attempt.State = terminal ? "QueueFailed" : "Queued";
+                    }
                     options.Store.Save(attempt);
                     return Error(terminal
                         ? "Ilyda: Απαιτείται παρέμβαση στον πάροχο (" + attempt.QueueState + "). " + attempt.QueueErrors + " Δεν επιτρέπεται νέα έκδοση."
+                        : reconciliation
+                        ? "Ilyda: Δεν βρέθηκαν ακόμη πλήρη στοιχεία της ήδη διαβιβασμένης έκδοσης. Δεν έγινε νέα αποστολή."
                         : "Ilyda: Το παραστατικό παραμένει στην ουρά διαβίβασης. Δεν έγινε νέα αποστολή.");
                 }
                 var saved = JObject.Parse(attempt.ResponseJson);
-                var marking = (JObject)saved["invoiceMarking"];
-                marking["mark"] = entry["mark"];
-                marking["verificationHash"] = entry["verificationHash"];
+                var marking = saved["invoiceMarking"] as JObject;
+                if (marking == null)
+                {
+                    marking = new JObject();
+                    saved["invoiceMarking"] = marking;
+                }
+                var returnedMark = FirstString(recovered, recoveredMarking, "mark");
+                var verificationHash = FirstString(recovered, recoveredMarking, "verificationHash");
+                long numericMark;
+                bool validMark = long.TryParse(returnedMark, NumberStyles.None, CultureInfo.InvariantCulture, out numericMark) && numericMark > 0;
+                if (!validMark || string.IsNullOrWhiteSpace(verificationHash) ||
+                    !string.IsNullOrWhiteSpace(attempt.ReconciliationMark) && attempt.ReconciliationMark != returnedMark)
+                {
+                    options.Store.Save(attempt);
+                    return Error("Ilyda: Τα ανακτημένα στοιχεία σήμανσης δεν συμφωνούν με το UID/MARK της απόκρισης 228. Δεν έγινε νέα αποστολή.");
+                }
+                marking["invoiceIdentifier"] = returnedUid;
+                marking["mark"] = returnedMark;
+                marking["verificationHash"] = verificationHash;
+                CopyMarkingField(recovered, recoveredMarking, marking, "invoiceId");
+                CopyMarkingField(recovered, recoveredMarking, marking, "providerUrl");
+                CopyMarkingField(recovered, recoveredMarking, marking, "qrCode");
+                CopyMarkingField(recovered, recoveredMarking, marking, "myDataQrCode");
+                CopyMarkingField(recovered, recoveredMarking, marking, "cancellationMark");
+                CopyMarkingField(recovered, recoveredMarking, marking, "aadePreviouslySubmittedError228");
+                var invoiceSignatures = recovered["invoiceSignatures"];
+                if (invoiceSignatures != null)
+                {
+                    saved["invoiceSignatures"] = invoiceSignatures.DeepClone();
+                }
                 saved["errors"] = new JArray();
                 var result = MapResponse(saved);
                 if (!result.HasErrors)
@@ -169,6 +263,69 @@ namespace Exedron.Invoicing.Adapters
                 }
                 else options.Store.Save(attempt);
                 return result;
+            }
+        }
+
+        private static bool TryReadError228(JObject data, out string uid, out string mark)
+        {
+            uid = null;
+            mark = null;
+            var errors = Errors(data);
+            var error228 = errors.FirstOrDefault(error =>
+                (string)error["code"] == "228" && (bool?)error["fatal"] == true);
+            if (error228 == null)
+            {
+                return false;
+            }
+            var errorText = error228.ToString(Formatting.None);
+            var uidMatch = Regex.Match(errorText, "(?:UID\\s*:?\\s*)?([0-9A-F]{40})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var markMatch = Regex.Match(errorText, "MARK\\s*:?\\s*([0-9]{10,20})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (!uidMatch.Success || !markMatch.Success)
+            {
+                return false;
+            }
+            uid = uidMatch.Groups[1].Value.ToUpperInvariant();
+            mark = markMatch.Groups[1].Value;
+            return true;
+        }
+
+        private static string FirstString(JObject source, JObject marking, params string[] names)
+        {
+            foreach (var name in names)
+            {
+                var sourceValue = TokenText(source?[name]);
+                if (!string.IsNullOrWhiteSpace(sourceValue))
+                {
+                    return sourceValue;
+                }
+                var markingValue = TokenText(marking?[name]);
+                if (!string.IsNullOrWhiteSpace(markingValue))
+                {
+                    return markingValue;
+                }
+            }
+            return null;
+        }
+
+        private static string TokenText(JToken token)
+        {
+            if (token == null || token.Type == JTokenType.Null)
+            {
+                return null;
+            }
+            return token.Type == JTokenType.String ? (string)token : token.ToString(Formatting.None);
+        }
+
+        private static void CopyMarkingField(JObject source, JObject recoveredMarking, JObject target, string field)
+        {
+            var value = recoveredMarking?[field];
+            if (value == null || value.Type == JTokenType.Null)
+            {
+                value = source?[field];
+            }
+            if (value != null && value.Type != JTokenType.Null)
+            {
+                target[field] = value.DeepClone();
             }
         }
 

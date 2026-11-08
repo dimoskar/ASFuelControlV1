@@ -401,3 +401,9 @@ FodyWeavers.xsd
 
 # Local Codex build, verification, and diagnostic output
 .codexout/
+
+# Generated deployment packages, previews, reports, and scratch builds
+/Deployments/
+/output/
+/outputs/
+/tmp/

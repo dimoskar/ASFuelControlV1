@@ -17,8 +17,9 @@ namespace ASFuelControl.Invoicing
     public sealed class ProviderSubmissionResult
     {
         public Guid? AttemptId { get; internal set; }
-        // NotSubmitted, Sending, Unknown, Queued, QueueFailed, RetryAuthorized,
-        // Rejected or Accepted; independent of print/payment.
+        // NotSubmitted, Sending, Unknown, Queued, QueueFailed,
+        // ReconciliationRequired, RetryAuthorized, Rejected or Accepted;
+        // independent of print/payment.
         public string State { get; internal set; }
         public InvoiceResponse Response { get; internal set; }
         public bool Accepted => State == "Accepted" && Response != null && !Response.HasErrors;
@@ -76,7 +77,17 @@ namespace ASFuelControl.Invoicing
                 var previous = Latest(lease);
                 bool retryable = previous != null && (previous.State == "Rejected" || previous.State == "RetryAuthorized");
                 if (previous != null && !retryable)
+                {
+                    if (previous.State == "ReconciliationRequired")
+                    {
+                        var reconciliationRequired = Error(
+                            "Η ΑΑΔΕ έχει ήδη καταχωρίσει το παραστατικό. Δεν έγινε νέα αποστολή ή αυτόματη ανάκτηση. " +
+                            "Χρησιμοποιήστε «Ανάκτηση διαβίβασης» για νέο έλεγχο της υπάρχουσας καταχώρισης.");
+                        return Result(previous, reconciliationRequired);
+                    }
+
                     return Recover(lease, invoiceId, previous); // No remapping or current-setting fallback.
+                }
                 if (previous != null && !retryRejected)
                     return Result(previous, Error(previous.State == "RetryAuthorized"
                         ? "The operator-authorized resend must be continued explicitly."

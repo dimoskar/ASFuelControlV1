@@ -206,12 +206,38 @@ namespace ASFuelControl.Invoicing
                     InvoiceResponse response = null;
                     bool retryableSubmission = submission != null &&
                         (submission.State == "Rejected" || submission.State == "RetryAuthorized");
-                    if (submission != null && (!retryableSubmission || !retryRejectedInvoice || recoverOnly))
+                    bool manualReconciliationRequired = submission != null &&
+                        submission.State == "ReconciliationRequired" && !recoverOnly;
+                    if (manualReconciliationRequired)
+                    {
+                        response = new InvoiceResponse
+                        {
+                            Errors = new[]
+                            {
+                                "Η υπάρχουσα διαβίβαση χρειάζεται ανάκτηση. " +
+                                "Δεν έγινε νέα αποστολή ή αυτόματη ανάκτηση."
+                            },
+                            Warnings = new string[0]
+                        };
+                    }
+                    else if (submission != null && (!retryableSubmission || !retryRejectedInvoice || recoverOnly))
+                    {
                         response = ((IInvoiceProviderRecovery)provider).RecoverInvoice(invoiceId);
+                    }
                     else if (!recoverOnly)
-                        response = provider.SendInvoice(snapshot.Invoice, invoiceId, new ProviderPaymentContext {
-                            SourcePayment = snapshot.Invoice.PaymentMethods.Single(), ProviderUid = payment.ProviderUid,
-                            ProviderSignature = payment.ProviderSignature, TransactionId = payment.TransactionId, TerminalId = payment.ResponseTerminalId });
+                    {
+                        PaymentMethod sourcePayment = snapshot.Invoice.PaymentMethods.Single();
+                        var paymentContext = new ProviderPaymentContext
+                        {
+                            SourcePayment = sourcePayment,
+                            ProviderUid = payment.ProviderUid,
+                            ProviderSignature = payment.ProviderSignature,
+                            TransactionId = payment.TransactionId,
+                            TerminalId = payment.ResponseTerminalId
+                        };
+                        response = provider.SendInvoice(snapshot.Invoice, invoiceId,
+                            paymentContext);
+                    }
                     submission = history.Load(lease, FiscalJournalFamily.Submission).LastOrDefault();
                     var result = ProviderSubmissionService.Result(submission, response);
                     if (result.Accepted && payment.State != "Invoiced") { store.MarkInvoiceSubmitted(payment.Id); payment = store.LoadLatest(invoiceId); }

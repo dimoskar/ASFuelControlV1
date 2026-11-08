@@ -15,6 +15,8 @@ namespace Exedron.Invoicing.Core
         public int? StatusCode { get; set; }
         public string ResponseJson { get; set; }
         public string PrintMetadataResponseJson { get; set; }
+        public string ReconciliationUid { get; set; }
+        public string ReconciliationMark { get; set; }
         public string TransportError { get; set; }
         public string State { get; set; }
         public DateTime CreatedUtc { get; set; }

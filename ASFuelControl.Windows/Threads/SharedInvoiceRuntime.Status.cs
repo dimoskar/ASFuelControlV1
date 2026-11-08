@@ -19,6 +19,7 @@ namespace ASFuelControl.Windows.Threads
         internal FiscalAttemptEvidence[] Revisions;
         internal string PendingSummary;
         internal bool CanSubmitPrinted;
+        internal bool CanReplaceLegacyFiscalEvidence;
         internal bool CanPrintHistorical;
         internal bool AlreadyPrinted;
         internal ProviderRoute ConfiguredProvider;
@@ -100,6 +101,8 @@ namespace ASFuelControl.Windows.Threads
                         bool hasLegacy = db.MyDataInvoices.Any(i => i.InvoiceId == id);
                         status.PendingSummary = settings.Value.PendingInvoiceSummary(invoice,hasLegacy);
                         status.CanSubmitPrinted = settings.Value.CanSubmitPrintedInvoice(invoice,hasLegacy);
+                        status.CanReplaceLegacyFiscalEvidence = settings.Value
+                            .CanReplaceLegacyFiscalEvidence(invoice, hasLegacy);
                     }
                 }
             }

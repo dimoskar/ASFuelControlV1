@@ -59,14 +59,23 @@ namespace ASFuelControl.Invoicing.Persistence
                 throw new InvalidOperationException("The original submission timestamp is immutable.");
             if ((beginOnly && exists) || (completeOnly && !exists)) throw new InvalidOperationException("Use the original attempt object for Begin/Complete.");
             if (!exists && state != "Sending") throw new InvalidOperationException("Persist Sending before submission.");
-            if (!new[] { "Sending", "Accepted", "Rejected", "Unknown", "Queued", "QueueFailed" }.Contains(state)) throw new ArgumentException("Unknown submission state.");
+            if (!new[] { "Sending", "Accepted", "Rejected", "Unknown", "Queued", "QueueFailed", "ReconciliationRequired" }.Contains(state)) throw new ArgumentException("Unknown submission state.");
             var snapshot = SqlFiscalDatabase.Json(value);
-            if (state == "Accepted" || state == "Rejected" || state == "Queued" || state == "QueueFailed")
+            bool confirmedReconciliationNotFound = false;
+            if (state == "Accepted" || state == "Rejected" || state == "Queued" || state == "QueueFailed" || state == "ReconciliationRequired")
             {
                 var evidence = Newtonsoft.Json.Linq.JObject.Parse(snapshot);
                 bool hasBody = !string.IsNullOrWhiteSpace((string)evidence["ResponseXml"]) || !string.IsNullOrWhiteSpace((string)evidence["ResponseJson"]);
                 bool httpRejected = state == "Rejected" && provider == "iTimologia" &&
                     new int?[] { 401,422,452 }.Contains((int?)evidence["StatusCode"]);
+                bool reconciliationNotFound = exists &&
+                    stamp.Entry.State == "ReconciliationRequired" &&
+                    state == "Rejected";
+                confirmedReconciliationNotFound = IsConfirmedReconciliationNotFound(
+                    evidence);
+                if (reconciliationNotFound && !confirmedReconciliationNotFound)
+                    throw new InvalidOperationException(
+                        "Only a confirmed provider recovery HTTP 404 can release a reconciliation for another provider route.");
                 if (!hasBody && !httpRejected) throw new InvalidOperationException("An outcome requires retained response evidence.");
             }
             Guid? originalAttemptId = null;
@@ -83,9 +92,31 @@ namespace ASFuelControl.Invoicing.Persistence
             database.Write(lease, entry, exists ? (long?)stamp.Entry.Revision : null, state != "Rejected", old =>
                 (old.State == "Sending" || old.State == "Unknown") && state != "Sending" ||
                 (old.State == "Queued" || old.State == "QueueFailed") && new[] { "Queued", "QueueFailed", "Accepted" }.Contains(state) ||
+                old.State == "ReconciliationRequired" &&
+                    (new[] { "ReconciliationRequired", "Accepted" }.Contains(state) ||
+                     state == "Rejected" && confirmedReconciliationNotFound) ||
                 old.State == "Accepted" && state == "Accepted" && AcceptedEvidenceUnchanged(old.Snapshot, entry.Snapshot));
             stamps.Remove(value);
             stamps.Add(value, new Stamp { Entry = entry });
+        }
+        private bool IsConfirmedReconciliationNotFound(
+            Newtonsoft.Json.Linq.JObject evidence)
+        {
+            if (provider == "iTimologia")
+            {
+                return (int?)evidence["StatusCode"] == 404;
+            }
+            if (provider == "myDATA")
+            {
+                return (int?)evidence["HttpStatus"] == 404;
+            }
+            if (provider == "Ilyda.Direct")
+            {
+                string queueState = (string)evidence["QueueState"];
+                return string.Equals(queueState, "HTTP 404",
+                    StringComparison.Ordinal);
+            }
+            return false;
         }
         private bool AcceptedEvidenceUnchanged(string previous, string updated)
         {

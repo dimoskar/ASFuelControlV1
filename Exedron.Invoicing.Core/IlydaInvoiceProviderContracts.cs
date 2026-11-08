@@ -32,6 +32,7 @@ namespace Exedron.Invoicing.Core
         public string ResponseJson { get; set; }
         public string State { get; set; }
         public string InvoiceUid { get; set; }
+        public string ReconciliationMark { get; set; }
         public string QueueState { get; set; }
         public string QueueErrors { get; set; }
         public string QueueResponseJson { get; set; }

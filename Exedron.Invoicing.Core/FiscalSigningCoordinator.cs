@@ -38,7 +38,7 @@ namespace Exedron.Invoicing.Core
                     }
                     if (previous.State == FiscalSigningState.Rejected)
                     {
-                        previous = RecoverRecorded(lease,previous);
+                        previous = Recover(lease, previous);
                         if (previous.State == FiscalSigningState.Signed) return previous;
                     }
                     var automatic = RetryFrozenIfAllowed(lease,previous);
@@ -158,7 +158,20 @@ namespace Exedron.Invoicing.Core
 
         private FiscalSigningAttempt Recover(IFiscalDocumentLease lease, FiscalSigningAttempt saved)
         {
-            if (saved.State != FiscalSigningState.Signing && saved.State != FiscalSigningState.Unknown) return saved;
+            bool wasRejected = saved.State == FiscalSigningState.Rejected;
+            if (saved.State != FiscalSigningState.Signing &&
+                saved.State != FiscalSigningState.Unknown && !wasRejected)
+            {
+                return saved;
+            }
+            if (wasRejected)
+            {
+                saved = RecoverRecorded(lease, saved);
+                if (saved.State == FiscalSigningState.Signed)
+                {
+                    return saved;
+                }
+            }
             if (saved.State == FiscalSigningState.Signing)
                 saved = Save(lease, saved, FiscalSigningState.Unknown, FiscalSigningResult.Unknown(saved.Request.AttemptId,
                     null, "Signing was interrupted; the original outcome must be reconciled."));
@@ -178,6 +191,12 @@ namespace Exedron.Invoicing.Core
                 }
                 var recovery = signer as IFiscalSignerRecovery;
                 if (recovery == null) return saved; // No invented lookup or second Sign.
+                var recoveryPolicy = signer as IFiscalSignerRecoveryPolicy;
+                if (recoveryPolicy != null && !recoveryPolicy.CanRecover(
+                    saved.Request, saved.Result))
+                {
+                    return saved;
+                }
                 result = CheckResult(saved.Request, recovery.Recover(saved.Request));
             }
             catch (Exception)
@@ -185,6 +204,15 @@ namespace Exedron.Invoicing.Core
                 return saved;
             }
             finally { (signer as IDisposable)?.Dispose(); }
+            if (wasRejected && saved.State == FiscalSigningState.Rejected &&
+                result.State == FiscalSigningState.Unknown)
+            {
+                return saved;
+            }
+            if (result.State == saved.State)
+            {
+                return saved;
+            }
             return Save(lease, saved, result.State, result);
         }
         private FiscalSigningAttempt RecoverRecorded(IFiscalDocumentLease lease,

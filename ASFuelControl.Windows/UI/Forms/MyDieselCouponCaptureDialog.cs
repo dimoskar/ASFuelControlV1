@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Linq;
+using System.Media;
 using System.Threading;
 using System.Windows.Forms;
 using AForge.Video;
@@ -33,6 +34,17 @@ namespace ASFuelControl.Windows.UI.Forms
             BackColor = Color.Black,
             SizeMode = PictureBoxSizeMode.Zoom
         };
+        private readonly Panel previewHost = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Black,
+            Padding = new Padding(3)
+        };
+        private readonly Panel recognitionCard;
+        private readonly RadLabel recognitionCode = RecognitionValue();
+        private readonly RadLabel recognitionVat = RecognitionValue();
+        private readonly RadLabel recognitionLitres = RecognitionValue();
+        private readonly RadLabel recognitionExpiry = RecognitionValue();
         private readonly RadLabel state = new RadLabel
         {
             Dock = DockStyle.Fill,
@@ -47,6 +59,7 @@ namespace ASFuelControl.Windows.UI.Forms
         private readonly RadTextBox code = new RadTextBox { Dock = DockStyle.Fill };
         private readonly RadTextBox vat = new RadTextBox { Dock = DockStyle.Fill };
         private readonly RadButton accept;
+        private readonly RadButton rescan;
         private readonly string traderVat;
         private VideoCaptureDevice source;
         private volatile MyDieselQrCoupon scannedQr;
@@ -98,13 +111,17 @@ namespace ASFuelControl.Windows.UI.Forms
             }, 0, 0);
             deviceRow.Controls.Add(cameras, 1, 0);
             restart.Margin = new Padding(7, 0, 0, 3);
-            restart.Click += (s, e) => StartSelectedCamera();
+            restart.Click += RestartScanning;
             deviceRow.Controls.Add(restart, 2, 0);
             table.Controls.Add(deviceRow, 0, 0);
             table.SetColumnSpan(deviceRow, 2);
 
-            table.Controls.Add(preview, 0, 1);
-            table.SetColumnSpan(preview, 2);
+            recognitionCard = CreateRecognitionCard();
+            previewHost.Controls.Add(preview);
+            previewHost.Controls.Add(recognitionCard);
+            previewHost.Layout += CenterRecognitionCard;
+            table.Controls.Add(previewHost, 0, 1);
+            table.SetColumnSpan(previewHost, 2);
             state.Text = "Τοποθετήστε το QR μέσα στο κάδρο. Η εικόνα χρησιμοποιείται μόνο για την ανάγνωση και δεν αποθηκεύεται.";
             state.Padding = new Padding(8, 4, 8, 4);
             state.BackColor = Color.FromArgb(238, 247, 253);
@@ -135,15 +152,39 @@ namespace ASFuelControl.Windows.UI.Forms
             };
             accept = new RadButton
             {
-                Text = reserveImmediately ? "Έλεγχος και δέσμευση" : "Καταχώριση κουπονιού",
+                Text = reserveImmediately ? "Έλεγχος και δέσμευση" : "Χρήση κουπονιού",
                 Dock = DockStyle.Right,
                 Width = 190,
                 Height = 34,
                 Enabled = false
             };
+            rescan = new RadButton
+            {
+                Text = "Σάρωση ξανά",
+                Dock = DockStyle.Fill,
+                Visible = false
+            };
+            rescan.Click += RestartScanning;
             accept.Click += Accept;
-            table.Controls.Add(cancel, 0, 5);
-            table.Controls.Add(accept, 1, 5);
+            var actions = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 1,
+                Margin = new Padding(0)
+            };
+            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 155));
+            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            cancel.Dock = DockStyle.Fill;
+            cancel.Margin = new Padding(0, 2, 8, 2);
+            rescan.Margin = new Padding(0, 2, 8, 2);
+            accept.Margin = new Padding(0, 2, 0, 2);
+            actions.Controls.Add(cancel, 0, 0);
+            actions.Controls.Add(rescan, 1, 0);
+            actions.Controls.Add(accept, 2, 0);
+            table.Controls.Add(actions, 0, 5);
+            table.SetColumnSpan(actions, 2);
             Controls.Add(table);
             AcceptButton = accept;
             CancelButton = cancel;
@@ -168,6 +209,124 @@ namespace ASFuelControl.Windows.UI.Forms
                 StopCamera();
                 DisposePreviewImage();
             };
+        }
+
+        private Panel CreateRecognitionCard()
+        {
+            Color successColor = Color.FromArgb(35, 145, 55);
+            var border = new Panel
+            {
+                BackColor = successColor,
+                Padding = new Padding(3),
+                Size = new Size(545, 255),
+                Visible = false
+            };
+            var content = new TableLayoutPanel
+            {
+                BackColor = Color.White,
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 3,
+                Padding = new Padding(20, 12, 20, 16)
+            };
+            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+            content.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            var heading = new RadLabel
+            {
+                Text = "✓  Το QR αναγνωρίστηκε επιτυχώς",
+                Dock = DockStyle.Fill,
+                AutoSize = false,
+                ForeColor = successColor,
+                TextAlignment = ContentAlignment.MiddleCenter,
+                Font = new Font(Font.FontFamily, 17F, FontStyle.Bold)
+            };
+            var helper = new RadLabel
+            {
+                Text = "Ελέγξτε τα στοιχεία και συνεχίστε.",
+                Dock = DockStyle.Fill,
+                AutoSize = false,
+                TextAlignment = ContentAlignment.MiddleCenter,
+                Font = new Font(Font.FontFamily, 10F, FontStyle.Regular)
+            };
+            var details = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 4,
+                CellBorderStyle = TableLayoutPanelCellBorderStyle.Single,
+                Margin = new Padding(14, 2, 14, 0)
+            };
+            details.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 43));
+            details.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 57));
+            for (int row = 0; row < 4; row++)
+            {
+                details.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
+            }
+            RadLabel codeCaption = RecognitionCaption("Κωδικός κουπονιού");
+            RadLabel vatCaption = RecognitionCaption("ΑΦΜ δικαιούχου");
+            RadLabel litresCaption = RecognitionCaption("Διαθέσιμα λίτρα");
+            RadLabel expiryCaption = RecognitionCaption("Ισχύει έως");
+            details.Controls.Add(codeCaption, 0, 0);
+            details.Controls.Add(recognitionCode, 1, 0);
+            details.Controls.Add(vatCaption, 0, 1);
+            details.Controls.Add(recognitionVat, 1, 1);
+            details.Controls.Add(litresCaption, 0, 2);
+            details.Controls.Add(recognitionLitres, 1, 2);
+            details.Controls.Add(expiryCaption, 0, 3);
+            details.Controls.Add(recognitionExpiry, 1, 3);
+
+            content.Controls.Add(heading, 0, 0);
+            content.Controls.Add(helper, 0, 1);
+            content.Controls.Add(details, 0, 2);
+            border.Controls.Add(content);
+            return border;
+        }
+
+        private static RadLabel RecognitionCaption(string text)
+        {
+            return new RadLabel
+            {
+                Text = text,
+                Dock = DockStyle.Fill,
+                AutoSize = false,
+                BackColor = Color.FromArgb(245, 247, 249),
+                TextAlignment = ContentAlignment.MiddleLeft,
+                Padding = new Padding(8, 0, 4, 0),
+                Font = new Font(SystemFonts.MessageBoxFont, FontStyle.Bold)
+            };
+        }
+
+        private static RadLabel RecognitionValue()
+        {
+            return new RadLabel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = false,
+                BackColor = Color.White,
+                TextAlignment = ContentAlignment.MiddleLeft,
+                Padding = new Padding(8, 0, 4, 0)
+            };
+        }
+
+        private void CenterRecognitionCard(object sender, LayoutEventArgs e)
+        {
+            int left = Math.Max(0,
+                (previewHost.ClientSize.Width - recognitionCard.Width) / 2);
+            int top = Math.Max(0,
+                (previewHost.ClientSize.Height - recognitionCard.Height) / 2);
+            recognitionCard.Location = new Point(left, top);
+        }
+
+        private void RestartScanning(object sender, EventArgs e)
+        {
+            ClearScannedCoupon();
+            bool cameraAvailable = cameras.Items.Count > 0 &&
+                cameras.SelectedItem != null;
+            cameras.Enabled = cameraAvailable;
+            restart.Enabled = cameraAvailable;
+            StartSelectedCamera();
         }
 
         private void LoadCameras()
@@ -359,8 +518,33 @@ namespace ASFuelControl.Windows.UI.Forms
                     if (closing || IsDisposed || !string.IsNullOrWhiteSpace(code.Text)) return;
                     scannedQr = parsed;
                     if (traderVat == null) vat.Text = parsed.Identity.BeneficiaryVat;
-                    ShowState("Το κουπόνι αναγνωρίστηκε. Μπορείτε να συνεχίσετε με τον έλεγχο και τη δέσμευση.", false);
+                    StopCamera();
+                    cameras.Enabled = false;
+                    restart.Enabled = false;
+                    recognitionCode.Text = parsed.Identity.CouponCode;
+                    recognitionVat.Text = parsed.Identity.BeneficiaryVat;
+                    recognitionLitres.Text = parsed.IssuedLitres.ToString("0.00") + " L";
+                    DateTimeOffset localExpiry = parsed.ValidUntilUtc.ToLocalTime();
+                    recognitionExpiry.Text = localExpiry.ToString("dd/MM/yyyy HH:mm");
+                    Color successColor = Color.FromArgb(35, 145, 55);
+                    previewHost.BackColor = successColor;
+                    recognitionCard.Visible = true;
+                    recognitionCard.BringToFront();
+                    rescan.Visible = true;
+                    state.Text = "✓ Επιτυχής τοπική αναγνώριση QR";
+                    state.ForeColor = Color.FromArgb(25, 115, 45);
+                    state.BackColor = Color.FromArgb(232, 249, 235);
+                    accept.BackColor = successColor;
+                    accept.ForeColor = Color.White;
                     UpdateAcceptState();
+                    accept.Select();
+                    try
+                    {
+                        SystemSounds.Asterisk.Play();
+                    }
+                    catch
+                    {
+                    }
                 }));
             }
             catch { }
@@ -369,6 +553,11 @@ namespace ASFuelControl.Windows.UI.Forms
         private void ClearScannedCoupon()
         {
             scannedQr = null;
+            recognitionCard.Visible = false;
+            previewHost.BackColor = Color.Black;
+            rescan.Visible = false;
+            accept.BackColor = SystemColors.Control;
+            accept.ForeColor = SystemColors.ControlText;
             UpdateAcceptState();
         }
 

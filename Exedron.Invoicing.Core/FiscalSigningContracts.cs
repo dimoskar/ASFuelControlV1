@@ -165,6 +165,14 @@ namespace Exedron.Invoicing.Core
         // An empty/not-found response MUST return Unknown, not Rejected.
         FiscalSigningResult Recover(FiscalSigningRequest originalRequest);
     }
+    // Optional recovery gate. Use it when the signer protocol permits lookup only
+    // after a specific recorded response, rather than after every unknown/rejected
+    // signing outcome.
+    public interface IFiscalSignerRecoveryPolicy
+    {
+        bool CanRecover(FiscalSigningRequest originalRequest,
+            FiscalSigningResult recordedResult);
+    }
     // Optional local recovery for an exact response that was retained as Unknown
     // by an older adapter. It must only reinterpret the saved response and must
     // never perform device or network I/O.

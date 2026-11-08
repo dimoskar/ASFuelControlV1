@@ -18,6 +18,7 @@
     <Compile Include="FiscalSigningService.cs" />
     <Compile Include="HostFiscalSigningMapper.cs" />
     <Compile Include="InvoiceWorkflowService.cs" />
+    <Compile Include="InvoiceProviderEvidenceProjection.cs" />
     <Compile Include="MyDieselCouponService.cs" />
     <Compile Include="PaymentRoute.cs" />
     <Compile Include="ProviderPaymentCompensation.cs" />

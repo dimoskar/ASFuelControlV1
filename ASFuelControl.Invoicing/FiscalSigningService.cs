@@ -20,12 +20,26 @@ namespace ASFuelControl.Invoicing
             history = new SqlFiscalHistoryStore(database);
         }
         public FiscalSigningAttempt Sign(FiscalDocumentReference document, FiscalSigningScope scope, IFiscalSigningSource source,
-            bool retryDefinitiveFailure = false)
+            bool retryDefinitiveFailure = false,
+            Guid? releasedSubmissionAttemptId = null)
         {
             return coordinator.Sign(document, lease => {
                 foreach (var family in new[] { FiscalJournalFamily.Submission, FiscalJournalFamily.ProviderSession,
                     FiscalJournalFamily.Payment, FiscalJournalFamily.Cancellation, FiscalJournalFamily.Print })
-                    if (history.Load(lease, family).Any()) throw new InvalidOperationException("Existing " + family + " history requires the complete fiscal workflow.");
+                {
+                    var familyHistory = history.Load(lease, family);
+                    var latest = familyHistory.LastOrDefault();
+                    bool releasedSubmission = family == FiscalJournalFamily.Submission &&
+                        releasedSubmissionAttemptId.HasValue &&
+                        latest?.AttemptId == releasedSubmissionAttemptId.Value &&
+                        familyHistory.All(attempt => attempt.State == "Rejected" ||
+                            attempt.State == "RetryAuthorized");
+                    if (familyHistory.Any() && !releasedSubmission)
+                    {
+                        throw new InvalidOperationException("Existing " + family +
+                            " history requires the complete fiscal workflow.");
+                    }
+                }
                 if (scope == null || source == null) throw new ArgumentException("A device scope and source are required for a new signing attempt.");
                 var request = source.Prepare(document, scope);
                 if (request == null || !FiscalSigningCoordinator.SameScope(request.Scope, scope))

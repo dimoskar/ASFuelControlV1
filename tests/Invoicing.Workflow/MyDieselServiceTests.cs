@@ -158,6 +158,87 @@ internal static partial class Program
                 Equal(2,saved.Version); Equal(coupon.CouponCaseId,saved.MyDieselCouponCaseId); Equal(0.375m,saved.MyDieselExciseDiscountPerLitre);
             }
         });
+        Test("iTimologia legacy recovery redeems the existing RESERVED myDiesel case without printing", () => {
+            var source = new WorkflowSource();
+            Guid invoiceId = source.Source.Id;
+            DraftInvoice(invoiceId);
+            var factory = new DieselFactory();
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "RESERVED", true));
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "REDEEMED", false));
+            var couponService = new MyDieselCouponService(database, factory);
+            var scope = new MyDieselScope(FiscalEnvironment.Test,
+                "000000000", 0, "uat-fixture", "AMD-0");
+            var identity = new MyDieselCouponIdentity(
+                "AKIE-1108-4031-5521-0302", "111111111");
+            MyDieselCouponCaseRecord coupon = couponService.Capture(
+                invoiceId, identity, scope, null, null, 0.375m);
+            couponService.Reserve(coupon.CouponCaseId);
+            Execute(connection,
+                "UPDATE dbo.Invoice SET IsPrinted=1 WHERE InvoiceId='" +
+                invoiceId + "';");
+            ProviderRoute provider = Route(
+                InvoiceProviderCatalog.ITimologiaKey);
+            InvoiceBuildRequest invoiceRequest =
+                source.Source.Prepare(invoiceId, provider);
+            source.Snapshot = new InvoiceWorkflowSnapshot {
+                Version = 2,
+                InvoiceId = invoiceId,
+                Provider = provider,
+                Invoice = invoiceRequest,
+                PrintDestination = "unused",
+                PrintFormat = "test/v1",
+                PrintContent = System.Text.Encoding.UTF8.GetBytes(
+                    "already printed"),
+                MyDieselCouponCaseId = coupon.CouponCaseId,
+                MyDieselScope = scope,
+                MyDieselExciseDiscountPerLitre =
+                    coupon.ExciseDiscountPerLitre,
+                LegacyFiscalReplacement =
+                    new LegacyFiscalEvidenceReplacement {
+                        PreviousInvoiceSignature =
+                            "legacy-device-signature",
+                        PreviousQrCode =
+                            "https://device.invalid/legacy-qr",
+                        AuthorizedBy = "administrator",
+                        AuthorizedUtc = System.DateTime.UtcNow,
+                        Reason = "Recover RESERVED myDiesel through iTimologia"
+                    }
+            };
+            string responseJson =
+                "{\"data\":{\"ext_system_id\":\"" +
+                invoiceId.ToString("N") +
+                "\",\"uid\":\"UID\",\"mark\":\"400001234567890\"," +
+                "\"authentication_code\":\"HASH\"," +
+                "\"signature_code\":\"PROVIDER-SIGNATURE\"," +
+                "\"web_view\":\"https://example.invalid/qr\"}}";
+            var http = new Http(invoiceId,
+                InvoiceProviderCatalog.ITimologiaKey) {
+                InvoicePost = body => Reply(responseJson)
+            };
+            var printer = new Printer();
+            var coordinator = new DieselCoordinator(couponService);
+            InvoiceWorkflowService workflow = Workflow(http, printer,
+                myDiesel: coordinator);
+            InvoiceWorkflowResult result = workflow.Process(invoiceId,
+                source, false);
+            Check(result.Accepted,
+                "iTimologia did not accept the recovered invoice");
+            Equal("Redeemed", result.MyDieselState);
+            Equal("PROVIDER-SIGNATURE",
+                result.Response.InvoiceSignature);
+            Equal("https://example.invalid/qr",
+                result.Response.QrCodeUrl);
+            Equal(1, http.Posts);
+            Equal(0, printer.Calls);
+            Equal(2, factory.Calls);
+            MyDieselCouponCaseRecord redeemed =
+                new SqlMyDieselStore(database).FindLatestByInvoice(
+                    invoiceId);
+            Equal(MyDieselCaseStage.Redeemed, redeemed.LocalStage);
+            Equal("400001234567890", redeemed.InvoiceMark);
+        });
         Test("myDiesel rejects a new coupon after the invoice is printed", () => {
             var invoice = DraftInvoice(null,true);
             var service = new MyDieselCouponService(database,new DieselFactory());

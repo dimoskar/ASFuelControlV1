@@ -3152,7 +3152,14 @@ namespace ASFuelControl.Windows.Threads
 
         public void SignInvoice(Data.DatabaseModel db, Data.Invoice invoice, string selectedPrinter = null)
         {
-            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId,true,null,selectedPrinter); return; }
+            Guid invoiceId = invoice.InvoiceId;
+            bool sharedWorkflowHandlesInvoice = SharedInvoiceRuntime.Handles(invoiceId);
+            if (sharedWorkflowHandlesInvoice)
+            {
+                SharedInvoiceRuntime.Process(invoiceId, true, null, selectedPrinter);
+                return;
+            }
+            SharedInvoiceRuntime.EnsureLegacyFiscalSigningAllowed(invoice);
             string sign = "";
             string qrData = "";
             if (invoice.Number == 0)
@@ -3338,7 +3345,14 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintInvoice(Data.DatabaseModel db, Data.Invoice invoice)
         {
-            if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId); return; }
+            Guid invoiceId = invoice.InvoiceId;
+            bool sharedWorkflowHandlesInvoice = SharedInvoiceRuntime.Handles(invoiceId);
+            if (sharedWorkflowHandlesInvoice)
+            {
+                SharedInvoiceRuntime.Process(invoiceId);
+                return;
+            }
+            SharedInvoiceRuntime.EnsureLegacyFiscalSigningAllowed(invoice);
             if (invoiceProcessed.Contains(invoice.InvoiceId))
                 return;
             invoiceProcessed.Add(invoice.InvoiceId);

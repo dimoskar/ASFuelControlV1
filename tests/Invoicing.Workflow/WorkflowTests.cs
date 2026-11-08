@@ -183,6 +183,128 @@ internal static partial class Program
                     Equal(invoice.TransactionDate,saved.Invoice.Invoice.PrintedDateTime);
                 }
             });
+        foreach (string providerKey in new[] {
+            InvoiceProviderCatalog.ITimologiaKey,
+            InvoiceProviderCatalog.DirectIlydaKey })
+        {
+            Test(providerKey + " replaces legacy fiscal evidence only after provider acceptance", () => {
+                var source = new WorkflowSource();
+                Guid invoiceId = source.Source.Id;
+                ProviderRoute provider = Route(providerKey);
+                InvoiceBuildRequest invoiceRequest =
+                    source.Source.Prepare(invoiceId, provider);
+                source.Snapshot = new InvoiceWorkflowSnapshot {
+                    InvoiceId = invoiceId,
+                    Provider = provider,
+                    Invoice = invoiceRequest,
+                    PrintDestination = "unused",
+                    PrintFormat = "test/v1",
+                    PrintContent = Encoding.UTF8.GetBytes("already printed"),
+                    LegacyFiscalReplacement =
+                        new LegacyFiscalEvidenceReplacement {
+                            PreviousInvoiceSignature = "legacy-device-signature",
+                            PreviousQrCode = "https://device.invalid/legacy-qr",
+                            AuthorizedBy = "administrator",
+                            AuthorizedUtc = new System.DateTime(2026, 11, 8,
+                                10, 0, 0, System.DateTimeKind.Utc),
+                            Reason = "Synthetic provider recovery"
+                        }
+                };
+                var http = new Http(invoiceId, providerKey);
+                var printer = new Printer();
+                var signer = new Signer();
+                int projectionCalls = 0;
+                InvoiceWorkflowService workflow = Workflow(http, printer,
+                    project: (id, projectedResult) =>
+                    {
+                        projectionCalls++;
+                    }, signer: signer);
+                InvoiceWorkflowResult result = workflow.Process(invoiceId,
+                    source, false);
+                Check(result.Accepted, "provider recovery was not accepted");
+                string expectedSignature = providerKey ==
+                    InvoiceProviderCatalog.ITimologiaKey
+                    ? "PROVIDER-SIGNATURE"
+                    : "HASH";
+                Equal(expectedSignature, result.Response.InvoiceSignature);
+                Equal("https://example.invalid/qr",
+                    result.Response.QrCodeUrl);
+                Equal(1, http.Posts);
+                Equal(0, signer.Calls);
+                Equal(0, printer.Calls);
+                Equal(1, projectionCalls);
+                using (var lease = database.EnterInvoice(invoiceId))
+                {
+                    byte[] workflowBytes =
+                        new SqlInvoiceWorkflowStore(database).Load(lease);
+                    string workflowJson = Encoding.UTF8.GetString(
+                        workflowBytes);
+                    InvoiceWorkflowSnapshot saved =
+                        JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(
+                            workflowJson);
+                    Equal("legacy-device-signature",
+                        saved.LegacyFiscalReplacement
+                            .PreviousInvoiceSignature);
+                    Equal("https://device.invalid/legacy-qr",
+                        saved.LegacyFiscalReplacement.PreviousQrCode);
+                }
+            });
+        }
+        Test("provider evidence projection overwrites the legacy signature and QR together", () => {
+            var invoice = new ASFuelControl.Data.Invoice {
+                InvoiceSignature = "legacy-device-signature",
+                QRCodeData = "https://device.invalid/legacy-qr"
+            };
+            var response =
+                new Exedron.Invoicing.Core.Models.InvoiceResponse {
+                    InvoiceSignature = "provider-signature",
+                    QrCodeUrl = "https://provider.invalid/qr"
+                };
+            InvoiceProviderEvidenceProjection.Apply(invoice, response, null);
+            Equal("provider-signature", invoice.InvoiceSignature);
+            Equal("https://provider.invalid/qr", invoice.QRCodeData);
+        });
+        Test("legacy fiscal evidence remains projected when the provider omits its signature or QR", () => {
+            var source = new WorkflowSource();
+            Guid invoiceId = source.Source.Id;
+            ProviderRoute provider = Route(
+                InvoiceProviderCatalog.ITimologiaKey);
+            InvoiceBuildRequest invoiceRequest =
+                source.Source.Prepare(invoiceId, provider);
+            source.Snapshot = new InvoiceWorkflowSnapshot {
+                InvoiceId = invoiceId,
+                Provider = provider,
+                Invoice = invoiceRequest,
+                PrintDestination = "unused",
+                PrintFormat = "test/v1",
+                PrintContent = Encoding.UTF8.GetBytes("already printed"),
+                LegacyFiscalReplacement =
+                    new LegacyFiscalEvidenceReplacement {
+                        PreviousInvoiceSignature = "legacy-device-signature",
+                        PreviousQrCode = "https://device.invalid/legacy-qr",
+                        AuthorizedBy = "administrator",
+                        AuthorizedUtc = System.DateTime.UtcNow,
+                        Reason = "Synthetic incomplete response"
+                    }
+            };
+            var http = new Http(invoiceId,
+                InvoiceProviderCatalog.ITimologiaKey) {
+                InvoicePost = body => Reply(
+                    "{\"data\":{\"ext_system_id\":\"" +
+                    invoiceId.ToString("N") +
+                    "\",\"uid\":\"UID\",\"mark\":\"900010\"}}")
+            };
+            int projectionCalls = 0;
+            var printer = new Printer();
+            InvoiceWorkflowService workflow = Workflow(http, printer,
+                project: (id, projectedResult) =>
+                {
+                    projectionCalls++;
+                });
+            Throws(() => workflow.Process(invoiceId, source, false));
+            Equal(1, http.Posts);
+            Equal(0, projectionCalls);
+        });
         Test("printed invoice authentication failure retains its error and resumes without printing or renumbering", () => {
             var source = new WorkflowSource(); source.Source.AllowPrinted = true; source.Source.Invoice.IsPrinted = true;
             var id = source.Source.Id; var route = Route("iTimologia");
@@ -870,6 +992,57 @@ internal static partial class Program
             var result = workflow.Process(source.Source.Id,null,false,retryRejected:true);
             Check(result.Accepted,"the signed direct-myDATA submission retry was not accepted");
             Equal(1,signer.Calls); Equal(2,http.Posts);
+        });
+        Test("provider reconciliation 404 can switch to signed direct myDATA", () =>
+        {
+            var source = new WorkflowSource();
+            Guid invoiceId = source.Source.Id;
+            using (var lease = database.EnterInvoice(invoiceId))
+            {
+                source.Prepare(lease);
+            }
+
+            ProviderRoute providerRoute = Route(
+                InvoiceProviderCatalog.ITimologiaKey);
+            source.Snapshot.Provider = providerRoute;
+            source.Snapshot.Invoice = source.Source.Prepare(invoiceId,
+                providerRoute);
+            source.Snapshot.Signing = null;
+            var http = new Http(invoiceId,
+                InvoiceProviderCatalog.ITimologiaKey);
+            http.InvoicePost = body => body.TrimStart().StartsWith("<")
+                ? Reply(MyDataReply)
+                : Reply("{\"message\":\"Invoice already registered at myData. " +
+                    "Do not resend.\"}", 452);
+            http.Lookup = () => Reply("{}", 404);
+            var signer = new Signer();
+            var printer = new Printer();
+            InvoiceWorkflowService workflow = Workflow(http, printer,
+                signer: signer);
+            InvoiceWorkflowResult rejected = workflow.Process(invoiceId, source,
+                false);
+            Equal("Rejected", rejected.FiscalState);
+
+            ProviderRoute myDataRoute = Route(InvoiceProviderCatalog.MyDataKey);
+            source.Snapshot.Provider = myDataRoute;
+            source.Snapshot.Invoice = source.Source.Prepare(invoiceId,
+                myDataRoute);
+            var document = new FiscalDocumentReference(
+                FiscalDocumentKind.Invoice, invoiceId);
+            var scope = new FiscalSigningScope("fake", "device-v1",
+                FiscalEnvironment.Test, "000000000", 0);
+            byte[] payload = Encoding.UTF8.GetBytes("signed fallback bytes");
+            Guid signingAttemptId = Guid.NewGuid();
+            source.Snapshot.Signing = new FiscalSigningRequest(signingAttemptId,
+                document, scope, "fake/v1", payload);
+
+            InvoiceWorkflowResult accepted = workflow.Process(invoiceId, source,
+                false, retryRejected: true);
+            Check(accepted.Accepted,
+                "the released provider submission did not switch to signed myDATA");
+            Equal(1, signer.Calls);
+            Equal(2, http.Posts);
+            Equal(1, http.Gets);
         });
         Test("a signed resend retains fiscal values and accepts current trader metadata", () =>
         {
