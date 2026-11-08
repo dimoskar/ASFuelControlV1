@@ -29,6 +29,7 @@
     <Compile Include="MyDieselClient.cs" />
     <Compile Include="SamtecFiscalSigner.cs" />
     <Compile Include="SamtecWireModels.cs" />
+    <Compile Include="SemanticInvoicePayloadComparer.cs" />
     <Compile Include="WorkflowInvoiceXml.cs" />
   </ItemGroup>
   <ItemGroup><EmbeddedResource Include="Schemas\MyDataV2\*.xsd" /></ItemGroup>

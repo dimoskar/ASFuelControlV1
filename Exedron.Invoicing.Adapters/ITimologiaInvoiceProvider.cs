@@ -90,8 +90,11 @@ namespace Exedron.Invoicing.Adapters
                     string validation = Validate(invoice);
                     if (!string.IsNullOrEmpty(validation)) return ErrorResponse(validation);
                     var currentJson = JsonConvert.SerializeObject(MapInvoice(invoice, invoiceId.ToString("N"), providerPayment), JsonSettings);
-                    if (string.IsNullOrWhiteSpace(previous.RequestJson) ||
-                        !JToken.DeepEquals(JToken.Parse(previous.RequestJson), JToken.Parse(currentJson)))
+                    bool samePayload = !string.IsNullOrWhiteSpace(
+                        previous.RequestJson) &&
+                        SemanticInvoicePayloadComparer.AreEquivalentJson(
+                            previous.RequestJson, currentJson);
+                    if (!samePayload)
                         return ErrorResponse("The invoice changed after its previous iTimologia submission. Reconcile the original invoice before making corrections.");
                     if (previous.State == "ReconciliationRequired")
                     {
@@ -880,6 +883,7 @@ namespace Exedron.Invoicing.Adapters
                     : (int?)Convert.ToInt32(movePurpose, CultureInfo.InvariantCulture),
                 FuelInvoice = source.FuelInvoice ? (bool?)true : null,
                 SpecialInvoiceCategory = specialCategory?.ToString(CultureInfo.InvariantCulture),
+                InvoiceVariationType = source.InvoiceVariationType,
                 IsDeliveryNote = isDeliveryNote && !IsStandaloneDeliveryNote(source.InvoiceType) ? (bool?)true : null,
                 OtherDeliveryNoteHeader = isReceipt ? null : MapOtherDeliveryNoteHeader(deliveryHeader)
             };
@@ -1346,6 +1350,9 @@ namespace Exedron.Invoicing.Adapters
             // The vendor's iTimologiaClass.cs declares this JSON field as string.
             [JsonProperty("special_invoice_category")]
             public string SpecialInvoiceCategory { get; set; }
+
+            [JsonProperty("invoice_variation_type")]
+            public int? InvoiceVariationType { get; set; }
 
             [JsonProperty("vat_payment_suspension")]
             public bool? VatPaymentSuspension { get; set; }

@@ -34,6 +34,7 @@ namespace Exedron.Invoicing.Core
         public string Series { get; set; }
         public string SupplyCode { get; set; }
         public bool VATPaymentSuspension { get; set; }
+        public int? InvoiceVariationType { get; set; }
         public IList<InvoiceLineInput> InvoiceLines { get; set; } = new List<InvoiceLineInput>();
         // Before discount. NettoAmount - DiscountAmount is the taxable net total.
         public decimal NettoAmount { get; set; }

@@ -65,7 +65,10 @@ namespace Exedron.Invoicing.Adapters
                             return Error("Ilyda: Η φορολογική ταυτότητα άλλαξε μετά την προηγούμενη αποστολή. Απαιτείται έλεγχος.");
                         if (previous.State != "Rejected")
                         {
-                            if (!JToken.DeepEquals(JObject.Parse(previous.RequestJson), JObject.Parse(json)))
+                            bool samePayload =
+                                SemanticInvoicePayloadComparer.AreEquivalentJson(
+                                    previous.RequestJson, json);
+                            if (!samePayload)
                                 return Error("Ilyda: Τα στοιχεία άλλαξαν μετά την αποστολή. Ανακτήστε την προηγούμενη έκδοση πριν από οποιαδήποτε διόρθωση.");
                             if (previous.State == "ReconciliationRequired")
                             {
@@ -412,7 +415,10 @@ namespace Exedron.Invoicing.Adapters
                 original["invoiceNumber"] = current["invoiceNumber"].DeepClone();
                 // This also protects the parent MARK, series, number, date, parties,
                 // quantities, prices and all other fields from incidental edits.
-                return JToken.DeepEquals(original, current);
+                string originalJson = original.ToString(Formatting.None);
+                string currentJson = current.ToString(Formatting.None);
+                return SemanticInvoicePayloadComparer.AreEquivalentJson(
+                    originalJson, currentJson);
             }
             catch (Exception ex) when (ex is JsonException || ex is FormatException || ex is System.Xml.XmlException || ex is InvalidOperationException)
             {

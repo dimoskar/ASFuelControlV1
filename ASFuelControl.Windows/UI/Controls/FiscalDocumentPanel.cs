@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using ASFuelControl.Windows.Threads;
 using ASFuelControl.Windows.UI.Forms;
+using Exedron.Invoicing.Core;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Telerik.WinControls;
@@ -604,7 +605,10 @@ namespace ASFuelControl.Windows.UI.Controls
                     summary.Text += "\r\nΗ απόρριψη αφορά την ημερομηνία έκδοσης, αλλά η νέα αρίθμηση εμποδίζεται: " +
                         (status.IssueDateReissueBlockReason ?? "Απαιτείται έλεγχος του φορολογικού ιστορικού.");
                 if (status.ProviderResend?.CanResend == true)
-                    summary.Text += "\r\nΗ έκβαση δεν επιβεβαιώθηκε. Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια μετά από ρητή επιβεβαίωση του κινδύνου διπλής έκδοσης.";
+                    summary.Text += status.ProviderResend.ProviderKey ==
+                        InvoiceProviderCatalog.MyDataKey
+                            ? "\r\nΗ έκβαση δεν επιβεβαιώθηκε. Η επανάληψη θα επιτραπεί μόνο με τις ίδιες σημασιολογικές τιμές και την ίδια ταυτότητα myDATA. Αν οι τιμές άλλαξαν, απαιτείται πρώτα ανάκτηση και ακύρωση του αρχικού MARK."
+                            : "\r\nΗ έκβαση δεν επιβεβαιώθηκε. Η επανάληψη χρησιμοποιεί το ίδιο InvoiceId· ο πάροχος μπορεί να επιστρέψει ότι το παραστατικό υπάρχει ήδη. Αν οι τιμές άλλαξαν, απαιτείται πρώτα ανάκτηση και επιλεγμένος τύπος ακυρωτικού.";
                 if (status.State("Submission") == "ReconciliationRequired")
                     summary.Text += "\r\nΟ πάροχος ή η ΑΑΔΕ ανέφερε ότι το παραστατικό έχει ήδη διαβιβαστεί. Δεν επιτρέπεται νέα αποστολή. " +
                         "Επιλέξτε «Ανάκτηση διαβίβασης» για ασφαλή ανάκτηση και επαλήθευση των στοιχείων σήμανσης.";

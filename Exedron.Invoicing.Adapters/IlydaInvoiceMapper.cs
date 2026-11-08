@@ -63,7 +63,16 @@ namespace Exedron.Invoicing.Adapters
                 var normalizedDeliveryHeader = DeliveryHeader(ns, effectiveDeliveryHeader);
                 var existingDeliveryHeader = xmlHeader.Element(ns + "otherDeliveryNoteHeader");
                 if (existingDeliveryHeader != null) existingDeliveryHeader.ReplaceWith(normalizedDeliveryHeader);
-                else xmlHeader.Element(ns + "specialInvoiceCategory").AddAfterSelf(normalizedDeliveryHeader);
+                else
+                {
+                    var variation = xmlHeader.Element(ns +
+                        "invoiceVariationType");
+                    if (variation != null)
+                        variation.AddAfterSelf(normalizedDeliveryHeader);
+                    else
+                        xmlHeader.Element(ns + "specialInvoiceCategory")
+                            .AddAfterSelf(normalizedDeliveryHeader);
+                }
                 xmlHeader.Elements(ns + "isDeliveryNote").Remove();
                 var deliveryFlag = new XElement(ns + "isDeliveryNote", isDeliveryNote);
                 var deliveryHeader = xmlHeader.Element(ns + "otherDeliveryNoteHeader");

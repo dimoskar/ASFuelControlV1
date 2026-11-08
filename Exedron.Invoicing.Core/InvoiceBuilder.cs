@@ -125,7 +125,8 @@ namespace Exedron.Invoicing.Core
                     Series = Clean(invoice.Series) ?? Clean(invoice.InvoiceSeries.Series) ?? "0",
                     // isDeliveryNote denotes an invoice with delivery, not a standalone 9.3.
                     DeliveryNote = !movementOnly && invoice.InvoiceSeries.IsDeliveryNote,
-                    VATPaymentSuspension = invoice.VATPaymentSuspension
+                    VATPaymentSuspension = invoice.VATPaymentSuspension,
+                    InvoiceVariationType = invoice.InvoiceVariationType
                 }
             };
             var sales = (saleCorrelations ?? Enumerable.Empty<InvoiceParent>()).ToArray();

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Net.Http;
 using System.Globalization;
+using System.Text;
 using System.Xml.Linq;
 using ASFuelControl.Invoicing.Mapping;
 using ASFuelControl.Invoicing.Persistence;
@@ -30,6 +31,7 @@ namespace ASFuelControl.Invoicing
         public bool RequiresAuthorization { get; internal set; }
         public string ProviderKey { get; internal set; }
         public string PreviousState { get; internal set; }
+        public InvoiceCancellationStrategy CancellationStrategy { get; internal set; }
         public string Warning { get; internal set; }
     }
 
@@ -150,21 +152,106 @@ namespace ASFuelControl.Invoicing
                     approvedPreviousPayment,
                     "Card/IRIS issuance requires a configured payment workflow or a completed integrated Samtec transaction; no submission was attempted.");
                 // Validate all channel-specific limitations before authentication or durable dispatch.
-                factory.CreatePayloadMapper(route.ProviderKey).Serialize(model, invoiceId);
+                IInvoicePayloadMapper payloadMapper =
+                    factory.CreatePayloadMapper(route.ProviderKey);
+                string currentPayload = payloadMapper.Serialize(model, invoiceId);
                 string routingContext = Context(route, model);
-                if (previous != null && previous.State != "Rejected" &&
-                    previous.State != "RetryAuthorized")
+                if (previous != null)
                 {
                     var previousContext = ReadContext(previous);
                     JObject currentContext = JObject.Parse(routingContext);
+                    ProviderRoute previousRoute = previousContext["Route"]
+                        .ToObject<ProviderRoute>();
                     string previousContextJson = previousContext.ToString(Formatting.None);
                     bool sameContext = previousContextJson == routingContext;
+                    bool sameRoute = JToken.DeepEquals(
+                        previousContext["Route"], currentContext["Route"]);
+                    bool sameIdentity = JToken.DeepEquals(
+                        previousContext["Identity"], currentContext["Identity"]);
                     bool auditedDateReissue = IsAuditedIssueDateReissue(workflow,
                         previousContext, currentContext);
                     bool auditedForeignParty = IsAuditedForeignPartyCorrection(workflow,
                         previous, previousContext, currentContext, model);
-                    Require(sameContext || auditedDateReissue || auditedForeignParty,
-                        "An authorized resend after an unresolved outcome must retain its original route and fiscal identity.");
+                    bool routeAllowed = sameRoute || authorizedResend;
+                    bool identityChangeAuthorized = auditedDateReissue ||
+                        auditedForeignParty;
+                    bool identityAllowed = sameIdentity ||
+                        identityChangeAuthorized;
+                    bool confirmedNotFound = HasConfirmedRecoveryNotFound(
+                        previous, previousRoute.ProviderKey);
+                    bool unresolvedRetry = previous.State ==
+                        "RetryAuthorized";
+                    bool directMyDataRejection = previous.State == "Rejected" &&
+                        previousRoute.ProviderKey ==
+                            InvoiceProviderCatalog.MyDataKey;
+                    if (unresolvedRetry || directMyDataRejection)
+                    {
+                        bool contextAllowed = confirmedNotFound || sameContext ||
+                            routeAllowed && identityAllowed;
+                        if (!contextAllowed)
+                        {
+                            InvoiceContinuationBlockedException exception =
+                                CreateContinuationBlock(lease, previous,
+                                "A retry must retain its original route and fiscal identity unless the workflow contains the matching audited correction.");
+                            throw exception;
+                        }
+                    }
+
+                    bool sameProvider = string.Equals(
+                        previousRoute.ProviderKey, route.ProviderKey,
+                        StringComparison.Ordinal);
+                    if (sameProvider)
+                    {
+                        byte[] previousPayloadBytes = previous.RequestPayload;
+                        string previousPayload = Encoding.UTF8.GetString(
+                            previousPayloadBytes);
+                        var payloadComparer =
+                            new SemanticInvoicePayloadComparer();
+                        InvoicePayloadComparison payloadComparison =
+                            payloadComparer.Compare(previousPayload,
+                                currentPayload, previous.PayloadFormat);
+                        string continuationState =
+                            OriginalContinuationState(previous);
+                        InvoiceProviderDefinition providerDefinition =
+                            InvoiceProviderCatalog.Get(route.ProviderKey);
+                        var continuationRequest =
+                            new InvoiceContinuationRequest
+                            {
+                                Provider = providerDefinition,
+                                PreviousState = continuationState,
+                                Existence = confirmedNotFound
+                                    ? InvoiceExistenceState.NotFound
+                                    : InvoiceExistenceState.NotChecked,
+                                Payload = payloadComparison,
+                                UserConsented = previous.State ==
+                                    "RetryAuthorized",
+                                IdentityChangeAuthorized =
+                                    identityChangeAuthorized
+                            };
+                        var continuationGuard =
+                            new InvoiceContinuationGuard();
+                        InvoiceContinuationDecision continuationDecision =
+                            continuationGuard.Evaluate(continuationRequest);
+                        bool continuationAllowed = continuationDecision.Action ==
+                                InvoiceContinuationAction.Resend ||
+                            continuationDecision.Action ==
+                                InvoiceContinuationAction.ContinueExisting;
+                        string changedValues = payloadComparison.ChangedPaths ==
+                                null ||
+                            payloadComparison.ChangedPaths.Length == 0
+                                ? string.Empty
+                                : " Changed values: " + string.Join(", ",
+                                    payloadComparison.ChangedPaths) + ".";
+                        if (!continuationAllowed)
+                        {
+                            string blockReason = continuationDecision.Reason +
+                                changedValues;
+                            InvoiceContinuationBlockedException exception =
+                                CreateContinuationBlock(lease, previous,
+                                    blockReason);
+                            throw exception;
+                        }
+                    }
                 }
                 using (var provider = Open(route, routingContext, invoiceId))
                 {
@@ -344,6 +431,9 @@ namespace ASFuelControl.Invoicing
             if (saved == null || saved.Family != FiscalJournalFamily.Submission.ToString()) return result;
             var route = ReadContext(saved)["Route"].ToObject<ProviderRoute>();
             result.ProviderKey = route.ProviderKey;
+            InvoiceProviderDefinition definition = InvoiceProviderCatalog.Get(
+                route.ProviderKey);
+            result.CancellationStrategy = definition.CancellationStrategy;
             if (saved.State == "RetryAuthorized")
             {
                 result.CanResend = true;
@@ -353,13 +443,83 @@ namespace ASFuelControl.Invoicing
             }
             if (saved.State == "Unknown" || saved.State == "Sending")
             {
+                if (route.ProviderKey == InvoiceProviderCatalog.ITimologiaKey &&
+                    !HasConfirmedITimologiaNotFound(saved))
+                {
+                    return result;
+                }
                 result.CanResend = result.RequiresAuthorization = true;
+                string identityRule = route.ProviderKey ==
+                    InvoiceProviderCatalog.MyDataKey
+                        ? "Το myDATA αναγνωρίζει το παραστατικό από ΑΦΜ εκδότη, ημερομηνία, υποκατάστημα, τύπο, σειρά, ΑΑ και τύπο απόκλισης. "
+                        : "Ο πάροχος αναγνωρίζει το παραστατικό από το σταθερό InvoiceId και μπορεί να επιστρέψει ότι υπάρχει ήδη. ";
                 result.Warning = "Δεν επιβεβαιώθηκε η έκβαση της προηγούμενης διαβίβασης. " +
-                    "Να δημιουργηθεί και να αποσταλεί νέο αίτημα από τα τρέχοντα στοιχεία και τις τρέχουσες ρυθμίσεις; " +
-                    "Η προηγούμενη προσπάθεια θα παραμείνει στο ιστορικό. Υπάρχει κίνδυνος διπλής έκδοσης και " +
-                    "ο χειριστής είναι υπεύθυνος να ελέγξει πρώτα τον προηγούμενο παραλήπτη.";
+                    identityRule +
+                    "Η νέα προσπάθεια επιτρέπεται μόνο αν η σημασιολογική σύγκριση επιβεβαιώσει τα ίδια στοιχεία. " +
+                    "Αν οι τιμές έχουν αλλάξει, η αποστολή θα αποκλειστεί: πρώτα ανακτήστε την προηγούμενη έκβαση και, αν έχει εκδοθεί, ακυρώστε το MARK ή επιλέξτε τύπο ακυρωτικού παρόχου πριν από επανέκδοση. " +
+                    "Η προηγούμενη προσπάθεια θα παραμείνει στο ιστορικό. Να συνεχιστεί ο έλεγχος και η νέα προσπάθεια;";
             }
             return result;
+        }
+        private static bool HasConfirmedITimologiaNotFound(
+            FiscalAttemptEvidence saved)
+        {
+            return HasConfirmedRecoveryNotFound(saved,
+                InvoiceProviderCatalog.ITimologiaKey);
+        }
+        private static bool HasConfirmedRecoveryNotFound(
+            FiscalAttemptEvidence saved, string providerKey)
+        {
+            try
+            {
+                JObject evidence = JObject.Parse(saved.SnapshotJson);
+                if (providerKey == InvoiceProviderCatalog.ITimologiaKey)
+                {
+                    return (int?)evidence["StatusCode"] == 404;
+                }
+                if (providerKey == InvoiceProviderCatalog.MyDataKey)
+                {
+                    return (int?)evidence["HttpStatus"] == 404;
+                }
+                if (providerKey == InvoiceProviderCatalog.DirectIlydaKey)
+                {
+                    string queueState = (string)evidence["QueueState"];
+                    return string.Equals(queueState, "HTTP 404",
+                        StringComparison.Ordinal);
+                }
+                return false;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
+        private static string OriginalContinuationState(
+            FiscalAttemptEvidence previous)
+        {
+            if (previous.State != "RetryAuthorized")
+            {
+                return previous.State;
+            }
+
+            JObject evidence = JObject.Parse(previous.SnapshotJson);
+            string originalState = (string)evidence[
+                "OperatorResendAuthorization"]?["PreviousState"];
+            return string.IsNullOrWhiteSpace(originalState)
+                ? previous.State
+                : originalState;
+        }
+        private InvoiceContinuationBlockedException CreateContinuationBlock(
+            IFiscalDocumentLease lease,
+            FiscalAttemptEvidence previous, string reason)
+        {
+            if (previous.State == "RetryAuthorized")
+            {
+                var resendStore =
+                    new SqlProviderSubmissionResendStore(database);
+                resendStore.Revoke(lease, previous.AttemptId, reason);
+            }
+            return new InvoiceContinuationBlockedException(reason);
         }
         private static bool IsAuthorizedResend(
             InvoiceWorkflowSnapshot workflow, FiscalAttemptEvidence previous,

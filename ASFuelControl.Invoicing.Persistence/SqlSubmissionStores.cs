@@ -173,6 +173,67 @@ namespace ASFuelControl.Invoicing.Persistence
                 Snapshot = snapshot.ToString(Newtonsoft.Json.Formatting.None), OriginalId = current.OriginalId
             }, current.Revision, false, old => old.State == "Unknown" || old.State == "Sending");
         }
+
+        public void Revoke(IFiscalDocumentLease lease, Guid attemptId,
+            string reason)
+        {
+            if (lease == null)
+            {
+                throw new ArgumentNullException(nameof(lease));
+            }
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                throw new ArgumentException("The revocation reason is required.",
+                    nameof(reason));
+            }
+
+            var current = database.Load(lease, "Submission").LastOrDefault();
+            if (current == null || current.Id != attemptId ||
+                current.State != "RetryAuthorized")
+            {
+                throw new InvalidOperationException(
+                    "The resend authorization is no longer current.");
+            }
+            var snapshot = Newtonsoft.Json.Linq.JObject.Parse(
+                current.Snapshot);
+            string previousState = (string)snapshot[
+                "OperatorResendAuthorization"]?["PreviousState"];
+            if (previousState != "Unknown" && previousState != "Sending")
+            {
+                throw new InvalidOperationException(
+                    "The resend authorization has no recoverable previous state.");
+            }
+            string trimmedReason = reason.Trim();
+            var revocationDetails = new
+            {
+                Version = 1,
+                Reason = trimmedReason,
+                RevokedUtc = DateTime.UtcNow,
+                PreviousState = previousState,
+                AttemptId = current.Id
+            };
+            Newtonsoft.Json.Linq.JObject revocation =
+                Newtonsoft.Json.Linq.JObject.FromObject(revocationDetails);
+            snapshot["OperatorResendRevocation"] = revocation;
+            var replacement = new SqlFiscalDatabase.JournalEntry
+            {
+                Id = current.Id,
+                Family = current.Family,
+                Operation = current.Operation,
+                Scope = current.Scope,
+                Format = current.Format,
+                Payload = current.Payload,
+                CreatedUtc = current.CreatedUtc,
+                UpdatedUtc = DateTime.UtcNow,
+                Revision = current.Revision + 1,
+                State = previousState,
+                Snapshot = snapshot.ToString(
+                    Newtonsoft.Json.Formatting.None),
+                OriginalId = current.OriginalId
+            };
+            database.Write(lease, replacement, current.Revision, true,
+                old => old.State == "RetryAuthorized");
+        }
     }
     public sealed class SqlMyDataSubmissionStore : IMyDataSubmissionStore
     {

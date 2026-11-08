@@ -8,9 +8,19 @@ using Exedron.Invoicing.Core.Models;
 using Exedron.Invoicing.Adapters;
 using Exedron.Invoicing.Adapters.Samtec;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace ASFuelControl.Invoicing
 {
+    public sealed class InvoiceContinuationBlockedException :
+        InvalidOperationException
+    {
+        public InvoiceContinuationBlockedException(string message) :
+            base(message)
+        {
+        }
+    }
+
     // Non-secret, versioned snapshot. No ORM entities survive preparation.
     public sealed class InvoiceWorkflowSnapshot : IInvoiceSubmissionSource, IFiscalSigningSource
     {
@@ -311,9 +321,25 @@ namespace ASFuelControl.Invoicing
                         bool hasApprovedPayment = previousPayment != null &&
                             (previousPayment.State == "Approved" ||
                                 previousPayment.State == "Invoiced");
-                        snapshot = MergeRegeneratedSubmission(snapshot,
-                            regeneratedSubmission, invoiceId, previousSubmission,
-                            hasSignedFiscalRequest, hasApprovedPayment);
+                        try
+                        {
+                            snapshot = MergeRegeneratedSubmission(snapshot,
+                                regeneratedSubmission, invoiceId,
+                                previousSubmission, hasSignedFiscalRequest,
+                                hasApprovedPayment);
+                        }
+                        catch (InvoiceContinuationBlockedException exception)
+                        {
+                            if (previousSubmission.State == "RetryAuthorized")
+                            {
+                                var resendStore =
+                                    new SqlProviderSubmissionResendStore(database);
+                                resendStore.Revoke(lease,
+                                    previousSubmission.AttemptId,
+                                    exception.Message);
+                            }
+                            throw;
+                        }
                         string replacementJson = JsonConvert.SerializeObject(snapshot);
                         byte[] replacement = Encoding.UTF8.GetBytes(replacementJson);
                         bytes = snapshots.ReplaceAfterRejectedSubmission(lease, bytes,
@@ -665,6 +691,8 @@ namespace ASFuelControl.Invoicing
                     regenerated.Invoice)
                 : regenerated.Invoice;
             InvoiceModel regeneratedModel = invoiceBuilder.Build(effectiveInvoice);
+            ValidateAuthorizedContinuation(saved, savedModel,
+                regeneratedModel, invoiceId, rejectedSubmission);
             List<InvoiceForeignPartyCorrection> foreignPartyCorrections =
                 saved.ForeignPartyCorrections;
             string previousCountry = savedModel.CounterPart?.Country;
@@ -791,6 +819,95 @@ namespace ASFuelControl.Invoicing
             regeneratedInvoice.TotalAmount = savedInvoice.TotalAmount;
             regeneratedInvoice.PaymentType = savedInvoice.PaymentType;
             return regenerated;
+        }
+
+        public static InvoiceContinuationDecision AssessContinuation(
+            ProviderRoute route, InvoiceModel previousModel,
+            InvoiceModel currentModel, Guid invoiceId, string previousState,
+            bool userConsented, out InvoicePayloadComparison comparison)
+        {
+            if (route == null)
+            {
+                throw new ArgumentNullException(nameof(route));
+            }
+            if (previousModel == null)
+            {
+                throw new ArgumentNullException(nameof(previousModel));
+            }
+            if (currentModel == null)
+            {
+                throw new ArgumentNullException(nameof(currentModel));
+            }
+
+            var resolver = new InvoiceTypeResolver();
+            var factory = new InvoiceAdapterFactory(resolver);
+            IInvoicePayloadMapper mapper = factory.CreatePayloadMapper(
+                route.ProviderKey);
+            string previousPayload = mapper.Serialize(previousModel,
+                invoiceId);
+            string currentPayload = mapper.Serialize(currentModel,
+                invoiceId);
+            string payloadFormat = route.ProviderKey ==
+                InvoiceProviderCatalog.MyDataKey
+                    ? "application/xml"
+                    : "application/json";
+            var comparer = new SemanticInvoicePayloadComparer();
+            comparison = comparer.Compare(
+                previousPayload, currentPayload, payloadFormat);
+            InvoiceProviderDefinition provider = InvoiceProviderCatalog.Get(
+                route.ProviderKey);
+            var request = new InvoiceContinuationRequest
+            {
+                Provider = provider,
+                PreviousState = previousState,
+                Existence = InvoiceExistenceState.NotChecked,
+                Payload = comparison,
+                UserConsented = userConsented
+            };
+            var guard = new InvoiceContinuationGuard();
+            return guard.Evaluate(request);
+        }
+
+        private static void ValidateAuthorizedContinuation(
+            InvoiceWorkflowSnapshot saved, InvoiceModel savedModel,
+            InvoiceModel regeneratedModel, Guid invoiceId,
+            FiscalAttemptEvidence previousSubmission)
+        {
+            if (previousSubmission == null ||
+                previousSubmission.State != "RetryAuthorized")
+            {
+                return;
+            }
+
+            JObject evidence = JObject.Parse(
+                previousSubmission.SnapshotJson);
+            string previousState = (string)evidence[
+                "OperatorResendAuthorization"]?["PreviousState"];
+            if (string.IsNullOrWhiteSpace(previousState))
+            {
+                previousState = previousSubmission.State;
+            }
+            InvoicePayloadComparison comparison;
+            InvoiceContinuationDecision decision = AssessContinuation(
+                saved.Provider, savedModel, regeneratedModel, invoiceId,
+                previousState, true, out comparison);
+            if (decision.Action == InvoiceContinuationAction.Resend ||
+                decision.Action ==
+                    InvoiceContinuationAction.ContinueExisting)
+            {
+                return;
+            }
+
+            string changedPaths = comparison.ChangedPaths == null ||
+                comparison.ChangedPaths.Length == 0
+                    ? string.Empty
+                    : " Changed values: " + string.Join(", ",
+                        comparison.ChangedPaths) + ".";
+            throw new InvoiceContinuationBlockedException(decision.Reason +
+                changedPaths +
+                " If recovery confirms the original invoice, cancel its MARK " +
+                "for direct myDATA or select a cancellation invoice type for " +
+                "the invoice provider, then issue the replacement.");
         }
 
         private static bool SameProviderIdentity(ProviderRoute left, ProviderRoute right)

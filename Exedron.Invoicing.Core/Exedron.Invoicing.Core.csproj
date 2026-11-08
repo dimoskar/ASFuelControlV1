@@ -20,6 +20,7 @@
     <Compile Include="IlydaInvoiceProviderContracts.cs" />
     <Compile Include="IlydaPosContracts.cs" />
     <Compile Include="InvoiceBuilder.cs" />
+    <Compile Include="InvoiceContinuationContracts.cs" />
     <Compile Include="InvoiceInputs.cs" />
     <Compile Include="InvoiceModels.cs" />
     <Compile Include="InvoiceProviderCatalog.cs" />

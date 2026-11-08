@@ -28,6 +28,10 @@ namespace Exedron.Invoicing.Core
                 "An invoice header, lines and totals are required.");
             Require(!string.IsNullOrWhiteSpace(model.InvoiceHeader.Series) && model.InvoiceHeader.Series.Length <= 50,
                 "The invoice series must contain 1 to 50 characters.");
+            Require(!model.InvoiceHeader.InvoiceVariationType.HasValue ||
+                model.InvoiceHeader.InvoiceVariationType.Value >= 1 &&
+                model.InvoiceHeader.InvoiceVariationType.Value <= 4,
+                "The invoice variation type must be between 1 and 4.");
             foreach (var line in model.InvoiceDetails)
             {
                 Require(line != null, "An invoice line is missing.");

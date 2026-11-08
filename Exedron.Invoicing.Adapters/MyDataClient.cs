@@ -45,7 +45,10 @@ namespace Exedron.Invoicing.Adapters
                 var previous = options.Store.Load(scope, invoiceId);
                 if (previous != null && previous.State != "Rejected")
                 {
-                    if (previous.State == "Accepted" && previous.RequestXml == xml)
+                    bool samePayload = previous.State == "Accepted" &&
+                        SemanticInvoicePayloadComparer.AreEquivalentXml(
+                            previous.RequestXml, xml);
+                    if (samePayload)
                         return MapResponse(previous.ResponseXml);
                     return Error("The previous myDATA submission must be reconciled before sending again. No new invoice was sent.");
                 }

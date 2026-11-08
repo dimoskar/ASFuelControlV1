@@ -42,6 +42,90 @@ internal static class Program
     }
     static void Tests()
     {
+        Test("semantic JSON comparison ignores transport extras and empty optionals", () => {
+            string previous = "{\"amount\":\"1.00\",\"optional\":null,\"lines\":[{\"lineNumber\":1,\"net\":\"1.00\"}]}";
+            string current = "{\"amount\":1,\"optional\":\"\",\"newTransportField\":\"ignored\",\"lines\":[{\"net\":1.0,\"lineNumber\":1}]}";
+            bool equivalent = Exedron.Invoicing.Adapters.SemanticInvoicePayloadComparer
+                .AreEquivalentJson(previous,current);
+            Check(equivalent,"Equivalent semantic JSON was reported as changed.");
+            string changed = "{\"amount\":2,\"optional\":\"\",\"lines\":[{\"net\":1,\"lineNumber\":1}]}";
+            bool changedEquivalent = Exedron.Invoicing.Adapters.SemanticInvoicePayloadComparer
+                .AreEquivalentJson(previous,changed);
+            Check(!changedEquivalent,"A changed amount was treated as equivalent.");
+        });
+        Test("myDATA semantic comparison includes invoice variation in identity", () => {
+            string previous = "<InvoicesDoc xmlns=\"http://www.aade.gr/myDATA/invoice/v1.0\"><invoice><issuer><vatNumber>123456789</vatNumber><branch>0</branch></issuer><invoiceHeader><series>A</series><aa>10</aa><issueDate>2026-11-08</issueDate><invoiceType>1.1</invoiceType><invoiceVariationType>1</invoiceVariationType></invoiceHeader></invoice></InvoicesDoc>";
+            string current = previous.Replace("<invoiceVariationType>1</invoiceVariationType>","<invoiceVariationType>2</invoiceVariationType>");
+            var comparer = new Exedron.Invoicing.Adapters.SemanticInvoicePayloadComparer();
+            InvoicePayloadComparison comparison = comparer.Compare(previous,current,"application/xml");
+            Equal(InvoicePayloadComparisonKind.IdentityChanged,comparison.Kind);
+            string missingVariation = previous.Replace(
+                "<invoiceVariationType>1</invoiceVariationType>", string.Empty);
+            InvoicePayloadComparison missingComparison = comparer.Compare(
+                previous, missingVariation, "application/xml");
+            Equal(InvoicePayloadComparisonKind.IdentityChanged,
+                missingComparison.Kind);
+        });
+        Test("continuation guard requires provider cancellation type for changed active invoice", () => {
+            InvoiceProviderDefinition provider = InvoiceProviderCatalog.Get(
+                InvoiceProviderCatalog.DirectIlydaKey);
+            var guard = new InvoiceContinuationGuard();
+            var request = new InvoiceContinuationRequest {
+                Provider = provider, PreviousState = "Accepted",
+                Existence = InvoiceExistenceState.Active,
+                Payload = new InvoicePayloadComparison { Kind = InvoicePayloadComparisonKind.Changed },
+                UserConsented = false
+            };
+            InvoiceContinuationDecision consent = guard.Evaluate(request);
+            Equal(InvoiceContinuationAction.Block,consent.Action);
+            Check(consent.RequiresUserConsent,"Changed active invoice did not require consent.");
+            Check(consent.RequiresCancellationInvoiceType,"Provider cancellation did not require an invoice type.");
+            request.UserConsented = true;
+            request.CancellationInvoiceTypeId = Guid.NewGuid();
+            InvoiceContinuationDecision cancellation = guard.Evaluate(request);
+            Equal(InvoiceContinuationAction.CancelAndReissue,cancellation.Action);
+            Equal(InvoiceCancellationStrategy.IssueCancellationDocument,
+                cancellation.CancellationStrategy);
+        });
+        Test("continuation guard uses MARK cancellation for changed active myDATA", () => {
+            InvoiceProviderDefinition myData = InvoiceProviderCatalog.Get(
+                InvoiceProviderCatalog.MyDataKey);
+            InvoiceProviderDefinition iTimologia = InvoiceProviderCatalog.Get(
+                InvoiceProviderCatalog.ITimologiaKey);
+            InvoiceProviderDefinition ilyda = InvoiceProviderCatalog.Get(
+                InvoiceProviderCatalog.DirectIlydaKey);
+            Equal(InvoiceCancellationStrategy.CancelMark,
+                myData.CancellationStrategy);
+            Equal(InvoiceCancellationStrategy.IssueCancellationDocument,
+                iTimologia.CancellationStrategy);
+            Equal(InvoiceCancellationStrategy.IssueCancellationDocument,
+                ilyda.CancellationStrategy);
+            var request = new InvoiceContinuationRequest {
+                Provider = myData, PreviousState = "Accepted",
+                Existence = InvoiceExistenceState.Active,
+                Payload = new InvoicePayloadComparison {
+                    Kind = InvoicePayloadComparisonKind.Changed },
+                UserConsented = true
+            };
+            var guard = new InvoiceContinuationGuard();
+            InvoiceContinuationDecision decision = guard.Evaluate(request);
+            Equal(InvoiceContinuationAction.CancelAndReissue,decision.Action);
+            Check(!decision.RequiresCancellationInvoiceType,
+                "Direct myDATA incorrectly requested a cancellation invoice type.");
+        });
+        Test("continuation guard resends equivalent unresolved provider payload after consent", () => {
+            InvoiceProviderDefinition provider = InvoiceProviderCatalog.Get(
+                InvoiceProviderCatalog.ITimologiaKey);
+            var guard = new InvoiceContinuationGuard();
+            var request = new InvoiceContinuationRequest {
+                Provider = provider, PreviousState = "Unknown",
+                Existence = InvoiceExistenceState.NotChecked,
+                Payload = InvoicePayloadComparison.Equivalent(),
+                UserConsented = true
+            };
+            InvoiceContinuationDecision decision = guard.Evaluate(request);
+            Equal(InvoiceContinuationAction.Resend,decision.Action);
+        });
         Test("Ilyda username and password authenticate without an API key", () => {
             var source = new Source(); var http = new Http(source.Id,InvoiceProviderCatalog.DirectIlydaKey);
             var credentials = new Credentials { Value = new ProviderCredentials { Password = "SECRET-password" } };
@@ -412,6 +496,14 @@ internal static class Program
             var original = Latest(s.Id);
             service.AuthorizeResend(s.Id,"synthetic-operator","confirmed Ilyda unknown result");
             Equal("RetryAuthorized",Latest(s.Id).State);
+            string originalName = s.Invoice.Trader.Name;
+            s.Invoice.Trader.Name = "Changed after authorization";
+            Throws(() => service.Send(s.Id,Route(h.Key),s,true));
+            Equal("Unknown",Latest(s.Id).State);
+            Equal(1,h.Posts);
+            s.Invoice.Trader.Name = originalName;
+            service.AuthorizeResend(s.Id,"synthetic-operator",
+                "retry the unchanged Ilyda payload");
             h.InvoicePost = b => Reply(IlydaReply);
             var resent = service.Send(s.Id,Route(h.Key),s,true); Check(resent.Accepted,Errors(resent)); Equal(2,h.Posts);
             Equal(2,History(s.Id).Length); Equal(original.AttemptId,History(s.Id).Last().OriginalAttemptId.Value);

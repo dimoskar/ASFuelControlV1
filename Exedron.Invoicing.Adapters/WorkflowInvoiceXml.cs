@@ -54,6 +54,12 @@ namespace Exedron.Invoicing.Adapters
             if (delivery && h.InvoiceType != "10.1") header.Add(E("movePurpose", (int)movePurpose));
             if (h.FuelInvoice) header.Add(E("fuelInvoice", true));
             if (specialCategory.HasValue) header.Add(E("specialInvoiceCategory", specialCategory.Value));
+            if (h.InvoiceVariationType.HasValue)
+            {
+                XElement variation = E("invoiceVariationType",
+                    h.InvoiceVariationType.Value);
+                header.Add(variation);
+            }
             if (h.InvoiceType != "10.1" && deliveryHeader != null)
             {
                 var d = deliveryHeader;

@@ -5,6 +5,7 @@ using ASFuelControl.Invoicing;
 using ASFuelControl.Invoicing.Mapping;
 using ASFuelControl.Invoicing.Persistence;
 using Exedron.Invoicing.Core;
+using Exedron.Invoicing.Core.Models;
 using Exedron.Invoicing.Adapters;
 using Exedron.Invoicing.Adapters.Samtec;
 using Newtonsoft.Json;
@@ -575,11 +576,72 @@ namespace ASFuelControl.Windows.Threads
         }
         internal static InvoiceWorkflowResult AuthorizeAndResumeSubmission(Guid id)
         {
+            SharedInvoiceStatus status = ReadStatus(id);
+            FiscalAttemptEvidence previous = status.Attempts.LastOrDefault(
+                attempt => attempt.Family == "Submission");
+            if (status.Snapshot == null || previous == null ||
+                status.ProviderResend?.CanResend != true)
+            {
+                throw new InvalidOperationException(
+                    "Η προηγούμενη διαβίβαση δεν είναι πλέον διαθέσιμη για επανάληψη.");
+            }
+
+            InvoiceWorkflowSnapshot regenerated;
+            using (var lease = sql.Value.EnterInvoice(id))
+            {
+                var currentSource = new Source(false);
+                regenerated = currentSource.Prepare(lease);
+            }
+            var resolver = new InvoiceTypeResolver();
+            var builder = new InvoiceBuilder(resolver);
+            InvoiceModel previousModel = builder.Build(status.Snapshot.Invoice);
+            InvoiceModel currentModel = builder.Build(regenerated.Invoice);
+            InvoicePayloadComparison comparison;
+            InvoiceContinuationDecision decision = InvoiceWorkflowService
+                .AssessContinuation(status.Snapshot.Provider, previousModel,
+                    currentModel, id, previous.State, true,
+                    out comparison);
+            if (decision.Action != InvoiceContinuationAction.Resend &&
+                decision.Action !=
+                    InvoiceContinuationAction.ContinueExisting)
+            {
+                string changedPaths = comparison.ChangedPaths == null ||
+                    comparison.ChangedPaths.Length == 0
+                        ? string.Empty
+                        : "\r\nΔιαφορές: " + string.Join(", ",
+                            comparison.ChangedPaths);
+                throw new InvalidOperationException(
+                    "Τα τρέχοντα στοιχεία δεν επιτρέπεται να σταλούν πάνω στην εκκρεμή προσπάθεια. " +
+                    decision.Reason + changedPaths +
+                    "\r\nΑνακτήστε πρώτα την προηγούμενη έκβαση. Αν έχει εκδοθεί, ακυρώστε το MARK για απευθείας myDATA ή επιλέξτε τύπο ακυρωτικού για τον πάροχο και κατόπιν εκδώστε το νέο παραστατικό.");
+            }
+
             var providers = new ProviderSubmissionService(sql.Value,new CurrentCredentials());
             providers.AuthorizeResend(id,Program.CurrentUserName,
                 "Ο χειριστής επιβεβαίωσε νέα διαβίβαση μετά από μη επιβεβαιωμένη έκβαση παρόχου.");
-            var source = new Source(false);
-            return workflow.Value.Process(id,source,false,retryRejected:true);
+            var preparedSource = new PreparedWorkflowSource(regenerated);
+            return workflow.Value.Process(id,preparedSource,false,retryRejected:true);
+        }
+        private sealed class PreparedWorkflowSource : IInvoiceWorkflowSource
+        {
+            private readonly InvoiceWorkflowSnapshot snapshot;
+
+            internal PreparedWorkflowSource(InvoiceWorkflowSnapshot value)
+            {
+                snapshot = value ?? throw new ArgumentNullException(
+                    nameof(value));
+            }
+
+            public InvoiceWorkflowSnapshot Prepare(IFiscalDocumentLease lease)
+            {
+                if (lease == null || lease.Document.DocumentId !=
+                    snapshot.InvoiceId)
+                {
+                    throw new InvalidOperationException(
+                        "The prepared invoice workflow does not match the document lease.");
+                }
+                return snapshot;
+            }
         }
         internal static ProviderPaymentResult RetryPayment(Guid id, Guid expectedAttemptId)
         {

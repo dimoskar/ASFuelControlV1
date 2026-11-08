@@ -836,7 +836,7 @@ internal static partial class Program
             Equal(2, http.Posts);
             Equal(0, printer.Calls);
         });
-        Test("operator-authorized unknown submission may change receiver", () =>
+        Test("operator-authorized unknown submission blocks changed payload and restores recovery", () =>
         {
             var source = new WorkflowSource();
             Guid invoiceId = source.Source.Id;
@@ -875,13 +875,13 @@ internal static partial class Program
                 IsEu = true
             };
             http.InvoicePost = body => Reply(MyDataReply);
-            InvoiceWorkflowResult accepted = workflow.Process(invoiceId, source,
-                false, retryRejected: true);
-            Check(accepted.Accepted,
-                "the operator-authorized receiver change was blocked");
-            Equal(2, http.Posts);
-            Check(http.LastPayload.Contains("<country>BG</country>"),
-                "the resend did not rebuild the current counterpart country");
+            Throws(() => workflow.Process(invoiceId, source, false,
+                retryRejected: true));
+            Equal(1, http.Posts);
+            Equal("Unknown", History(invoiceId).Last().State);
+            ProviderSubmissionResult recovered = service.Recover(invoiceId);
+            Equal("Unknown", recovered.State);
+            Equal(2, http.Gets);
 
             using (var lease = database.EnterInvoice(invoiceId))
             {
@@ -890,7 +890,7 @@ internal static partial class Program
                 string savedJson = Encoding.UTF8.GetString(savedBytes);
                 var saved = JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(
                     savedJson);
-                Equal(InvoiceProviderCatalog.MyDataKey,
+                Equal(InvoiceProviderCatalog.ITimologiaKey,
                     saved.Provider.ProviderKey);
             }
         });

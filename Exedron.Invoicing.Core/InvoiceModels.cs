@@ -66,6 +66,7 @@ namespace Exedron.Invoicing.Core.Models
         public System.String VehicleNumber { get; set; }
         public MovePurposeEnum MovePurpose { get; set; }
         public System.Boolean FuelInvoice { get; set; }
+        public System.Nullable<System.Int32> InvoiceVariationType { get; set; }
         public OtherDeliveryNoteHeader OtherDeliveryNoteHeader { get; set; }
     }
     public sealed class InvoiceSummary
