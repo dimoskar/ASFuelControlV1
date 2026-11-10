@@ -45,8 +45,20 @@ namespace ASFuelControl.Windows.Threads
                 throw new InvalidOperationException("A printer profile is required for the invoice report.");
 
             // This also validates that all mandatory provider print evidence is
-            // present before a page is frozen in the print operation.
-            var fiscalFooter = SharedInvoicePrinting.Footer(snapshot,response);
+            // present before a page is frozen in the print operation. Laser
+            // reports keep only the provider/myDATA identity and MARK beside the
+            // established signature area; no separate report footer is created.
+            bool laserReport = !profile.Thermal;
+            string fiscalFooter;
+            if (laserReport)
+            {
+                fiscalFooter = SharedInvoicePrinting.LaserFiscalLine(snapshot,
+                    response);
+            }
+            else
+            {
+                fiscalFooter = SharedInvoicePrinting.Footer(snapshot, response);
+            }
 
             using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
@@ -77,8 +89,11 @@ namespace ASFuelControl.Windows.Threads
                     {
                         report.DataSource = reportData;
                         ConfigureInternalReport(report,invoice,qrCodeUrl);
-                        return RenderReportDocument(report, profile, fiscalFooter,
-                            pdf);
+                        string invoiceSignature = ResolveInvoiceSignature(invoice,
+                            response);
+                        PlaceLaserFiscalLine(report, invoiceSignature,
+                            fiscalFooter);
+                        return RenderReportDocument(report, profile, null, pdf);
                     }
                 }
 
@@ -86,8 +101,10 @@ namespace ASFuelControl.Windows.Threads
                 {
                     report.DataSource = db.InvoiceLines.Where(line => line.InvoiceId == invoice.InvoiceId).ToArray();
                     ConfigureShortReport(report,invoice,qrCodeUrl);
-                    return RenderReportDocument(report, profile, fiscalFooter,
-                        pdf);
+                    string invoiceSignature = ResolveInvoiceSignature(invoice,
+                        response);
+                    PlaceLaserFiscalLine(report, invoiceSignature, fiscalFooter);
+                    return RenderReportDocument(report, profile, null, pdf);
                 }
             }
         }
@@ -258,7 +275,7 @@ namespace ASFuelControl.Windows.Threads
         internal static byte[] RenderPages(Telerik.Reporting.Report report, SharedPrinterProfile profile, string fiscalFooter)
         {
             ConfigurePaper(report,profile);
-            AddFiscalFooter(report,fiscalFooter);
+            AddFiscalFooter(report, fiscalFooter);
 
             var source = new InstanceReportSource { ReportDocument = report };
             int horizontalDpi = profile.Thermal ? profile.ThermalDpi : 150;
@@ -296,9 +313,118 @@ namespace ASFuelControl.Windows.Threads
             report.PageSettings.Landscape = a5;
         }
 
-        private static void AddFiscalFooter(Telerik.Reporting.Report report, string text)
+        private static string ResolveInvoiceSignature(Data.Invoice invoice,
+            InvoiceResponse response)
         {
-            if (string.IsNullOrWhiteSpace(text)) return;
+            if (response != null &&
+                !string.IsNullOrWhiteSpace(response.InvoiceSignature))
+            {
+                return response.InvoiceSignature;
+            }
+
+            return invoice.InvoiceSignature;
+        }
+
+        private static void PlaceLaserFiscalLine(Telerik.Reporting.Report report,
+            string invoiceSignature, string fiscalLine)
+        {
+            if (string.IsNullOrWhiteSpace(fiscalLine))
+            {
+                return;
+            }
+
+            IEnumerable<PageFooterSection> pageFooters =
+                report.Items.OfType<PageFooterSection>();
+            PageFooterSection pageFooter = pageFooters.FirstOrDefault();
+            if (pageFooter == null)
+            {
+                throw new InvalidOperationException(
+                    "The invoice report has no page footer for fiscal evidence.");
+            }
+
+            IEnumerable<Telerik.Reporting.TextBox> footerTextBoxes =
+                pageFooter.Items.OfType<Telerik.Reporting.TextBox>();
+            Telerik.Reporting.TextBox[] textBoxes = footerTextBoxes.ToArray();
+            Telerik.Reporting.TextBox signatureTextBox = FindTextBox(
+                textBoxes, "InvoiceSignature");
+            if (signatureTextBox == null)
+            {
+                throw new InvalidOperationException(
+                    "The invoice report has no invoice-signature field.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(invoiceSignature))
+            {
+                signatureTextBox.Value = invoiceSignature;
+            }
+            signatureTextBox.Style.Visible = true;
+
+            Telerik.Reporting.TextBox fiscalTextBox = FindTextBox(
+                textBoxes, "Parameters.SignLine");
+            if (fiscalTextBox == null)
+            {
+                double fiscalTopCentimetres = signatureTextBox.Location.Y.Value +
+                    signatureTextBox.Size.Height.Value;
+                Unit fiscalTop = Unit.Cm(fiscalTopCentimetres);
+                Unit fiscalHeight = Unit.Cm(0.4D);
+                var fiscalLocation = new PointU(signatureTextBox.Location.X,
+                    fiscalTop);
+                var fiscalSize = new SizeU(signatureTextBox.Size.Width,
+                    fiscalHeight);
+                fiscalTextBox = new Telerik.Reporting.TextBox
+                {
+                    Name = "sharedFiscalLine",
+                    Location = fiscalLocation,
+                    Size = fiscalSize
+                };
+                pageFooter.Items.Add(fiscalTextBox);
+
+                double requiredHeightCentimetres = fiscalTopCentimetres +
+                    fiscalHeight.Value;
+                if (pageFooter.Height.Value < requiredHeightCentimetres)
+                {
+                    pageFooter.Height = Unit.Cm(requiredHeightCentimetres);
+                }
+            }
+            else
+            {
+                fiscalTextBox.Location = new PointU(signatureTextBox.Location.X,
+                    fiscalTextBox.Location.Y);
+                fiscalTextBox.Size = new SizeU(signatureTextBox.Size.Width,
+                    fiscalTextBox.Size.Height);
+            }
+
+            fiscalTextBox.Value = fiscalLine;
+            fiscalTextBox.CanGrow = false;
+            fiscalTextBox.TextWrap = false;
+            fiscalTextBox.Style.Visible = true;
+            fiscalTextBox.Style.Font.Name = "Arial";
+            fiscalTextBox.Style.Font.Size = Unit.Point(7);
+        }
+
+        private static Telerik.Reporting.TextBox FindTextBox(
+            IEnumerable<Telerik.Reporting.TextBox> textBoxes, string valueMarker)
+        {
+            foreach (Telerik.Reporting.TextBox textBox in textBoxes)
+            {
+                string value = textBox.Value as string;
+                if (value != null && value.IndexOf(valueMarker,
+                    StringComparison.Ordinal) >= 0)
+                {
+                    return textBox;
+                }
+            }
+
+            return null;
+        }
+
+        private static void AddFiscalFooter(Telerik.Reporting.Report report,
+            string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
             var footer = report.Items.OfType<ReportFooterSection>().FirstOrDefault();
             if (footer == null)
             {
@@ -306,7 +432,8 @@ namespace ASFuelControl.Windows.Threads
                 report.Items.Add(footer);
             }
             int lineCount = text.Split(new[] { "\r\n" },StringSplitOptions.None).Length;
-            var height = Unit.Mm(Math.Max(12,lineCount * 4));
+            double heightMillimetres = Math.Max(12, lineCount * 4);
+            Unit height = Unit.Mm(heightMillimetres);
             footer.Style.Visible = true;
             footer.Height = height;
             footer.Items.Clear();

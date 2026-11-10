@@ -99,6 +99,40 @@ namespace ASFuelControl.Windows.Threads
             if (!string.IsNullOrWhiteSpace(response?.ProviderUrl)) footer.Add(response.ProviderUrl);
             return string.Join("\r\n", footer);
         }
+        internal static string LaserFiscalLine(InvoiceWorkflowSnapshot snapshot,
+            Exedron.Invoicing.Core.Models.InvoiceResponse response)
+        {
+            string validatedFooter = Footer(snapshot, response);
+            if (snapshot.Provider == null)
+            {
+                return "";
+            }
+
+            string[] footerLines = validatedFooter.Split(
+                new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+            bool directMyData = string.Equals(snapshot.Provider.ProviderKey,
+                Exedron.Invoicing.Core.InvoiceProviderCatalog.MyDataKey,
+                StringComparison.OrdinalIgnoreCase);
+            string providerLine;
+            if (directMyData)
+            {
+                providerLine = "MyData";
+            }
+            else
+            {
+                providerLine = footerLines.FirstOrDefault(line =>
+                    line.StartsWith("Πάροχος:", StringComparison.OrdinalIgnoreCase));
+            }
+
+            string markLine = footerLines.FirstOrDefault(line =>
+                line.StartsWith("MARK:", StringComparison.OrdinalIgnoreCase));
+            if (string.IsNullOrWhiteSpace(markLine))
+            {
+                return providerLine;
+            }
+
+            return providerLine + "  " + markLine;
+        }
         internal static byte[] Render(InvoiceWorkflowSnapshot snapshot, Exedron.Invoicing.Core.Models.InvoiceResponse response)
         {
             return Render(snapshot,response,null);

@@ -530,6 +530,45 @@ internal static partial class Program
                 response.QrCodeUrl = null; Throws(() => ASFuelControl.Windows.Threads.SharedInvoicePrinting.Footer(snapshot,response));
             });
         }
+        Test("laser fiscal line keeps only provider and MARK on one line", () => {
+            var expectedProviderLines = new Dictionary<string,string> {
+                { InvoiceProviderCatalog.MyDataKey,"MyData" },
+                { InvoiceProviderCatalog.ITimologiaKey,"Πάροχος: iTimologia" },
+                { InvoiceProviderCatalog.DirectIlydaKey,"Πάροχος: Ilyda" }
+            };
+            foreach (var expectedProviderLine in expectedProviderLines)
+            {
+                var snapshot = new InvoiceWorkflowSnapshot {
+                    Provider = Route(expectedProviderLine.Key)
+                };
+                var response = new Exedron.Invoicing.Core.Models.InvoiceResponse {
+                    Mark = "900010",Uid = "UID",VerificationHash = "HASH",
+                    ProviderInvoiceId = "PROVIDER-ID",
+                    ProviderUrl = "https://example.invalid/provider",
+                    QrCodeUrl = "https://example.invalid/qr",
+                    InvoiceSignature = "SIGNATURE"
+                };
+                string footer = SharedInvoicePrinting.LaserFiscalLine(snapshot,response);
+                Equal(expectedProviderLine.Value + "  MARK: 900010",footer);
+                bool containsCarriageReturn = footer.Contains("\r");
+                bool containsLineFeed = footer.Contains("\n");
+                Check(!containsCarriageReturn && !containsLineFeed,
+                    "Laser fiscal line wrapped onto multiple lines");
+                bool containsUid = footer.Contains("UID");
+                bool containsHash = footer.Contains("HASH");
+                bool containsProviderId = footer.Contains("PROVIDER-ID");
+                bool containsSignature = footer.Contains("SIGNATURE");
+                bool containsUrl = footer.Contains("https://");
+                Check(!containsUid && !containsHash && !containsProviderId &&
+                    !containsSignature && !containsUrl,
+                    "Laser fiscal line retained verbose evidence");
+            }
+            var localSnapshot = new InvoiceWorkflowSnapshot();
+            var localResponse = new Exedron.Invoicing.Core.Models.InvoiceResponse();
+            string localFooter = SharedInvoicePrinting.LaserFiscalLine(localSnapshot,
+                localResponse);
+            Equal("",localFooter);
+        });
         Test("historical licence fields keep route fingerprints without becoming editable configuration", () => {
             var oldRoute = Route("iTimologia");
             Check(!JsonConvert.SerializeObject(oldRoute).Contains("SoftwareLicence"),"Historical route fingerprint changed");
