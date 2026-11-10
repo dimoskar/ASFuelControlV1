@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 using System.Windows.Forms;
 using Exedron.Invoicing.Core;
@@ -104,18 +105,73 @@ namespace ASFuelControl.Windows.UI.Forms
         }
         private void SaveInvoicingPolicies()
         {
-            foreach (var id in changedPolicies) policies[id].Validate();
+            ViewModels.InvoiceTypeDetailViewModel[] changedInvoiceTypes =
+                vm.ChangedInvoiceTypes;
+            foreach (Guid policyId in changedPolicies)
+            {
+                InvoiceTypePolicy changedPolicy;
+                if (!policies.TryGetValue(policyId, out changedPolicy))
+                {
+                    throw new InvalidOperationException(
+                        "Δεν βρέθηκε η πολιτική του τύπου παραστατικού.");
+                }
+                changedPolicy.Validate();
+            }
+
             long revision;
             var config = Threads.SharedInvoicingSettings.Load(out revision);
-            if (config.Enabled && (config.Version == 2 || config.Version == 3))
+            bool policyConfiguration = config != null &&
+                (config.Version == 2 || config.Version == 3);
+            var policiesToValidate = new HashSet<Guid>(changedPolicies);
+            if (policyConfiguration)
+            {
+                foreach (ViewModels.InvoiceTypeDetailViewModel invoiceType in
+                    changedInvoiceTypes)
+                {
+                    bool requiresPolicy = invoiceType.Printable &&
+                        !invoiceType.InvalidatedEx;
+                    if (!requiresPolicy)
+                    {
+                        continue;
+                    }
+
+                    InvoiceTypePolicy policy;
+                    if (!policies.TryGetValue(invoiceType.InvoiceTypeId,
+                        out policy))
+                    {
+                        string invoiceTypeName = string.IsNullOrWhiteSpace(
+                            invoiceType.Description)
+                            ? invoiceType.InvoiceTypeId.ToString()
+                            : invoiceType.Description;
+                        throw new InvalidOperationException(
+                            "Επιλέξτε τρόπο διαβίβασης για τον τύπο παραστατικού \"" +
+                            invoiceTypeName + "\".");
+                    }
+                    policy.Validate();
+                    policiesToValidate.Add(invoiceType.InvoiceTypeId);
+                }
+            }
+
+            if (config != null && config.Enabled && policyConfiguration)
             {
                 config.Policies = policies;
-                foreach (var id in changedPolicies) config.Route(id,null);
+                foreach (Guid invoiceTypeId in policiesToValidate)
+                {
+                    config.Route(invoiceTypeId, null);
+                }
             }
-            vm.SaveChanges();
-            Threads.SharedInvoicingSettings.Store().SavePolicies(changedPolicies.Select(id => policies[id]));
+
+            InvoiceTypePolicy[] changedPolicyRows = changedPolicies
+                .Select(policyId => policies[policyId])
+                .ToArray();
+            var store = Threads.SharedInvoicingSettings.Store();
+            Action<DbConnection> stagePolicies = contextConnection =>
+            {
+                store.StagePolicies(contextConnection, changedPolicyRows);
+            };
+            vm.SaveChanges(stagePolicies);
+            store.AcceptStagedPolicies(changedPolicyRows);
             changedPolicies.Clear();
-            vm.HasChanges = false;
             Telerik.WinControls.RadMessageBox.Show("Αποθηκεύτηκε. Οι αλλαγές της κοινής τιμολόγησης ισχύουν μετά από επανεκκίνηση της εφαρμογής.","Τύποι παραστατικών");
         }
     }

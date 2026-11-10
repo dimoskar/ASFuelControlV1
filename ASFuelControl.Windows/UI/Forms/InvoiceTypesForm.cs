@@ -137,9 +137,24 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void radButton1_Click(object sender, EventArgs e)
         {
-            try { SaveInvoicingPolicies(); }
-            catch (Exception ex) { RadMessageBox.Show(ex.Message,"Ρυθμίσεις τιμολόγησης",MessageBoxButtons.OK,RadMessageIcon.Error); }
-           
+            try
+            {
+                bool editsCommitted = CommitPendingEdits();
+                if (!editsCommitted)
+                {
+                    RadMessageBox.Show(
+                        "Διορθώστε τα μη έγκυρα πεδία πριν την αποθήκευση.",
+                        "Ρυθμίσεις τιμολόγησης", MessageBoxButtons.OK,
+                        RadMessageIcon.Exclamation);
+                    return;
+                }
+                SaveInvoicingPolicies();
+            }
+            catch (Exception ex)
+            {
+                RadMessageBox.Show(ex.Message, "Ρυθμίσεις τιμολόγησης",
+                    MessageBoxButtons.OK, RadMessageIcon.Error);
+            }
         }
 
         private void btnAdd_Click(object sender, EventArgs e)
@@ -151,9 +166,11 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void btnCopy_Click(object sender, EventArgs e)
         {
-            ValidateChildren();
-            invoiceTypeViewModelBindingSource.EndEdit();
-            radGridView2.EndEdit();
+            bool editsCommitted = CommitPendingEdits();
+            if (!editsCommitted)
+            {
+                return;
+            }
             var source = radGridView1.CurrentRow == null ? null :
                 radGridView1.CurrentRow.DataBoundItem as ViewModels.InvoiceTypeDetailViewModel;
             if (source == null)
@@ -166,6 +183,20 @@ namespace ASFuelControl.Windows.UI.Forms
             if (index >= 0)
                 invoiceTypeViewModelBindingSource.Position = index;
             ShowPolicy();
+        }
+
+        private bool CommitPendingEdits()
+        {
+            radGridView1.EndEdit();
+            radGridView2.EndEdit();
+            bool controlsValid = ValidateChildren();
+            if (!controlsValid)
+            {
+                return false;
+            }
+            invoiceTypeViewModelBindingSource.EndEdit();
+            invoiceTypeCatalogViewModelBindingSource.EndEdit();
+            return true;
         }
 
         private void btnDelete_Click(object sender, EventArgs e)

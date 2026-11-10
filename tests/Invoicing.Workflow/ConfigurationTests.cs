@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using ASFuelControl.Invoicing;
@@ -201,6 +203,152 @@ internal static partial class Program
             workflow.Process(source.Source.Id,null,false); Equal("Confirmed",projected); Equal(1,printer.Calls);
         });
         CatalogTests();
+    }
+
+    static void InvoiceTypeSettingsTransactionTests()
+    {
+        Execute(connection, @"IF OBJECT_ID(N'dbo.ApplicationUser',N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ApplicationUser
+    (
+        ApplicationUserId uniqueidentifier NOT NULL PRIMARY KEY,
+        UserName nvarchar(100) NOT NULL,
+        Password nvarchar(100) NOT NULL,
+        UserLevel int NOT NULL,
+        PasswordEncrypted ntext NULL
+    );
+    INSERT dbo.ApplicationUser(ApplicationUserId,UserName,Password,UserLevel)
+    VALUES('00000000-0000-0000-0000-000000000001',N'test',N'',0);
+END;
+IF COL_LENGTH('dbo.InvoiceType','Abbreviation') IS NULL
+BEGIN
+    ALTER TABLE dbo.InvoiceType ADD
+        Abbreviation nvarchar(10) NOT NULL CONSTRAINT DF_TestInvoiceType_Abbreviation DEFAULT(N''),
+        TransactionType int NOT NULL CONSTRAINT DF_TestInvoiceType_TransactionType DEFAULT(0),
+        Printable bit NOT NULL CONSTRAINT DF_TestInvoiceType_Printable DEFAULT(0),
+        IsInternal bit NULL,
+        InternalDeliveryDescription nvarchar(200) NULL,
+        NeedsVehicle bit NULL,
+        IsCancelation bit NULL,
+        HasFinancialTransactions bit NULL,
+        IsLaserPrint bit NULL,
+        TransactionSign int NULL,
+        ShowFinancialData bit NULL,
+        DeliveryType int NULL,
+        AdminView bit NULL,
+        Invalidated bit NULL,
+        DispenserType bit NULL,
+        ForcesDelivery bit NULL,
+        RetailInvoice bit NULL,
+        IncludeInBalance bit NULL,
+        SendToMyData bit NOT NULL CONSTRAINT DF_TestInvoiceType_SendToMyData DEFAULT(0);
+END;");
+
+        Test("invoice type and policy commit in the OpenAccess transaction", () =>
+        {
+            Guid invoiceTypeId = Guid.NewGuid();
+            var policy = new InvoiceTypePolicy
+            {
+                InvoiceTypeId = invoiceTypeId,
+                Transmission = InvoiceTransmissionMode.None,
+                Revision = 0
+            };
+            InvoiceTypePolicy[] rows = new[] { policy };
+            var store = new SqlFiscalConfigurationStore(database);
+            using (var db = new ASFuelControl.Data.DatabaseModel(connection))
+            {
+                var invoiceType = new ASFuelControl.Data.InvoiceType
+                {
+                    InvoiceTypeId = invoiceTypeId,
+                    Description = "Atomic settings",
+                    Abbreviation = "AT",
+                    DefaultSeries = "AT",
+                    Printable = true
+                };
+                db.Add(invoiceType);
+                using (DbConnection contextConnection = db.Connection)
+                {
+                    store.StagePolicies(contextConnection, rows);
+                    db.SaveChanges();
+                }
+            }
+            store.AcceptStagedPolicies(rows);
+
+            using (var sqlConnection = new SqlConnection(connection))
+            using (SqlCommand command = sqlConnection.CreateCommand())
+            {
+                sqlConnection.Open();
+                command.CommandText = @"SELECT
+                    (SELECT COUNT(*) FROM dbo.InvoiceType WHERE InvoiceTypeId=@id) +
+                    (SELECT COUNT(*) FROM dbo.FiscalInvoiceTypePolicy WHERE InvoiceTypeId=@id)";
+                command.Parameters.AddWithValue("@id", invoiceTypeId);
+                object storedCountValue = command.ExecuteScalar();
+                int storedCount = Convert.ToInt32(storedCountValue);
+                Equal(2, storedCount);
+            }
+            Equal(1L, policy.Revision);
+
+            string cleanupSql =
+                "DELETE dbo.FiscalInvoiceTypePolicy WHERE InvoiceTypeId='" +
+                invoiceTypeId + "'; DELETE dbo.InvoiceType WHERE InvoiceTypeId='" +
+                invoiceTypeId + "';";
+            Execute(connection, cleanupSql);
+        });
+
+        Test("aborted invoice type save rolls back its staged policy", () =>
+        {
+            Guid invoiceTypeId = Guid.NewGuid();
+            var policy = new InvoiceTypePolicy
+            {
+                InvoiceTypeId = invoiceTypeId,
+                Transmission = InvoiceTransmissionMode.None,
+                Revision = 0
+            };
+            InvoiceTypePolicy[] rows = new[] { policy };
+            var store = new SqlFiscalConfigurationStore(database);
+            try
+            {
+                using (var db = new ASFuelControl.Data.DatabaseModel(connection))
+                {
+                    var invoiceType = new ASFuelControl.Data.InvoiceType
+                    {
+                        InvoiceTypeId = invoiceTypeId,
+                        Description = "Rolled back settings",
+                        Abbreviation = "RB",
+                        DefaultSeries = "RB",
+                        Printable = true
+                    };
+                    db.Add(invoiceType);
+                    using (DbConnection contextConnection = db.Connection)
+                    {
+                        store.StagePolicies(contextConnection, rows);
+                        throw new InvalidOperationException(
+                            "Synthetic invoice-type save failure.");
+                    }
+                }
+            }
+            catch (InvalidOperationException exception)
+            {
+                if (exception.Message !=
+                    "Synthetic invoice-type save failure.")
+                {
+                    throw;
+                }
+            }
+
+            using (var sqlConnection = new SqlConnection(connection))
+            using (SqlCommand command = sqlConnection.CreateCommand())
+            {
+                sqlConnection.Open();
+                command.CommandText = @"SELECT
+                    (SELECT COUNT(*) FROM dbo.FiscalInvoiceTypePolicy WHERE InvoiceTypeId=@id)";
+                command.Parameters.AddWithValue("@id", invoiceTypeId);
+                object storedCountValue = command.ExecuteScalar();
+                int storedCount = Convert.ToInt32(storedCountValue);
+                Equal(0, storedCount);
+            }
+            Equal(0L, policy.Revision);
+        });
     }
     static void PendingStatusTests()
     {

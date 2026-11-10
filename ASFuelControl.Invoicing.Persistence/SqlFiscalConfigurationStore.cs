@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Linq;
 using Exedron.Invoicing.Core;
 
@@ -70,24 +71,136 @@ namespace ASFuelControl.Invoicing.Persistence
         }
         public void SavePolicies(IEnumerable<InvoiceTypePolicy> policies)
         {
-            var rows = policies.OrderBy(p => p.InvoiceTypeId).ToArray();
-            foreach (var row in rows) row.Validate();
+            InvoiceTypePolicy[] rows = PreparePolicies(policies);
             using (var connection = database.Open())
             using (var transaction = connection.BeginTransaction(IsolationLevel.Serializable))
             {
-                foreach (var row in rows)
-                {
-                    using (var command = SqlFiscalDatabase.Command(connection,transaction,LockPolicy,"@id",row.InvoiceTypeId))
-                    {
-                        var value = command.ExecuteScalar();
-                        if ((value == null ? 0 : Convert.ToInt64(value)) != row.Revision) throw new InvalidOperationException("Invoice type policy changed in another window. Reopen the form.");
-                    }
-                    using (var command = SqlFiscalDatabase.Command(connection,transaction,row.Revision == 0 ? InsertPolicy : UpdatePolicy,
-                        "@id",row.InvoiceTypeId,"@mode",(int)row.Transmission,"@sign",row.SignWithFiscalDevice,"@now",DateTime.UtcNow)) command.ExecuteNonQuery();
-                }
+                WritePolicies(connection, transaction, rows);
                 transaction.Commit();
             }
-            foreach (var row in rows) row.Revision++;
+            AcceptStagedPolicies(rows);
+        }
+
+        public void StagePolicies(DbConnection contextConnection,
+            IEnumerable<InvoiceTypePolicy> policies)
+        {
+            if (contextConnection == null)
+            {
+                throw new ArgumentNullException("contextConnection");
+            }
+
+            InvoiceTypePolicy[] rows = PreparePolicies(policies);
+            WritePolicies(contextConnection, null, rows);
+        }
+
+        public void AcceptStagedPolicies(
+            IEnumerable<InvoiceTypePolicy> policies)
+        {
+            if (policies == null)
+            {
+                throw new ArgumentNullException("policies");
+            }
+
+            foreach (InvoiceTypePolicy policy in policies)
+            {
+                policy.Revision++;
+            }
+        }
+
+        private static InvoiceTypePolicy[] PreparePolicies(
+            IEnumerable<InvoiceTypePolicy> policies)
+        {
+            if (policies == null)
+            {
+                throw new ArgumentNullException("policies");
+            }
+
+            InvoiceTypePolicy[] rows = policies
+                .OrderBy(policy => policy.InvoiceTypeId)
+                .ToArray();
+            foreach (InvoiceTypePolicy row in rows)
+            {
+                row.Validate();
+            }
+
+            return rows;
+        }
+
+        private static void WritePolicies(DbConnection connection,
+            DbTransaction transaction, IEnumerable<InvoiceTypePolicy> rows)
+        {
+            foreach (InvoiceTypePolicy row in rows)
+            {
+                using (DbCommand lockCommand = CreateCommand(connection,
+                    transaction, LockPolicy, "@id", row.InvoiceTypeId))
+                {
+                    object value = lockCommand.ExecuteScalar();
+                    long storedRevision = value == null || value == DBNull.Value
+                        ? 0
+                        : Convert.ToInt64(value);
+                    if (storedRevision != row.Revision)
+                    {
+                        throw new InvalidOperationException(
+                            "Invoice type policy changed in another window. Reopen the form.");
+                    }
+                }
+
+                string statement = row.Revision == 0
+                    ? InsertPolicy
+                    : UpdatePolicy;
+                DateTime updatedUtc = DateTime.UtcNow;
+                using (DbCommand writeCommand = CreateCommand(connection,
+                    transaction, statement, "@id", row.InvoiceTypeId,
+                    "@mode", (int)row.Transmission, "@sign",
+                    row.SignWithFiscalDevice, "@now", updatedUtc))
+                {
+                    int affectedRows = writeCommand.ExecuteNonQuery();
+                    if (affectedRows != 1)
+                    {
+                        throw new InvalidOperationException(
+                            "Invoice type policy could not be saved.");
+                    }
+                }
+            }
+        }
+
+        private static DbCommand CreateCommand(DbConnection connection,
+            DbTransaction transaction, string sql, params object[] parameters)
+        {
+            DbCommand command = connection.CreateCommand();
+            command.CommandText = sql;
+            if (transaction != null)
+            {
+                command.Transaction = transaction;
+            }
+
+            for (int index = 0; index < parameters.Length; index += 2)
+            {
+                string parameterName = (string)parameters[index];
+                object parameterValue = parameters[index + 1];
+                DbParameter parameter = command.CreateParameter();
+                parameter.ParameterName = parameterName;
+                parameter.Value = parameterValue ?? DBNull.Value;
+                if (parameterValue is Guid)
+                {
+                    parameter.DbType = DbType.Guid;
+                }
+                else if (parameterValue is int)
+                {
+                    parameter.DbType = DbType.Int32;
+                }
+                else if (parameterValue is bool)
+                {
+                    parameter.DbType = DbType.Boolean;
+                }
+                else if (parameterValue is DateTime)
+                {
+                    parameter.DbType = DbType.DateTime2;
+                }
+                command.Parameters.Add(parameter);
+            }
+
+            return command;
         }
     }
 }

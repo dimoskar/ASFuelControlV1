@@ -277,6 +277,11 @@ namespace ASFuelControl.Windows.ViewModels
             }
             catch(Exception ex)
             {
+                errors.Add(new ValidationError()
+                {
+                    Caption = "Save Exception",
+                    ErrorMessage = ex.Message
+                });
                 return false;
             }
             finally
