@@ -70,12 +70,7 @@ namespace Exedron.Invoicing.Adapters
                 if ((!string.IsNullOrWhiteSpace(saved.ReconciliationMark) && saved.ReconciliationMark != recoveredMark) ||
                     (!string.IsNullOrWhiteSpace(saved.ReconciliationUid) && !string.Equals(saved.ReconciliationUid, recoveredUid, StringComparison.OrdinalIgnoreCase)))
                     throw new InvalidOperationException("The recovered MARK/UID does not match the AADE error 228 evidence.");
-                string originalXml = original.ToString(
-                    SaveOptions.DisableFormatting);
-                string recoveredXml = match.ToString(
-                    SaveOptions.DisableFormatting);
-                bool samePayload = SemanticInvoicePayloadComparer
-                    .AreEquivalentXml(originalXml, recoveredXml);
+                bool samePayload = SameRecoveredPayload(original, match);
                 if (!samePayload)
                     throw new InvalidOperationException("The matching myDATA identity has different invoice contents. Manual reconciliation is required.");
                 var recoveredQrCode = Value(match,"qrCodeUrl") ?? "";
@@ -115,6 +110,44 @@ namespace Exedron.Invoicing.Adapters
                 "series", "aa", "issueDate", "invoiceType",
                 "invoiceVariationType"
             }.All(field => Value(a,field) == Value(b,field));
+        }
+        private static bool SameRecoveredPayload(XElement original,
+            XElement recovered)
+        {
+            var normalizedOriginal = new XElement(original);
+            var normalizedRecovered = new XElement(recovered);
+            RemoveDispatchDateAndTime(normalizedOriginal);
+            RemoveDispatchDateAndTime(normalizedRecovered);
+            string originalXml = normalizedOriginal.ToString(
+                SaveOptions.DisableFormatting);
+            string recoveredXml = normalizedRecovered.ToString(
+                SaveOptions.DisableFormatting);
+            bool samePayload = SemanticInvoicePayloadComparer
+                .AreEquivalentXml(originalXml, recoveredXml);
+            return samePayload;
+        }
+        private static void RemoveDispatchDateAndTime(XElement invoice)
+        {
+            XElement header = invoice.Element(InvoiceNs +
+                "invoiceHeader");
+            if (header == null)
+            {
+                return;
+            }
+
+            XElement dispatchDate = header.Element(InvoiceNs +
+                "dispatchDate");
+            if (dispatchDate != null)
+            {
+                dispatchDate.Remove();
+            }
+
+            XElement dispatchTime = header.Element(InvoiceNs +
+                "dispatchTime");
+            if (dispatchTime != null)
+            {
+                dispatchTime.Remove();
+            }
         }
         private static XDocument ReadXml(string xml)
         {

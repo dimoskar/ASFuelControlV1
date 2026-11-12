@@ -1526,7 +1526,7 @@ internal static partial class Program
                 {Check(reader.Read(),"reissued invoice");Equal(51,reader.GetInt32(0));Equal(issueDate,reader.GetDateTime(1));Equal(51,reader.GetInt32(2));Equal(false,reader.GetBoolean(3));}
             }
         });
-        Test("Ilyda ER-30 is the only structured date rejection that enables reissue", () => {
+        Test("Ilyda ER-30 structured date rejection enables reissue", () => {
             var type=Guid.NewGuid();var source=new Source();
             Execute(connection,"INSERT dbo.InvoiceType VALUES('"+type+"',60,'R'); " +
                 "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,PaymentType) VALUES('"+source.Id+"','"+type+"',60,'R','20261105',1);");
@@ -1543,6 +1543,34 @@ internal static partial class Program
                 store.ReplaceAfterIssueDateReissue(lease,original,replacement);
                 Equal(Encoding.UTF8.GetString(replacement),Encoding.UTF8.GetString(store.Load(lease)));
             }
+        });
+        Test("AADE 280 dispatch-date rejection enables current-date reissue", () => {
+            var source = new Source();
+            var original = Encoding.UTF8.GetBytes("{\"identity\":\"old\"}");
+            using (var lease = database.EnterInvoice(source.Id))
+            {
+                var workflowStore = new SqlInvoiceWorkflowStore(database);
+                workflowStore.Save(lease, original);
+            }
+
+            string rejection = "<ResponseDoc><response><statusCode>ValidationError" +
+                "</statusCode><errors><error><code>280</code>" +
+                "<message>DispatchDate is invalid, it must be greater or equal with current date</message>" +
+                "</error></errors></response></ResponseDoc>";
+            var http = new Http(source.Id, InvoiceProviderCatalog.MyDataKey)
+            {
+                InvoicePost = body => Reply(rejection)
+            };
+            ProviderSubmissionService service = Service(http);
+            ProviderRoute route = Route(InvoiceProviderCatalog.MyDataKey);
+            ProviderSubmissionResult result = service.Send(source.Id, route,
+                source);
+            Equal("Rejected", result.State);
+            FiscalAttemptEvidence latest = Latest(source.Id);
+            bool recognized = ProviderSubmissionService
+                .IsIssueDateMismatchRejection(latest);
+            Check(recognized,
+                "AADE 280 dispatch-date rejection was not recognized");
         });
     }
     static void PaymentMethodChangeTests()

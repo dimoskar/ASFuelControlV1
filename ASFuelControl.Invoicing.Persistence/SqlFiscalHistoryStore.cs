@@ -45,6 +45,24 @@ namespace ASFuelControl.Invoicing.Persistence
             Validate(family);
             return database.Load(lease, family.ToString(), attemptId, true).Select(e => new FiscalAttemptEvidence(e)).ToArray();
         }
+        public IReadOnlyList<FiscalAttemptEvidence> LoadRecentHistorySummary(
+            IFiscalDocumentLease lease, FiscalJournalFamily family,
+            Guid attemptId, int maximum)
+        {
+            Validate(family);
+            string familyName = family.ToString();
+            IReadOnlyList<SqlFiscalDatabase.JournalEntry> entries =
+                database.LoadRecentHistorySummary(lease, familyName,
+                    attemptId, maximum);
+            var result = new List<FiscalAttemptEvidence>(entries.Count);
+            foreach (SqlFiscalDatabase.JournalEntry entry in entries)
+            {
+                var evidence = new FiscalAttemptEvidence(entry);
+                result.Add(evidence);
+            }
+
+            return result;
+        }
         private static void Validate(FiscalJournalFamily family)
         { if (!Enum.IsDefined(typeof(FiscalJournalFamily), family)) throw new ArgumentException("Unknown fiscal journal family."); }
     }

@@ -257,6 +257,43 @@ internal static class Program
             Equal(1.94m,(decimal)wire["VatAmount"]);
             Equal(10m,(decimal)wire["GrossAmount"]);
         });
+        Test("Samtec uses the zero-VAT line price for a directly linked sale", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 162.91m;
+            s.Invoice.VatAmount = 0m;
+            s.Invoice.NettoAmount = 162.91m;
+            s.Invoice.Trader.VatExemption = true;
+            var line = s.Invoice.InvoiceLines[0];
+            Guid saleId = Guid.NewGuid();
+            var sale = new SalesTransaction {
+                SalesTransactionId = saleId,
+                Volume = 94.620m,
+                UnitPrice = 2.135m,
+                TotalPrice = 202.01m
+            };
+            line.SaleTransactionId = saleId;
+            line.SalesTransaction = sale;
+            line.Volume = 94.620m;
+            line.TotalPrice = 162.91m;
+            line.VatAmount = 0m;
+            line.VatPercentage = 0m;
+            line.DiscountAmount = 0m;
+            line.DiscountAmountRetail = 0m;
+            line.DiscountAmountWhole = 0m;
+            line.UnitPrice = 2.135m;
+            line.UnitPriceRetail = 2.135m;
+            line.UnitPriceWhole = 1.72177m;
+            FiscalSigningScope scope = Scope();
+            FiscalSigningRequest request = s.Prepare(s.Document,scope);
+            string payloadText = Encoding.UTF8.GetString(request.Payload);
+            JObject payload = JObject.Parse(payloadText);
+            JToken wire = payload["Doc"]["TransactionLines"][0];
+            Equal(1.72177m,(decimal)wire["ItemAmount"]);
+            Equal(94.620m,(decimal)wire["SaleQty"]);
+            Equal(162.91m,(decimal)wire["NetAmount"]);
+            Equal(0m,(decimal)wire["VatAmount"]);
+            Equal(162.91m,(decimal)wire["GrossAmount"]);
+        });
         Test("Samtec accepts the reported 20-euro 2.049 retail-price case", () => {
             var s = new Source();
             s.Invoice.TotalAmount = 20m; s.Invoice.VatAmount = 3.87m; s.Invoice.NettoAmount = 16.13m;
@@ -318,6 +355,30 @@ internal static class Program
             line.TotalPrice = 20m; line.VatAmount = 3.87m; line.DiscountAmount = 0;
             Throws(() => s.Prepare(s.Document,Scope()));
             Equal(9.660m,line.Volume);
+        });
+        Test("Samtec reconciles a detached heating-correction line only when explicitly requested", () => {
+            var s = new Source();
+            s.Invoice.TotalAmount = 20m; s.Invoice.VatAmount = 3.87m;
+            s.Invoice.NettoAmount = 16.13m;
+            var line = s.Invoice.InvoiceLines[0];
+            line.Volume = 9.660m;
+            line.UnitPrice = line.UnitPriceRetail = 2.069m;
+            line.UnitPriceWhole = 1.66855m;
+            line.TotalPrice = 20m;
+            line.VatAmount = 3.87m;
+            line.DiscountAmount = 0;
+            line.DiscountAmountRetail = 0;
+            FiscalSigningScope scope = Scope();
+            FiscalSigningRequest request = HostFiscalSigningMapper.Invoice(
+                s.Invoice,scope,"Rendered\r\nCorrection",false,s.EftPosTID,true);
+            string payloadText = Encoding.UTF8.GetString(request.Payload);
+            JObject payload = JObject.Parse(payloadText);
+            JToken wireLine = payload["Doc"]["TransactionLines"][0];
+            Equal(9.667m,(decimal)wireLine["SaleQty"]);
+            Equal(20m,decimal.Round((decimal)wireLine["ItemAmount"] *
+                (decimal)wireLine["SaleQty"],2));
+            Equal(9.660m,line.Volume);
+            Equal<Guid?>(null,line.SaleTransactionId);
         });
         Test("Samtec never reconstructs a VAT-inclusive ItemAmount from UnitPriceWhole", () => {
             var s = new Source();

@@ -15,6 +15,7 @@
     <Compile Include="MappingContext.cs" />
     <Compile Include="TraderCountryResolver.cs" />
     <Compile Include="TransformationEditPolicy.cs" />
+    <Compile Include="TransformationFiscalAmountPolicy.cs" />
     <Compile Include="TransformationUnitPrice.cs" />
   </ItemGroup>
   <ItemGroup>

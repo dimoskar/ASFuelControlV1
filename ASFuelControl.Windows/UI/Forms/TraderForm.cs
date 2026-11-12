@@ -106,6 +106,7 @@ namespace ASFuelControl.Windows.UI.Forms
             this.traderViewModel.Country = "GR";
             this.traderViewModel.IsCustomer = true;
             aadeLookup.Visible = true;
+            this.SetExistingTraderMode(false);
             this.traderViewModelBindingSource.ResetBindings(false);
             this.vehiclesBindingSource.ResetBindings(false);
         }
@@ -118,6 +119,7 @@ namespace ASFuelControl.Windows.UI.Forms
             this.traderViewModel.Country = "GR";
             this.traderViewModel.IsSupplier = true;
             aadeLookup.Visible = true;
+            this.SetExistingTraderMode(false);
             this.traderViewModelBindingSource.ResetBindings(false);
             this.vehiclesBindingSource.ResetBindings(false);
         }
@@ -129,6 +131,7 @@ namespace ASFuelControl.Windows.UI.Forms
             this.traderViewModel.CreateNew();
             this.traderViewModel.Country = "GR";
             aadeLookup.Visible = true;
+            this.SetExistingTraderMode(false);
             this.traderViewModelBindingSource.ResetBindings(false);
             this.vehiclesBindingSource.ResetBindings(false);
         }
@@ -138,10 +141,16 @@ namespace ASFuelControl.Windows.UI.Forms
             this.traderViewModelBindingSource.DataSource = this.traderViewModel;
             traderViewModel.Load(traderId);
             aadeLookup.Visible = false;
+            this.SetExistingTraderMode(true);
             this.traderViewModelBindingSource.ResetBindings(false);
             this.vehiclesBindingSource.ResetBindings(false);
 
             this.UpdateSums();
+        }
+
+        private void SetExistingTraderMode(bool existingTrader)
+        {
+            this.radTextBoxVAT.ReadOnly = existingTrader;
         }
 
         private void InitializeAadeLookup()

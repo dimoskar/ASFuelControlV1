@@ -20,6 +20,15 @@ namespace ASFuelControl.Windows.Threads
     {
         private const int PollBatchSize = 20;
         private const int MaxRememberedSigns = 1000;
+        private const int ExternalDatabaseFallbackSeconds = 30;
+        private const int MaximumImmediateBacklogCycles = 5;
+        private static readonly ISet<Data.Implementation.OutboundWorkType>
+            SuppressedPrintAgentWorkTypes =
+                new HashSet<Data.Implementation.OutboundWorkType>
+                {
+                    Data.Implementation.OutboundWorkType.InvoicePrinting,
+                    Data.Implementation.OutboundWorkType.FiscalDocumentPrinting
+                };
 
         public static List<Guid> ExcludeInvoices = new List<Guid>();
         public bool IsAlive { get { return this.th != null && this.th.IsAlive; } }
@@ -45,6 +54,9 @@ namespace ASFuelControl.Windows.Threads
         private int invoiceCopies = 0;
         private string defaultTaxDevice = "";
         private System.Threading.Thread th;
+        private readonly System.Threading.ManualResetEvent stopSignal =
+            new System.Threading.ManualResetEvent(false);
+        private readonly System.Threading.WaitHandle[] workerWaitHandles;
         System.Threading.Thread thOldInvoices;
         System.Threading.Thread thResendInvoices;
         private Dictionary<string, List<Guid>> entriesProcessed = new Dictionary<string, List<Guid>>();
@@ -72,6 +84,23 @@ namespace ASFuelControl.Windows.Threads
 
         public PrintAgent()
         {
+            Data.Implementation.OutboundWorkState invoicePrintingWorkState =
+                Data.Implementation.OutboundWorkCoordinator.GetState(
+                    Data.Implementation.OutboundWorkType.InvoicePrinting);
+            Data.Implementation.OutboundWorkState fiscalDocumentPrintingWorkState =
+                Data.Implementation.OutboundWorkCoordinator.GetState(
+                    Data.Implementation.OutboundWorkType.FiscalDocumentPrinting);
+            System.Threading.WaitHandle invoicePrintingWakeSignal =
+                invoicePrintingWorkState.WakeSignal;
+            System.Threading.WaitHandle fiscalDocumentPrintingWakeSignal =
+                fiscalDocumentPrintingWorkState.WakeSignal;
+            this.workerWaitHandles = new System.Threading.WaitHandle[]
+            {
+                this.stopSignal,
+                invoicePrintingWakeSignal,
+                fiscalDocumentPrintingWakeSignal
+            };
+
             var samtecSettings = SharedInvoicingSettings.LoadSamtecApplicationOptions();
             samtecWSUrl = samtecSettings.Endpoint?.AbsoluteUri.TrimEnd('/') ?? "";
             eftPosTid = samtecSettings.TerminalId;
@@ -250,13 +279,19 @@ namespace ASFuelControl.Windows.Threads
         public void StartThread()
         {
             if (this.th != null && this.th.IsAlive)
+            {
                 return;
+            }
 
             //this.database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
+            this.stopSignal.Reset();
             this.agentRunning = true;
-            th = new System.Threading.Thread(new System.Threading.ThreadStart(this.ThreadRun));
-            th.IsBackground = true;
-            th.Start();
+            System.Threading.ThreadStart threadStart =
+                new System.Threading.ThreadStart(this.ThreadRun);
+            System.Threading.Thread worker = new System.Threading.Thread(threadStart);
+            worker.IsBackground = true;
+            this.th = worker;
+            worker.Start();
             //if (Exedron.MyData.Settings.IsActive)
             //{
             //    thOldInvoices = new System.Threading.Thread(new System.Threading.ThreadStart(this.SendOldInvoiceThread));
@@ -280,12 +315,18 @@ namespace ASFuelControl.Windows.Threads
         public bool StopThread()
         {
             this.agentRunning = false;
+            this.stopSignal.Set();
             System.Threading.Thread worker = this.th;
             if (worker == null || worker == System.Threading.Thread.CurrentThread)
+            {
                 return true;
-            bool stopped = worker.Join(TimeSpan.FromSeconds(30));
+            }
+            TimeSpan stopTimeout = TimeSpan.FromSeconds(30);
+            bool stopped = worker.Join(stopTimeout);
             if (!stopped)
+            {
                 Logger.Instance.LogToFile("PrintAgent::Stop", "Print agent did not stop within 30 seconds.");
+            }
             return stopped;
         }
 
@@ -601,18 +642,20 @@ namespace ASFuelControl.Windows.Threads
             string info3String = string.Format("ΕΥΧΑΡΙΣΤΟΥΜΕ ΓΙΑ ΤΗΝ ΠΡΟΤΙΜΗΣΗΣ ΣΑΣ");
             invoiceLines.Add(info3String.CenterString(printerLineWidth));
 
-            if (invoice.ParentInvoiceRelations.Count > 0)
+            Data.InvoiceRelation fiscalParent = invoice.ParentInvoiceRelations
+                .FirstOrDefault(relation => relation.IsExternalFiscalCorrelation);
+            if (fiscalParent != null)
             {
-                if (invoice.ParentInvoiceRelations[0].RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.Cancel)
+                if (fiscalParent.RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.Cancel)
                 {
                     invoiceLines.Add("--------------------------------------------");
-                    invoiceLines.Add("ΑΚΥΡΩΤΙΚΟ ΤΟΥ : " + invoice.ParentInvoiceRelations[0].ParentInvoice.Description);
+                    invoiceLines.Add("ΑΚΥΡΩΤΙΚΟ ΤΟΥ : " + fiscalParent.ParentInvoice.Description);
                     invoiceLines.Add("                                            ");
                 }
-                else if (invoice.ParentInvoiceRelations[0].RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.Replace)
+                else if (fiscalParent.RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.Replace)
                 {
                     invoiceLines.Add("--------------------------------------------");
-                    invoiceLines.Add("ΣΕ ΑΝΤΙΚΑΤΑΣΤΑΣΗ ΤΟΥ : " + invoice.ParentInvoiceRelations[0].ParentInvoice.Description);
+                    invoiceLines.Add("ΣΕ ΑΝΤΙΚΑΤΑΣΤΑΣΗ ΤΟΥ : " + fiscalParent.ParentInvoice.Description);
                     invoiceLines.Add("                                            ");
                 }
             }
@@ -835,7 +878,10 @@ namespace ASFuelControl.Windows.Threads
 
             if (invoice.IsCanceling)
             {
-                var rel = invoice.ParentInvoiceRelations.FirstOrDefault();
+                int cancelRelationType =
+                    (int)Common.Enumerators.InvoiceRelationTypeEnum.Cancel;
+                var rel = invoice.ParentInvoiceRelations.FirstOrDefault(
+                    relation => relation.RelationType == cancelRelationType);
                 if(rel != null)
                 {
                     var parInvoice = rel.ParentInvoice;
@@ -1051,18 +1097,20 @@ namespace ASFuelControl.Windows.Threads
             string info3String = string.Format("ΕΥΧΑΡΙΣΤΟΥΜΕ ΓΙΑ ΤΗΝ ΠΡΟΤΙΜΗΣΗΣ ΣΑΣ");
             invoiceLines.Add(info3String.CenterString(printerLineWidth));
 
-            if (invoice.ParentInvoiceRelations.Count > 0)
+            Data.InvoiceRelation fiscalParent = invoice.ParentInvoiceRelations
+                .FirstOrDefault(relation => relation.IsExternalFiscalCorrelation);
+            if (fiscalParent != null)
             {
-                if (invoice.ParentInvoiceRelations[0].RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.Cancel)
+                if (fiscalParent.RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.Cancel)
                 {
                     invoiceLines.Add("--------------------------------------------");
-                    invoiceLines.Add("ΑΚΥΡΩΤΙΚΟ ΤΟΥ : " + invoice.ParentInvoiceRelations[0].ParentInvoice.Description);
+                    invoiceLines.Add("ΑΚΥΡΩΤΙΚΟ ΤΟΥ : " + fiscalParent.ParentInvoice.Description);
                     invoiceLines.Add("                                            ");
                 }
-                else if (invoice.ParentInvoiceRelations[0].RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.Replace)
+                else if (fiscalParent.RelationType == (int)Common.Enumerators.InvoiceRelationTypeEnum.Replace)
                 {
                     invoiceLines.Add("--------------------------------------------");
-                    invoiceLines.Add("ΣΕ ΑΝΤΙΚΑΤΑΣΤΑΣΗ ΤΟΥ : " + invoice.ParentInvoiceRelations[0].ParentInvoice.Description);
+                    invoiceLines.Add("ΣΕ ΑΝΤΙΚΑΤΑΣΤΑΣΗ ΤΟΥ : " + fiscalParent.ParentInvoice.Description);
                     invoiceLines.Add("                                            ");
                 }
             }
@@ -1223,12 +1271,18 @@ namespace ASFuelControl.Windows.Threads
             // processing and submission already completed successfully.
             this.RestoreMissingRecentBalanceReports();
 
-            int index = 0;
+            bool processInvoiceWork = true;
+            bool processFiscalDocumentWork = true;
+            int immediateInvoiceBacklogCycles = 0;
+            int immediateFiscalDocumentBacklogCycles = 0;
             while (agentRunning)
             {
+                bool invoiceBatchMayHaveMore = false;
+                bool fiscalDocumentBatchMayHaveMore = false;
                 Guid[] myDataInvoices = null;
                 using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
                 {
+                    db.SuppressedOutboundWorkTypes = SuppressedPrintAgentWorkTypes;
                     try
                     {
 
@@ -1259,18 +1313,22 @@ namespace ASFuelControl.Windows.Threads
                             //continue;
                         }
 
-                        try
+                        if (processFiscalDocumentWork)
                         {
-                            this.CheckAfterException(db);
+                            try
+                            {
+                                this.CheckAfterException(db);
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.Instance.LogToFile("CheckAfterException", ex);
+                                System.Threading.Thread.Sleep(200);
+                                //continue;
+                            }
                         }
-                        catch (Exception ex)
-                        {
-                            Logger.Instance.LogToFile("CheckAfterException", ex);
-                            System.Threading.Thread.Sleep(200);
-                            //continue;
-                        }
-                        index++;
                         bool sharedInvoicing = SharedInvoiceRuntime.ProtectsInvoices;
+                        DateTime firstSharedInvoiceDate =
+                            SharedInvoiceRuntime.FirstInvoiceDate;
                         var qBalances = db.Balances.Where(b => !b.PrintDate.HasValue);
                         var qInvoice = db.Invoices.Where(i =>
                             (
@@ -1289,9 +1347,22 @@ namespace ASFuelControl.Windows.Threads
                             .Where(AlertSubmissionPolicy.IsEligibleForMinistry);
                         var qTitration = db.Titrimetries.Where(t => !t.PrintDate.HasValue);
                         var qFillings = db.TankFillings.Where(t => (t.SignSignature == null || t.SignSignature == "") && t.InvoiceLines.Count > 0);
+                        List<Data.Balance> balances = new List<Data.Balance>();
+                        List<Data.SystemEvent> alerts = new List<Data.SystemEvent>();
+                        List<Data.Titrimetry> titriemetries = new List<Data.Titrimetry>();
+                        List<Data.TankFilling> tankFillings = new List<Data.TankFilling>();
 
-                        //this.database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, qInvoice);
-                        var invoiceQuery = qInvoice.Where(ii => !ExcludeInvoices.Contains(ii.InvoiceId));
+                        if (processInvoiceWork)
+                        {
+                            //this.database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, qInvoice);
+                            int processingDependencyType =
+                                (int)Common.Enumerators.InvoiceRelationTypeEnum.ProcessingDependency;
+                            var invoiceQuery = qInvoice
+                                .Where(ii => !ExcludeInvoices.Contains(ii.InvoiceId))
+                                .Where(ii => !ii.ParentInvoiceRelations.Any(relation =>
+                                    relation.RelationType == processingDependencyType &&
+                                    (!relation.ParentInvoice.IsPrinted.HasValue ||
+                                     relation.ParentInvoice.IsPrinted.Value == false)));
 
                         // Numbering is deliberately separate from signing. A signing
                         // backlog must not leave a new invoice at Number == 0, and fiscal
@@ -1320,7 +1391,13 @@ namespace ASFuelControl.Windows.Threads
                             }
                         }
 
-                        var signingInvoiceQuery = invoiceQuery.Where(ii => sharedInvoicing || ii.Number > 0);
+                        // Historical invoices are handled only by explicit historical
+                        // transmission/correction flows. The automatic worker must not
+                        // repeatedly route them through first-issuance validation.
+                        var signingInvoiceQuery = invoiceQuery
+                            .Where(ii => !sharedInvoicing ||
+                                ii.TransactionDate >= firstSharedInvoiceDate)
+                            .Where(ii => sharedInvoicing || ii.Number > 0);
                         List<Data.Invoice> invoices = LoadSigningBatch(
                             signingInvoiceQuery
                                 .OrderByDescending(ii => ii.TransactionDate)
@@ -1330,11 +1407,9 @@ namespace ASFuelControl.Windows.Threads
                                 .ThenBy(ii => ii.InvoiceId),
                             ii => ii.InvoiceId,
                             ref this.invoiceBacklogOffset);
-
-                        List<Data.Balance> balances = new List<Data.Balance>();
-                        List<Data.SystemEvent> alerts = new List<Data.SystemEvent>();
-                        List<Data.Titrimetry> titriemetries = new List<Data.Titrimetry>();
-                        List<Data.TankFilling> tankFillings = new List<Data.TankFilling>();
+                        bool numberingBatchWasFull = invoicesToNumber.Count >= PollBatchSize;
+                        bool signingBatchWasFull = invoices.Count >= PollBatchSize;
+                        invoiceBatchMayHaveMore = numberingBatchWasFull || signingBatchWasFull;
 
 
                         foreach (Data.Invoice invoice in invoices)
@@ -1367,7 +1442,10 @@ namespace ASFuelControl.Windows.Threads
 
                                 if (invoice.InvoiceType.IsCancelation.HasValue && invoice.InvoiceType.IsCancelation.Value)
                                 {
-                                    var qit = invoice.ParentInvoiceRelations.Select(i => i.ParentInvoice.InvoiceType).Distinct();
+                                    var qit = invoice.ParentInvoiceRelations
+                                        .Where(relation => relation.IsExternalFiscalCorrelation)
+                                        .Select(relation => relation.ParentInvoice.InvoiceType)
+                                        .Distinct();
                                     if (qit.Count() > 0)
                                     {
                                         foreach (var it in qit)
@@ -1411,7 +1489,9 @@ namespace ASFuelControl.Windows.Threads
                             }
                         }
 
-                        if (index % 10 == 0)
+                        }
+
+                        if (processFiscalDocumentWork)
                         {
 
                             //this.database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, qBalances);
@@ -1438,6 +1518,16 @@ namespace ASFuelControl.Windows.Threads
                                 qFillings.OrderBy(t => t.TransactionTime).ThenBy(t => t.TankFillingId),
                                 t => t.TankFillingId,
                                 ref this.tankFillingBacklogOffset);
+                            bool balanceBatchWasFull = balances.Count >= PollBatchSize;
+                            bool alertBatchWasFull = alerts.Count >= PollBatchSize;
+                            bool titrimetryBatchWasFull = titriemetries.Count >= PollBatchSize;
+                            bool tankFillingBatchWasFull = tankFillings.Count >= PollBatchSize;
+                            bool fiscalDocumentBatchWasFull =
+                                balanceBatchWasFull ||
+                                alertBatchWasFull ||
+                                titrimetryBatchWasFull ||
+                                tankFillingBatchWasFull;
+                            fiscalDocumentBatchMayHaveMore = fiscalDocumentBatchWasFull;
 
                             foreach (Data.Balance balance in balances)
                             {
@@ -1523,27 +1613,6 @@ namespace ASFuelControl.Windows.Threads
                             {
                                 CloseSales();
                             }
-                            if (index % 100 == 0)
-                            {
-                                //this.database.Dispose();
-                                //this.database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-                                //try
-                                //{
-                                //    System.GC.WaitForPendingFinalizers();
-                                //    System.GC.Collect();
-                                //    System.GC.WaitForPendingFinalizers();
-                                //    System.GC.Collect();
-                                //    System.GC.WaitForPendingFinalizers();
-                                //    System.GC.Collect();
-                                //}
-                                //catch
-                                //{
-                                //}
-
-                                index = 1;
-                            }
-
-
                         }
                     }
                     catch (Exception ex2)
@@ -1565,7 +1634,55 @@ namespace ASFuelControl.Windows.Threads
                 //        thResendInvoices.Start();
                 //    }
                 //}
-                System.Threading.Thread.Sleep(1000);
+                bool continueInvoiceBacklogImmediately =
+                    processInvoiceWork &&
+                    invoiceBatchMayHaveMore &&
+                    immediateInvoiceBacklogCycles < MaximumImmediateBacklogCycles;
+                bool continueFiscalDocumentBacklogImmediately =
+                    processFiscalDocumentWork &&
+                    fiscalDocumentBatchMayHaveMore &&
+                    immediateFiscalDocumentBacklogCycles < MaximumImmediateBacklogCycles;
+                bool continueBacklogImmediately =
+                    continueInvoiceBacklogImmediately ||
+                    continueFiscalDocumentBacklogImmediately;
+                if (continueBacklogImmediately)
+                {
+                    processInvoiceWork = continueInvoiceBacklogImmediately;
+                    processFiscalDocumentWork = continueFiscalDocumentBacklogImmediately;
+                    if (continueInvoiceBacklogImmediately)
+                    {
+                        immediateInvoiceBacklogCycles++;
+                    }
+                    else
+                    {
+                        immediateInvoiceBacklogCycles = 0;
+                    }
+                    if (continueFiscalDocumentBacklogImmediately)
+                    {
+                        immediateFiscalDocumentBacklogCycles++;
+                    }
+                    else
+                    {
+                        immediateFiscalDocumentBacklogCycles = 0;
+                    }
+                    continue;
+                }
+
+                immediateInvoiceBacklogCycles = 0;
+                immediateFiscalDocumentBacklogCycles = 0;
+                TimeSpan fallbackInterval =
+                    TimeSpan.FromSeconds(ExternalDatabaseFallbackSeconds);
+                int signaledHandle = System.Threading.WaitHandle.WaitAny(
+                    this.workerWaitHandles,
+                    fallbackInterval);
+                if (signaledHandle == 0)
+                {
+                    break;
+                }
+                bool fallbackElapsed =
+                    signaledHandle == System.Threading.WaitHandle.WaitTimeout;
+                processInvoiceWork = fallbackElapsed || signaledHandle == 1;
+                processFiscalDocumentWork = fallbackElapsed || signaledHandle == 2;
             }
             this.th = null;
         }
@@ -2568,7 +2685,10 @@ namespace ASFuelControl.Windows.Threads
             invDetails.ReqForToken = 0;
             if (invoice.InvoiceType.IsCancelation.HasValue && invoice.InvoiceType.IsCancelation.Value && invoice.InvoiceType.OfficialEnumerator == 215)
             {
-                var rel = invoice.ParentInvoiceRelations.FirstOrDefault();
+                int cancelRelationType =
+                    (int)Common.Enumerators.InvoiceRelationTypeEnum.Cancel;
+                var rel = invoice.ParentInvoiceRelations.FirstOrDefault(
+                    relation => relation.RelationType == cancelRelationType);
                 if(rel != null)
                 {
                     var cinv = rel.ParentInvoice;
@@ -3152,6 +3272,7 @@ namespace ASFuelControl.Windows.Threads
 
         public void SignInvoice(Data.DatabaseModel db, Data.Invoice invoice, string selectedPrinter = null)
         {
+            SharedInvoiceRuntime.EnsureProcessingDependenciesCompleted(invoice);
             Guid invoiceId = invoice.InvoiceId;
             bool sharedWorkflowHandlesInvoice = SharedInvoiceRuntime.Handles(invoiceId);
             if (sharedWorkflowHandlesInvoice)
@@ -3345,6 +3466,7 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintInvoice(Data.DatabaseModel db, Data.Invoice invoice)
         {
+            SharedInvoiceRuntime.EnsureProcessingDependenciesCompleted(invoice);
             Guid invoiceId = invoice.InvoiceId;
             bool sharedWorkflowHandlesInvoice = SharedInvoiceRuntime.Handles(invoiceId);
             if (sharedWorkflowHandlesInvoice)
@@ -3717,6 +3839,7 @@ namespace ASFuelControl.Windows.Threads
 
         private void PrintInternalInvoice(Data.DatabaseModel db, Data.Invoice invoice)
         {
+            SharedInvoiceRuntime.EnsureProcessingDependenciesCompleted(invoice);
             if (SharedInvoiceRuntime.Handles(invoice.InvoiceId)) { SharedInvoiceRuntime.Process(invoice.InvoiceId); return; }
             try
             {
@@ -4596,7 +4719,8 @@ namespace ASFuelControl.Windows.Threads
             List<long> corInvoices = new List<long>();
             if (isCanceling)
             {
-                var invTrans = invoice.ParentInvoiceRelations.ToArray();
+                var invTrans = invoice.ParentInvoiceRelations.Where(relation =>
+                    relation.IsExternalFiscalCorrelation).ToArray();
                 if (invTrans != null)
                 {
                     foreach (var it in invTrans)

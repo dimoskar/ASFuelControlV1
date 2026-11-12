@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Globalization;
@@ -38,8 +39,10 @@ namespace ASFuelControl.Invoicing
     // Synchronous on purpose: SqlFiscalDatabase's document lease is thread-affine.
     public sealed class ProviderSubmissionService
     {
+        private const int MaximumAutomaticUnknownRecoveries = 2;
         private readonly SqlFiscalDatabase database;
         private readonly SqlFiscalHistoryStore history;
+        private readonly SqlProviderSubmissionRecoveryStore recoveryAttempts;
         private readonly IProviderCredentialsResolver credentials;
         private readonly Func<ProviderRoute, HttpMessageHandler> transport;
         private readonly ICommunicationTokenCache communicationTokenCache;
@@ -60,6 +63,7 @@ namespace ASFuelControl.Invoicing
             this.transport = transport;
             this.communicationTokenCache = communicationTokenCache;
             history = new SqlFiscalHistoryStore(database);
+            recoveryAttempts = new SqlProviderSubmissionRecoveryStore(database);
         }
 
         public ProviderSubmissionResult Send(Guid invoiceId, ProviderRoute route, IInvoiceSubmissionSource source,
@@ -88,7 +92,22 @@ namespace ASFuelControl.Invoicing
                         return Result(previous, reconciliationRequired);
                     }
 
-                    return Recover(lease, invoiceId, previous); // No remapping or current-setting fallback.
+                    int automaticRecoveryCount =
+                        recoveryAttempts.ReadAutomaticRecoveryCount(previous);
+                    if (AutomaticUnknownRecoveryLimitReached(previous,
+                        automaticRecoveryCount))
+                    {
+                        InvoiceResponse recoveryLimit = Error(
+                            "Η αυτόματη ανάκτηση διαβίβασης απέτυχε δύο φορές και σταμάτησε. " +
+                            "Χρησιμοποιήστε «Ανάκτηση διαβίβασης» για νέο έλεγχο χωρίς νέα αποστολή.");
+                        return Result(previous, recoveryLimit);
+                    }
+
+                    int nextRecoveryCount = automaticRecoveryCount + 1;
+                    ProviderSubmissionResult recovered = Recover(lease,
+                        invoiceId, previous);
+                    return RecordAutomaticRecovery(lease, previous.AttemptId,
+                        nextRecoveryCount, recovered);
                 }
                 if (previous != null && !retryRejected)
                     return Result(previous, Error(previous.State == "RetryAuthorized"
@@ -190,9 +209,16 @@ namespace ASFuelControl.Invoicing
                             routeAllowed && identityAllowed;
                         if (!contextAllowed)
                         {
+                            string changeDetails =
+                                DescribeRetryContextChanges(previousContext,
+                                    currentContext);
+                            string blockReason =
+                                "Δεν είναι δυνατή η επανάληψη διαβίβασης, επειδή άλλαξε ο αρχικός τρόπος διαβίβασης ή η φορολογική ταυτότητα του παραστατικού." +
+                                changeDetails +
+                                " Επαναφέρετε τις αρχικές τιμές ή χρησιμοποιήστε την προβλεπόμενη διαδικασία ελεγχόμενης διόρθωσης.";
                             InvoiceContinuationBlockedException exception =
                                 CreateContinuationBlock(lease, previous,
-                                "A retry must retain its original route and fiscal identity unless the workflow contains the matching audited correction.");
+                                    blockReason);
                             throw exception;
                         }
                     }
@@ -240,7 +266,7 @@ namespace ASFuelControl.Invoicing
                                 null ||
                             payloadComparison.ChangedPaths.Length == 0
                                 ? string.Empty
-                                : " Changed values: " + string.Join(", ",
+                                : " Μεταβληθέντα πεδία: " + string.Join(", ",
                                     payloadComparison.ChangedPaths) + ".";
                         if (!continuationAllowed)
                         {
@@ -267,7 +293,13 @@ namespace ASFuelControl.Invoicing
             {
                 var saved = Latest(lease);
                 Require(saved != null, "There is no saved submission to recover. Reconcile legacy history separately.");
-                return Recover(lease, invoiceId, saved);
+                int automaticRecoveryCount = saved.State == "Unknown"
+                    ? recoveryAttempts.ReadAutomaticRecoveryCount(saved)
+                    : 0;
+                ProviderSubmissionResult recovered = Recover(lease,
+                    invoiceId, saved);
+                return RecordAutomaticRecovery(lease, saved.AttemptId,
+                    automaticRecoveryCount, recovered);
             }
         }
 
@@ -381,7 +413,8 @@ namespace ASFuelControl.Invoicing
             var context = ReadContext(saved);
             if (saved.State == "RetryAuthorized") return Result(saved, Error(
                 "Η επανάληψη διαβίβασης έχει εγκριθεί από τον χειριστή. Επιλέξτε «Επανάληψη διαβίβασης» για να συνεχίσετε."));
-            if (saved.State == "Rejected") return Result(saved, Error(
+            bool legacyMyDataError228 = IsLegacyMyDataError228(saved);
+            if (saved.State == "Rejected" && !legacyMyDataError228) return Result(saved, Error(
                 "Η προηγούμενη προσπάθεια απορρίφθηκε. Η ανάκτηση κατάστασης δεν κάνει νέα αποστολή. " +
                 "Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια με το διορθωμένο αίτημα."));
             var route = context["Route"].ToObject<ProviderRoute>();
@@ -390,6 +423,33 @@ namespace ASFuelControl.Invoicing
                 var response = ((IInvoiceProviderRecovery)provider).RecoverInvoice(invoiceId);
                 return Result(Latest(lease), response);
             }
+        }
+
+        private ProviderSubmissionResult RecordAutomaticRecovery(
+            IFiscalDocumentLease lease, Guid attemptId, int count,
+            ProviderSubmissionResult recovered)
+        {
+            if (recovered.State != "Unknown" || count < 1)
+            {
+                return recovered;
+            }
+
+            recoveryAttempts.RecordAutomaticRecoveryCount(lease, attemptId,
+                count);
+            FiscalAttemptEvidence updated = Latest(lease);
+            return Result(updated, recovered.Response);
+        }
+
+        private static bool AutomaticUnknownRecoveryLimitReached(
+            FiscalAttemptEvidence saved, int automaticRecoveryCount)
+        {
+            if (saved.State != "Unknown")
+            {
+                return false;
+            }
+
+            return automaticRecoveryCount >=
+                MaximumAutomaticUnknownRecoveries;
         }
 
         internal IInvoiceProvider Open(ProviderRoute route, string routingContext, Guid invoiceId, PaymentRoute paymentRoute = null)
@@ -521,6 +581,59 @@ namespace ASFuelControl.Invoicing
             }
             return new InvoiceContinuationBlockedException(reason);
         }
+        private static string DescribeRetryContextChanges(
+            JObject previousContext, JObject currentContext)
+        {
+            var changes = new List<string>();
+            JObject previousRoute = previousContext?["Route"] as JObject;
+            JObject currentRoute = currentContext?["Route"] as JObject;
+            AddChangedField(changes, previousRoute, currentRoute,
+                "ProviderKey", "πάροχος");
+            AddChangedField(changes, previousRoute, currentRoute,
+                "TestMode", "περιβάλλον δοκιμών/παραγωγής");
+            AddChangedField(changes, previousRoute, currentRoute,
+                "IssuerVat", "ΑΦΜ εκδότη");
+            AddChangedField(changes, previousRoute, currentRoute,
+                "IssuerBranch", "υποκατάστημα εκδότη");
+            AddChangedField(changes, previousRoute, currentRoute,
+                "CredentialProfile", "προφίλ διαπιστευτηρίων");
+            AddChangedField(changes, previousRoute, currentRoute,
+                "Account", "λογαριασμός παρόχου");
+            AddChangedField(changes, previousRoute, currentRoute,
+                "MyDataBaseUrl", "διεύθυνση υπηρεσίας myDATA");
+            AddChangedField(changes, previousRoute, currentRoute,
+                "SoftwareLicence", "άδεια λογισμικού παρόχου");
+
+            JObject previousIdentity = previousContext?["Identity"] as JObject;
+            JObject currentIdentity = currentContext?["Identity"] as JObject;
+            AddChangedField(changes, previousIdentity, currentIdentity,
+                "Series", "σειρά");
+            AddChangedField(changes, previousIdentity, currentIdentity,
+                "AA", "αριθμός");
+            AddChangedField(changes, previousIdentity, currentIdentity,
+                "IssueDate", "ημερομηνία έκδοσης");
+            AddChangedField(changes, previousIdentity, currentIdentity,
+                "InvoiceType", "τύπος myDATA");
+
+            if (changes.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            string changedFields = string.Join(", ", changes);
+            return " Μεταβλήθηκαν: " + changedFields + ".";
+        }
+        private static void AddChangedField(List<string> changes,
+            JObject previous, JObject current, string field, string label)
+        {
+            JToken previousValue = previous?[field];
+            JToken currentValue = current?[field];
+            bool sameValue = JToken.DeepEquals(previousValue, currentValue);
+            if (!sameValue)
+            {
+                changes.Add(label);
+            }
+        }
         private static bool IsAuthorizedResend(
             InvoiceWorkflowSnapshot workflow, FiscalAttemptEvidence previous,
             ProviderRoute route)
@@ -542,6 +655,46 @@ namespace ASFuelControl.Invoicing
                     StringComparison.Ordinal) &&
                 change.TestMode == route.TestMode;
         }
+        public static bool IsLegacyMyDataError228(
+            FiscalAttemptEvidence saved)
+        {
+            if (saved == null ||
+                saved.Family != FiscalJournalFamily.Submission.ToString() ||
+                saved.State != "Rejected" ||
+                string.IsNullOrWhiteSpace(saved.Scope) ||
+                !saved.Scope.StartsWith(
+                    InvoiceProviderCatalog.MyDataKey + "|",
+                    StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            try
+            {
+                JObject evidence = JObject.Parse(saved.SnapshotJson);
+                string responseXml = (string)evidence["ResponseXml"];
+                if (string.IsNullOrWhiteSpace(responseXml))
+                {
+                    return false;
+                }
+
+                XDocument responseDocument = XDocument.Parse(responseXml);
+                string reconciliationUid;
+                string reconciliationMark;
+                bool error228 = MyDataClient.TryReadError228(
+                    responseDocument, out reconciliationUid,
+                    out reconciliationMark);
+                return error228 &&
+                    !string.IsNullOrWhiteSpace(reconciliationUid) &&
+                    !string.IsNullOrWhiteSpace(reconciliationMark);
+            }
+            catch (Exception exception) when (
+                exception is JsonException ||
+                exception is System.Xml.XmlException)
+            {
+                return false;
+            }
+        }
         public static bool IsIssueDateMismatchRejection(FiscalAttemptEvidence saved)
         {
             if (saved == null || saved.Family != FiscalJournalFamily.Submission.ToString() ||
@@ -558,7 +711,7 @@ namespace ASFuelControl.Invoicing
                 return false;
             }
             var route = context["Route"].ToObject<ProviderRoute>();
-            if (route == null || route.ProviderKey == InvoiceProviderCatalog.MyDataKey)
+            if (route == null)
                 return false;
 
             // Use the retained response rather than a provider-specific envelope.
@@ -566,11 +719,32 @@ namespace ASFuelControl.Invoicing
             // nested JSON and future provider error wrappers. Direct myDATA is not
             // a provider route and deliberately remains outside this recovery.
             var text = saved.SnapshotJson.ToLowerInvariant();
+            bool dispatchDate = new[] { "dispatchdate", "dispatch_date",
+                "dispatch date", "ημερομηνία διακίνησης",
+                "ημερομηνία αποστολής" }.Any(value => text.Contains(value));
+            bool dispatchDateCode = evidence.DescendantsAndSelf()
+                .OfType<JProperty>().Any(property =>
+                    string.Equals(property.Name, "code",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals((string)property.Value, "280",
+                        StringComparison.OrdinalIgnoreCase)) ||
+                text.Contains("<code>280</code>") ||
+                text.Contains("280 - dispatchdate");
+            bool currentDate = new[] { "current date", "today", "same date", "τρέχουσ",
+                "σημεριν", "ίδια ημερομηνία" }.Any(value => text.Contains(value));
+            if (dispatchDateCode && dispatchDate && currentDate)
+            {
+                return true;
+            }
+
+            if (route.ProviderKey == InvoiceProviderCatalog.MyDataKey)
+            {
+                return false;
+            }
+
             bool issueDate = new[] { "issuedate", "issue_date", "issue date", "issued date",
                 "date mismatch", "ημερομηνία έκδοσης", "ημ/νία έκδοσης" }
                 .Any(value => text.Contains(value));
-            bool currentDate = new[] { "current date", "today", "same date", "τρέχουσ",
-                "σημεριν", "ίδια ημερομηνία" }.Any(value => text.Contains(value));
             bool documentedDateCode = evidence.DescendantsAndSelf().OfType<JProperty>().Any(property =>
                 string.Equals(property.Name,"code",StringComparison.OrdinalIgnoreCase) &&
                 string.Equals((string)property.Value,"ER-30",StringComparison.OrdinalIgnoreCase));
@@ -647,12 +821,14 @@ namespace ASFuelControl.Invoicing
         private static JObject ReadContext(FiscalAttemptEvidence saved)
         {
             string json = (string)JObject.Parse(saved.SnapshotJson)["RoutingContext"];
-            Require(!string.IsNullOrWhiteSpace(json), "The saved attempt has no verified historical routing context; reconcile it before proceeding.");
+            Require(!string.IsNullOrWhiteSpace(json),
+                "Η αποθηκευμένη προσπάθεια δεν διαθέτει επαληθευμένα ιστορικά στοιχεία διαβίβασης. Εκτελέστε πρώτα ανάκτηση ή συμφωνία της προσπάθειας.");
             var value = JObject.Parse(json);
             Require((int?)value["Version"] == 1 && value["Route"] != null && value["Identity"] != null,
-                "Unsupported or incomplete historical routing context.");
+                "Τα ιστορικά στοιχεία διαβίβασης δεν υποστηρίζονται ή δεν είναι πλήρη.");
             var route = value["Route"].ToObject<ProviderRoute>();
-            Require(saved.Scope.StartsWith(route.ProviderKey + "|", StringComparison.Ordinal), "Historical provider metadata does not match the saved attempt.");
+            Require(saved.Scope.StartsWith(route.ProviderKey + "|", StringComparison.Ordinal),
+                "Τα ιστορικά στοιχεία του παρόχου δεν συμφωνούν με την αποθηκευμένη προσπάθεια.");
             return value;
         }
         internal static string Context(ProviderRoute route, InvoiceModel model) => JsonConvert.SerializeObject(new

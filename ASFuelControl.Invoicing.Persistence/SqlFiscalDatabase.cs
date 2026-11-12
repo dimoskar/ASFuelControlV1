@@ -166,6 +166,65 @@ namespace ASFuelControl.Invoicing.Persistence
                 }
             return result;
         }
+        internal IReadOnlyList<JournalEntry> LoadRecentHistorySummary(
+            IFiscalDocumentLease lease, string family, Guid attemptId,
+            int maximum)
+        {
+            if (maximum < 1 || maximum > 1000)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maximum));
+            }
+
+            return Locked(lease, (held, transaction) =>
+            {
+                IReadOnlyList<JournalEntry> entries =
+                    LoadRecentHistorySummary(held, transaction, family,
+                        attemptId, maximum);
+                return entries;
+            });
+        }
+        private IReadOnlyList<JournalEntry> LoadRecentHistorySummary(
+            Lease lease, SqlTransaction transaction, string family,
+            Guid attemptId, int maximum)
+        {
+            var result = new List<JournalEntry>();
+            using (SqlCommand command = Command(lease.Connection, transaction,
+                SqlStatements.ReadRecentAttemptHistorySummary,
+                "@kind", (int)lease.Document.Kind,
+                "@id", lease.Document.DocumentId,
+                "@family", family,
+                "@attempt", attemptId,
+                "@maximum", maximum))
+            using (SqlDataReader reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    DateTime createdUtcValue = reader.GetDateTime(6);
+                    DateTime updatedUtcValue = reader.GetDateTime(9);
+                    var entry = new JournalEntry
+                    {
+                        Id = reader.GetGuid(0),
+                        Family = reader.GetString(1),
+                        Operation = reader.GetString(2),
+                        Scope = reader.GetString(3),
+                        Format = reader.GetString(4),
+                        Payload = new byte[0],
+                        Hash = reader.GetString(5),
+                        CreatedUtc = Utc(createdUtcValue),
+                        Revision = reader.GetInt64(7),
+                        State = reader.GetString(8),
+                        UpdatedUtc = Utc(updatedUtcValue),
+                        Snapshot = "{}",
+                        OriginalId = reader.IsDBNull(10)
+                            ? (Guid?)null
+                            : reader.GetGuid(10)
+                    };
+                    result.Add(entry);
+                }
+            }
+
+            return result;
+        }
         internal void Write(IFiscalDocumentLease lease, JournalEntry entry, long? expectedRevision, bool blocking,
             Func<JournalEntry, bool> transition)
         {

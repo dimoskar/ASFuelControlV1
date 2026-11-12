@@ -130,14 +130,14 @@ namespace Exedron.Invoicing.Core
             {
                 return Decision(InvoiceContinuationAction.Resend,
                     request.Provider.CancellationStrategy, false, false,
-                    "No active previous invoice was confirmed.");
+                    "Δεν επιβεβαιώθηκε ενεργό προηγούμενο παραστατικό.");
             }
 
             if (request.Existence == InvoiceExistenceState.Cancelled)
             {
                 return Decision(InvoiceContinuationAction.Resend,
                     request.Provider.CancellationStrategy, false, false,
-                    "The previous invoice is already cancelled.");
+                    "Το προηγούμενο παραστατικό έχει ήδη ακυρωθεί.");
             }
 
             if (state == "Rejected")
@@ -148,18 +148,18 @@ namespace Exedron.Invoicing.Core
                 {
                     return Decision(InvoiceContinuationAction.Block,
                         request.Provider.CancellationStrategy, false, false,
-                        "A rejected retry must retain its issued fiscal identity unless an audited correction explicitly replaces it.");
+                        "Η επανάληψη απορριφθείσας διαβίβασης πρέπει να διατηρεί τη φορολογική ταυτότητα του παραστατικού, εκτός αν έχει καταχωριστεί ελεγχόμενη διόρθωση.");
                 }
                 if (payloadKind == InvoicePayloadComparisonKind.Unknown)
                 {
                     return Decision(InvoiceContinuationAction.Block,
                         request.Provider.CancellationStrategy, false, false,
-                        "The rejected request identity could not be compared safely.");
+                        "Δεν ήταν δυνατή η ασφαλής σύγκριση της ταυτότητας της απορριφθείσας διαβίβασης.");
                 }
 
                 return Decision(InvoiceContinuationAction.Resend,
                     request.Provider.CancellationStrategy, false, false,
-                    "The previous request was definitively rejected and the retry retains its fiscal identity.");
+                    "Η προηγούμενη διαβίβαση απορρίφθηκε οριστικά και η επανάληψη διατηρεί τη φορολογική της ταυτότητα.");
             }
 
             if (state == "ReconciliationRequired" ||
@@ -168,13 +168,13 @@ namespace Exedron.Invoicing.Core
             {
                 return Decision(InvoiceContinuationAction.Recover,
                     request.Provider.CancellationStrategy, false, false,
-                    "Recover the previous attempt before deciding whether to resend or cancel it.");
+                    "Ανακτήστε πρώτα την προηγούμενη προσπάθεια πριν αποφασίσετε αν θα επαναληφθεί ή θα ακυρωθεί.");
             }
             if (payloadKind == InvoicePayloadComparisonKind.Unknown)
             {
                 return Decision(InvoiceContinuationAction.Recover,
                     request.Provider.CancellationStrategy, false, false,
-                    "The previous and current payloads could not be compared safely. Recover the prior attempt before continuing.");
+                    "Δεν ήταν δυνατή η ασφαλής σύγκριση της προηγούμενης και της τρέχουσας διαβίβασης. Ανακτήστε την προηγούμενη προσπάθεια πριν συνεχίσετε.");
             }
 
             bool payloadChanged = payloadKind ==
@@ -186,7 +186,7 @@ namespace Exedron.Invoicing.Core
             {
                 return Decision(InvoiceContinuationAction.Recover,
                     request.Provider.CancellationStrategy, false, false,
-                    "The payload changed, but the previous outcome is not confirmed. Recover it before cancellation or reissue.");
+                    "Τα δεδομένα του παραστατικού άλλαξαν, αλλά το αποτέλεσμα της προηγούμενης διαβίβασης δεν έχει επιβεβαιωθεί. Εκτελέστε ανάκτηση πριν από ακύρωση ή επανέκδοση.");
             }
 
             if (payloadChanged)
@@ -196,7 +196,7 @@ namespace Exedron.Invoicing.Core
                 {
                     return Decision(InvoiceContinuationAction.Block,
                         request.Provider.CancellationStrategy, false, false,
-                        "The active invoice differs and this provider has no configured cancellation strategy.");
+                        "Το ενεργό παραστατικό έχει διαφορετικά δεδομένα και δεν έχει ρυθμιστεί τρόπος ακύρωσης για τον συγκεκριμένο πάροχο.");
                 }
                 bool needsType = request.Provider.CancellationStrategy ==
                     InvoiceCancellationStrategy.IssueCancellationDocument;
@@ -204,19 +204,19 @@ namespace Exedron.Invoicing.Core
                 {
                     return Decision(InvoiceContinuationAction.Block,
                         request.Provider.CancellationStrategy, true, needsType,
-                        "The active invoice has different values. Explicit consent is required to cancel it and issue a replacement.");
+                        "Το ενεργό παραστατικό έχει διαφορετικά δεδομένα. Απαιτείται επιβεβαίωση του χρήστη για την ακύρωση και την έκδοση αντικατάστασης.");
                 }
                 if (needsType &&
                     !request.CancellationInvoiceTypeId.HasValue)
                 {
                     return Decision(InvoiceContinuationAction.Block,
                         request.Provider.CancellationStrategy, false, true,
-                        "Select the cancellation invoice type before cancelling the provider invoice.");
+                        "Επιλέξτε τύπο ακυρωτικού παραστατικού πριν από την ακύρωση του παραστατικού στον πάροχο.");
                 }
 
                 return Decision(InvoiceContinuationAction.CancelAndReissue,
                     request.Provider.CancellationStrategy, false, false,
-                    "Cancel the active invoice before issuing the changed payload.");
+                    "Ακυρώστε το ενεργό παραστατικό πριν από την έκδοση του παραστατικού με τα νέα δεδομένα.");
             }
 
             if (state == "Accepted" ||
@@ -224,14 +224,14 @@ namespace Exedron.Invoicing.Core
             {
                 return Decision(InvoiceContinuationAction.ContinueExisting,
                     request.Provider.CancellationStrategy, false, false,
-                    "The active invoice already represents the same values.");
+                    "Το ενεργό παραστατικό περιέχει ήδη τα ίδια δεδομένα.");
             }
 
             if (state == "RetryAuthorized")
             {
                 return Decision(InvoiceContinuationAction.Resend,
                     request.Provider.CancellationStrategy, false, false,
-                    "The retry has already been authorized for the same semantic payload.");
+                    "Η επανάληψη έχει ήδη εγκριθεί για τα ίδια δεδομένα παραστατικού.");
             }
 
             if (state == "Unknown" || state == "Sending")
@@ -240,17 +240,17 @@ namespace Exedron.Invoicing.Core
                 {
                     return Decision(InvoiceContinuationAction.Block,
                         request.Provider.CancellationStrategy, true, false,
-                        "The previous outcome is unresolved. Explicit consent is required before resending the same values.");
+                        "Το αποτέλεσμα της προηγούμενης διαβίβασης παραμένει άγνωστο. Απαιτείται επιβεβαίωση του χρήστη πριν από την επανάληψη με τα ίδια δεδομένα.");
                 }
 
                 return Decision(InvoiceContinuationAction.Resend,
                     request.Provider.CancellationStrategy, false, false,
-                    "Resend the same semantic payload using the provider's stable invoice identity.");
+                    "Επαναλάβετε τη διαβίβαση των ίδιων δεδομένων, διατηρώντας τη σταθερή ταυτότητα του παραστατικού στον πάροχο.");
             }
 
             return Decision(InvoiceContinuationAction.Block,
                 request.Provider.CancellationStrategy, false, false,
-                "The previous state does not permit further processing.");
+                "Η προηγούμενη κατάσταση δεν επιτρέπει περαιτέρω επεξεργασία.");
         }
 
         private static InvoiceContinuationDecision Decision(

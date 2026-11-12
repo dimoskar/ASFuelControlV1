@@ -21,7 +21,8 @@ namespace ASFuelControl.Invoicing
         }
         public FiscalSigningAttempt Sign(FiscalDocumentReference document, FiscalSigningScope scope, IFiscalSigningSource source,
             bool retryDefinitiveFailure = false,
-            Guid? releasedSubmissionAttemptId = null)
+            Guid? releasedSubmissionAttemptId = null,
+            bool supersedeSignedRequest = false)
         {
             return coordinator.Sign(document, lease => {
                 foreach (var family in new[] { FiscalJournalFamily.Submission, FiscalJournalFamily.ProviderSession,
@@ -45,7 +46,7 @@ namespace ASFuelControl.Invoicing
                 if (request == null || !FiscalSigningCoordinator.SameScope(request.Scope, scope))
                     throw new InvalidOperationException("Host document and selected signing scope differ.");
                 return request;
-            }, retryDefinitiveFailure);
+            }, retryDefinitiveFailure, supersedeSignedRequest);
         }
         public FiscalSigningAttempt Recover(FiscalDocumentReference document) => coordinator.Recover(document);
         // Explicit operator/workflow action; reuses original bytes and historical profile.

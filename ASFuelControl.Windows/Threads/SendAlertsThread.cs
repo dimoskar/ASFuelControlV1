@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using ASFuelControl.Communication;
+using ASFuelControl.Data.Implementation;
 using System.IO;
 using ASFuelControl.Logging;
 
@@ -23,20 +24,24 @@ namespace ASFuelControl.Windows.Threads
         private const int BalanceCloseWindowMinutes = 10;
         private const int InitialRetryDelaySeconds = 30;
         private const int MaximumRetryDelaySeconds = 15 * 60;
+        private const int MaintenanceIntervalSeconds = 60;
 
         public event EventHandler<PrintAlertEventArgs> PrintAlert;
         public event EventHandler BalanceCreated;
         public event EventHandler SubmissionFailed;
         public event EventHandler SubmissionSuccess;
 
-        //Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
-        System.Threading.Thread th = null;
-        System.Threading.Thread tankCheckSenderThread = null;
-        volatile bool haltThread = false;
         DateTime officialStartDate;
         private bool sendData = false;
-        private Communication.SendMethods sendMethods = new Communication.SendMethods();
-        private Communication.SendMethods tankCheckSendMethods = new Communication.SendMethods();
+        private readonly Communication.SendMethods sendMethods = new Communication.SendMethods();
+        private readonly Communication.SendMethods salesSendMethods = new Communication.SendMethods();
+        private readonly Communication.SendMethods alertSendMethods = new Communication.SendMethods();
+        private readonly Communication.SendMethods tankFillingSendMethods = new Communication.SendMethods();
+        private readonly Communication.SendMethods priceSendMethods = new Communication.SendMethods();
+        private readonly Communication.SendMethods balanceSendMethods = new Communication.SendMethods();
+        private readonly Communication.SendMethods tankCheckSendMethods = new Communication.SendMethods();
+        private readonly object workerSync = new object();
+        private readonly List<ManagedPollingWorker> workers = new List<ManagedPollingWorker>();
         private readonly object submissionBackoffSync = new object();
         private readonly Dictionary<string, SubmissionBackoffState> submissionBackoffs =
             new Dictionary<string, SubmissionBackoffState>(StringComparer.OrdinalIgnoreCase);
@@ -60,8 +65,10 @@ namespace ASFuelControl.Windows.Threads
         {
             get
             {
-                return (this.th != null && this.th.IsAlive) ||
-                    (this.tankCheckSenderThread != null && this.tankCheckSenderThread.IsAlive);
+                lock (this.workerSync)
+                {
+                    return this.workers.Any(worker => worker.IsAlive);
+                }
             }
         }
 
@@ -125,8 +132,8 @@ namespace ASFuelControl.Windows.Threads
         {
             this.submissionAudit = new OutboundSubmissionAuditStore(Properties.Settings.Default.DBConnection);
             this.sendData = Data.Implementation.OptionHandler.Instance.GetBoolOption("SendData", false);
-            this.sendMethods.Simulation = !this.sendData;
-            this.tankCheckSendMethods.Simulation = !this.sendData;
+            this.lastLogClearUtc = DateTime.UtcNow;
+            this.ConfigureSendMethods();
             DateTime dtStart = DateTime.Now;
             string datestart = Data.Implementation.OptionHandler.Instance.GetOption("StartDate");
             if (datestart != null && datestart != "")
@@ -134,6 +141,107 @@ namespace ASFuelControl.Windows.Threads
                 DateTime.TryParse(datestart, out dtStart);
             }
             officialStartDate = dtStart;
+            this.InitializeWorkers();
+        }
+
+        private void ConfigureSendMethods()
+        {
+            bool simulation = !this.sendData;
+            this.sendMethods.Simulation = simulation;
+            this.salesSendMethods.Simulation = simulation;
+            this.alertSendMethods.Simulation = simulation;
+            this.tankFillingSendMethods.Simulation = simulation;
+            this.priceSendMethods.Simulation = simulation;
+            this.balanceSendMethods.Simulation = simulation;
+            this.tankCheckSendMethods.Simulation = simulation;
+        }
+
+        private void InitializeWorkers()
+        {
+            TimeSpan[] salesIdleIntervals = CreateIdleIntervals(1, 2, 5, 10, 30);
+            TimeSpan[] standardIdleIntervals = CreateIdleIntervals(2, 5, 10, 30);
+            TimeSpan[] balanceIdleIntervals = CreateIdleIntervals(5, 10, 30, 60);
+            TimeSpan[] tankCheckIdleIntervals = CreateIdleIntervals(5, 15, 30, 60);
+            TimeSpan[] printIdleIntervals = CreateIdleIntervals(20);
+            TimeSpan[] maintenanceIntervals =
+                CreateIdleIntervals(MaintenanceIntervalSeconds);
+
+            OutboundWorkState salesState =
+                OutboundWorkCoordinator.GetState(OutboundWorkType.Sales);
+            OutboundWorkState alertState =
+                OutboundWorkCoordinator.GetState(OutboundWorkType.Alerts);
+            OutboundWorkState tankFillingState =
+                OutboundWorkCoordinator.GetState(OutboundWorkType.TankFillings);
+            OutboundWorkState priceState =
+                OutboundWorkCoordinator.GetState(OutboundWorkType.FuelPrices);
+            OutboundWorkState balanceState =
+                OutboundWorkCoordinator.GetState(OutboundWorkType.Balances);
+            OutboundWorkState tankCheckState =
+                OutboundWorkCoordinator.GetState(OutboundWorkType.TankChecks);
+            OutboundWorkState alertPrintState =
+                OutboundWorkCoordinator.GetState(OutboundWorkType.AlertPrinting);
+
+            ManagedPollingWorker salesWorker = new ManagedPollingWorker(
+                "GGPS sales sender",
+                salesIdleIntervals,
+                this.RunSalesWorker,
+                salesState);
+            ManagedPollingWorker alertWorker = new ManagedPollingWorker(
+                "GGPS alert sender",
+                standardIdleIntervals,
+                this.RunAlertWorker,
+                alertState);
+            ManagedPollingWorker tankFillingWorker = new ManagedPollingWorker(
+                "GGPS tank-filling sender",
+                standardIdleIntervals,
+                this.RunTankFillingWorker,
+                tankFillingState);
+            ManagedPollingWorker priceWorker = new ManagedPollingWorker(
+                "GGPS price sender",
+                standardIdleIntervals,
+                this.RunPriceWorker,
+                priceState);
+            ManagedPollingWorker balanceWorker = new ManagedPollingWorker(
+                "GGPS balance worker",
+                balanceIdleIntervals,
+                this.RunBalanceWorker,
+                balanceState);
+            ManagedPollingWorker tankCheckWorker = new ManagedPollingWorker(
+                "GGPS tank-check sender",
+                tankCheckIdleIntervals,
+                this.RunTankCheckWorker,
+                tankCheckState);
+            ManagedPollingWorker alertPrintWorker = new ManagedPollingWorker(
+                "GGPS alert-print worker",
+                printIdleIntervals,
+                this.RunAlertPrintWorker,
+                alertPrintState);
+            ManagedPollingWorker maintenanceWorker = new ManagedPollingWorker(
+                "GGPS maintenance worker",
+                maintenanceIntervals,
+                this.RunMaintenanceWorker,
+                null);
+
+            this.workers.Add(salesWorker);
+            this.workers.Add(alertWorker);
+            this.workers.Add(tankFillingWorker);
+            this.workers.Add(priceWorker);
+            this.workers.Add(balanceWorker);
+            this.workers.Add(tankCheckWorker);
+            this.workers.Add(alertPrintWorker);
+            this.workers.Add(maintenanceWorker);
+        }
+
+        private static TimeSpan[] CreateIdleIntervals(params int[] intervalSeconds)
+        {
+            TimeSpan[] intervals = new TimeSpan[intervalSeconds.Length];
+            for (int index = 0; index < intervalSeconds.Length; index++)
+            {
+                int seconds = intervalSeconds[index];
+                TimeSpan interval = TimeSpan.FromSeconds(seconds);
+                intervals[index] = interval;
+            }
+            return intervals;
         }
 
         private DateTime GetSubmissionSearchStartDate()
@@ -152,27 +260,19 @@ namespace ASFuelControl.Windows.Threads
         /// </summary>
         public void StartThread()
         {
-            bool senderAlive = this.th != null && this.th.IsAlive;
-            bool tankSenderAlive = this.tankCheckSenderThread != null && this.tankCheckSenderThread.IsAlive;
-            if (senderAlive && tankSenderAlive)
-                return;
             this.sendData = Data.Implementation.OptionHandler.Instance.GetBoolOption("SendData", false);
-            this.sendMethods.Simulation = !this.sendData;
-            this.tankCheckSendMethods.Simulation = !this.sendData;
-            this.haltThread = false;
-            if (!senderAlive)
+            this.ConfigureSendMethods();
+
+            List<ManagedPollingWorker> workerSnapshot;
+            lock (this.workerSync)
             {
-                th = new System.Threading.Thread(new System.Threading.ThreadStart(this.ThreadRun));
-                th.IsBackground = true;
-                th.Name = "GGPS outbound sender";
-                th.Start();
+                workerSnapshot = this.workers.ToList();
             }
-            if (!tankSenderAlive)
+            foreach (ManagedPollingWorker worker in workerSnapshot)
             {
-                tankCheckSenderThread = new System.Threading.Thread(new System.Threading.ThreadStart(this.TankCheckSenderRun));
-                tankCheckSenderThread.IsBackground = true;
-                tankCheckSenderThread.Name = "GGPS tank-check sender";
-                tankCheckSenderThread.Start();
+                // Start is idempotent. Calling it for every worker also repairs a
+                // partially stopped worker set without duplicating live workers.
+                worker.Start();
             }
         }
 
@@ -182,18 +282,40 @@ namespace ASFuelControl.Windows.Threads
         /// </summary>
         public bool StopThread()
         {
-            this.haltThread = true;
-            System.Threading.Thread worker = this.th;
-            System.Threading.Thread tankWorker = this.tankCheckSenderThread;
-            bool senderStopped = worker == null || worker == System.Threading.Thread.CurrentThread ||
-                worker.Join(TimeSpan.FromSeconds(30));
-            bool tankSenderStopped = tankWorker == null || tankWorker == System.Threading.Thread.CurrentThread ||
-                tankWorker.Join(TimeSpan.FromSeconds(30));
-            if (!senderStopped)
-                Logger.Instance.LogToFile("SendAlertsThread::Stop", "Sender did not stop within 30 seconds.");
-            if (!tankSenderStopped)
-                Logger.Instance.LogToFile("SendAlertsThread::Stop", "Tank-check sender did not stop within 30 seconds.");
-            return senderStopped && tankSenderStopped;
+            List<ManagedPollingWorker> workerSnapshot;
+            lock (this.workerSync)
+            {
+                workerSnapshot = this.workers.ToList();
+            }
+
+            foreach (ManagedPollingWorker worker in workerSnapshot)
+            {
+                worker.RequestStop();
+            }
+
+            DateTime stopDeadlineUtc = DateTime.UtcNow.AddSeconds(30);
+            bool allStopped = true;
+            foreach (ManagedPollingWorker worker in workerSnapshot)
+            {
+                TimeSpan remaining = stopDeadlineUtc - DateTime.UtcNow;
+                if (remaining < TimeSpan.Zero)
+                {
+                    remaining = TimeSpan.Zero;
+                }
+
+                bool stopped = worker.WaitForStop(remaining);
+                if (stopped)
+                {
+                    continue;
+                }
+
+                allStopped = false;
+                string message = string.Format(
+                    "{0} did not stop within 30 seconds.",
+                    worker.Name);
+                Logger.Instance.LogToFile("SendAlertsThread::Stop", message);
+            }
+            return allStopped;
         }
 
         private object CreateDeliveryNote(Data.TankFilling tankFilling)
@@ -957,10 +1079,12 @@ namespace ASFuelControl.Windows.Threads
         /// Sends the oldest eligible sales first. A failed sale pauses only the
         /// sales stream; the remaining outbound streams still receive a turn.
         /// </summary>
-        private void CheckForSales(Data.DatabaseModel database)
+        private bool CheckForSales(
+            Data.DatabaseModel database,
+            Communication.SendMethods sender)
         {
             if (!CanAttemptSubmission("SalesTransaction"))
-                return;
+                return false;
 
             try
             {
@@ -1000,9 +1124,13 @@ namespace ASFuelControl.Windows.Threads
                             continue;
                         }
 
-                        if (this.SendObject(income, "SalesTransaction", sale.SalesTransactionId))
+                        if (this.SendObject(
+                            income,
+                            "SalesTransaction",
+                            sale.SalesTransactionId,
+                            sender))
                         {
-                            if (!sendMethods.Simulation)
+                            if (!sender.Simulation)
                                 sale.SentDateTime = DateTime.Now;
                             if (this.SubmissionSuccess != null)
                                 this.SubmissionSuccess(sale, new EventArgs());
@@ -1024,17 +1152,27 @@ namespace ASFuelControl.Windows.Threads
                     }
                     System.Threading.Thread.Sleep(1000);
                 }
+
+                bool salesFound = sales.Count > 0;
+                if (salesFound)
+                {
+                    database.SaveChanges();
+                }
+                return salesFound;
             }
             catch (Exception ex)
             {
                 Logger.Instance.LogToFile("CheckForSend:SalesTransaction", ex);
+                return false;
             }
         }
 
         /// <summary>
         /// Checks if there are data for sending avaliable
         /// </summary>
-        private void CheckForBalanceSend(Data.DatabaseModel database)
+        private bool CheckForBalanceSend(
+            Data.DatabaseModel database,
+            Communication.SendMethods sender)
         {
             try
             {
@@ -1062,9 +1200,13 @@ namespace ASFuelControl.Windows.Threads
                         using (TextReader reader = new StringReader(balance.BalanceText))
                         {
                             object payload = serializer.Deserialize(reader);
-                            if (this.SendObject(payload, "Balance", balance.BalanceId))
+                            if (this.SendObject(
+                                payload,
+                                "Balance",
+                                balance.BalanceId,
+                                sender))
                             {
-                                if (!sendMethods.Simulation)
+                                if (!sender.Simulation)
                                     balance.SentDateTime = DateTime.Now;
                                 if (this.SubmissionSuccess != null)
                                     this.SubmissionSuccess(balance, EventArgs.Empty);
@@ -1087,11 +1229,17 @@ namespace ASFuelControl.Windows.Threads
                     }
                 }
 
-                database.SaveChanges();
+                bool balancesFound = balances.Count > 0;
+                if (balancesFound)
+                {
+                    database.SaveChanges();
+                }
+                return balancesFound;
             }
             catch (Exception ex)
             {
                 Logger.Instance.LogToFile("CheckForSend:BalanceSend", ex);
+                return false;
             }
         }
 
@@ -1099,7 +1247,9 @@ namespace ASFuelControl.Windows.Threads
         /// Sends tank measurements on their dedicated worker. Its database
         /// context and transport are never shared with the normal outbound cycle.
         /// </summary>
-        private int CheckForTankCheckSend(Data.DatabaseModel database)
+        private int CheckForTankCheckSend(
+            Data.DatabaseModel database,
+            Communication.SendMethods sender)
         {
             if (!CanAttemptSubmission("TankCheck"))
                 return 0;
@@ -1125,7 +1275,7 @@ namespace ASFuelControl.Windows.Threads
                             check,
                             "TankCheck",
                             check.TankCheckId,
-                            this.tankCheckSendMethods);
+                            sender);
                         processed++;
                     }
                     catch (Exception ex)
@@ -1134,7 +1284,10 @@ namespace ASFuelControl.Windows.Threads
                         Logger.Instance.LogToFile("TankCheckSender:TankCheck::Object",database.SerializeEntity(check));
                     }
                 }
-                database.SaveChanges();
+                if (checks.Count > 0)
+                {
+                    database.SaveChanges();
+                }
                 return processed;
             }
             catch (Exception ex)
@@ -1144,259 +1297,253 @@ namespace ASFuelControl.Windows.Threads
             }
         }
 
-        private void CheckForSend(Data.DatabaseModel database)
+        private bool CheckForAlerts(
+            Data.DatabaseModel database,
+            Communication.SendMethods sender)
         {
-            try
+            DateTime submissionSearchStartDate = this.GetSubmissionSearchStartDate();
+            List<Data.SystemEvent> alerts = database.SystemEvents
+                .Where(systemEvent => !systemEvent.SentDate.HasValue &&
+                    systemEvent.EventDate >= submissionSearchStartDate &&
+                    systemEvent.DocumentSign != null &&
+                    systemEvent.DocumentSign.Length > 0 &&
+                    !systemEvent.DocumentSign.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ") &&
+                    ((systemEvent.DocumentSign.Length == 1 && systemEvent.DocumentSign.Contains("-")) ||
+                        systemEvent.DocumentSign.Length >= 15))
+                .Where(AlertSubmissionPolicy.IsEligibleForMinistry)
+                .OrderBy(systemEvent => systemEvent.EventDate)
+                .Take(AlertBatchSize)
+                .ToList();
+
+            foreach (Data.SystemEvent systemEvent in alerts)
             {
-                this.LastAction = DateTime.Now;
-                DateTime dt = DateTime.Now;
-                DateTime submissionSearchStartDate = this.GetSubmissionSearchStartDate();
-
-                // During station close, the daily balance has a hard midnight
-                // deadline and must go ahead of the normal round-robin streams.
-                if (this.IsBalanceCloseWindow())
-                    this.CheckForBalanceSend(database);
-
-                // Sales are the most time-sensitive stream. Process a bounded
-                // batch first, then give every other stream its own bounded turn.
-                // The next loop repeats the same fair cycle.
-                this.CheckForSales(database);
-                database.SaveChanges();
-                //DateTime dtAlertCheck = DateTime.Now.AddMinutes(-1);
-                var q = database.SystemEvents.Where(se => !se.SentDate.HasValue &&
-                    se.EventDate >= submissionSearchStartDate
-                    &&
-                    (
-                        se.DocumentSign != null &&
-                        se.DocumentSign.Length > 0 &&
-                        !se.DocumentSign.Contains("ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ") &&
-                        ((se.DocumentSign.Length == 1 && se.DocumentSign.Contains("-")) || se.DocumentSign.Length >= 15)
-                    //    se.EventDate < dtAlertCheck
-                    ))
-                    .Where(AlertSubmissionPolicy.IsEligibleForMinistry)
-                    .OrderBy(t => t.EventDate)
-                    .Take(AlertBatchSize)
-                    .ToList();
+                if (!this.CanAttemptSubmission("Alert"))
+                {
+                    break;
+                }
 
                 try
                 {
-                    foreach (Data.SystemEvent se in q)
+                    if (systemEvent.Tank != null &&
+                        systemEvent.Tank.FuelType.ExcludeFromBalance.HasValue &&
+                        systemEvent.Tank.FuelType.ExcludeFromBalance.Value)
                     {
-                        if (!CanAttemptSubmission("Alert"))
-                            break;
-                        try
-                        {
-                            if(se.Tank != null)
-                            {
-                                if (se.Tank.FuelType.ExcludeFromBalance.HasValue && se.Tank.FuelType.ExcludeFromBalance.Value)
-                                    continue;
-                            }
-                            if (this.SendObject(se, "Alert", se.EventId))
-                            {
-                                //if (!sendMethods.Simulation)
-                                se.SentDate = DateTime.Now;
-                                if (this.SubmissionSuccess != null)
-                                    this.SubmissionSuccess(se, new EventArgs());
-                                LogSend(database, se, 1);
-                            }
-                            else
-                            {
-                                if (this.SubmissionFailed != null)
-                                    this.SubmissionFailed(se, new EventArgs());
-                                LogSend(database, se, 0);
-                            }
-                            System.Threading.Thread.Sleep(1000);
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Instance.LogToFile("CheckForSend:Alarm", ex);
-                            Logger.Instance.LogToFile("CheckForSend:Alarm::Object", database.SerializeEntity(se));
-                        }
+                        continue;
                     }
-                }
-                catch (Exception e)
-                {
-                    Logger.Instance.LogToFile("CheckForSend:Alarm", e);
-                }
-                database.SaveChanges();
-                var q1 = database.TankFillings
-                    .Where(se => !se.SentDateTime.HasValue &&
-                        se.TransactionTime >= submissionSearchStartDate &&
-                        se.InvoiceLines.Count > 0 &&
-                        !(se.Tank.FuelType.ExcludeFromBalance.HasValue && se.Tank.FuelType.ExcludeFromBalance.Value))
-                    .OrderBy(t => t.TransactionTimeEnd)
-                    .Take(TankFillingBatchSize)
-                    .ToList();
-                try
-                {
-                    foreach (Data.TankFilling se in q1)
-                    {
-                        if (!CanAttemptSubmission("TankFilling"))
-                            break;
-                        try
-                        {
-                            if (se.Tank != null && se.Tank.FuelType.ExcludeFromBalance.HasValue && se.Tank.FuelType.ExcludeFromBalance.Value)
-                                continue;
-                            if (se.InvoiceLines.Count == 0)
-                                continue;
-                            object obj = this.CreateDeliveryNote(se);
-                            if (this.SendObject(obj, "TankFilling", se.TankFillingId))
-                            {
-                                if (!sendMethods.Simulation)
-                                    se.SentDateTime = DateTime.Now;
-                                if (this.SubmissionSuccess != null)
-                                    this.SubmissionSuccess(se, new EventArgs());
-                                this.LogSend(database, se, 1);
-                            }
-                            else
-                            {
-                                if (this.SubmissionFailed != null)
-                                    this.SubmissionFailed(se, new EventArgs());
-                                this.LogSend(database, se, 0);
-                            }
-                            System.Threading.Thread.Sleep(1000);
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Instance.LogToFile("CheckForSend:TankFilling", ex);
-                            Logger.Instance.LogToFile("CheckForSend:TankFilling::Object", database.SerializeEntity(se));
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    Logger.Instance.LogToFile("CheckForSend:Delivery", e);
-                }
-                database.SaveChanges();
-                var q4 = database.FuelTypePrices
-                    .Where(se => !se.SentDateTime.HasValue &&
-                        se.ChangeDate >= submissionSearchStartDate &&
-                        !(se.FuelType.ExcludeFromBalance.HasValue && se.FuelType.ExcludeFromBalance.Value))
-                    .OrderBy(se => se.ChangeDate)
-                    .Take(PriceBatchSize)
-                    .ToList();
-                try
-                {
-                    foreach (Data.FuelTypePrice ftp in q4)
-                    {
-                        if (!CanAttemptSubmission("FuelTypePrice"))
-                            break;
-                        try
-                        {
-                            if (ftp.FuelType.ExcludeFromBalance.HasValue && ftp.FuelType.ExcludeFromBalance.Value)
-                                continue;
-                            ChangePriceClass cpc = new ChangePriceClass();
-                            cpc.ChangeTime = ftp.ChangeDate;
-                            cpc.FuelType = (Communication.Enums.FuelTypeEnum)ftp.FuelType.EnumeratorValue;
-                            cpc.Price = ftp.Price;
 
-                            if (this.SendObject(cpc, "FuelTypePrice", ftp.FuelTypePriceId))
-                            {
-                                if (!sendMethods.Simulation)
-                                    ftp.SentDateTime = DateTime.Now;
-                                if (this.SubmissionSuccess != null)
-                                    this.SubmissionSuccess(ftp, new EventArgs());
-                                this.LogSend(database, cpc, 1);
-                            }
-                            else
-                            {
-                                if (this.SubmissionFailed != null)
-                                    this.SubmissionFailed(cpc, new EventArgs());
-                                this.LogSend(database, cpc, 0);
-                            }
-                            System.Threading.Thread.Sleep(1000);
-                        }
-                        catch (Exception ex)
+                    bool sent = this.SendObject(
+                        systemEvent,
+                        "Alert",
+                        systemEvent.EventId,
+                        sender);
+                    if (sent)
+                    {
+                        systemEvent.SentDate = DateTime.Now;
+                        if (this.SubmissionSuccess != null)
                         {
-                            Logger.Instance.LogToFile("CheckForSend:FuelPrice", ex);
-                            Logger.Instance.LogToFile("CheckForSend:FuelPrice::Object", database.SerializeEntity(ftp));
+                            EventArgs eventArgs = EventArgs.Empty;
+                            this.SubmissionSuccess(systemEvent, eventArgs);
                         }
+                        this.LogSend(database, systemEvent, 1);
                     }
-                }
-                catch (Exception e)
-                {
-                    Logger.Instance.LogToFile("CheckForSend:ChangePrice", e);
-                }
-
-                //try
-                //{
-                //    Data.Balance balance = this.CheckForBalance(database);
-                //    if (balance != null)
-                //    {
-                //        System.Xml.Serialization.XmlSerializer ser = new System.Xml.Serialization.XmlSerializer(typeof(Communication.BalanceClass));
-                //        using (TextReader reader = new StringReader(balance.BalanceText))
-                //        {
-                //            Communication.BalanceClass result = ser.Deserialize(reader) as Communication.BalanceClass;
-                //            if (result.Movements.FuelMovements.Count == 0)
-                //            {
-                //                balance.SentDateTime = DateTime.Now;
-                //            }
-                //            else
-                //            {
-                //                if (this.SendObject(result))
-                //                {
-                //                    if (!sendMethods.Simulation)
-                //                        balance.SentDateTime = DateTime.Now;
-                //                    if (this.SubmissionSuccess != null)
-                //                        this.SubmissionSuccess(balance, new EventArgs());
-                //                    this.LogSend(database, balance, 1);
-                //                }
-                //                else
-                //                {
-                //                    if (this.SubmissionFailed != null)
-                //                        this.SubmissionFailed(balance, new EventArgs());
-                //                    this.LogSend(database, balance, 0);
-                //                }
-                //            }
-                //            System.Threading.Thread.Sleep(1000);
-                //        }
-                //        if (this.BalanceCreated != null)
-                //            this.BalanceCreated(this, new EventArgs());
-                //    }
-                //}
-                //catch (Exception e)
-                //{
-                //    Logger.Instance.LogToFile("CheckForSend:Balance", e);
-                //}
-                this.CheckForBalanceSend(database);
-                if ((int)dt.TimeOfDay.TotalMinutes % 5 == 0 && !this.logCleared)
-                {
-                    try
+                    else
                     {
-                        System.Data.SqlClient.SqlCommand c = new System.Data.SqlClient.SqlCommand("EXECUTE dbo.ClearLog");
-                        c.Connection = new System.Data.SqlClient.SqlConnection(Properties.Settings.Default.DBConnection);
-                        c.Connection.Open();
-                        c.ExecuteNonQuery();//(command, new System.Data.Common.DbParameter[] { });
-                        c.Connection.Close();
-                        this.logCleared = true;
-                    }
-                    catch (Exception ex)
-                    {
-                        Logging.Logger.Instance.LogToFile(string.Format("ClearLog Exception"), ex);
+                        if (this.SubmissionFailed != null)
+                        {
+                            EventArgs eventArgs = EventArgs.Empty;
+                            this.SubmissionFailed(systemEvent, eventArgs);
+                        }
+                        this.LogSend(database, systemEvent, 0);
                     }
                 }
-                else if ((int)dt.TimeOfDay.TotalMinutes % 5 == 0)
+                catch (Exception ex)
                 {
+                    Logger.Instance.LogToFile("CheckForSend:Alarm", ex);
+                    string serializedEvent = database.SerializeEntity(systemEvent);
+                    Logger.Instance.LogToFile(
+                        "CheckForSend:Alarm::Object",
+                        serializedEvent);
                 }
-                else
-                {
-                    logCleared = false;
-                }
-                System.Threading.Thread.Sleep(1000);
             }
-            catch (Exception ex)
+
+            bool alertsFound = alerts.Count > 0;
+            if (alertsFound)
             {
-                Logger.Instance.LogToFile("CheckForSend", ex);
+                database.SaveChanges();
             }
+            return alertsFound;
+        }
+
+        private bool CheckForTankFillings(
+            Data.DatabaseModel database,
+            Communication.SendMethods sender)
+        {
+            DateTime submissionSearchStartDate = this.GetSubmissionSearchStartDate();
+            List<Data.TankFilling> tankFillings = database.TankFillings
+                .Where(tankFilling => !tankFilling.SentDateTime.HasValue &&
+                    tankFilling.TransactionTime >= submissionSearchStartDate &&
+                    tankFilling.InvoiceLines.Count > 0 &&
+                    !(tankFilling.Tank.FuelType.ExcludeFromBalance.HasValue &&
+                        tankFilling.Tank.FuelType.ExcludeFromBalance.Value))
+                .OrderBy(tankFilling => tankFilling.TransactionTimeEnd)
+                .Take(TankFillingBatchSize)
+                .ToList();
+
+            foreach (Data.TankFilling tankFilling in tankFillings)
+            {
+                if (!this.CanAttemptSubmission("TankFilling"))
+                {
+                    break;
+                }
+
+                try
+                {
+                    if (tankFilling.Tank != null &&
+                        tankFilling.Tank.FuelType.ExcludeFromBalance.HasValue &&
+                        tankFilling.Tank.FuelType.ExcludeFromBalance.Value)
+                    {
+                        continue;
+                    }
+                    if (tankFilling.InvoiceLines.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    object payload = this.CreateDeliveryNote(tankFilling);
+                    bool sent = this.SendObject(
+                        payload,
+                        "TankFilling",
+                        tankFilling.TankFillingId,
+                        sender);
+                    if (sent)
+                    {
+                        if (!sender.Simulation)
+                        {
+                            tankFilling.SentDateTime = DateTime.Now;
+                        }
+                        if (this.SubmissionSuccess != null)
+                        {
+                            EventArgs eventArgs = EventArgs.Empty;
+                            this.SubmissionSuccess(tankFilling, eventArgs);
+                        }
+                        this.LogSend(database, tankFilling, 1);
+                    }
+                    else
+                    {
+                        if (this.SubmissionFailed != null)
+                        {
+                            EventArgs eventArgs = EventArgs.Empty;
+                            this.SubmissionFailed(tankFilling, eventArgs);
+                        }
+                        this.LogSend(database, tankFilling, 0);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.LogToFile("CheckForSend:TankFilling", ex);
+                    string serializedFilling = database.SerializeEntity(tankFilling);
+                    Logger.Instance.LogToFile(
+                        "CheckForSend:TankFilling::Object",
+                        serializedFilling);
+                }
+            }
+
+            bool tankFillingsFound = tankFillings.Count > 0;
+            if (tankFillingsFound)
+            {
+                database.SaveChanges();
+            }
+            return tankFillingsFound;
+        }
+
+        private bool CheckForFuelTypePrices(
+            Data.DatabaseModel database,
+            Communication.SendMethods sender)
+        {
+            DateTime submissionSearchStartDate = this.GetSubmissionSearchStartDate();
+            List<Data.FuelTypePrice> prices = database.FuelTypePrices
+                .Where(price => !price.SentDateTime.HasValue &&
+                    price.ChangeDate >= submissionSearchStartDate &&
+                    !(price.FuelType.ExcludeFromBalance.HasValue &&
+                        price.FuelType.ExcludeFromBalance.Value))
+                .OrderBy(price => price.ChangeDate)
+                .Take(PriceBatchSize)
+                .ToList();
+
+            foreach (Data.FuelTypePrice price in prices)
+            {
+                if (!this.CanAttemptSubmission("FuelTypePrice"))
+                {
+                    break;
+                }
+
+                try
+                {
+                    if (price.FuelType.ExcludeFromBalance.HasValue &&
+                        price.FuelType.ExcludeFromBalance.Value)
+                    {
+                        continue;
+                    }
+
+                    ChangePriceClass payload = new ChangePriceClass();
+                    payload.ChangeTime = price.ChangeDate;
+                    payload.FuelType =
+                        (Communication.Enums.FuelTypeEnum)price.FuelType.EnumeratorValue;
+                    payload.Price = price.Price;
+
+                    bool sent = this.SendObject(
+                        payload,
+                        "FuelTypePrice",
+                        price.FuelTypePriceId,
+                        sender);
+                    if (sent)
+                    {
+                        if (!sender.Simulation)
+                        {
+                            price.SentDateTime = DateTime.Now;
+                        }
+                        if (this.SubmissionSuccess != null)
+                        {
+                            EventArgs eventArgs = EventArgs.Empty;
+                            this.SubmissionSuccess(price, eventArgs);
+                        }
+                        this.LogSend(database, payload, 1);
+                    }
+                    else
+                    {
+                        if (this.SubmissionFailed != null)
+                        {
+                            EventArgs eventArgs = EventArgs.Empty;
+                            this.SubmissionFailed(payload, eventArgs);
+                        }
+                        this.LogSend(database, payload, 0);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.LogToFile("CheckForSend:FuelPrice", ex);
+                    string serializedPrice = database.SerializeEntity(price);
+                    Logger.Instance.LogToFile(
+                        "CheckForSend:FuelPrice::Object",
+                        serializedPrice);
+                }
+            }
+
+            bool pricesFound = prices.Count > 0;
+            if (pricesFound)
+            {
+                database.SaveChanges();
+            }
+            return pricesFound;
         }
         
         /// <summary>
         /// Raises an event for each Alert is not printed yet
         /// </summary>
-        private void CheckForPrint(Data.DatabaseModel database)
+        private bool CheckForPrint(Data.DatabaseModel database)
         {
             if (this.PrintAlert == null)
-                return;
+                return false;
             try
             {
                 List<Data.SystemEvent> q = database.SystemEvents
@@ -1409,89 +1556,166 @@ namespace ASFuelControl.Windows.Threads
                     this.PrintAlert(this, new PrintAlertEventArgs() { AlertId = ev.EventId });
                     //ev.PrintedDate = DateTime.Now;
                 }
+                bool alertsFound = q.Count > 0;
+                return alertsFound;
             }
             catch (Exception ex)
             {
                 Logger.Instance.LogToFile("CheckForSend", ex);
-                return;
-            }
-
-            database.SaveChanges();
-        }
-
-        DateTime dtAlertPrint = DateTime.Now;
-
-        bool logCleared = false;
-        private void TankCheckSenderRun()
-        {
-            try
-            {
-                while (!haltThread)
-                {
-                    int processed = 0;
-                    try
-                    {
-                        if (this.sendData)
-                        {
-                            using (Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
-                                processed = this.CheckForTankCheckSend(database);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Instance.LogToFile("TankCheckSender::Loop",ex);
-                    }
-                    if (!haltThread)
-                        System.Threading.Thread.Sleep(processed > 0 ? 1000 : 5000);
-                }
-            }
-            finally
-            {
-                Common.Logger.Instance.Debug("TankCheckSender::ThreadRun, Thread Stopped");
-                this.tankCheckSenderThread = null;
+                return false;
             }
         }
 
-        private void ThreadRun()
+        private DateTime lastLogClearUtc;
+
+        private Data.DatabaseModel CreateWorkerDatabase()
         {
-            while (!haltThread)
+            Data.DatabaseModel database =
+                new Data.DatabaseModel(Properties.Settings.Default.DBConnection);
+            database.AlertChecker = AlertChecker.Instance;
+            database.SuppressOutboundWorkNotifications = true;
+            return database;
+        }
+
+        private bool RunSalesWorker()
+        {
+            if (!this.sendData || !this.CanAttemptSubmission("SalesTransaction"))
             {
-                try
-                {
-                    using (Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
-                    {
-                        database.AlertChecker = AlertChecker.Instance;
-                        // Create and synchronously sign a due balance before the
-                        // outbound turn. In the close window CheckForSend gives it
-                        // priority, so no other stream can consume its deadline.
-                        this.CheckForBalance(database, false);
-
-                        if (this.sendData)
-                            this.CheckForSend(database);
-
-                        if (!this.sendData)
-                        {
-                            System.Threading.Thread.Sleep(10000);
-                            continue;
-                        }
-                        if (DateTime.Now.Subtract(dtAlertPrint).TotalSeconds >= 20)
-                        {
-                            this.CheckForPrint(database);
-                            dtAlertPrint = DateTime.Now;
-                        }
-                    }
-                    
-                }
-                catch(Exception ex1)
-                {
-                    Logging.Logger.Instance.LogToFile("SendAlertsThread::Loop", ex1);
-                }
-                if(!haltThread)
-                    System.Threading.Thread.Sleep(10000);
-
+                return false;
             }
-            Common.Logger.Instance.Debug("SendAlertsThread::ThreadRun, Thread Stopped");
-            this.th = null;
+
+            this.LastAction = DateTime.Now;
+            using (Data.DatabaseModel database = this.CreateWorkerDatabase())
+            {
+                bool workProcessed =
+                    this.CheckForSales(database, this.salesSendMethods);
+                return workProcessed;
+            }
+        }
+
+        private bool RunAlertWorker()
+        {
+            if (!this.sendData || !this.CanAttemptSubmission("Alert"))
+            {
+                return false;
+            }
+
+            this.LastAction = DateTime.Now;
+            using (Data.DatabaseModel database = this.CreateWorkerDatabase())
+            {
+                bool workProcessed =
+                    this.CheckForAlerts(database, this.alertSendMethods);
+                return workProcessed;
+            }
+        }
+
+        private bool RunTankFillingWorker()
+        {
+            if (!this.sendData || !this.CanAttemptSubmission("TankFilling"))
+            {
+                return false;
+            }
+
+            this.LastAction = DateTime.Now;
+            using (Data.DatabaseModel database = this.CreateWorkerDatabase())
+            {
+                bool workProcessed = this.CheckForTankFillings(
+                    database,
+                    this.tankFillingSendMethods);
+                return workProcessed;
+            }
+        }
+
+        private bool RunPriceWorker()
+        {
+            if (!this.sendData || !this.CanAttemptSubmission("FuelTypePrice"))
+            {
+                return false;
+            }
+
+            this.LastAction = DateTime.Now;
+            using (Data.DatabaseModel database = this.CreateWorkerDatabase())
+            {
+                bool workProcessed =
+                    this.CheckForFuelTypePrices(database, this.priceSendMethods);
+                return workProcessed;
+            }
+        }
+
+        private bool RunBalanceWorker()
+        {
+            using (Data.DatabaseModel database = this.CreateWorkerDatabase())
+            {
+                Data.Balance balance = this.CheckForBalance(database, false);
+                bool balanceCreated = balance != null;
+                bool balanceProcessed = false;
+                bool canSendBalance = this.CanAttemptSubmission("Balance");
+                if (this.sendData && canSendBalance)
+                {
+                    balanceProcessed = this.CheckForBalanceSend(
+                        database,
+                        this.balanceSendMethods);
+                }
+                return balanceCreated || balanceProcessed;
+            }
+        }
+
+        private bool RunTankCheckWorker()
+        {
+            if (!this.sendData || !this.CanAttemptSubmission("TankCheck"))
+            {
+                return false;
+            }
+
+            this.LastAction = DateTime.Now;
+            using (Data.DatabaseModel database = this.CreateWorkerDatabase())
+            {
+                int processed = this.CheckForTankCheckSend(
+                    database,
+                    this.tankCheckSendMethods);
+                return processed > 0;
+            }
+        }
+
+        private bool RunAlertPrintWorker()
+        {
+            if (!this.sendData)
+            {
+                return false;
+            }
+
+            using (Data.DatabaseModel database = this.CreateWorkerDatabase())
+            {
+                bool workProcessed = this.CheckForPrint(database);
+                return workProcessed;
+            }
+        }
+
+        private bool RunMaintenanceWorker()
+        {
+            if (!this.sendData)
+            {
+                return false;
+            }
+
+            DateTime nowUtc = DateTime.UtcNow;
+            TimeSpan elapsed = nowUtc - this.lastLogClearUtc;
+            if (elapsed < TimeSpan.FromMinutes(5))
+            {
+                return false;
+            }
+
+            string connectionString = Properties.Settings.Default.DBConnection;
+            using (System.Data.SqlClient.SqlConnection connection =
+                new System.Data.SqlClient.SqlConnection(connectionString))
+            using (System.Data.SqlClient.SqlCommand command =
+                new System.Data.SqlClient.SqlCommand("EXECUTE dbo.ClearLog", connection))
+            {
+                connection.Open();
+                int affectedRows = command.ExecuteNonQuery();
+                this.lastLogClearUtc = nowUtc;
+            }
+            return true;
         }
 
 
@@ -1500,11 +1724,6 @@ namespace ASFuelControl.Windows.Threads
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        private bool SendObject(object obj, string entityType, Guid entityId)
-        {
-            return SendObject(obj,entityType,entityId,this.sendMethods);
-        }
-
         private bool SendObject(object obj, string entityType, Guid entityId, Communication.SendMethods sender)
         {
             if (!CanAttemptSubmission(entityType))

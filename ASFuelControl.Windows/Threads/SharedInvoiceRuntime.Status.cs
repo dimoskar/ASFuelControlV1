@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using ASFuelControl.Invoicing;
@@ -18,6 +19,7 @@ namespace ASFuelControl.Windows.Threads
         internal InvoiceWorkflowSnapshot Snapshot;
         internal FiscalAttemptEvidence[] Attempts;
         internal FiscalAttemptEvidence[] Revisions;
+        internal bool HistoryTruncated;
         internal string PendingSummary;
         internal bool CanSubmitPrinted;
         internal bool CanReplaceLegacyFiscalEvidence;
@@ -37,6 +39,7 @@ namespace ASFuelControl.Windows.Threads
         internal bool CanRecoverRefund;
         internal bool IsRefundPayment;
         internal ProviderResendAssessment ProviderResend;
+        internal bool LegacyMyDataError228;
         internal bool CanChangePaymentMethod;
         internal bool IssueDateMismatchRejected;
         internal bool CanReissueAfterIssueDateMismatch;
@@ -46,7 +49,20 @@ namespace ASFuelControl.Windows.Threads
     }
     internal static partial class SharedInvoiceRuntime
     {
+        internal const int RecentHistoryLimitPerAttempt = 100;
+
         internal static SharedInvoiceStatus ReadStatus(Guid id)
+        {
+            return ReadStatus(id, false);
+        }
+
+        internal static SharedInvoiceStatus ReadStatusWithHistory(Guid id)
+        {
+            return ReadStatus(id, true);
+        }
+
+        private static SharedInvoiceStatus ReadStatus(Guid id,
+            bool includeRecentHistory)
         {
             SharedInvoiceStatus status;
             using (var lease = sql.Value.EnterInvoice(id))
@@ -54,8 +70,44 @@ namespace ASFuelControl.Windows.Threads
                 var bytes = new SqlInvoiceWorkflowStore(sql.Value).Load(lease);
                 var history = new SqlFiscalHistoryStore(sql.Value);
                 var entries = Enum.GetValues(typeof(FiscalJournalFamily)).Cast<FiscalJournalFamily>().SelectMany(f => history.Load(lease,f)).OrderBy(a => a.CreatedUtc).ToArray();
-                status = new SharedInvoiceStatus { Snapshot = bytes == null ? null : JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(Encoding.UTF8.GetString(bytes)), Attempts = entries,
-                    Revisions = entries.SelectMany(a => history.LoadHistory(lease,(FiscalJournalFamily)Enum.Parse(typeof(FiscalJournalFamily),a.Family),a.AttemptId)).OrderBy(a => a.UpdatedUtc).ToArray() };
+                FiscalAttemptEvidence[] revisions = new FiscalAttemptEvidence[0];
+                bool historyTruncated = false;
+                if (includeRecentHistory)
+                {
+                    var recent = new System.Collections.Generic.List<FiscalAttemptEvidence>();
+                    foreach (FiscalAttemptEvidence entry in entries)
+                    {
+                        object parsedFamily = Enum.Parse(
+                            typeof(FiscalJournalFamily), entry.Family);
+                        var family = (FiscalJournalFamily)parsedFamily;
+                        IReadOnlyList<FiscalAttemptEvidence> attemptHistory =
+                            history.LoadRecentHistorySummary(lease, family,
+                                entry.AttemptId,
+                                RecentHistoryLimitPerAttempt);
+                        recent.AddRange(attemptHistory);
+                        if (entry.Revision >= RecentHistoryLimitPerAttempt)
+                        {
+                            historyTruncated = true;
+                        }
+                    }
+
+                    revisions = recent.OrderBy(item => item.UpdatedUtc).ToArray();
+                }
+
+                string snapshotJson = bytes == null
+                    ? null
+                    : Encoding.UTF8.GetString(bytes);
+                InvoiceWorkflowSnapshot snapshot = snapshotJson == null
+                    ? null
+                    : JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(
+                        snapshotJson);
+                status = new SharedInvoiceStatus
+                {
+                    Snapshot = snapshot,
+                    Attempts = entries,
+                    Revisions = revisions,
+                    HistoryTruncated = historyTruncated
+                };
                 status.InvoiceSignature = ReadInvoiceSignature(entries);
                 var paymentEntry = entries.LastOrDefault(a => a.Family == "Payment" && a.Operation == "Payment");
                 bool paymentWasSuperseded = status.Snapshot?.PaymentMethodChanges?.Count > 0 &&
@@ -108,9 +160,20 @@ namespace ASFuelControl.Windows.Threads
                 }
             }
             ReadPaymentCompensationStatus(id,status);
+            FiscalAttemptEvidence latestSubmission = status.Attempts
+                .LastOrDefault(attempt => attempt.Family == "Submission");
+            status.LegacyMyDataError228 =
+                ProviderSubmissionService.IsLegacyMyDataError228(
+                    latestSubmission);
             if (status.Snapshot?.Provider != null && status.Attempts.Any(a => a.Family == "Submission"))
             {
-                try { status.ProviderResend = new ProviderSubmissionService(sql.Value,new CurrentCredentials()).GetResendAssessment(id); }
+                try
+                {
+                    status.ProviderResend = status.LegacyMyDataError228
+                        ? null
+                        : new ProviderSubmissionService(sql.Value,
+                            new CurrentCredentials()).GetResendAssessment(id);
+                }
                 catch { status.ProviderResend = null; }
             }
             return status;
@@ -126,8 +189,11 @@ namespace ASFuelControl.Windows.Threads
             Action<string> block = reason => status.IssueDateReissueBlockReason = reason;
             if (invoice == null || savedInvoice == null || snapshot?.Provider == null || snapshot.LocalOnly)
             { block("Δεν υπάρχει πλήρης αποθηκευμένη ροή παρόχου για ασφαλή επανέκδοση."); return; }
-            if (snapshot.Signing != null || entries.Any(entry => entry.Family == "Signing"))
-            { block("Υπάρχει ιστορικό σήμανσης. Δεν επιτρέπεται αυτόματη αλλαγή φορολογικής ταυτότητας."); return; }
+            bool signedDirectMyData = IsSignedDirectMyDataReissue(snapshot,
+                entries);
+            if ((snapshot.Signing != null || entries.Any(entry =>
+                    entry.Family == "Signing")) && !signedDirectMyData)
+            { block("Υπάρχει ιστορικό σήμανσης που δεν μπορεί να αντικατασταθεί με ασφάλεια."); return; }
             if (snapshot.Payment != null || entries.Any(entry => entry.Family == "Payment" || entry.Family == "ProviderSession"))
             { block("Υπάρχει συναλλαγή POS/IRIS ή υπογραφή πληρωμής. Πρέπει πρώτα να συμφωνηθεί η ακύρωση ή επανασύνδεσή της με τη νέα φορολογική ταυτότητα."); return; }
             if (snapshot.MyDieselCouponCaseId.HasValue || entries.Any(entry => entry.Family == "MyDiesel"))
@@ -139,7 +205,10 @@ namespace ASFuelControl.Windows.Threads
             { block("Το παραστατικό έχει ήδη αποθηκευμένη σήμανση ή QR."); return; }
             if (db.MyDataInvoices.Any(value => value.InvoiceId == invoice.InvoiceId && value.Mark > 0))
             { block("Το παραστατικό έχει ήδη MARK."); return; }
-            var other = entries.FirstOrDefault(entry => entry.Family != "Submission" || entry.State != "Rejected");
+            var other = entries.FirstOrDefault(entry =>
+                (entry.Family != "Submission" || entry.State != "Rejected") &&
+                (!signedDirectMyData || entry.Family != "Signing" ||
+                    entry.State != "Signed"));
             if (other != null)
             { block("Υπάρχει πρόσθετο φορολογικό ιστορικό: " + other.Family + " / " + other.State + "."); return; }
             bool originalIdentity = invoice.Number == savedInvoice.Number &&
@@ -156,6 +225,21 @@ namespace ASFuelControl.Windows.Threads
             if (originalIdentity && invoice.TransactionDate.Date >= DateTime.Today)
             { block("Η αποθηκευμένη ημερομηνία δεν είναι παλαιότερη από τη σημερινή."); return; }
             status.CanReissueAfterIssueDateMismatch = true;
+        }
+
+        private static bool IsSignedDirectMyDataReissue(
+            InvoiceWorkflowSnapshot snapshot, FiscalAttemptEvidence[] entries)
+        {
+            if (snapshot?.Provider == null || snapshot.Signing == null ||
+                entries == null || snapshot.Provider.ProviderKey !=
+                    InvoiceProviderCatalog.MyDataKey)
+            {
+                return false;
+            }
+
+            FiscalAttemptEvidence latestSigning = entries.LastOrDefault(entry =>
+                entry.Family == "Signing");
+            return latestSigning?.State == "Signed";
         }
         internal static string ChangePaymentMethod(Guid id, int paymentType)
         {
@@ -269,7 +353,16 @@ namespace ASFuelControl.Windows.Threads
 
             Guid[] parents;
             using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
-                parents = db.InvoiceRelations.Where(r => r.ChildInvoiceId == id).Select(r => r.ParentInvoiceId).Distinct().ToArray();
+            {
+                int processingDependencyType =
+                    (int)Common.Enumerators.InvoiceRelationTypeEnum.ProcessingDependency;
+                parents = db.InvoiceRelations.Where(relation =>
+                        relation.ChildInvoiceId == id &&
+                        relation.RelationType != processingDependencyType)
+                    .Select(relation => relation.ParentInvoiceId)
+                    .Distinct()
+                    .ToArray();
+            }
             if (parents.Length != 1) return;
             status.RefundOriginalInvoiceId = parents[0];
             PaymentCompensationRecord parentOperation;
@@ -497,6 +590,8 @@ namespace ASFuelControl.Windows.Threads
                         "Το παραστατικό δεν είναι πλέον διαθέσιμο για επανέκδοση λόγω ημερομηνίας. Ανανεώστε τη σύνοψη και ελέγξτε το ιστορικό.");
                 var saved = status.Snapshot;
                 var savedInvoice = saved.Invoice.Invoice;
+                bool supersedeSignedRequest = IsSignedDirectMyDataReissue(
+                    saved, status.Attempts);
                 var previousNumber = savedInvoice.Number;
                 var previousSeries = savedInvoice.Series ?? string.Empty;
                 var previousIssueDate = savedInvoice.PrintedDateTime;
@@ -529,10 +624,18 @@ namespace ASFuelControl.Windows.Threads
 
                 var replacement = new Source(false).Prepare(lease);
                 if (replacement?.Provider == null || replacement.LocalOnly ||
-                    replacement.Signing != null || replacement.Payment != null ||
+                    replacement.Payment != null ||
                     replacement.MyDieselCouponCaseId.HasValue)
                     throw new InvalidOperationException(
-                        "Η νέα έκδοση δεν διατηρεί ασφαλή διαδρομή παρόχου χωρίς σήμανση, POS ή myDiesel.");
+                        "Η νέα έκδοση δεν διατηρεί ασφαλή διαδρομή παρόχου χωρίς POS ή myDiesel.");
+                bool matchingReplacementSigning = supersedeSignedRequest &&
+                    replacement.Signing != null &&
+                    FiscalSigningCoordinator.SameScope(saved.Signing.Scope,
+                        replacement.Signing.Scope);
+                if (supersedeSignedRequest != matchingReplacementSigning ||
+                    !supersedeSignedRequest && replacement.Signing != null)
+                    throw new InvalidOperationException(
+                        "Η νέα έκδοση δεν διατηρεί την ίδια ασφαλή συσκευή σήμανσης.");
                 if (!SameProviderIdentity(saved.Provider,replacement.Provider))
                     throw new InvalidOperationException(
                         "Η νέα έκδοση πρέπει να χρησιμοποιήσει τον ίδιο πάροχο, εκδότη και περιβάλλον.");
@@ -570,8 +673,11 @@ namespace ASFuelControl.Windows.Threads
                 var store = new SqlInvoiceWorkflowStore(sql.Value);
                 var original = store.Load(lease);
                 var replacementBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(replacement));
-                store.ReplaceAfterIssueDateReissue(lease,original,replacementBytes);
-                return workflow.Value.Process(id,null,false,retryRejected:true);
+                store.ReplaceAfterIssueDateReissue(lease, original,
+                    replacementBytes, supersedeSignedRequest);
+                var replacementSource = new PreparedWorkflowSource(replacement);
+                return workflow.Value.ProcessIssueDateReissue(id,
+                    replacementSource, supersedeSignedRequest);
             }
         }
         internal static InvoiceWorkflowResult AuthorizeAndResumeSubmission(Guid id)
@@ -601,6 +707,21 @@ namespace ASFuelControl.Windows.Threads
                 .AssessContinuation(status.Snapshot.Provider, previousModel,
                     currentModel, id, previous.State, true,
                     out comparison);
+            bool reuseFrozenDispatchPayload =
+                CanReuseFrozenDirectMyDataDispatchPayload(status.Snapshot,
+                    regenerated, previous, comparison);
+            if (decision.Action != InvoiceContinuationAction.Resend &&
+                decision.Action !=
+                    InvoiceContinuationAction.ContinueExisting &&
+                reuseFrozenDispatchPayload)
+            {
+                regenerated = status.Snapshot;
+                InvoicePayloadComparison frozenComparison;
+                decision = InvoiceWorkflowService.AssessContinuation(
+                    status.Snapshot.Provider, previousModel, previousModel,
+                    id, previous.State, true, out frozenComparison);
+                comparison = frozenComparison;
+            }
             if (decision.Action != InvoiceContinuationAction.Resend &&
                 decision.Action !=
                     InvoiceContinuationAction.ContinueExisting)
@@ -622,6 +743,59 @@ namespace ASFuelControl.Windows.Threads
             var preparedSource = new PreparedWorkflowSource(regenerated);
             return workflow.Value.Process(id,preparedSource,false,retryRejected:true);
         }
+
+        private static bool CanReuseFrozenDirectMyDataDispatchPayload(
+            InvoiceWorkflowSnapshot saved, InvoiceWorkflowSnapshot regenerated,
+            FiscalAttemptEvidence previous,
+            InvoicePayloadComparison comparison)
+        {
+            if (saved?.Provider == null || regenerated?.Provider == null ||
+                previous == null || comparison == null ||
+                saved.Provider.ProviderKey != InvoiceProviderCatalog.MyDataKey ||
+                regenerated.Provider.ProviderKey !=
+                    InvoiceProviderCatalog.MyDataKey ||
+                comparison.Kind != InvoicePayloadComparisonKind.Changed)
+            {
+                return false;
+            }
+
+            bool unresolved = previous.State == "Unknown" ||
+                previous.State == "Sending" ||
+                previous.State == "RetryAuthorized";
+            if (!unresolved)
+            {
+                return false;
+            }
+
+            string savedProviderJson = JsonConvert.SerializeObject(
+                saved.Provider);
+            string regeneratedProviderJson = JsonConvert.SerializeObject(
+                regenerated.Provider);
+            bool sameProvider = string.Equals(savedProviderJson,
+                regeneratedProviderJson, StringComparison.Ordinal);
+            if (!sameProvider)
+            {
+                return false;
+            }
+
+            string[] changedPaths = comparison.ChangedPaths ??
+                new string[0];
+            if (changedPaths.Length == 0)
+            {
+                return false;
+            }
+
+            const string dispatchDatePath =
+                "$.invoice.invoiceHeader.dispatchDate";
+            const string dispatchTimePath =
+                "$.invoice.invoiceHeader.dispatchTime";
+            return changedPaths.All(path =>
+                string.Equals(path, dispatchDatePath,
+                    StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(path, dispatchTimePath,
+                    StringComparison.OrdinalIgnoreCase));
+        }
+
         private sealed class PreparedWorkflowSource : IInvoiceWorkflowSource
         {
             private readonly InvoiceWorkflowSnapshot snapshot;

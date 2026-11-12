@@ -18,8 +18,10 @@ internal static partial class Program
         request.Invoice.InvoiceSeries.InvoiceType.IsRetail=retail;
         request.Invoice.InvoiceLines[0].OfficialFuelCode=fuel;
         return new HeatingCorrectionPlan{OriginalId=source.Id,CreditId=Guid.NewGuid(),ReplacementId=Guid.NewGuid(),
-            OriginalTypeId=Guid.NewGuid(),CreditTypeId=Guid.NewGuid(),OriginalAttemptId=Guid.NewGuid(),OriginalMark=900010,
+            OriginalTypeId=Guid.NewGuid(),CreditTypeId=Guid.NewGuid(),ReplacementTypeId=Guid.NewGuid(),OriginalAttemptId=Guid.NewGuid(),OriginalMark=900010,
             CreditSeries="C",ReplacementSeries="TEST",OriginalDescription="TEST 42",
+            ReplacementProvider=route,ReplacementRouteConfigured=true,
+            ReplacementPaymentConfigured=true,
             Original=new InvoiceWorkflowSnapshot{InvoiceId=source.Id,Invoice=request,Provider=route}};
     }
     static JObject HeatingPayload(HeatingCorrectionPlan p,bool? credit=null)
@@ -59,12 +61,55 @@ internal static partial class Program
             Equal(before,JsonConvert.SerializeObject(plan));
             Throws(()=>HeatingCorrectionPolicy.Validate(plan,HeatingPayload(plan).ToString()));
         });
-        Test("heating batch excludes absent supply, other fuels, unsupported providers and POS",()=>{
+        Test("heating batch excludes invalid sources but converts POS replacement payment",()=>{
             var p=HeatingPlan(InvoiceProviderCatalog.ITimologiaKey);string sent=MissingCategory(HeatingPayload(p));
             p.Original.Invoice.Invoice.SupplyCode=" ";Throws(()=>HeatingCorrectionPolicy.Validate(p,sent));
             p=HeatingPlan(InvoiceProviderCatalog.ITimologiaKey);p.Original.Invoice.Invoice.InvoiceLines[0].OfficialFuelCode=10;Throws(()=>HeatingCorrectionPolicy.Validate(p,sent));
             p=HeatingPlan(InvoiceProviderCatalog.MyDataKey);Throws(()=>HeatingCorrectionPolicy.Validate(p,sent));
-            p=HeatingPlan(InvoiceProviderCatalog.ITimologiaKey);p.Original.Invoice.Invoice.PaymentType=InvoicePaymentType.Card;Throws(()=>HeatingCorrectionPolicy.Validate(p,sent));
+            p=HeatingPlan(InvoiceProviderCatalog.ITimologiaKey);p.Original.Invoice.Invoice.PaymentType=InvoicePaymentType.Card;p.ReplacementPaymentType=InvoicePaymentType.Cash;sent=MissingCategory(HeatingPayload(p));HeatingCorrectionPolicy.Validate(p,sent);
+            Equal(InvoicePaymentType.Credit,p.Request(true,1,"C",DateTime.Now).Invoice.PaymentType);Equal(InvoicePaymentType.Cash,p.Request(false,1,"R",DateTime.Now).Invoice.PaymentType);
+            p.ReplacementPaymentType=InvoicePaymentType.Card;Throws(()=>HeatingCorrectionPolicy.Validate(p,sent));
+        });
+        Test("heating replacement may use a different configured transmission",()=>{
+            var p=HeatingPlan(InvoiceProviderCatalog.ITimologiaKey);
+            string sent=MissingCategory(HeatingPayload(p));
+            p.ReplacementProvider=Route(InvoiceProviderCatalog.DirectIlydaKey);
+            HeatingCorrectionPolicy.Validate(p,sent);
+            p.ReplacementProvider=null;
+            p.ReplacementLocalOnly=true;
+            HeatingCorrectionPolicy.Validate(p,sent);
+        });
+        Test("legacy direct myDATA heating evidence requires a positive MARK",()=>{
+            var plan=HeatingPlan(InvoiceProviderCatalog.MyDataKey);
+            plan.EvidenceKind=HeatingCorrectionEvidenceKind.LegacyMyDataMark;
+            plan.OriginalAttemptId=Guid.Empty;
+            plan.LegacyEvidenceId=Guid.NewGuid();
+            HeatingCorrectionPolicy.ValidateLegacy(plan);
+            var credit=plan.Request(true,43,"C",new DateTime(2026,10,22));
+            int parentCount=credit.Parents.Count();
+            var parent=credit.Parents.First();
+            long parentMark=parent.Transmission.Mark.Value;
+            Equal(1,parentCount);
+            Equal(plan.OriginalMark,parentMark);
+            plan.OriginalMark=0;
+            Throws(()=>HeatingCorrectionPolicy.ValidateLegacy(plan));
+        });
+        Test("legacy sign-only heating evidence requires a fiscal signature",()=>{
+            var plan=HeatingPlan(InvoiceProviderCatalog.ITimologiaKey);
+            plan.EvidenceKind=HeatingCorrectionEvidenceKind.LegacyFiscalSignature;
+            plan.OriginalAttemptId=Guid.Empty;
+            plan.OriginalMark=0;
+            plan.Original.Provider=null;
+            plan.ReplacementProvider=null;
+            plan.OriginalSignature="DEVICE-SIGNATURE";
+            plan.OriginalSigningScope=new FiscalSigningScope("device","device-1",
+                FiscalEnvironment.Test,"000000000",0);
+            HeatingCorrectionPolicy.ValidateLegacy(plan);
+            var credit=plan.Request(true,43,"C",new DateTime(2026,10,22));
+            int parentCount=credit.Parents.Count();
+            Equal(0,parentCount);
+            plan.OriginalSignature=" ";
+            Throws(()=>HeatingCorrectionPolicy.ValidateLegacy(plan));
         });
         Test("batch resume after uncertain credit performs lookup before replacement, without another credit POST",()=>{
             var plan=HeatingPlan(InvoiceProviderCatalog.ITimologiaKey);var creditHttp=new Http(plan.CreditId,InvoiceProviderCatalog.ITimologiaKey){InvoicePost=s=>throw new System.Net.Http.HttpRequestException("lost reply"),Lookup=()=>Reply("{}",503)};
@@ -151,6 +196,16 @@ internal static partial class Program
             try{using(var lease=database.EnterInvoice(failedId))Throws(()=>store.CreateChild(lease,frozen,type,"C",user,"correction",DateTime.Now));}finally{Execute(connection,"DROP TRIGGER RejectHeatingLine;");}
             using(var lease=database.EnterInvoice(failedId))store.CreateChild(lease,frozen,type,"C",user,"correction",DateTime.Now);
             Equal(22,(int)store.ReadHost(failedId)["Invoice"]["Number"]);
+        });
+        Test("source reservation and both correction invoices save in one transaction",()=>{
+            var store=new SqlHeatingCorrectionStore(database);var original=Guid.NewGuid();var type=Guid.NewGuid();var credit=Guid.NewGuid();var replacement=Guid.NewGuid();var user=Guid.NewGuid();
+            Execute(connection,"INSERT dbo.InvoiceType(InvoiceTypeId,LastNumber,DefaultSeries) VALUES('"+type+"',40,'C'); INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,TraderId,NettoAmount,VatAmount,TotalAmount,SupplyNumber,PaymentType,IsPrinted) VALUES('"+original+"','"+type+"',40,'C','20261019','"+Guid.NewGuid()+"',100,24,124,'123456789',1,1); INSERT dbo.InvoiceLine(InvoiceId,InvoiceLineId,SaleTransactionId,FuelTypeId,Volume,TotalPrice,VatAmount) VALUES('"+original+"','"+Guid.NewGuid()+"','"+Guid.NewGuid()+"','"+Guid.NewGuid()+"',50,124,24);");
+            var frozen=store.ReadHost(original);var record=new HeatingCorrectionRecord{OriginalInvoiceId=original,CreditInvoiceId=credit,ReplacementInvoiceId=replacement,BatchId=Guid.NewGuid(),CreatedBy=user,PlanJson="{}"};
+            Execute(connection,"CREATE TRIGGER RejectHeatingReplacementLine ON dbo.InvoiceLine AFTER INSERT AS BEGIN IF EXISTS(SELECT 1 FROM inserted WHERE InvoiceId='"+replacement+"') BEGIN RAISERROR('test pair rollback',16,1); ROLLBACK TRANSACTION; END END;");
+            try{using(var lease=database.EnterInvoice(original))Throws(()=>store.ReserveAndCreateChildren(lease,record,frozen,type,"C","credit",type,"C","replacement",1,DateTime.Now));}finally{Execute(connection,"DROP TRIGGER RejectHeatingReplacementLine;");}
+            Check(!store.Load().Any(r=>r.OriginalInvoiceId==original),"failed pair retained its reservation");Throws(()=>store.ReadHost(credit));Throws(()=>store.ReadHost(replacement));
+            using(var lease=database.EnterInvoice(original))store.ReserveAndCreateChildren(lease,record,frozen,type,"C","credit",type,"C","replacement",1,DateTime.Now);
+            Check(store.Load().Any(r=>r.OriginalInvoiceId==original),"successful pair did not retain its reservation");var savedCredit=store.ReadHost(credit);var savedReplacement=store.ReadHost(replacement);Equal(41,(int)savedCredit["Invoice"]["Number"]);Equal(42,(int)savedReplacement["Invoice"]["Number"]);Equal(0,(int)savedCredit["Invoice"]["PaymentType"]);Equal(1,(int)savedReplacement["Invoice"]["PaymentType"]);
         });
     }
 }

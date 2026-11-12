@@ -202,7 +202,7 @@ namespace ASFuelControl.Invoicing
             bool retryDeclinedPayment, string reprintDestination)
         {
             return ProcessCore(invoiceId,source,print,reprintReason,retryRejected,
-                retryDeclinedPayment,reprintDestination,false);
+                retryDeclinedPayment,reprintDestination,false,false);
         }
 
         // PrintAgent-only repair path. A definitive Samtec amount rejection may
@@ -214,12 +214,20 @@ namespace ASFuelControl.Invoicing
             string reprintDestination = null)
         {
             return ProcessCore(invoiceId,source,print,reprintReason,false,false,
-                reprintDestination,true);
+                reprintDestination,true,false);
+        }
+
+        public InvoiceWorkflowResult ProcessIssueDateReissue(Guid invoiceId,
+            IInvoiceWorkflowSource source, bool supersedeSignedRequest)
+        {
+            return ProcessCore(invoiceId, source, false, null, true, false,
+                null, false, supersedeSignedRequest);
         }
 
         private InvoiceWorkflowResult ProcessCore(Guid invoiceId, IInvoiceWorkflowSource source,
             bool print, string reprintReason, bool retryRejected, bool retryDeclinedPayment,
-            string reprintDestination, bool automaticSamtecAmountCorrection)
+            string reprintDestination, bool automaticSamtecAmountCorrection,
+            bool supersedeSignedRequest)
         {
             using (var lease = database.EnterInvoice(invoiceId))
             {
@@ -382,7 +390,9 @@ namespace ASFuelControl.Invoicing
                                 snapshot.Signing.Scope, snapshot,
                                 retryDefinitiveFailure: retrySigning,
                                 releasedSubmissionAttemptId:
-                                    releasedSubmissionAttemptId);
+                                    releasedSubmissionAttemptId,
+                                supersedeSignedRequest:
+                                    supersedeSignedRequest);
                             // A corrected retry has a new immutable request/attempt ID.
                             // Keep the in-memory workflow aligned for direct-myDATA
                             // submission and for recovery after a process restart.
@@ -901,13 +911,11 @@ namespace ASFuelControl.Invoicing
             string changedPaths = comparison.ChangedPaths == null ||
                 comparison.ChangedPaths.Length == 0
                     ? string.Empty
-                    : " Changed values: " + string.Join(", ",
+                    : " Μεταβληθέντα πεδία: " + string.Join(", ",
                         comparison.ChangedPaths) + ".";
             throw new InvoiceContinuationBlockedException(decision.Reason +
                 changedPaths +
-                " If recovery confirms the original invoice, cancel its MARK " +
-                "for direct myDATA or select a cancellation invoice type for " +
-                "the invoice provider, then issue the replacement.");
+                " Αν η ανάκτηση επιβεβαιώσει το αρχικό παραστατικό, ακυρώστε το MARK για απευθείας διαβίβαση στο myDATA ή επιλέξτε τύπο ακυρωτικού παραστατικού για τον πάροχο και κατόπιν εκδώστε το παραστατικό αντικατάστασης.");
         }
 
         private static bool SameProviderIdentity(ProviderRoute left, ProviderRoute right)

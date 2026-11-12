@@ -825,7 +825,19 @@ namespace ASFuelControl.Windows.ViewModels
                 if (suspendChange)
                     return;
                 suspendChange = true;
-                if (propertyName == "DiscountPercentage")
+                // A locked replacement may still receive the existing
+                // total-driven volume adjustment. Only a volume the user is
+                // allowed to edit invalidates the copied dispenser amounts.
+                bool editedTransformationVolume =
+                    (propertyName == "Volume" ||
+                     propertyName == "VolumeNormalized") &&
+                    this.CanEditTransformationVolume;
+                if (editedTransformationVolume)
+                {
+                    EnableTransformationRecalculation();
+                    RecalculateEditedTransformationLine(false);
+                }
+                else if (propertyName == "DiscountPercentage")
                     SetComputedColumns(true);
                 else if (propertyName == "UnitPriceView")
                 {

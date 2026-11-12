@@ -586,7 +586,6 @@
             // 
             this.radTextBoxVATOffice.AutoSize = false;
             this.radTextBoxVATOffice.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.traderViewModelBindingSource, "TaxRegistrationOffice", true));
-            this.radTextBoxVATOffice.DataBindings.Add(new System.Windows.Forms.Binding("Enabled", this.traderViewModelBindingSource, "UnLockedUI", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
             this.radTextBoxVATOffice.Dock = System.Windows.Forms.DockStyle.Fill;
             this.radTextBoxVATOffice.Font = new System.Drawing.Font("Segoe UI", 9.25F);
             this.radTextBoxVATOffice.Location = new System.Drawing.Point(677, 203);
@@ -611,7 +610,6 @@
             // 
             this.radTextBoxVAT.AutoSize = false;
             this.radTextBoxVAT.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.traderViewModelBindingSource, "TaxRegistrationNumber", true));
-            this.radTextBoxVAT.DataBindings.Add(new System.Windows.Forms.Binding("Enabled", this.traderViewModelBindingSource, "UnLockedUI", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
             this.radTextBoxVAT.Dock = System.Windows.Forms.DockStyle.Fill;
             this.radTextBoxVAT.Font = new System.Drawing.Font("Segoe UI", 9.25F);
             this.radTextBoxVAT.Location = new System.Drawing.Point(181, 203);
@@ -732,7 +730,6 @@
             // 
             this.radTextBoxCity.AutoSize = false;
             this.radTextBoxCity.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.traderViewModelBindingSource, "City", true));
-            this.radTextBoxCity.DataBindings.Add(new System.Windows.Forms.Binding("Enabled", this.traderViewModelBindingSource, "UnLockedUI", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
             this.radTextBoxCity.Dock = System.Windows.Forms.DockStyle.Fill;
             this.radTextBoxCity.Font = new System.Drawing.Font("Segoe UI", 9.25F);
             this.radTextBoxCity.Location = new System.Drawing.Point(181, 95);
@@ -758,7 +755,6 @@
             this.radTextBoxAddress.AutoSize = false;
             this.tableLayoutPanel1.SetColumnSpan(this.radTextBoxAddress, 3);
             this.radTextBoxAddress.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.traderViewModelBindingSource, "Address", true));
-            this.radTextBoxAddress.DataBindings.Add(new System.Windows.Forms.Binding("Enabled", this.traderViewModelBindingSource, "UnLockedUI", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
             this.radTextBoxAddress.Dock = System.Windows.Forms.DockStyle.Fill;
             this.radTextBoxAddress.Font = new System.Drawing.Font("Segoe UI", 9.25F);
             this.radTextBoxAddress.Location = new System.Drawing.Point(181, 68);
@@ -796,7 +792,6 @@
             this.radTextBoxName.AutoSize = false;
             this.tableLayoutPanel1.SetColumnSpan(this.radTextBoxName, 3);
             this.radTextBoxName.DataBindings.Add(new System.Windows.Forms.Binding("Text", this.traderViewModelBindingSource, "Name", true));
-            this.radTextBoxName.DataBindings.Add(new System.Windows.Forms.Binding("Enabled", this.traderViewModelBindingSource, "UnLockedUI", true, System.Windows.Forms.DataSourceUpdateMode.OnPropertyChanged));
             this.radTextBoxName.Dock = System.Windows.Forms.DockStyle.Fill;
             this.radTextBoxName.Font = new System.Drawing.Font("Segoe UI", 9.25F);
             this.radTextBoxName.Location = new System.Drawing.Point(181, 41);

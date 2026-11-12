@@ -777,11 +777,20 @@ namespace Exedron.Invoicing.Adapters
                 ? null
                 : MapTrader<CounterpartRequest>(source.CounterPart,isDeliveryNote);
             if (counterpart != null) counterpart.SupplyAccountNumber = supplyAccount;
+            bool issuerRequiresAddress = source.Issuer != null &&
+                source.Issuer.Branch != 0;
+            bool includeIssuerAddress = isDeliveryNote || issuerRequiresAddress;
+            IssuerRequest issuer = MapTrader<IssuerRequest>(source.Issuer,
+                includeIssuerAddress);
+            if (issuerRequiresAddress)
+            {
+                EnsureCompleteIssuerAddress(issuer);
+            }
             return new ITimologiaInvoiceRequest
             {
                 ExternalSystemId = externalSystemId,
                 Notes = EmptyToNull(source.PaymentTerms),
-                Issuer = MapTrader<IssuerRequest>(source.Issuer, isDeliveryNote),
+                Issuer = issuer,
                 Counterpart = counterpart,
                 Header = MapHeader(source.InvoiceHeader, specialCategory, isDeliveryNote, movePurpose, deliveryHeader),
                 PaymentMethods = (source.PaymentMethods ?? new PaymentMethod[0])
@@ -793,6 +802,27 @@ namespace Exedron.Invoicing.Adapters
                     .ToList(),
                 Summary = MapSummary(source.InvoiceSummary, details)
             };
+        }
+
+        private static void EnsureCompleteIssuerAddress(IssuerRequest issuer)
+        {
+            AddressRequest address = issuer == null ? null : issuer.Address;
+            if (address != null && string.IsNullOrWhiteSpace(address.Number))
+            {
+                address.Number = "-";
+            }
+            bool complete = address != null &&
+                !string.IsNullOrWhiteSpace(address.Street) &&
+                !string.IsNullOrWhiteSpace(address.Number) &&
+                !string.IsNullOrWhiteSpace(address.PostalCode) &&
+                !string.IsNullOrWhiteSpace(address.City);
+            if (!complete)
+            {
+                throw new InvalidOperationException(
+                    "iTimologia: A non-zero issuer branch requires a complete " +
+                    "company address (street, number, postal code and city). " +
+                    "No invoice was submitted.");
+            }
         }
 
         private static T MapTrader<T>(Trader source, bool delivery = false) where T : TraderRequest, new()

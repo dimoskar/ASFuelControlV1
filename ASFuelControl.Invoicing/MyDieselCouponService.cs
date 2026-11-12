@@ -102,14 +102,46 @@ namespace ASFuelControl.Invoicing
 
         public MyDieselCouponCaseRecord DismissRejected(Guid couponCaseId)
         {
+            return DismissInvalid(couponCaseId);
+        }
+
+        public MyDieselCouponCaseRecord DismissInvalid(Guid couponCaseId)
+        {
+            MyDieselCouponCaseRecord initialValue;
+            using (var initialLease = store.Acquire(couponCaseId))
+            {
+                MyDieselCouponCaseRecord loadedValue = store.Load(initialLease);
+                initialValue = Required(loadedValue);
+            }
+
+            using (store.AcquireInvoiceForNewCoupon(initialValue.InvoiceId))
             using (var lease = store.Acquire(couponCaseId))
             {
-                var value = Required(store.Load(lease));
-                var query = store.LoadAttempts(lease).LastOrDefault(a => a.Operation == MyDieselOperation.Query);
-                if (!CanDismissRejected(value) || query == null || query.State != MyDieselOperationState.Rejected)
-                    throw new InvalidOperationException("Only a definitively rejected, never-reserved coupon can be removed from an invoice.");
+                MyDieselCouponCaseRecord loadedValue = store.Load(lease);
+                MyDieselCouponCaseRecord value = Required(loadedValue);
+                if (value.InvoiceId != initialValue.InvoiceId)
+                {
+                    throw new InvalidOperationException("The coupon invoice changed while removal was being prepared.");
+                }
+
+                var attempts = store.LoadAttempts(lease);
+                MyDieselCouponInfo recoveredInfo;
+                if (CanRecoverInactiveFinal(value, attempts, out recoveredInfo))
+                {
+                    ApplyInfo(value, recoveredInfo);
+                    value.LocalStage = MyDieselCaseStage.Final;
+                    value.BlocksInvoice = false;
+                    value.BlocksCouponReuse = false;
+                    Advance(lease, value);
+                }
+
+                if (!CanDismissInvalid(value, attempts))
+                {
+                    throw new InvalidOperationException("Only a definitively rejected, expired, or cancelled coupon can be removed from an unissued invoice.");
+                }
+
                 value.LocalStage = MyDieselCaseStage.Dismissed;
-                Advance(lease,value);
+                Advance(lease, value);
                 return value;
             }
         }
@@ -119,6 +151,120 @@ namespace ASFuelControl.Invoicing
             return value != null && value.LocalStage == MyDieselCaseStage.InterventionRequired &&
                 !value.BlocksInvoice && !value.BlocksCouponReuse && string.IsNullOrWhiteSpace(value.RemoteStatus) &&
                 string.IsNullOrWhiteSpace(value.InvoiceMark) && !value.MarkSourceInvoiceId.HasValue;
+        }
+
+        public static bool CanDismissInvalid(MyDieselCouponCaseRecord value,
+            System.Collections.Generic.IEnumerable<MyDieselAttemptRecord> attempts)
+        {
+            if (value == null || attempts == null || !IsUnissuedCoupon(value))
+            {
+                return false;
+            }
+
+            MyDieselAttemptRecord[] attemptValues = attempts.ToArray();
+            MyDieselAttemptRecord latestQuery = attemptValues.LastOrDefault(attempt =>
+                attempt.Operation == MyDieselOperation.Query);
+            if (CanDismissRejected(value) && latestQuery != null &&
+                latestQuery.State == MyDieselOperationState.Rejected)
+            {
+                return true;
+            }
+
+            bool hasSuccessfulLookup = attemptValues.Any(attempt =>
+                (attempt.Operation == MyDieselOperation.Query ||
+                 attempt.Operation == MyDieselOperation.Release) &&
+                attempt.State == MyDieselOperationState.Succeeded);
+            if (IsInactiveFinal(value) && hasSuccessfulLookup)
+            {
+                return true;
+            }
+
+            MyDieselCouponInfo recoveredInfo;
+            return CanRecoverInactiveFinal(value, attemptValues, out recoveredInfo);
+        }
+
+        private static bool IsUnissuedCoupon(MyDieselCouponCaseRecord value)
+        {
+            return string.IsNullOrWhiteSpace(value.InvoiceMark) &&
+                !value.MarkSourceInvoiceId.HasValue;
+        }
+
+        private static bool IsInactiveFinal(MyDieselCouponCaseRecord value)
+        {
+            MyDieselCouponStatus remoteStatus = MyDieselCouponStates.Parse(
+                value.RemoteStatus);
+            bool inactive = remoteStatus == MyDieselCouponStatus.Expired ||
+                remoteStatus == MyDieselCouponStatus.Cancelled;
+            return value.LocalStage == MyDieselCaseStage.Final && inactive &&
+                !value.BlocksInvoice && !value.BlocksCouponReuse;
+        }
+
+        private static bool CanRecoverInactiveFinal(MyDieselCouponCaseRecord value,
+            System.Collections.Generic.IEnumerable<MyDieselAttemptRecord> attempts,
+            out MyDieselCouponInfo info)
+        {
+            info = null;
+            if (value == null || attempts == null || !IsUnissuedCoupon(value) ||
+                (value.LocalStage != MyDieselCaseStage.Captured &&
+                 value.LocalStage != MyDieselCaseStage.ReserveUnknown &&
+                 value.LocalStage != MyDieselCaseStage.Reserved))
+            {
+                return false;
+            }
+
+            MyDieselAttemptRecord[] attemptValues = attempts.ToArray();
+            MyDieselAttemptRecord latestAttempt = attemptValues.LastOrDefault(attempt =>
+                attempt.Operation == MyDieselOperation.Query ||
+                attempt.Operation == MyDieselOperation.Release);
+            if (latestAttempt == null ||
+                latestAttempt.State != MyDieselOperationState.Succeeded ||
+                string.IsNullOrWhiteSpace(latestAttempt.ResponseBody))
+            {
+                return false;
+            }
+
+            MyDieselCouponInfo candidate = ReadCouponInfo(
+                latestAttempt.ResponseBody);
+            if (candidate == null || candidate.Code != value.CouponCode)
+            {
+                return false;
+            }
+
+            MyDieselCouponStatus status = candidate.KnownStatus;
+            bool inactive = status == MyDieselCouponStatus.Expired ||
+                status == MyDieselCouponStatus.Cancelled;
+            info = inactive ? candidate : null;
+            return inactive;
+        }
+
+        private static MyDieselCouponInfo ReadCouponInfo(string responseBody)
+        {
+            try
+            {
+                JObject envelope = JObject.Parse(responseBody);
+                if ((bool?)envelope["success"] != true || envelope["data"] == null ||
+                    envelope["data"].Type == JTokenType.Null)
+                {
+                    return null;
+                }
+
+                MyDieselCouponInfo value = envelope["data"].ToObject<MyDieselCouponInfo>();
+                if (value == null || string.IsNullOrWhiteSpace(value.Code))
+                {
+                    return null;
+                }
+
+                string normalizedCode = MyDieselCouponIdentity.NormalizeCouponCode(
+                    value.Code);
+                value.Code = normalizedCode;
+                return value;
+            }
+            catch (Exception exception) when (exception is JsonException ||
+                exception is InvalidOperationException ||
+                exception is ArgumentException || exception is FormatException)
+            {
+                return null;
+            }
         }
 
         public MyDieselServiceResult Redeem(Guid couponCaseId, Guid invoiceId, string mark)

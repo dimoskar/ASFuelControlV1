@@ -61,7 +61,7 @@ namespace ASFuelControl.Windows.UI.Controls
             capture = Button("Σάρωση / καταχώριση",CaptureAndReserve);
             reserve = Button("Έλεγχος και δέσμευση",Reserve);
             release = Button("Αποδέσμευση",Release);
-            dismiss = Button("Αφαίρεση άκυρου",DismissRejected);
+            dismiss = Button("Αφαίρεση άκυρου",DismissInvalid);
             refresh = Button("Ανανέωση κατάστασης",Refresh);
             correctMark = Button("Διόρθωση MARK",CorrectMark);
             changeBranch = Button("Αλλαγή πρατηρίου",ChangeBranch);
@@ -134,7 +134,8 @@ namespace ASFuelControl.Windows.UI.Controls
             bool showRelease = value != null && value.LocalStage == MyDieselCaseStage.Reserved;
             release.Visible = showRelease;
             release.Enabled = active && showRelease;
-            bool showDismiss = MyDieselCouponService.CanDismissRejected(value);
+            bool showDismiss = status?.CanAttachNewCoupon == true &&
+                MyDieselCouponService.CanDismissInvalid(value, status.Attempts);
             dismiss.Visible = showDismiss;
             dismiss.Enabled = active && showDismiss;
             bool showRefresh = value != null && (value.LocalStage == MyDieselCaseStage.RedeemUnknown || value.LocalStage == MyDieselCaseStage.Redeemed ||
@@ -276,11 +277,33 @@ namespace ASFuelControl.Windows.UI.Controls
             if (discountCleared && !IsDisposed) invoiceValuesChanged();
         }
 
-        private async void DismissRejected(object sender, EventArgs e)
+        private async void DismissInvalid(object sender, EventArgs e)
         {
-            var value = status?.CouponCase; if (!MyDieselCouponService.CanDismissRejected(value)) return;
-            if (RadMessageBox.Show("Να αφαιρεθεί το απορριφθέν κουπόνι από το παραστατικό; Τα τεκμήρια θα διατηρηθούν.","myDiesel",MessageBoxButtons.YesNo,RadMessageIcon.Question) != DialogResult.Yes) return;
-            await Run(() => SharedMyDieselRuntime.CreateService().DismissRejected(value.CouponCaseId));
+            var value = status?.CouponCase;
+            if (status?.CanAttachNewCoupon != true ||
+                !MyDieselCouponService.CanDismissInvalid(value, status.Attempts))
+            {
+                return;
+            }
+            DialogResult confirmation = RadMessageBox.Show(
+                "Να αφαιρεθεί το άκυρο ή ανενεργό κουπόνι από το παραστατικό; Τα τεκμήρια θα διατηρηθούν.",
+                "myDiesel", MessageBoxButtons.YesNo, RadMessageIcon.Question);
+            if (confirmation != DialogResult.Yes)
+            {
+                return;
+            }
+            bool discountCleared = false;
+            await Run(() =>
+            {
+                MyDieselCouponService service = SharedMyDieselRuntime.CreateService();
+                service.DismissInvalid(value.CouponCaseId);
+                PendingMyDieselSelectionStore.ClearExciseDiscount(invoiceId);
+                discountCleared = true;
+            });
+            if (discountCleared && !IsDisposed)
+            {
+                invoiceValuesChanged();
+            }
         }
 
         private async void Refresh(object sender, EventArgs e)

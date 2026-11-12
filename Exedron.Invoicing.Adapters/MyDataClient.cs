@@ -43,6 +43,12 @@ namespace Exedron.Invoicing.Adapters
             using (options.Store.Acquire(scope, invoiceId))
             {
                 var previous = options.Store.Load(scope, invoiceId);
+                bool legacyReconciliation = PromoteLegacyError228(previous);
+                if (legacyReconciliation)
+                {
+                    return Error(
+                        "Η ΑΑΔΕ έχει ήδη επιστρέψει MARK για αυτό το παραστατικό. Εκτελέστε ανάκτηση διαβίβασης· δεν έγινε νέα αποστολή.");
+                }
                 if (previous != null && previous.State != "Rejected")
                 {
                     bool samePayload = previous.State == "Accepted" &&
@@ -98,8 +104,10 @@ namespace Exedron.Invoicing.Adapters
             using (options.Store.Acquire(scope, invoiceId))
             {
                 var saved = options.Store.Load(scope, invoiceId);
+                PromoteLegacyError228(saved);
                 if (saved?.State == "Accepted") return MapResponse(saved.ResponseXml);
-                if (saved == null || saved.State == "Rejected") return Error("There is no uncertain myDATA submission to reconcile.");
+                if (saved == null || saved.State == "Rejected") return Error(
+                    "Δεν υπάρχει εκκρεμής διαβίβαση myDATA για ανάκτηση.");
                 return Reconcile(saved, invoiceId);
             }
         }
@@ -144,7 +152,8 @@ namespace Exedron.Invoicing.Adapters
             return new InvoiceResponse { Errors = errors.Length > 0 ? errors : new[] { "myDATA did not confirm invoice issuance: " + Value(row, "statusCode") }, Warnings = new string[0] };
         }
         private static string Value(XElement parent, string name) { return (string)parent?.Elements().FirstOrDefault(e => e.Name.LocalName == name); }
-        private static bool TryReadError228(XDocument document, out string uid, out string mark)
+        public static bool TryReadError228(XDocument document, out string uid,
+            out string mark)
         {
             uid = null;
             mark = null;
@@ -165,6 +174,42 @@ namespace Exedron.Invoicing.Adapters
             {
                 mark = markMatch.Groups[1].Value;
             }
+            return true;
+        }
+        private bool PromoteLegacyError228(MyDataSubmission saved)
+        {
+            if (saved == null || saved.State != "Rejected" ||
+                string.IsNullOrWhiteSpace(saved.ResponseXml))
+            {
+                return false;
+            }
+
+            XDocument responseDocument;
+            try
+            {
+                responseDocument = XDocument.Parse(saved.ResponseXml);
+            }
+            catch
+            {
+                return false;
+            }
+
+            string reconciliationUid;
+            string reconciliationMark;
+            bool duplicateEvidence = TryReadError228(responseDocument,
+                out reconciliationUid, out reconciliationMark);
+            if (!duplicateEvidence ||
+                string.IsNullOrWhiteSpace(reconciliationUid) ||
+                string.IsNullOrWhiteSpace(reconciliationMark))
+            {
+                return false;
+            }
+
+            saved.ReconciliationUid = reconciliationUid;
+            saved.ReconciliationMark = reconciliationMark;
+            saved.State = "ReconciliationRequired";
+            saved.CommunicationError = null;
+            options.Store.Save(saved);
             return true;
         }
         private static InvoiceResponse Error(string message) { return new InvoiceResponse { Errors = new[] { message }, Warnings = new string[0] }; }

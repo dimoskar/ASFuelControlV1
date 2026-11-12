@@ -19,6 +19,10 @@ namespace ASFuelControl.Data
 
         public IAlertChecker AlertChecker { set; get; }
 
+        public bool SuppressOutboundWorkNotifications { set; get; }
+
+        public ISet<OutboundWorkType> SuppressedOutboundWorkTypes { set; get; }
+
         private bool databaseChanged = false;
 
         private List<string> tablesToLog = new List<string>();
@@ -480,6 +484,10 @@ namespace ASFuelControl.Data
 
             if (isOnSave)
                 return;
+            IList<object> inserts = null;
+            IList<object> updates = null;
+            IList<object> deletes = null;
+            bool commitSucceeded = false;
             try
             {
                 isOnSave = true;
@@ -488,9 +496,9 @@ namespace ASFuelControl.Data
                 //    scope.Transaction.Begin();
 
                 Telerik.OpenAccess.ContextChanges changes = this.GetChanges();
-                IList<object> inserts = changes.GetInserts<object>();
-                IList<object> updates = changes.GetUpdates<object>();
-                IList<object> deletes = changes.GetDeletes<object>();
+                inserts = changes.GetInserts<object>();
+                updates = changes.GetUpdates<object>();
+                deletes = changes.GetDeletes<object>();
                 List<string> fileNames = new List<string>();
                 System.Runtime.Serialization.Formatters.Binary.BinaryFormatter formatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
 
@@ -553,6 +561,7 @@ namespace ASFuelControl.Data
                 try
                 {
                     base.SaveChanges(failureMode);
+                    commitSucceeded = true;
                     foreach (string fileName in fileNames)
                     {
                         System.IO.File.Delete(fileName);
@@ -592,6 +601,11 @@ namespace ASFuelControl.Data
                     //{
                     //    System.IO.File.Delete(fileName);
                     //}
+                }
+
+                if (!commitSucceeded)
+                {
+                    return;
                 }
 
                 if (inserts != null && inserts.Count > 0)
@@ -667,6 +681,24 @@ namespace ASFuelControl.Data
                 //if(!scope.Transaction.IsManaged)
                 //    scope.Transaction.Commit();
                 isOnSave = false;
+                if (commitSucceeded && !this.SuppressOutboundWorkNotifications)
+                {
+                    try
+                    {
+                        ISet<OutboundWorkType> suppressedWorkTypes =
+                            this.SuppressedOutboundWorkTypes;
+                        OutboundWorkCoordinator.NotifyCommittedChanges(
+                            inserts,
+                            updates,
+                            suppressedWorkTypes);
+                    }
+                    catch (Exception notificationException)
+                    {
+                        Logging.Logger.Instance.LogToFile(
+                            "Outbound Work Notification",
+                            notificationException);
+                    }
+                }
             }
         }
 
@@ -3158,7 +3190,11 @@ namespace ASFuelControl.Data
                 }
                 return;
             }
-            var parRels = db.InvoiceRelations.Where(i => i.ChildInvoiceId == this.InvoiceId).ToArray();
+            int processingDependencyType =
+                (int)Common.Enumerators.InvoiceRelationTypeEnum.ProcessingDependency;
+            var parRels = db.InvoiceRelations.Where(i =>
+                i.ChildInvoiceId == this.InvoiceId &&
+                i.RelationType != processingDependencyType).ToArray();
             var qt = parRels.Select(r => r.ParentInvoice.Trader).Distinct().ToArray();
             var qf = parRels.Select(r => r.ParentInvoice.InvoiceType).Distinct().ToArray();
             var qi = parRels.Select(r => r.ParentInvoice).SelectMany(i => i.FinTransactions).Count();
@@ -3284,7 +3320,12 @@ ELSE SELECT COUNT(*) FROM dbo.FiscalHeatingCorrection WHERE CreditInvoiceId=@id"
             // draft has already applied the only permitted adjustments (partial
             // volume, delivery-note pricing or VAT exemption), so printing must
             // not rebuild it from the original pump transaction.
-            if (this.ParentInvoiceRelations != null && this.ParentInvoiceRelations.Count > 0)
+            int processingDependencyType =
+                (int)Common.Enumerators.InvoiceRelationTypeEnum.ProcessingDependency;
+            bool hasTransformationParent = this.ParentInvoiceRelations != null &&
+                this.ParentInvoiceRelations.Any(relation =>
+                    relation.RelationType != processingDependencyType);
+            if (hasTransformationParent)
                 return;
 
             if (this.Trader != null && this.Trader.VatExemption.HasValue && this.Trader.VatExemption.Value)

@@ -68,6 +68,11 @@ internal static partial class Program
         });
         Test("myDiesel coupon action rules match the documented lifecycle", () => {
             Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.InterventionRequired, MyDieselCaseStage.Dismissed), "Rejected coupon cannot be dismissed.");
+            Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Captured, MyDieselCaseStage.Final), "Captured expired coupon cannot become final.");
+            Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Reserved, MyDieselCaseStage.Final), "Reserved cancelled coupon cannot become final.");
+            Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.InvoiceAccepted, MyDieselCaseStage.VerificationPending), "Accepted invoice cannot retain a verification result.");
+            Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.InvoiceAccepted, MyDieselCaseStage.Final), "Accepted invoice cannot retain a final result.");
+            Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Final, MyDieselCaseStage.Dismissed), "Inactive final coupon cannot be dismissed.");
             Check(!MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Reserved, MyDieselCaseStage.Dismissed), "Reserved coupon can be dismissed without release.");
             Check(MyDieselCouponStates.CanRedeem(MyDieselCouponStatus.Reserved), "Reserved coupon cannot redeem.");
             Check(MyDieselCouponStates.CanRedeem(MyDieselCouponStatus.VerificationInvalid), "Invalid verification cannot be corrected.");

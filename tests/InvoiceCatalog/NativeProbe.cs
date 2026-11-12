@@ -67,6 +67,7 @@ internal static class NativeProbe
     {
         var vm = (InvoiceCatalogViewModel)Field(catalog, "vm");
         var grid = (RadGridView)Field(catalog, "invoiceRadGridView");
+        VerifyCreditSelectionAndProcessingDependency();
         vm.InvoicesFrom = vm.InvoicesTo = new DateTime(2026, 10, 18);
         using (var blocker = new SqlConnection(connection))
         {
@@ -122,6 +123,123 @@ internal static class NativeProbe
             await Until(() => gate.CurrentCount == 1);
             Check(object.ReferenceEquals(previous, vm.Invoices), "closing a loading catalog does not bind results to disposed controls");
         }
+    }
+
+    private static void VerifyCreditSelectionAndProcessingDependency()
+    {
+        MethodInfo canSelectMethod = typeof(InvoiceCatalog).GetMethod(
+            "CanSelectInvoice", BindingFlags.Static | BindingFlags.NonPublic);
+        var replacedInvoice = new InvoiceCatalogView
+        {
+            Replaced = 1
+        };
+        object replacedSelectionValue = canSelectMethod.Invoke(
+            null, new object[] { replacedInvoice });
+        bool replacedInvoiceCanBeSelected = Convert.ToBoolean(
+            replacedSelectionValue);
+        Check(replacedInvoiceCanBeSelected,
+            "replaced invoice remains selectable for a credit transformation");
+
+        var canceledInvoice = new InvoiceCatalogView
+        {
+            Canceled = 1
+        };
+        object canceledSelectionValue = canSelectMethod.Invoke(
+            null, new object[] { canceledInvoice });
+        bool canceledInvoiceCanBeSelected = Convert.ToBoolean(
+            canceledSelectionValue);
+        Check(!canceledInvoiceCanBeSelected,
+            "canceled invoice remains unavailable for another transformation");
+
+        MethodInfo createsCreditMethod = typeof(InvoiceCatalog).GetMethod(
+            "TransformationCreatesCredit",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var directCreditTransformation = new InvoiceTypeTransform
+        {
+            TransformationMode = (int)ASFuelControl.Common.Enumerators
+                .InvoiceTransformationTypeEnum.OneToOne
+        };
+        var creditInvoiceType = new InvoiceType
+        {
+            IsCancelation = true
+        };
+        object directCreditValue = createsCreditMethod.Invoke(
+            null, new object[]
+            {
+                directCreditTransformation,
+                creditInvoiceType
+            });
+        bool directCreditIsAllowed = Convert.ToBoolean(directCreditValue);
+        Check(directCreditIsAllowed,
+            "direct credit type is accepted for an already replaced invoice");
+
+        var ordinaryInvoiceType = new InvoiceType
+        {
+            IsCancelation = false
+        };
+        object ordinaryTransformationValue = createsCreditMethod.Invoke(
+            null, new object[]
+            {
+                directCreditTransformation,
+                ordinaryInvoiceType
+            });
+        bool ordinaryTransformationCreatesCredit = Convert.ToBoolean(
+            ordinaryTransformationValue);
+        Check(!ordinaryTransformationCreatesCredit,
+            "ordinary second replacement remains unavailable");
+
+        Assembly windowsAssembly = typeof(InvoiceCatalog).Assembly;
+        Type runtimeType = windowsAssembly.GetType(
+            "ASFuelControl.Windows.Threads.SharedInvoiceRuntime");
+        MethodInfo dependencyGuard = runtimeType.GetMethod(
+            "EnsureProcessingDependenciesCompleted",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        var credit = new Invoice
+        {
+            InvoiceId = Guid.NewGuid(),
+            InvoiceType = new InvoiceType
+            {
+                Abbreviation = "Credit"
+            },
+            IsPrinted = false
+        };
+        var replacement = new Invoice
+        {
+            InvoiceId = Guid.NewGuid()
+        };
+        var dependency = new InvoiceRelation
+        {
+            InvoiceRelationId = Guid.NewGuid(),
+            ParentInvoiceId = credit.InvoiceId,
+            ChildInvoiceId = replacement.InvoiceId,
+            ParentInvoice = credit,
+            ChildInvoice = replacement,
+            RelationType = (int)ASFuelControl.Common.Enumerators
+                .InvoiceRelationTypeEnum.ProcessingDependency
+        };
+        replacement.ParentInvoiceRelations.Add(dependency);
+        credit.ChildInvoiceRelations.Add(dependency);
+        Check(!dependency.IsExternalFiscalCorrelation,
+            "processing dependency is not a fiscal invoice correlation");
+        Check(!credit.IsReplaced && !replacement.IsReplacing,
+            "processing dependency does not change invoice replacement status");
+
+        bool unfinishedCreditWasBlocked = false;
+        try
+        {
+            dependencyGuard.Invoke(null, new object[] { replacement });
+        }
+        catch (TargetInvocationException exception)
+        {
+            unfinishedCreditWasBlocked =
+                exception.InnerException is InvalidOperationException;
+        }
+        Check(unfinishedCreditWasBlocked,
+            "replacement processing waits for its credit invoice");
+
+        credit.IsPrinted = true;
+        dependencyGuard.Invoke(null, new object[] { replacement });
+        Check(true, "replacement processing is released after credit printing");
     }
 
     private static void LockInvoices(SqlConnection c, SqlTransaction t)

@@ -76,24 +76,63 @@ internal static class HeatingNativeProbe
         var themeAssembly=Assembly.LoadFrom(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"Telerik.WinControls.Themes.TelerikMetroBlue.dll"));
         Activator.CreateInstance(themeAssembly.GetType("Telerik.WinControls.Themes.TelerikMetroBlueTheme"));
         Telerik.WinControls.ThemeResolutionService.ApplicationThemeName="TelerikMetroBlue";
-        var creditType=assembly.GetType("ASFuelControl.Windows.Threads.HeatingCreditType");var types=Array.CreateInstance(creditType,2);
-        for(int i=0;i<2;i++){var t=Activator.CreateInstance(creditType,true);creditType.GetProperty("Id").SetValue(t,Guid.NewGuid());creditType.GetProperty("Name").SetValue(t,i==0?"Πιστωτικό λιανικής / ΠΛ":"Πιστωτικό τιμολόγιο / ΠΤ");creditType.GetProperty("Retail").SetValue(t,i==0);types.SetValue(t,i);}
+        var creditType=assembly.GetType("ASFuelControl.Windows.Threads.HeatingCreditType");var creditTypes=Array.CreateInstance(creditType,2);var replacementTypes=Array.CreateInstance(creditType,2);
+        for(int i=0;i<2;i++){var t=Activator.CreateInstance(creditType,true);creditType.GetProperty("Id").SetValue(t,Guid.NewGuid());creditType.GetProperty("Name").SetValue(t,i==0?"Πιστωτικό λιανικής / ΠΛ":"Πιστωτικό τιμολόγιο / ΠΤ");creditType.GetProperty("Retail").SetValue(t,i==0);creditTypes.SetValue(t,i);
+            var replacement=Activator.CreateInstance(creditType,true);creditType.GetProperty("Id").SetValue(replacement,Guid.NewGuid());creditType.GetProperty("Name").SetValue(replacement,i==0?"Απόδειξη λιανικής / ΑΛΠ":"Τιμολόγιο πώλησης / ΤΠ");creditType.GetProperty("Retail").SetValue(replacement,i==0);replacementTypes.SetValue(replacement,i);}
         var formType=assembly.GetType("ASFuelControl.Windows.UI.Forms.HeatingCorrectionBatchForm");
-        using(var form=(Form)Activator.CreateInstance(formType,Private,null,new object[]{new DateTime(2026,10,1),new DateTime(2026,10,22),types},null)) {
+        using(var form=(Form)Activator.CreateInstance(formType,Private,null,new object[]{new DateTime(2026,10,1),new DateTime(2026,10,22),creditTypes,replacementTypes},null)) {
             form.ShowInTaskbar=false;form.StartPosition=FormStartPosition.Manual;form.Location=new Point(-20000,-20000);form.Show();Application.DoEvents();
             var grid=(RadGridView)Field(form,"grid");var start=(RadButton)Field(form,"start");
             Check(grid.Columns.Count==8&&grid.Columns["Selected"].ReadOnly==false,"batch table contains selection, both correction documents and exclusion reason");
+            var dropDownNames=new[]{"retail","wholesale","retailReplacement",
+                "wholesaleReplacement","exceptionalPayment","invoiceTypeFilter",
+                "statusFilter"};
+            Check(dropDownNames.All(name=>
+                    ((RadDropDownList)Field(form,name)).DropDownStyle==
+                    Telerik.WinControls.RadDropDownStyle.DropDownList),
+                "all catalog selectors are non-editable drop-down lists");
+            var exceptionalPayment=(RadDropDownList)Field(form,"exceptionalPayment");
+            Check((int)exceptionalPayment.SelectedValue==1,"POS IRIS and fleet replacements default to cash");
             Check(!start.Enabled,"batch cannot start before a review");
             var rowType=assembly.GetType("ASFuelControl.Windows.Threads.HeatingBatchRow");var rows=(IList)Field(form,"rows");
             var row=Activator.CreateInstance(rowType,true);
             Action<string,object> set=(n,v)=>rowType.GetProperty(n).SetValue(row,v);
-            set("Document","ΤΠ Β 142");set("Provider","iTimologia");set("Supply","123456789");set("Amount",124m);set("Eligible",true);set("Selected",true);set("Status","Έτοιμο — λείπει η ένδειξη 11");rows.Add(row);
+            var firstTypeId=Guid.NewGuid();
+            set("Document","ΤΠ Β 142");set("InvoiceTypeId",firstTypeId);set("InvoiceType","Τιμολόγιο πώλησης");set("Provider","iTimologia");set("Supply","123456789");set("Amount",124m);set("Eligible",true);set("Selected",true);set("Status","Έτοιμο — λείπει η ένδειξη 11");rows.Add(row);
+            var completedRow=Activator.CreateInstance(rowType,true);
+            var secondTypeId=Guid.NewGuid();
+            Action<string,object> setCompleted=(n,v)=>rowType.GetProperty(n).SetValue(completedRow,v);
+            setCompleted("Document","ΑΛΠ 91");setCompleted("InvoiceTypeId",secondTypeId);setCompleted("InvoiceType","Απόδειξη λιανικής");setCompleted("Provider","myDATA");setCompleted("Supply","987654321");setCompleted("Amount",80m);setCompleted("Completed",true);setCompleted("Status","Ολοκληρώθηκε η πίστωση και επανέκδοση.");rows.Add(completedRow);
+            formType.GetMethod("RefreshCatalogFilters",Private).Invoke(form,null);
+            var invoiceTypeFilter=(RadDropDownList)Field(form,"invoiceTypeFilter");
+            Check(invoiceTypeFilter.Items.Count==3,
+                "invoice-type filter contains only types present in the catalog");
+            var statusFilter=(RadDropDownList)Field(form,"statusFilter");
+            statusFilter.SelectedValue=1;Application.DoEvents();
+            var visibleRows=(IList)Field(form,"visibleRows");
+            Check(visibleRows.Count==1&&
+                (bool)rowType.GetProperty("Completed").GetValue(visibleRows[0]),
+                "status filter isolates successfully completed corrections");
+            statusFilter.SelectedValue=0;
+            invoiceTypeFilter.SelectedValue=firstTypeId;
+            Application.DoEvents();
+            visibleRows=(IList)Field(form,"visibleRows");
+            Check(visibleRows.Count==1&&
+                (Guid)rowType.GetProperty("InvoiceTypeId").GetValue(
+                    visibleRows[0])==firstTypeId,
+                "invoice-type filter isolates the selected existing type");
+            invoiceTypeFilter.SelectedValue=Guid.Empty;
+            Application.DoEvents();
+            rowType.GetProperty("Selected").SetValue(row,true);
             formType.GetField("scanned",Private).SetValue(form,true);formType.GetMethod("UpdateButtons",Private).Invoke(form,null);
             Check(start.Enabled,"reviewed eligible selection enables the batch");
             var from=(RadDateTimePicker)Field(form,"from");from.Value=from.Value.AddDays(1);Application.DoEvents();
             Check(!start.Enabled&&!(bool)rowType.GetProperty("Eligible").GetValue(row),"changing filters invalidates the reviewed selection");
             foreach(int width in new[]{1230,1024}) {
                 form.ClientSize=new Size(width,770);Application.DoEvents();
+                var scan=(Control)Field(form,"scan");
+                Check(!scan.Bounds.IntersectsWith(exceptionalPayment.Bounds),
+                    "payment filter does not overlap scan at width "+width);
                 var buttons=new[]{"export","print","pause","resume","start"}.Select(n=>(Control)Field(form,n)).ToArray();
                 Check(buttons.All(b=>b.Bottom<=b.Parent.ClientSize.Height&&b.Right<=b.Parent.ClientSize.Width),"all batch actions fit at width "+width);
                 for(int i=0;i<buttons.Length;i++)for(int j=i+1;j<buttons.Length;j++)Check(!buttons[i].Bounds.IntersectsWith(buttons[j].Bounds),"actions do not overlap at width "+width+" ("+i+","+j+")");

@@ -149,6 +149,33 @@ internal static class Program
             Equal(1.73306m, prices.Net);
             Equal(2.14899m, prices.Retail);
         });
+        Run("unchanged dispenser values preserve fiscal amounts for a retail replacement", () => {
+            var prices = TransformationUnitPrice.FromRetail(2.079m, 24m);
+            bool unchanged = TransformationFiscalAmountPolicy.HasUnchangedPriceAndVolume(
+                28.857m, 28.857m, prices, prices.Retail, prices.Net, true);
+            Equal(true, unchanged);
+            decimal multipliedTotal = decimal.Round(
+                28.857m * prices.Retail, 2, MidpointRounding.ToEven);
+            Equal(59.99m, multipliedTotal);
+        });
+        Run("unchanged dispenser values preserve fiscal amounts when replacement price excludes VAT", () => {
+            var prices = TransformationUnitPrice.FromRetail(2.079m, 24m);
+            bool unchanged = TransformationFiscalAmountPolicy.HasUnchangedPriceAndVolume(
+                28.857m, 28.857m, prices, prices.Retail, prices.Net, false);
+            Equal(true, unchanged);
+        });
+        Run("edited transformation price or volume does not preserve source fiscal amounts", () => {
+            var prices = TransformationUnitPrice.FromRetail(2.079m, 24m);
+            bool changedVolume = TransformationFiscalAmountPolicy.HasUnchangedPriceAndVolume(
+                28.857m, 28.856m, prices, prices.Retail, prices.Net, true);
+            bool changedRetailPrice = TransformationFiscalAmountPolicy.HasUnchangedPriceAndVolume(
+                28.857m, 28.857m, prices, 2.080m, prices.Net, true);
+            bool changedNetPrice = TransformationFiscalAmountPolicy.HasUnchangedPriceAndVolume(
+                28.857m, 28.857m, prices, prices.Retail, 1.677m, false);
+            Equal(false, changedVolume);
+            Equal(false, changedRetailPrice);
+            Equal(false, changedNetPrice);
+        });
         Run("financial transformation keeps unit price locked", () => {
             Equal(false, TransformationEditPolicy.AllowUnitPriceEdit(
                 true, false, "123456789", "987654321"));
@@ -336,6 +363,48 @@ internal static class Program
             Equal("BG204985348",(string)ilyda["buyer"]["buyerVatIdentifier"]);
             Equal("BG",(string)ilyda["buyer"]["buyerPostalAddress"]["buyerCountryCode"]);
         });
+        Run("iTimologia includes the issuer address for a non-zero branch", () => {
+            var invoice = Invoice();
+            var context = Context();
+            context.Company.CompanyBranch = "2";
+            var model = Mapper.Build(invoice,context);
+            string payload = new InvoiceAdapterFactory(new InvoiceTypeResolver())
+                .CreatePayloadMapper(InvoiceProviderCatalog.ITimologiaKey)
+                .Serialize(model,invoice.InvoiceId);
+            var json = JObject.Parse(payload);
+            Equal(2,(int)json["issuer"]["branch"]);
+            Equal("Issuer Road",(string)json["issuer"]["address"]["street"]);
+            Equal("10",(string)json["issuer"]["address"]["number"]);
+            Equal("10000",(string)json["issuer"]["address"]["postal_code"]);
+            Equal("Test City",(string)json["issuer"]["address"]["city"]);
+        });
+        Run("iTimologia defaults a missing issuer street number", () => {
+            var invoice = Invoice();
+            var context = Context();
+            context.Company.CompanyBranch = "2";
+            var model = Mapper.Build(invoice,context);
+            model.Issuer.Address.Number = null;
+            var adapterFactory = new InvoiceAdapterFactory(
+                new InvoiceTypeResolver());
+            var payloadMapper = adapterFactory.CreatePayloadMapper(
+                InvoiceProviderCatalog.ITimologiaKey);
+            string payload = payloadMapper.Serialize(model,invoice.InvoiceId);
+            var json = JObject.Parse(payload);
+            Equal("-",(string)json["issuer"]["address"]["number"]);
+        });
+        Run("iTimologia rejects an incomplete issuer address for a non-zero branch", () => {
+            var invoice = Invoice();
+            var context = Context();
+            context.Company.CompanyBranch = "2";
+            context.Company.CompanyAddress = "";
+            var model = Mapper.Build(invoice,context);
+            ThrowsAny(() => {
+                var payloadMapper = new InvoiceAdapterFactory(
+                    new InvoiceTypeResolver()).CreatePayloadMapper(
+                        InvoiceProviderCatalog.ITimologiaKey);
+                payloadMapper.Serialize(model,invoice.InvoiceId);
+            });
+        });
         Run("configured non-EU VAT prefix resolves as export", () => {
             var i = Invoice(new Fixture { Gross = 100m,Vat = 0m,Rate = 0m,ExpectedNet = 100m });
             i.Trader.Country = "GR";
@@ -489,6 +558,24 @@ internal static class Program
                 }
                 Throws(() => Mapper.Map(i,c));
             });
+        Run("misconfigured cancellation type has a specific Greek message", () => {
+            var c = Context();
+            c.IncludeSaleCorrelations = false;
+            var i = Invoice(new Fixture { ParentMark = 900001 }, c);
+            i.ParentInvoiceRelations[0].RelationType = 0;
+            ThrowsMessage(
+                "Ο τύπος παραστατικού που επιλέξατε ως ακυρωτικό δεν έχει ενεργοποιημένη την επιλογή «Ακυρωτικό παραστατικό». Ελέγξτε τις ρυθμίσεις του τύπου παραστατικού.",
+                () => Mapper.Map(i, c));
+        });
+        Run("ordinary replacement keeps the correlation-policy message", () => {
+            var c = Context();
+            c.IncludeSaleCorrelations = false;
+            var i = Invoice(new Fixture { ParentMark = 900001 }, c);
+            i.ParentInvoiceRelations[0].RelationType = 1;
+            ThrowsMessage(
+                "Το παραστατικό συνδέεται με προηγούμενη πώληση, αλλά δεν έχει ενεργοποιηθεί η αντίστοιχη πολιτική συσχέτισης.",
+                () => Mapper.Map(i, c));
+        });
         Run("local transformation provenance is not an external correlation", () => {
             var c = Context(); c.IncludeSaleCorrelations = false;
             var i = Invoice(); var p = Invoice();
@@ -786,7 +873,12 @@ internal static class Program
         if (f.ParentMark.HasValue)
         {
             var p = Invoice(new Fixture { OfficialCode = f.OfficialCode, Country = f.Country });
-            i.ParentInvoiceRelations.Add(new InvoiceRelation { ParentInvoice = p });
+            int relationType = f.Credit || f.OfficialCode == 215 ? 0 : 1;
+            i.ParentInvoiceRelations.Add(new InvoiceRelation
+            {
+                ParentInvoice = p,
+                RelationType = relationType
+            });
             c.Parents[p.InvoiceId] = new ParentEvidence { InvoiceId = p.InvoiceId, IssuerVat = "000000000", IssuerBranch = 0, Environment = FiscalEnvironment.Test,
                 Transmission = new TransmissionEvidence { Status = 3, Mark = f.ParentMark, CanceledByMark = f.ParentCancelled ? (long?)900002 : null } };
         }
@@ -796,6 +888,19 @@ internal static class Program
     static DeliveryContext Delivery() => new DeliveryContext { Vehicle = "TEST1234", Departure = new DateTime(2026,10,15,10,30,0), LoadingAddress = new Address { Street = "Issuer Road", Number = "10", City = "Test City", PostalCode = "10000" }, DeliveryAddress = new Address { Street = "Customer Road", Number = "20", City = "Test City", PostalCode = "20000" } };
     static void Reject(string name, Action<Entity,MappingContext> change) => Run(name, () => { var i = Invoice(); var c = Context(); change(i,c); Throws(() => Mapper.Map(i,c)); });
     static void Throws(Action action) { try { action(); } catch(ProviderInvoiceValidationException) { return; } throw new Exception("Expected mapping validation failure"); }
+    static void ThrowsMessage(string expected, Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (ProviderInvoiceValidationException exception)
+        {
+            Equal(expected, exception.Message);
+            return;
+        }
+        throw new Exception("Expected mapping validation failure");
+    }
     static void ThrowsAny(Action action) { try { action(); } catch(InvalidOperationException) { return; } throw new Exception("Expected unsupported payload failure"); }
     static void Equal<T>(T expected,T actual) { if (!object.Equals(expected,actual)) throw new Exception("Expected " + expected + ", got " + actual); }
     static void Run(string name,Action action) { try { action(); passed++; Console.WriteLine("PASS " + name); } catch(Exception e) { failed++; Console.WriteLine("FAIL " + name + ": " + e); } }

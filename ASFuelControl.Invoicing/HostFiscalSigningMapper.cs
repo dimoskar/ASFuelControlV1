@@ -11,7 +11,8 @@ namespace ASFuelControl.Invoicing
     public static class HostFiscalSigningMapper
     {
         public static FiscalSigningRequest Invoice(Data.Invoice invoice, FiscalSigningScope scope, string renderedText,
-            bool hasLegacySubmission, string eftPosTID = null)
+            bool hasLegacySubmission, string eftPosTID = null,
+            bool reconcileDetachedSaleQuantity = false)
         {
             DatabaseInvoiceSource.EnsureNoLegacyHistory(invoice, hasLegacySubmission);
             if (invoice.InvoiceType == null || invoice.Number <= 0 || !invoice.TotalAmount.HasValue)
@@ -71,7 +72,12 @@ namespace ASFuelControl.Invoicing
                             grossAmount,quantity);
                     }
                     else
-                        quantity = ReconcileSamtecSaleQuantity(l, itemAmount, quantity, grossAmount);
+                    {
+                        bool reconcileQuantity = reconcileDetachedSaleQuantity ||
+                            IsSaleDerived(l);
+                        quantity = ReconcileSamtecSaleQuantity(l, itemAmount,
+                            quantity, grossAmount, reconcileQuantity);
+                    }
                     if (decimal.Round(itemAmount * quantity,2,MidpointRounding.ToEven) != grossAmount)
                         throw new InvalidOperationException(
                             "A Samtec line total does not match its VAT-inclusive item amount and quantity.");
@@ -104,9 +110,15 @@ namespace ASFuelControl.Invoicing
         private static decimal SamtecVatInclusiveUnitPrice(Data.InvoiceLine line,
             bool singleLineInvoice)
         {
+            // A zero-VAT invoice line is priced from its stored zero-VAT amount.
+            // Its linked dispenser sale still contains the original retail price,
+            // which would reintroduce VAT and no longer match the saved gross total.
+            if (line.VatPercentage == 0 && line.UnitPriceWhole > 0)
+                return line.UnitPriceWhole;
+
             // A dispenser sale anywhere in the transformation ancestry is the
-            // physical source of truth. Do not use a possibly edited, recalculated,
-            // or stale invoice-line price for it.
+            // physical source of truth for VAT-bearing lines. Do not use a possibly
+            // edited, recalculated, or stale invoice-line price for it.
             var sale = RelatedSalesTransaction(line, singleLineInvoice);
             if (sale != null)
             {
@@ -121,8 +133,6 @@ namespace ASFuelControl.Invoicing
             // but its coupled UnitPriceRetail is the wire value. Never choose a
             // larger/stale generic UnitPrice and never reconstruct retail from the
             // rounded wholesale value.
-            if (line.VatPercentage == 0 && line.UnitPriceWhole > 0)
-                return line.UnitPriceWhole;
             if (line.UnitPriceRetail > 0)
                 return line.UnitPriceRetail;
             throw new InvalidOperationException(
@@ -208,9 +218,10 @@ namespace ASFuelControl.Invoicing
         }
 
         private static decimal ReconcileSamtecSaleQuantity(Data.InvoiceLine line,
-            decimal itemAmount, decimal quantity, decimal grossAmount)
+            decimal itemAmount, decimal quantity, decimal grossAmount,
+            bool reconcileQuantity)
         {
-            if (!IsSaleDerived(line) || itemAmount <= 0 || quantity <= 0 ||
+            if (!reconcileQuantity || itemAmount <= 0 || quantity <= 0 ||
                 decimal.Round(line.DiscountAmount, 2, MidpointRounding.ToEven) != 0 ||
                 decimal.Round(line.DiscountAmountRetail, 2, MidpointRounding.ToEven) != 0)
                 return quantity;

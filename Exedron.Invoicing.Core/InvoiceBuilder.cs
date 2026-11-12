@@ -133,26 +133,27 @@ namespace Exedron.Invoicing.Core
             if (sales.Length > 0)
             {
                 Require(invoiceType == "1.1" && tanker == null,
-                    "Explicit sale correlations are supported only for ordinary domestic wholesale goods invoices.");
-                Require(invoice.InvoiceId != Guid.Empty, "A correlated sale requires a saved invoice ID.");
+                    "Η ρητή συσχέτιση πωλήσεων υποστηρίζεται μόνο για κανονικά εγχώρια τιμολόγια πώλησης αγαθών χονδρικής.");
+                Require(invoice.InvoiceId != Guid.Empty,
+                    "Για τη συσχέτιση πώλησης απαιτείται αποθηκευμένο παραστατικό.");
                 foreach (var parent in sales)
                 {
                     Require(parent?.Invoice?.InvoiceSeries?.InvoiceType != null && parent.Invoice.Trader != null &&
                         parent.Invoice.InvoiceId != Guid.Empty && parent.Invoice.InvoiceId != invoice.InvoiceId,
-                        "A sale correlation must identify a different original document.");
+                        "Η συσχέτιση πώλησης πρέπει να αναφέρεται σε διαφορετικό αρχικό παραστατικό.");
                     Require(parent.Invoice.InvoiceSeries.InvoiceType.InvoiceTypeMode == InvoiceMode.Normal &&
                         !parent.Invoice.InvoiceSeries.InvoiceType.IsRetail,
-                        "A sale correlation must reference a normal wholesale document.");
+                        "Η συσχέτιση πώλησης πρέπει να αναφέρεται σε κανονικό παραστατικό χονδρικής.");
                     int parentKind = parent.Invoice.InvoiceSeries.InvoiceType.MyDataDocumentKind;
                     Require(parentKind == (int)MyDataDocumentKind.Goods || parentKind == (int)MyDataDocumentKind.Services ||
                         parentKind == (int)MyDataDocumentKind.Delivery,
-                        "A sale correlation requires an original sale or ordinary delivery document.");
+                        "Η συσχέτιση πώλησης απαιτεί αρχικό παραστατικό πώλησης ή κανονικό δελτίο αποστολής.");
                     Require(Clean(parent.Invoice.Trader.TaxRegistrationId) == Clean(customer.TaxRegistrationId),
-                        "A sale correlation must have the same customer VAT number.");
+                        "Η συσχέτιση πώλησης πρέπει να έχει τον ίδιο ΑΦΜ πελάτη με το αρχικό παραστατικό.");
                     Require(parent.Transmission != null && parent.Transmission.Status == 3 &&
                         parent.Transmission.Mark.GetValueOrDefault() > 0 && !parent.Transmission.CancelationMark.HasValue &&
                         !parent.Transmission.CanceledByMark.HasValue,
-                        "Every sale correlation requires an accepted, uncancelled MARK.");
+                        "Κάθε συσχέτιση πώλησης απαιτεί αποδεκτό MARK που δεν έχει ακυρωθεί.");
                 }
                 model.InvoiceHeader.CorrelatedInvoices = sales.Select(p => p.Transmission.Mark.Value).Distinct().ToArray();
             }

@@ -144,8 +144,12 @@ namespace ASFuelControl.Data.Implementation
                     continue;
                 }
 
+                int processingDependencyType =
+                    (int)InvoiceRelationTypeEnum.ProcessingDependency;
                 Guid[] childInvoiceIds = database.InvoiceRelations
-                    .Where(relation => invoiceBatch.Contains(relation.ParentInvoiceId))
+                    .Where(relation =>
+                        invoiceBatch.Contains(relation.ParentInvoiceId) &&
+                        relation.RelationType != processingDependencyType)
                     .Select(relation => relation.ChildInvoiceId)
                     .ToArray();
 

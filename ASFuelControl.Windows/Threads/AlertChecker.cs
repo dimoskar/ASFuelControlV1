@@ -1,4 +1,5 @@
 ﻿using ASFuelControl.Data;
+using ASFuelControl.Data.Implementation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +10,13 @@ namespace ASFuelControl.Windows.Threads
 {
     public class AlertChecker : Data.Implementation.IAlertChecker
     {
+        private static readonly ISet<OutboundWorkType>
+            SuppressedAlertEvaluationWorkTypes =
+                new HashSet<OutboundWorkType>
+                {
+                    OutboundWorkType.AlertEvaluation
+                };
+
         public event EventHandler AlarmAdded;
         public event EventHandler AlarmResolved;
         public event EventHandler AlarmUpdated;
@@ -90,52 +98,79 @@ namespace ASFuelControl.Windows.Threads
 
             using (Data.DatabaseModel database = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
             {
-                this.RaiseExistingAlerts(database);
-                foreach (Data.Tank tank in database.Tanks)
+                database.SuppressedOutboundWorkTypes =
+                    SuppressedAlertEvaluationWorkTypes;
+                List<SystemEvent> existingAlerts = database.SystemEvents
+                    .Where(s => !s.ResolvedDate.HasValue)
+                    .ToList();
+                List<SystemEvent> existingAlarmAlerts = existingAlerts
+                    .Where(s => s.AlarmType.HasValue)
+                    .ToList();
+                this.RaiseExistingAlerts(existingAlarmAlerts);
+
+                List<Data.Tank> tanks = database.Tanks.ToList();
+                foreach (Data.Tank tank in tanks)
                 {
                     try
                     {
-                        CheckTankAlerts(tank);
+                        this.CheckTankAlerts(tank, existingAlerts);
                     }
                     catch (Exception ex)
                     {
                         Logging.Logger.Instance.LogToFile("CheckTankAlert", ex);
                     }
                 }
-                foreach (Dispenser dispenser in database.Dispensers)
+                List<Dispenser> dispensers = database.Dispensers.ToList();
+                foreach (Dispenser dispenser in dispensers)
                 {
                     try
                     {
-                        this.CheckDispenserAlerts(dispenser);
+                        this.CheckDispenserAlerts(dispenser, existingAlerts);
                     }
                     catch (Exception ex)
                     {
-                        Logging.Logger.Instance.LogToFile("CheckDispenserAlerts", ex);
+                        Logging.Logger.Instance.LogToFile(
+                            "CheckDispenserAlerts",
+                            ex);
                     }
-                    //foreach (Nozzle nz in dispenser.Nozzles)
-                    //{
-                    //    try
-                    //    {
-                    //        this.CheckNozzleAlerts(nz);
-                    //    }
-                    //    catch (Exception ex)
-                    //    {
-                    //        Logging.Logger.Instance.LogToFile("CheckNozzleAlerts", ex);
-                    //    }
-                    //}
                 }
-                database.SaveChanges();
+                List<Nozzle> nozzles = database.Nozzles.ToList();
+                foreach (Nozzle nozzle in nozzles)
+                {
+                    try
+                    {
+                        this.CheckNozzleAlerts(database, nozzle);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logging.Logger.Instance.LogToFile(
+                            "CheckNozzleAlerts",
+                            ex);
+                    }
+                }
+
+                if (database.HasChanges)
+                {
+                    database.SaveChanges();
+                }
             }
         }
 
-        private void CheckTankAlerts(Data.Tank tank)
+        private void CheckTankAlerts(
+            Data.Tank tank,
+            IList<SystemEvent> allExistingAlerts)
         {
             DatabaseModel db = DatabaseModel.GetContext(tank) as DatabaseModel;
             if (db == null)
+            {
                 return;
+            }
 
-            List<SystemEvent> existingAlerts = db.SystemEvents.Where(s => s.TankId.HasValue && s.TankId.Value == tank.TankId &&
-                                                    !s.ResolvedDate.HasValue).ToList();
+            List<SystemEvent> existingAlerts = allExistingAlerts
+                .Where(s =>
+                    s.TankId.HasValue &&
+                    s.TankId.Value == tank.TankId)
+                .ToList();
 
             if (tank.Removed || (tank.FuelType.ExcludeFromBalance.HasValue && tank.FuelType.ExcludeFromBalance.Value))
             {
@@ -176,19 +211,36 @@ namespace ASFuelControl.Windows.Threads
                         haseIncAlert = true;
                 }
             }
-            db.SaveChanges();
             if (tank.PhysicalState == (int)Common.Enumerators.TankStatusEnum.Offline)
             {
-                this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.CommunicationLossTank, haseIncAlert, haseDecAlert);
+                this.CreateUpdateTankAlert(
+                    db,
+                    tank,
+                    existingAlerts,
+                    Common.Enumerators.AlarmEnum.CommunicationLossTank,
+                    haseIncAlert,
+                    haseDecAlert);
             }
             else if (tank.AlertEnabled)
             {
-                this.CheckTankAlert(tank, haseIncAlert, haseDecAlert);
+                this.CheckTankAlert(
+                    tank,
+                    existingAlerts,
+                    haseIncAlert,
+                    haseDecAlert);
             }
             else if (tank.PhysicalState == (int)Common.Enumerators.TankStatusEnum.Filling && tank.IsLiterCheck)
             {
                 if (DateTime.Now.Subtract(tank.LiterCheckStarted).TotalMinutes > tank.LiterCheckAlarmInterval)
-                    this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.LiterCheckNotReturned, haseIncAlert, haseDecAlert);
+                {
+                    this.CreateUpdateTankAlert(
+                        db,
+                        tank,
+                        existingAlerts,
+                        Common.Enumerators.AlarmEnum.LiterCheckNotReturned,
+                        haseIncAlert,
+                        haseDecAlert);
+                }
             }
             if (index == 0)
             {
@@ -196,32 +248,72 @@ namespace ASFuelControl.Windows.Threads
             }
         }
 
-        private void CheckTankAlert(Data.Tank tank, bool incAlert, bool decAlert)
+        private void CheckTankAlert(
+            Data.Tank tank,
+            IList<SystemEvent> existingAlerts,
+            bool incAlert,
+            bool decAlert)
         {
             DatabaseModel db = DatabaseModel.GetContext(tank) as DatabaseModel;
             if (tank.FuelLevel > tank.MaxFuelHeight)
             {
-                this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.FuelTooHigh, incAlert, decAlert);
+                this.CreateUpdateTankAlert(
+                    db,
+                    tank,
+                    existingAlerts,
+                    Common.Enumerators.AlarmEnum.FuelTooHigh,
+                    incAlert,
+                    decAlert);
             }
             if (tank.WaterLevel > tank.MaxWaterHeight)
             {
-                this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.WaterTooHigh, incAlert, decAlert);
+                this.CreateUpdateTankAlert(
+                    db,
+                    tank,
+                    existingAlerts,
+                    Common.Enumerators.AlarmEnum.WaterTooHigh,
+                    incAlert,
+                    decAlert);
             }
             if (tank.FuelLevel < tank.MinFuelHeight)
             {
-                this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.FuelTooLow, incAlert, decAlert);
+                this.CreateUpdateTankAlert(
+                    db,
+                    tank,
+                    existingAlerts,
+                    Common.Enumerators.AlarmEnum.FuelTooLow,
+                    incAlert,
+                    decAlert);
             }
             if (this.IsLevelDecreasing(tank, decAlert))
             {
-                this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.FuelDecrease, incAlert, decAlert);
+                this.CreateUpdateTankAlert(
+                    db,
+                    tank,
+                    existingAlerts,
+                    Common.Enumerators.AlarmEnum.FuelDecrease,
+                    incAlert,
+                    decAlert);
             }
             if (this.IsLevelIncreasing(tank, incAlert))
             {
-                this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.FuelIncrease, incAlert, decAlert);
+                this.CreateUpdateTankAlert(
+                    db,
+                    tank,
+                    existingAlerts,
+                    Common.Enumerators.AlarmEnum.FuelIncrease,
+                    incAlert,
+                    decAlert);
             }
             if (tank.CurrentDensity >= 900 || tank.CurrentDensity <= 500)
             {
-                this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.TankDensityError, incAlert, decAlert);
+                this.CreateUpdateTankAlert(
+                    db,
+                    tank,
+                    existingAlerts,
+                    Common.Enumerators.AlarmEnum.TankDensityError,
+                    incAlert,
+                    decAlert);
             }
         }
 
@@ -233,31 +325,52 @@ namespace ASFuelControl.Windows.Threads
             if (tank.TitrimetryCRC != crc)
             {
                 Data.DatabaseModel db = DatabaseModel.GetContext(tank) as Data.DatabaseModel;
-                this.CreateUpdateTankAlert(db, tank.TankId, Common.Enumerators.AlarmEnum.TitrimetryDataChange, incAlert, decAlert);
+                this.CreateUpdateTankAlert(
+                    db,
+                    tank,
+                    existingAlerts,
+                    Common.Enumerators.AlarmEnum.TitrimetryDataChange,
+                    incAlert,
+                    decAlert);
                 tank.TitrimetryCRC = crc;
-                db.SaveChanges();
             }
             else
             {
                 var q1 = existingAlerts.Where(se => se.TankId == tank.TankId && se.AlarmType == (int)Common.Enumerators.AlarmEnum.TitrimetryDataChange);
                 foreach (Data.SystemEvent sse in q1)
                 {
-                    ResolveAlert(sse.EventId, "[Date Resolved]");
+                    this.ResolveAlertInCurrentContext(sse, "[Date Resolved]");
                 }
             }
         }
 
-        private void CheckDispenserAlerts(Data.Dispenser dispenser)
+        private void ResolveAlertInCurrentContext(
+            SystemEvent systemEvent,
+            string message)
+        {
+            systemEvent.ResolveMessage = message + " (ResolveAlert)";
+            systemEvent.ResolvedDate = DateTime.Now;
+            if (this.AlarmResolved != null)
+            {
+                EventArgs eventArgs = new EventArgs();
+                this.AlarmResolved(systemEvent, eventArgs);
+            }
+        }
+
+        private void CheckDispenserAlerts(
+            Data.Dispenser dispenser,
+            IList<SystemEvent> allExistingAlerts)
         {
             DatabaseModel db = DatabaseModel.GetContext(dispenser) as DatabaseModel;
             if (db == null)
+            {
                 return;
-            List<SystemEvent> existingAlerts = db.SystemEvents.Where
-                (s =>
+            }
+            List<SystemEvent> existingAlerts = allExistingAlerts
+                .Where(s =>
                     s.DispenserId.HasValue &&
-                    s.DispenserId.Value == dispenser.DispenserId &&
-                    !s.ResolvedDate.HasValue
-                ).ToList();
+                    s.DispenserId.Value == dispenser.DispenserId)
+                .ToList();
 
             if (!dispenser.IsValid)
             {
@@ -282,7 +395,11 @@ namespace ASFuelControl.Windows.Threads
             }
             if (dispenser.PhysicalState == (int)Common.Enumerators.FuelPointStatusEnum.Offline)
             {
-                this.CreateUpdateDispenserAlert(db, dispenser.DispenserId, Common.Enumerators.AlarmEnum.FuelPumpOffline);
+                this.CreateUpdateDispenserAlert(
+                    db,
+                    dispenser,
+                    existingAlerts,
+                    Common.Enumerators.AlarmEnum.FuelPumpOffline);
             }
         }
 
@@ -290,34 +407,19 @@ namespace ASFuelControl.Windows.Threads
         {
             using (DatabaseModel db = new DatabaseModel(Properties.Settings.Default.DBConnection))
             {
+                db.SuppressedOutboundWorkTypes =
+                    SuppressedAlertEvaluationWorkTypes;
                 try
                 {
                     Data.Nozzle nozzle = db.Nozzles.Where(n => n.NozzleId == nozzleid).FirstOrDefault();
                     if (nozzle == null)
-                        return;
-
-                    var q1 = db.SalesTransactions.Where(s => s.NozzleId == nozzle.NozzleId).OrderBy(s => s.TransactionTimeStamp).LastOrDefault();
-                    if (q1 == null)
                     {
                         return;
                     }
-                    var q2 = db.SystemEvents.Where
-                        (s =>
-                            s.NozzleId == nozzleid &&
-                            s.SystemEventData.Where(sd => sd.PropertyName == "TotalVolumeCounter" && sd.Value == nozzle.TotalCounter.ToString("N2")).Count() > 0
-                        ).OrderBy(s => s.EventDate).LastOrDefault();
-                    if (q2 != null)
-                        return;
-                    if (q1.TotalizerEnd != nozzle.TotalCounter)
+
+                    this.CheckNozzleAlerts(db, nozzle);
+                    if (db.HasChanges)
                     {
-                        decimal diffAllowed = 1 * (decimal)Math.Pow(10, (double)nozzle.Dispenser.TotalVolumeDecimalPlaces);
-                        decimal diff = nozzle.TotalCounter - q1.TotalizerEnd;
-                        if (Math.Abs(diff) > 0 && Math.Abs(diff) <= diffAllowed)
-                        {
-                            Console.WriteLine(string.Format("Total Difference : {0:N4}", Math.Abs(diff)));
-                            return;
-                        }
-                        this.CreateUpdateNozzleAlert(db, nozzle.NozzleId, Common.Enumerators.AlarmEnum.NozzleTotalError, diff);
                         db.SaveChanges();
                     }
                 }
@@ -331,13 +433,89 @@ namespace ASFuelControl.Windows.Threads
             }
         }
 
+        private void CheckNozzleAlerts(DatabaseModel db, Data.Nozzle nozzle)
+        {
+            Data.SalesTransaction latestSale = db.SalesTransactions
+                .Where(s => s.NozzleId == nozzle.NozzleId)
+                .OrderBy(s => s.TransactionTimeStamp)
+                .LastOrDefault();
+            if (latestSale == null)
+            {
+                return;
+            }
+
+            string formattedTotalCounter = nozzle.TotalCounter.ToString("N2");
+            SystemEvent matchingEvent = db.SystemEvents
+                .Where(s =>
+                    s.NozzleId == nozzle.NozzleId &&
+                    s.SystemEventData.Where(sd =>
+                            sd.PropertyName == "TotalVolumeCounter" &&
+                            sd.Value == formattedTotalCounter)
+                        .Count() > 0)
+                .OrderBy(s => s.EventDate)
+                .LastOrDefault();
+            if (matchingEvent != null || latestSale.TotalizerEnd == nozzle.TotalCounter)
+            {
+                return;
+            }
+
+            decimal decimalPlaces =
+                (decimal)Math.Pow(
+                    10,
+                    (double)nozzle.Dispenser.TotalVolumeDecimalPlaces);
+            decimal diffAllowed = decimalPlaces;
+            decimal diff = nozzle.TotalCounter - latestSale.TotalizerEnd;
+            decimal absoluteDifference = Math.Abs(diff);
+            if (absoluteDifference > 0 && absoluteDifference <= diffAllowed)
+            {
+                string differenceMessage = string.Format(
+                    "Total Difference : {0:N4}",
+                    absoluteDifference);
+                Console.WriteLine(differenceMessage);
+                return;
+            }
+
+            this.CreateUpdateNozzleAlert(
+                db,
+                nozzle.NozzleId,
+                Common.Enumerators.AlarmEnum.NozzleTotalError,
+                diff);
+        }
+
         public void CreateUpdateTankAlert(DatabaseModel db, Guid deviceId, Common.Enumerators.AlarmEnum alertType, bool incAlert, bool decAlert)
         {
-            SystemEvent se = db.SystemEvents.Where(s => s.AlarmType == (int)alertType && s.TankId == deviceId &&
-                !s.ResolvedDate.HasValue).FirstOrDefault();
             Data.Tank tank = db.Tanks.Where(t => t.TankId == deviceId).FirstOrDefault();
             if (tank == null)
+            {
                 return;
+            }
+            List<SystemEvent> existingAlerts = db.SystemEvents
+                .Where(s =>
+                    s.TankId == deviceId &&
+                    !s.ResolvedDate.HasValue)
+                .ToList();
+            this.CreateUpdateTankAlert(
+                db,
+                tank,
+                existingAlerts,
+                alertType,
+                incAlert,
+                decAlert);
+        }
+
+        private void CreateUpdateTankAlert(
+            DatabaseModel db,
+            Data.Tank tank,
+            IList<SystemEvent> existingAlerts,
+            Common.Enumerators.AlarmEnum alertType,
+            bool incAlert,
+            bool decAlert)
+        {
+            int alarmType = (int)alertType;
+            SystemEvent se = existingAlerts.FirstOrDefault(s =>
+                s.AlarmType == alarmType &&
+                s.TankId == tank.TankId &&
+                !s.ResolvedDate.HasValue);
             if (se != null)
             {
                 se.UpdateOrAddData("CurrentFuelLevel", tank.FuelLevel.ToString("N2"));
@@ -363,6 +541,7 @@ namespace ASFuelControl.Windows.Threads
                 se.EventDate = DateTime.Now;
                 se.AlarmType = (int)alertType;
                 se.Message = string.Format(se.GetMessage(alertType), tank.TankSerialNumber);
+                existingAlerts.Add(se);
                 if (this.AlarmAdded != null)
                     this.AlarmAdded(se, new EventArgs());
             }
@@ -371,11 +550,34 @@ namespace ASFuelControl.Windows.Threads
 
         public void CreateUpdateDispenserAlert(DatabaseModel db, Guid deviceId, Common.Enumerators.AlarmEnum alertType)
         {
-            SystemEvent se = db.SystemEvents.Where(s => s.AlarmType == (int)alertType && s.DispenserId == deviceId &&
-                !s.ResolvedDate.HasValue).FirstOrDefault();
             Dispenser dispenser = db.Dispensers.Where(t => t.DispenserId == deviceId).FirstOrDefault();
             if (dispenser == null)
+            {
                 return;
+            }
+            List<SystemEvent> existingAlerts = db.SystemEvents
+                .Where(s =>
+                    s.DispenserId == deviceId &&
+                    !s.ResolvedDate.HasValue)
+                .ToList();
+            this.CreateUpdateDispenserAlert(
+                db,
+                dispenser,
+                existingAlerts,
+                alertType);
+        }
+
+        private void CreateUpdateDispenserAlert(
+            DatabaseModel db,
+            Dispenser dispenser,
+            IList<SystemEvent> existingAlerts,
+            Common.Enumerators.AlarmEnum alertType)
+        {
+            int alarmType = (int)alertType;
+            SystemEvent se = existingAlerts.FirstOrDefault(s =>
+                s.AlarmType == alarmType &&
+                s.DispenserId == dispenser.DispenserId &&
+                !s.ResolvedDate.HasValue);
             if (se == null)
             {
                 se = new SystemEvent();
@@ -385,6 +587,7 @@ namespace ASFuelControl.Windows.Threads
                 se.EventDate = DateTime.Now;
                 se.AlarmType = (int)alertType;
                 se.Message = string.Format(se.GetMessage(alertType), dispenser.DeviceSerialNumber);
+                existingAlerts.Add(se);
                 if (this.AlarmAdded != null)
                     this.AlarmAdded(se, new EventArgs());
             }
@@ -483,14 +686,13 @@ namespace ASFuelControl.Windows.Threads
             return IsLevelDecreasing(tank, false);
         }
 
-        private void RaiseExistingAlerts(Data.DatabaseModel database)
+        private void RaiseExistingAlerts(IList<SystemEvent> existingAlerts)
         {
             if (firstRun)
             {
                 try
                 {
-                    var qe = database.SystemEvents.Where(s => !s.ResolvedDate.HasValue && s.AlarmType.HasValue).ToList();
-                    foreach (SystemEvent se in qe)
+                    foreach (SystemEvent se in existingAlerts)
                     {
 
                         if (this.AlarmAdded != null)

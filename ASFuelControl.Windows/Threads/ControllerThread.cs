@@ -726,8 +726,6 @@ namespace ASFuelControl.Windows.Threads
                 //AlertHandler.Instance.Dispensers = this.GetDispensers();
                 //AlertHandler.Instance.WireUpEvents();
                 //AlertHandler.Instance.AddAlertsFromDatabase();
-                int igc = 0;
-                int alertIndex = 0;
                 while (!haltThread)
                 {
                     try
@@ -1055,51 +1053,6 @@ namespace ASFuelControl.Windows.Threads
                     catch (Exception ex1)
                     {
                         Logging.Logger.Instance.LogToFile("Controller Exception", ex1);
-                    }
-                    finally
-                    {
-                        try
-                        {
-                            int modulus = Properties.Settings.Default.AlertIndexModulus > 0 ? Properties.Settings.Default.AlertIndexModulus : 5;
-                            if (alertIndex % modulus == 0)
-                            {
-                                Logging.Logger.Instance.LogToGivenFile("ThreadFlow.log", "Check Alert Start");
-                                AlertChecker.Instance.CheckForAlerts();
-                                Logging.Logger.Instance.LogToGivenFile("ThreadFlow.log", "Check Alert End");
-                                alertIndex = 0;
-                            }
-                            alertIndex++;
-                            //if(AlertChecker.Instance.HasNozzleAlerts)
-                            //{
-
-                            //}
-                            ////foreach (VirtualTank vt in tanks)
-                            ////    AlertHandler.Instance.CheckForTankAlerts(vt);
-
-                            ////foreach (VirtualDispenser vd in dispensers)
-                            ////    AlertHandler.Instance.CheckForDispenserAlerts(vd);
-
-                            ////if (this.RefreshAlerts != null)
-                            ////    this.RefreshAlerts(this, new EventArgs());
-
-                        }
-                        catch (Exception ex2)
-                        {
-                            Logging.Logger.Instance.LogToFile("CheckForAlerts Exception", ex2);
-                        }
-                        igc++;
-                        if (igc >= 100)
-                        {
-                            igc = 0;
-                            try
-                            {
-                                System.GC.Collect();
-                            }
-                            catch (Exception ex3)
-                            {
-                                Logging.Logger.Instance.LogToFile("CheckForAlerts Exception", ex3);
-                            }
-                        }
                     }
                 }
             }

@@ -70,16 +70,18 @@ namespace Exedron.Invoicing.Core
             {
                 case MyDieselCaseStage.Captured:
                     return to == MyDieselCaseStage.ReserveUnknown || to == MyDieselCaseStage.Reserved ||
-                        to == MyDieselCaseStage.Released || to == MyDieselCaseStage.InterventionRequired;
+                        to == MyDieselCaseStage.Released || to == MyDieselCaseStage.Final ||
+                        to == MyDieselCaseStage.InterventionRequired;
                 case MyDieselCaseStage.ReserveUnknown:
                     return to == MyDieselCaseStage.Reserved || to == MyDieselCaseStage.Released ||
-                        to == MyDieselCaseStage.InterventionRequired;
+                        to == MyDieselCaseStage.Final || to == MyDieselCaseStage.InterventionRequired;
                 case MyDieselCaseStage.Reserved:
                     return to == MyDieselCaseStage.Released || to == MyDieselCaseStage.InvoiceAccepted ||
                         to == MyDieselCaseStage.RedeemUnknown || to == MyDieselCaseStage.Redeemed ||
-                        to == MyDieselCaseStage.InterventionRequired;
+                        to == MyDieselCaseStage.Final || to == MyDieselCaseStage.InterventionRequired;
                 case MyDieselCaseStage.InvoiceAccepted:
                     return to == MyDieselCaseStage.RedeemUnknown || to == MyDieselCaseStage.Redeemed ||
+                        to == MyDieselCaseStage.VerificationPending || to == MyDieselCaseStage.Final ||
                         to == MyDieselCaseStage.InterventionRequired;
                 case MyDieselCaseStage.RedeemUnknown:
                     return to == MyDieselCaseStage.Redeemed || to == MyDieselCaseStage.VerificationPending ||
@@ -97,6 +99,8 @@ namespace Exedron.Invoicing.Core
                         to == MyDieselCaseStage.RedeemUnknown || to == MyDieselCaseStage.Redeemed ||
                         to == MyDieselCaseStage.VerificationPending || to == MyDieselCaseStage.Final ||
                         to == MyDieselCaseStage.Dismissed;
+                case MyDieselCaseStage.Final:
+                    return to == MyDieselCaseStage.Dismissed;
                 default:
                     return false;
             }

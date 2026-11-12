@@ -57,13 +57,47 @@ ELSE SELECT COUNT(*) FROM dbo.FiscalHeatingCorrection WHERE (CreditInvoiceId=@id
         {
             if (row.OriginalInvoiceId != lease.Document.DocumentId) throw new ArgumentException("Correction lease mismatch.");
             db.Locked(lease,(held,tx) => {
-                using (var cmd=SqlFiscalDatabase.Command(held.Connection,tx,@"INSERT dbo.FiscalHeatingCorrection
-(OriginalInvoiceId,BatchId,CreditInvoiceId,ReplacementInvoiceId,PlanJson,PlanSha256,State,Message,CreatedUtc,UpdatedUtc,CreatedBy)
-VALUES(@id,@batch,@credit,@replacement,@plan,@hash,'Prepared',N'Αποθηκεύτηκε η παρτίδα.',@now,@now,@user)",
-                    "@id",row.OriginalInvoiceId,"@batch",row.BatchId,"@credit",row.CreditInvoiceId,"@replacement",row.ReplacementInvoiceId,
-                    "@plan",row.PlanJson,"@hash",SqlFiscalDatabase.Hash(Encoding.UTF8.GetBytes(row.PlanJson)),"@now",DateTime.UtcNow,"@user",row.CreatedBy)) cmd.ExecuteNonQuery();
+                ReserveCore(held.Connection,tx,row);
                 return true;
             });
+        }
+        public void ReserveAndCreateChildren(IFiscalDocumentLease lease,
+            HeatingCorrectionRecord row,JObject frozenHost,Guid creditTypeId,
+            string creditSeries,string creditNote,Guid replacementTypeId,
+            string replacementSeries,string replacementNote,
+            int replacementPaymentType,DateTime issuedAt)
+        {
+            if(row.OriginalInvoiceId!=lease.Document.DocumentId)
+            {
+                throw new ArgumentException("Correction lease mismatch.");
+            }
+            db.Locked(lease,(held,tx)=>
+            {
+                ReserveCore(held.Connection,tx,row);
+                CreateChildCore(held.Connection,tx,row.CreditInvoiceId,frozenHost,
+                    creditTypeId,creditSeries,row.CreatedBy,creditNote,issuedAt,0);
+                CreateChildCore(held.Connection,tx,row.ReplacementInvoiceId,
+                    frozenHost,replacementTypeId,replacementSeries,row.CreatedBy,
+                    replacementNote,issuedAt,replacementPaymentType);
+                return true;
+            });
+        }
+        private static void ReserveCore(SqlConnection connection,
+            SqlTransaction transaction,HeatingCorrectionRecord row)
+        {
+            byte[] planBytes=Encoding.UTF8.GetBytes(row.PlanJson);
+            string planHash=SqlFiscalDatabase.Hash(planBytes);
+            DateTime now=DateTime.UtcNow;
+            using(var command=SqlFiscalDatabase.Command(connection,transaction,@"INSERT dbo.FiscalHeatingCorrection
+(OriginalInvoiceId,BatchId,CreditInvoiceId,ReplacementInvoiceId,PlanJson,PlanSha256,State,Message,CreatedUtc,UpdatedUtc,CreatedBy)
+VALUES(@id,@batch,@credit,@replacement,@plan,@hash,'Prepared',N'Αποθηκεύτηκε η παρτίδα.',@now,@now,@user)",
+                "@id",row.OriginalInvoiceId,"@batch",row.BatchId,
+                "@credit",row.CreditInvoiceId,"@replacement",
+                row.ReplacementInvoiceId,"@plan",row.PlanJson,"@hash",planHash,
+                "@now",now,"@user",row.CreatedBy))
+            {
+                command.ExecuteNonQuery();
+            }
         }
         public void Progress(IFiscalDocumentLease lease,string state,string message)
         {
@@ -103,52 +137,63 @@ WHERE OriginalInvoiceId=@id AND State<>'Completed'","@state",state,"@message",me
             }
         }
         // Clone and number atomically. Both records use credit/offset settlement and do not create physical fuel movements.
-        public void CreateChild(IFiscalDocumentLease lease,JObject frozenHost,Guid typeId,string series,Guid userId,string note,DateTime issuedAt)
+        public void CreateChild(IFiscalDocumentLease lease,JObject frozenHost,
+            Guid typeId,string series,Guid userId,string note,DateTime issuedAt,
+            int paymentType=0)
         {
             Guid id=lease.Document.DocumentId;
             db.Locked(lease,(held,tx) => {
-                var existing=ReadRows(held.Connection,"Invoice",InvoiceColumns,id,tx).SingleOrDefault();
-                if(existing!=null) {
-                    var expected=(JObject)frozenHost["Invoice"].DeepClone();
-                    expected["InvoiceTypeId"]=typeId;expected["Series"]=series;expected["PaymentType"]=0;
-                    foreach(string field in new[]{"InvoiceTypeId","Series","PaymentType","TraderId","SupplyNumber","NettoAmount","VatAmount","TotalAmount","DiscountAmount","NettoAfterDiscount"})
-                        if(!SameValue(existing[field],expected[field]))throw new InvalidOperationException("Το διορθωτικό παραστατικό διαφέρει από το αποθηκευμένο σχέδιο: "+field);
-                    if((int)existing["Number"]<=0)throw new InvalidOperationException("Το διορθωτικό παραστατικό δεν έχει έγκυρη αρίθμηση.");
-                    var expectedLines=frozenHost["Lines"].Select(l=>CleanLine((JObject)l)).ToList();
-                    foreach(var line in ReadRows(held.Connection,"InvoiceLine",LineColumns,id,tx)) {
-                        foreach(string field in new[]{"SaleTransactionId","TankFillingId","TankId","InvoiceRelationId"})
-                            if(line[field].Type!=JTokenType.Null)throw new InvalidOperationException("Το διορθωτικό παραστατικό συνδέθηκε με φυσική διακίνηση.");
-                        var clean=CleanLine(line);int index=expectedLines.FindIndex(l=>SameValue(l,clean));
-                        if(index<0)throw new InvalidOperationException("Οι γραμμές του διορθωτικού παραστατικού άλλαξαν.");
-                        expectedLines.RemoveAt(index);
-                    }
-                    if(expectedLines.Count!=0)throw new InvalidOperationException("Λείπουν γραμμές του διορθωτικού παραστατικού.");
-                    return true;
-                }
-                int last;
-                using(var cmd=SqlFiscalDatabase.Command(held.Connection,tx,"SELECT LastNumber FROM dbo.InvoiceType WITH(UPDLOCK,HOLDLOCK) WHERE InvoiceTypeId=@type","@type",typeId)) {
-                    object value=cmd.ExecuteScalar(); if(value==null||value==DBNull.Value)throw new InvalidOperationException("Δεν υπάρχει μετρητής παραστατικού.");last=checked(Convert.ToInt32(value)+1);
-                }
-                using(var cmd=SqlFiscalDatabase.Command(held.Connection,tx,"SELECT COUNT(*) FROM dbo.Invoice WHERE InvoiceTypeId=@type AND Number>=@number","@type",typeId,"@number",last))
-                    if(Convert.ToInt32(cmd.ExecuteScalar())>0)throw new InvalidOperationException("Ο μετρητής παραστατικών είναι πίσω από το ιστορικό.");
-                var invoice=(JObject)frozenHost["Invoice"].DeepClone();
-                invoice["InvoiceId"]=id;invoice["InvoiceTypeId"]=typeId;invoice["Number"]=last;invoice["Series"]=series;
-                invoice["TransactionDate"]=issuedAt;invoice["ApplicationUserId"]=userId;
-                invoice["InvoiceSignature"]=null;invoice["QRCodeData"]=null;invoice["IsPrinted"]=false;invoice["AllowEdit"]=false;
-                invoice["IsEuromat"]=false;invoice["PaymentType"]=0;invoice["LastRestAmount"]=0;
-                invoice["Notes"]=string.IsNullOrWhiteSpace((string)invoice["Notes"])?note:(string)invoice["Notes"]+"\r\n"+note;
-                // Use the selected document's form/printer, not the original sale's credit layout.
-                using(var cmd=SqlFiscalDatabase.Command(held.Connection,tx,"SELECT Printer,InvoiceFormId FROM dbo.InvoiceType WHERE InvoiceTypeId=@type","@type",typeId))
-                using(var r=cmd.ExecuteReader()){r.Read();invoice["Printer"]=r.IsDBNull(0)?null:JToken.FromObject(r[0]);invoice["InvoiceFormId"]=r.IsDBNull(1)?null:JToken.FromObject(r[1]);}
-                Insert(held.Connection,tx,"Invoice",InvoiceColumns,invoice);
-                foreach(JObject old in frozenHost["Lines"]) {
-                    var line=(JObject)old.DeepClone();line["InvoiceLineId"]=Guid.NewGuid();line["InvoiceId"]=id;
-                    foreach(var field in new[]{"SaleTransactionId","TankFillingId","TankId","InvoiceRelationId"})line[field]=null;
-                    Insert(held.Connection,tx,"InvoiceLine",LineColumns,line);
-                }
-                using(var cmd=SqlFiscalDatabase.Command(held.Connection,tx,"UPDATE dbo.InvoiceType SET LastNumber=@number WHERE InvoiceTypeId=@type","@number",last,"@type",typeId))cmd.ExecuteNonQuery();
+                CreateChildCore(held.Connection,tx,id,frozenHost,typeId,series,
+                    userId,note,issuedAt,paymentType);
                 return true;
             });
+        }
+        private static void CreateChildCore(SqlConnection connection,
+            SqlTransaction transaction,Guid id,JObject frozenHost,Guid typeId,
+            string series,Guid userId,string note,DateTime issuedAt,
+            int paymentType)
+        {
+            var existing=ReadRows(connection,"Invoice",InvoiceColumns,id,
+                transaction).SingleOrDefault();
+            if(existing!=null) {
+                var expected=(JObject)frozenHost["Invoice"].DeepClone();
+                expected["InvoiceTypeId"]=typeId;expected["Series"]=series;expected["PaymentType"]=paymentType;
+                foreach(string field in new[]{"InvoiceTypeId","Series","PaymentType","TraderId","SupplyNumber","NettoAmount","VatAmount","TotalAmount","DiscountAmount","NettoAfterDiscount"})
+                    if(!SameValue(existing[field],expected[field]))throw new InvalidOperationException("Το διορθωτικό παραστατικό διαφέρει από το αποθηκευμένο σχέδιο: "+field);
+                if((int)existing["Number"]<=0)throw new InvalidOperationException("Το διορθωτικό παραστατικό δεν έχει έγκυρη αρίθμηση.");
+                var expectedLines=frozenHost["Lines"].Select(l=>CleanLine((JObject)l)).ToList();
+                foreach(var line in ReadRows(connection,"InvoiceLine",LineColumns,id,transaction)) {
+                    foreach(string field in new[]{"SaleTransactionId","TankFillingId","TankId","InvoiceRelationId"})
+                        if(line[field].Type!=JTokenType.Null)throw new InvalidOperationException("Το διορθωτικό παραστατικό συνδέθηκε με φυσική διακίνηση.");
+                    var clean=CleanLine(line);int index=expectedLines.FindIndex(l=>SameValue(l,clean));
+                    if(index<0)throw new InvalidOperationException("Οι γραμμές του διορθωτικού παραστατικού άλλαξαν.");
+                    expectedLines.RemoveAt(index);
+                }
+                if(expectedLines.Count!=0)throw new InvalidOperationException("Λείπουν γραμμές του διορθωτικού παραστατικού.");
+                return;
+            }
+            int last;
+            using(var cmd=SqlFiscalDatabase.Command(connection,transaction,"SELECT LastNumber FROM dbo.InvoiceType WITH(UPDLOCK,HOLDLOCK) WHERE InvoiceTypeId=@type","@type",typeId)) {
+                object value=cmd.ExecuteScalar(); if(value==null||value==DBNull.Value)throw new InvalidOperationException("Δεν υπάρχει μετρητής παραστατικού.");last=checked(Convert.ToInt32(value)+1);
+            }
+            using(var cmd=SqlFiscalDatabase.Command(connection,transaction,"SELECT COUNT(*) FROM dbo.Invoice WHERE InvoiceTypeId=@type AND Number>=@number","@type",typeId,"@number",last))
+                if(Convert.ToInt32(cmd.ExecuteScalar())>0)throw new InvalidOperationException("Ο μετρητής παραστατικών είναι πίσω από το ιστορικό.");
+            var invoice=(JObject)frozenHost["Invoice"].DeepClone();
+            invoice["InvoiceId"]=id;invoice["InvoiceTypeId"]=typeId;invoice["Number"]=last;invoice["Series"]=series;
+            invoice["TransactionDate"]=issuedAt;invoice["ApplicationUserId"]=userId;
+            invoice["InvoiceSignature"]=null;invoice["QRCodeData"]=null;invoice["IsPrinted"]=false;invoice["AllowEdit"]=false;
+            invoice["IsEuromat"]=false;invoice["PaymentType"]=paymentType;invoice["LastRestAmount"]=0;
+            invoice["Notes"]=string.IsNullOrWhiteSpace((string)invoice["Notes"])?note:(string)invoice["Notes"]+"\r\n"+note;
+            // Use the selected document's form/printer, not the original sale's credit layout.
+            using(var cmd=SqlFiscalDatabase.Command(connection,transaction,"SELECT Printer,InvoiceFormId FROM dbo.InvoiceType WHERE InvoiceTypeId=@type","@type",typeId))
+            using(var r=cmd.ExecuteReader()){r.Read();invoice["Printer"]=r.IsDBNull(0)?null:JToken.FromObject(r[0]);invoice["InvoiceFormId"]=r.IsDBNull(1)?null:JToken.FromObject(r[1]);}
+            Insert(connection,transaction,"Invoice",InvoiceColumns,invoice);
+            foreach(JObject old in frozenHost["Lines"]) {
+                var line=(JObject)old.DeepClone();line["InvoiceLineId"]=Guid.NewGuid();line["InvoiceId"]=id;
+                foreach(var field in new[]{"SaleTransactionId","TankFillingId","TankId","InvoiceRelationId"})line[field]=null;
+                Insert(connection,transaction,"InvoiceLine",LineColumns,line);
+            }
+            using(var cmd=SqlFiscalDatabase.Command(connection,transaction,"UPDATE dbo.InvoiceType SET LastNumber=@number WHERE InvoiceTypeId=@type","@number",last,"@type",typeId))cmd.ExecuteNonQuery();
         }
         private static bool SameValue(JToken left,JToken right) => JToken.DeepEquals(
             JToken.Parse((left??JValue.CreateNull()).ToString(Formatting.None)),JToken.Parse((right??JValue.CreateNull()).ToString(Formatting.None)));

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -91,6 +92,8 @@ namespace ASFuelControl.Invoicing.Persistence
                 OriginalId = exists ? stamp.Entry.OriginalId : originalAttemptId };
             database.Write(lease, entry, exists ? (long?)stamp.Entry.Revision : null, state != "Rejected", old =>
                 (old.State == "Sending" || old.State == "Unknown") && state != "Sending" ||
+                old.State == "Rejected" && state == "ReconciliationRequired" &&
+                    IsLegacyMyDataError228Upgrade(old, entry) ||
                 (old.State == "Queued" || old.State == "QueueFailed") && new[] { "Queued", "QueueFailed", "Accepted" }.Contains(state) ||
                 old.State == "ReconciliationRequired" &&
                     (new[] { "ReconciliationRequired", "Accepted" }.Contains(state) ||
@@ -98,6 +101,47 @@ namespace ASFuelControl.Invoicing.Persistence
                 old.State == "Accepted" && state == "Accepted" && AcceptedEvidenceUnchanged(old.Snapshot, entry.Snapshot));
             stamps.Remove(value);
             stamps.Add(value, new Stamp { Entry = entry });
+        }
+        private bool IsLegacyMyDataError228Upgrade(
+            SqlFiscalDatabase.JournalEntry previous,
+            SqlFiscalDatabase.JournalEntry current)
+        {
+            if (provider != "myDATA" || previous == null || current == null ||
+                previous.Payload == null || current.Payload == null ||
+                !previous.Payload.SequenceEqual(current.Payload) ||
+                !string.Equals(previous.Scope, current.Scope,
+                    StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var previousEvidence =
+                Newtonsoft.Json.Linq.JObject.Parse(previous.Snapshot);
+            var currentEvidence =
+                Newtonsoft.Json.Linq.JObject.Parse(current.Snapshot);
+            string previousResponse =
+                (string)previousEvidence["ResponseXml"];
+            string currentResponse =
+                (string)currentEvidence["ResponseXml"];
+            string reconciliationUid =
+                (string)currentEvidence["ReconciliationUid"];
+            string reconciliationMark =
+                (string)currentEvidence["ReconciliationMark"];
+            long parsedMark;
+            bool validMark = long.TryParse(reconciliationMark,
+                out parsedMark) && parsedMark > 0;
+            bool validUid = !string.IsNullOrWhiteSpace(reconciliationUid) &&
+                reconciliationUid.Length == 40;
+            bool sameResponse = !string.IsNullOrWhiteSpace(previousResponse) &&
+                string.Equals(previousResponse, currentResponse,
+                    StringComparison.Ordinal);
+            bool responseContainsUid = sameResponse && validUid &&
+                previousResponse.IndexOf(reconciliationUid,
+                    StringComparison.OrdinalIgnoreCase) >= 0;
+            bool responseContainsMark = sameResponse && validMark &&
+                previousResponse.IndexOf(reconciliationMark,
+                    StringComparison.Ordinal) >= 0;
+            return responseContainsUid && responseContainsMark;
         }
         private bool IsConfirmedReconciliationNotFound(
             Newtonsoft.Json.Linq.JObject evidence)
@@ -233,6 +277,91 @@ namespace ASFuelControl.Invoicing.Persistence
             };
             database.Write(lease, replacement, current.Revision, true,
                 old => old.State == "RetryAuthorized");
+        }
+    }
+    public sealed class SqlProviderSubmissionRecoveryStore
+    {
+        private const string MetadataPropertyName =
+            "HostAutomaticRecovery";
+        private readonly SqlFiscalDatabase database;
+
+        public SqlProviderSubmissionRecoveryStore(SqlFiscalDatabase database)
+        {
+            this.database = database ??
+                throw new ArgumentNullException(nameof(database));
+        }
+
+        public int ReadAutomaticRecoveryCount(FiscalAttemptEvidence attempt)
+        {
+            if (attempt == null)
+            {
+                throw new ArgumentNullException(nameof(attempt));
+            }
+
+            var snapshot = Newtonsoft.Json.Linq.JObject.Parse(
+                attempt.SnapshotJson);
+            int count = (int?)snapshot[MetadataPropertyName]?["Count"] ?? 0;
+            return Math.Max(0, count);
+        }
+
+        public void RecordAutomaticRecoveryCount(IFiscalDocumentLease lease,
+            Guid attemptId, int count)
+        {
+            if (lease == null)
+            {
+                throw new ArgumentNullException(nameof(lease));
+            }
+            if (count < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count));
+            }
+
+            IReadOnlyList<SqlFiscalDatabase.JournalEntry> submissions =
+                database.Load(lease, "Submission");
+            SqlFiscalDatabase.JournalEntry current =
+                submissions.LastOrDefault();
+            if (current == null || current.Id != attemptId ||
+                current.State != "Unknown")
+            {
+                return;
+            }
+
+            var snapshot = Newtonsoft.Json.Linq.JObject.Parse(
+                current.Snapshot);
+            int savedCount =
+                (int?)snapshot[MetadataPropertyName]?["Count"] ?? 0;
+            if (savedCount >= count)
+            {
+                return;
+            }
+
+            var metadata = new Newtonsoft.Json.Linq.JObject
+            {
+                ["Version"] = 1,
+                ["Count"] = count,
+                ["UpdatedUtc"] = DateTime.UtcNow
+            };
+            snapshot[MetadataPropertyName] = metadata;
+            string snapshotJson = snapshot.ToString(
+                Newtonsoft.Json.Formatting.None);
+            var updated = new SqlFiscalDatabase.JournalEntry
+            {
+                Id = current.Id,
+                Family = current.Family,
+                Operation = current.Operation,
+                Scope = current.Scope,
+                Format = current.Format,
+                Payload = current.Payload,
+                Hash = current.Hash,
+                CreatedUtc = current.CreatedUtc,
+                UpdatedUtc = DateTime.UtcNow,
+                Revision = current.Revision + 1,
+                State = current.State,
+                Snapshot = snapshotJson,
+                OriginalId = current.OriginalId
+            };
+            database.Write(lease, updated, current.Revision, true,
+                previous => previous.State == "Unknown");
         }
     }
     public sealed class SqlMyDataSubmissionStore : IMyDataSubmissionStore

@@ -20,6 +20,7 @@ namespace ASFuelControl.Windows.Threads
         // connections read the latest saved account and credential profile.
         internal static bool Enabled => settings.Value.Enabled;
         internal static bool ProtectsInvoices => Enabled || settings.Value.ProtectedKinds.Contains(FiscalDocumentKind.Invoice);
+        internal static DateTime FirstInvoiceDate => settings.Value.FirstInvoiceDate;
         internal static bool SupportsIris => settings.Value.Pos?.Provider.ProviderKey == InvoiceProviderCatalog.ITimologiaKey && settings.Value.Pos.PosMode == "MELLON";
         // The PrintAgent and an administrator action can briefly meet on the
         // same invoice.  Keep the SQL application lock exclusive, but wait for
@@ -115,6 +116,37 @@ namespace ASFuelControl.Windows.Threads
                     "Ο τύπος παραστατικού χρησιμοποιεί πάροχο τιμολόγησης. " +
                     "Η legacy σήμανση από φορολογικό μηχανισμό απαγορεύτηκε και δεν στάλθηκε αίτημα στη συσκευή.");
             }
+        }
+        internal static void EnsureProcessingDependenciesCompleted(
+            Data.Invoice invoice)
+        {
+            if (invoice == null)
+            {
+                throw new ArgumentNullException("invoice");
+            }
+
+            int dependencyType =
+                (int)Common.Enumerators.InvoiceRelationTypeEnum.ProcessingDependency;
+            Data.InvoiceRelation[] pendingDependencies =
+                invoice.ParentInvoiceRelations
+                    .Where(relation => relation.RelationType == dependencyType &&
+                        (relation.ParentInvoice == null ||
+                         relation.ParentInvoice.IsPrinted != true))
+                    .ToArray();
+            if (pendingDependencies.Length == 0)
+            {
+                return;
+            }
+
+            string[] pendingDocuments = pendingDependencies
+                .Select(relation => relation.ParentInvoice == null
+                    ? relation.ParentInvoiceId.ToString()
+                    : relation.ParentInvoice.Description)
+                .ToArray();
+            string documentList = string.Join(", ", pendingDocuments);
+            throw new InvalidOperationException(
+                "Το παραστατικό εξαρτάται από πιστωτικό που δεν έχει ακόμη " +
+                "ολοκληρώσει την έκδοση και εκτύπωσή του: " + documentList + ".");
         }
         internal static bool Owns(Guid invoiceId)
         {
@@ -435,7 +467,7 @@ namespace ASFuelControl.Windows.Threads
             string selectedPrinter = null, bool automaticSamtecAmountCorrection = false)
         {
             if (new SqlHeatingCorrectionStore(sql.Value).IsChild(id,true))
-                throw new InvalidOperationException("Το παραστατικό ελέγχεται από την παρτίδα διόρθωσης επιδόματος θέρμανσης. Συνεχίστε την παρτίδα από τις Ενέργειες του καταλόγου.");
+                return ResumeHeatingCorrection(id);
             if (new SqlInvoiceTypeCorrectionStore(sql.Value).IsChild(id,true))
                 throw new InvalidOperationException("Το παραστατικό ελέγχεται από την παρτίδα διόρθωσης τύπου myDATA. Συνεχίστε την παρτίδα από τις Ενέργειες του καταλόγου.");
             string destination = !string.IsNullOrWhiteSpace(reason) || !string.IsNullOrWhiteSpace(selectedPrinter)
@@ -722,6 +754,7 @@ namespace ASFuelControl.Windows.Threads
             private Data.Invoice Check(Data.DatabaseModel db, Guid id, SharedInvoiceConfiguration config)
             {
                 var invoice = db.Invoices.Single(i => i.InvoiceId == id);
+                EnsureProcessingDependenciesCompleted(invoice);
                 if (paymentTypeOverride.HasValue)
                     invoice.PaymentType = paymentTypeOverride.Value;
                 bool hasLegacy = db.MyDataInvoices.Any(i => i.InvoiceId == id);

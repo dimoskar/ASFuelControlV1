@@ -166,8 +166,9 @@ IF EXISTS(
 BEGIN RAISERROR('Invoice counter is behind issued history.',16,1); RETURN; END;
 SET @last=@last+1;
 -- Some legacy forms set IsPrinted before provider acceptance. The fiscal journal
--- is authoritative here: this guarded path permits only rejected submissions and
--- no print/sign/payment evidence, so the replacement identity is unprinted.
+-- is authoritative here: this guarded path permits only a rejected submission
+-- and, for direct myDATA, its superseded signed request. The replacement identity
+-- is always unprinted.
 UPDATE dbo.Invoice SET Number=@last,TransactionDate=@newDate,IsPrinted=0 WHERE InvoiceId=@id;
 UPDATE dbo.InvoiceType SET LastNumber=@last WHERE InvoiceTypeId=@type;
 SELECT @last;";
@@ -175,12 +176,25 @@ SELECT @last;";
 IF EXISTS(SELECT 1 FROM dbo.FiscalAttempt a
     JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
     WHERE a.DocumentKind=1 AND a.DocumentId=@id AND
-    (a.Family<>'Submission' OR r.State<>'Rejected'))
+    ((a.Family='Submission' AND r.State<>'Rejected') OR
+     (a.Family='Signing' AND (@releaseSigned=0 OR r.State<>'Signed')) OR
+     a.Family NOT IN ('Submission','Signing')))
 BEGIN RAISERROR('Only definitively rejected provider attempts permit issue-date reissuance.',16,1); RETURN; END;
 IF NOT EXISTS(SELECT 1 FROM dbo.FiscalAttempt a
     JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
     WHERE a.DocumentKind=1 AND a.DocumentId=@id AND a.Family='Submission' AND r.State='Rejected')
 BEGIN RAISERROR('A rejected provider attempt is required.',16,1); RETURN; END;
+IF @releaseSigned=1
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM dbo.FiscalAttempt a
+        JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+        WHERE a.DocumentKind=1 AND a.DocumentId=@id AND a.Family='Signing' AND r.State='Signed')
+    BEGIN RAISERROR('A signed request is required for signed issue-date reissuance.',16,1); RETURN; END;
+    UPDATE a SET BlocksNewAttempt=0
+    FROM dbo.FiscalAttempt a
+    JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId AND r.Revision=a.CurrentRevision
+    WHERE a.DocumentKind=1 AND a.DocumentId=@id AND a.Family='Signing' AND r.State='Signed';
+END;
 UPDATE dbo.FiscalInvoiceWorkflow SET Payload=@payload,PayloadSha256=@hash,FencingToken=@token
 WHERE InvoiceId=@id AND PayloadSha256=@expectedHash AND Payload=@expected;
 IF @@ROWCOUNT<>1 BEGIN RAISERROR('The saved workflow changed. Reload before continuing.',16,1); RETURN; END;";
@@ -201,6 +215,20 @@ IF @@ROWCOUNT<>1 BEGIN RAISERROR('The saved workflow changed. Reload before cont
             "FROM dbo.FiscalAttempt a JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId " +
             "WHERE a.DocumentKind=@kind AND a.DocumentId=@id AND a.Family=@family " +
             "AND (@attempt IS NULL OR a.AttemptId=@attempt) AND (@history=1 OR r.Revision=a.CurrentRevision) ORDER BY a.AttemptSequence,r.Revision;";
+        internal const string ReadRecentAttemptHistorySummary = @"
+SELECT AttemptId,Family,Operation,Scope,PayloadFormat,RequestSha256,CreatedUtc,
+    Revision,State,RecordedUtc,OriginalAttemptId
+FROM (
+    SELECT TOP (@maximum) a.AttemptId,a.Family,a.Operation,a.Scope,
+        a.PayloadFormat,a.RequestSha256,a.CreatedUtc,r.Revision,r.State,
+        r.RecordedUtc,a.OriginalAttemptId
+    FROM dbo.FiscalAttempt a
+    JOIN dbo.FiscalAttemptRevision r ON r.AttemptId=a.AttemptId
+    WHERE a.DocumentKind=@kind AND a.DocumentId=@id AND a.Family=@family
+        AND a.AttemptId=@attempt
+    ORDER BY r.Revision DESC
+) recent
+ORDER BY Revision;";
         internal const string ReadDeferredSamtecInvoiceRetries = @"
 SELECT TOP (@maximum) a.DocumentId
 FROM dbo.FiscalAttempt a

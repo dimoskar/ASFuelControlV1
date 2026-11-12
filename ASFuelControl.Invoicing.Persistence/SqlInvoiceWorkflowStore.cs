@@ -202,7 +202,8 @@ namespace ASFuelControl.Invoicing.Persistence
             });
         }
         public byte[] ReplaceAfterIssueDateReissue(IFiscalDocumentLease lease,
-            byte[] expectedSnapshot, byte[] replacementSnapshot)
+            byte[] expectedSnapshot, byte[] replacementSnapshot,
+            bool releaseSignedRequest = false)
         {
             RequireInvoice(lease);
             if (expectedSnapshot == null || expectedSnapshot.Length == 0 ||
@@ -214,7 +215,8 @@ namespace ASFuelControl.Invoicing.Persistence
                     "@id",lease.Document.DocumentId,"@expected",expectedSnapshot,
                     "@expectedHash",SqlFiscalDatabase.Hash(expectedSnapshot),
                     "@payload",replacementSnapshot,"@hash",SqlFiscalDatabase.Hash(replacementSnapshot),
-                    "@token",held.FencingToken)) command.ExecuteNonQuery();
+                    "@token",held.FencingToken,
+                    "@releaseSigned",releaseSignedRequest)) command.ExecuteNonQuery();
                 return replacementSnapshot;
             });
         }

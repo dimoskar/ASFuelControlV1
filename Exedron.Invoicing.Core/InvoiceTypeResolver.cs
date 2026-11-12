@@ -27,24 +27,26 @@ namespace Exedron.Invoicing.Core
             {
                 if (cancellation)
                     Require(linked.Length == 1,
-                        "A cancellation document must reference exactly one original invoice.");
+                        "Το ακυρωτικό παραστατικό πρέπει να συνδέεται με ακριβώς ένα αρχικό παραστατικό.");
                 foreach (var parent in linked)
                 {
                     Require(parent != null && parent.Invoice != null && parent.Invoice.InvoiceSeries != null &&
                         parent.Invoice.InvoiceSeries.InvoiceType != null && parent.Invoice.Trader != null,
-                        "A linked original invoice is missing required data.");
-                    Require(parent.Invoice.InvoiceId != invoice.InvoiceId, "An invoice cannot credit itself.");
+                        "Από το συνδεδεμένο αρχικό παραστατικό λείπουν απαραίτητα στοιχεία.");
+                    Require(parent.Invoice.InvoiceId != invoice.InvoiceId,
+                        "Το παραστατικό δεν μπορεί να συσχετιστεί ως πιστωτικό με τον εαυτό του.");
                     var parentType = parent.Invoice.InvoiceSeries.InvoiceType;
                     if (credit || cancellation)
                         Require(parentType.InvoiceTypeMode == InvoiceMode.Normal &&
                             (parentType.MyDataDocumentKind == (int)MyDataDocumentKind.Goods || parentType.MyDataDocumentKind == (int)MyDataDocumentKind.Services),
                             cancellation
-                                ? "A cancellation document transmitted as a credit must reference an original sales invoice, not another credit or cancellation."
-                                : "A credit invoice must reference original sales invoices, not credits, cancellations or standalone delivery notes.");
-                    Require(parentType.IsRetail == type.IsRetail, "The credit invoice and its original invoices must agree on retail or wholesale classification.");
+                                ? "Το ακυρωτικό παραστατικό που διαβιβάζεται ως πιστωτικό πρέπει να συνδέεται με αρχικό παραστατικό πώλησης και όχι με άλλο πιστωτικό ή ακυρωτικό."
+                                : "Το πιστωτικό παραστατικό πρέπει να συνδέεται με αρχικά παραστατικά πώλησης και όχι με πιστωτικά, ακυρωτικά ή αυτοτελή δελτία αποστολής.");
+                    Require(parentType.IsRetail == type.IsRetail,
+                        "Το πιστωτικό και όλα τα αρχικά παραστατικά πρέπει να έχουν τον ίδιο χαρακτηρισμό λιανικής ή χονδρικής.");
                     Require(string.Equals(Clean(parent.Invoice.Trader.TaxRegistrationId), Clean(invoice.Trader.TaxRegistrationId), StringComparison.OrdinalIgnoreCase) &&
                         (Clean(invoice.Trader.TaxRegistrationId) != null || parent.Invoice.TraderId == invoice.TraderId),
-                        "The credit invoice customer must match every linked original invoice.");
+                        "Ο πελάτης του πιστωτικού πρέπει να συμφωνεί με τον πελάτη κάθε συνδεδεμένου αρχικού παραστατικού.");
                 }
             }
             int validMarks = linked.Count(p => p != null && p.Transmission != null && p.Transmission.Status == 3 &&
@@ -76,16 +78,20 @@ namespace Exedron.Invoicing.Core
             if (string.IsNullOrWhiteSpace(countryCode))
                 throw new ProviderInvoiceValidationException("The customer's country is missing or unknown.");
             if (parentCount < 0 || validMarkCount < 0 || validMarkCount > parentCount)
-                throw new ProviderInvoiceValidationException("Invalid credit-invoice correlation data.");
+                throw new ProviderInvoiceValidationException(
+                    "Τα στοιχεία συσχέτισης του πιστωτικού παραστατικού δεν είναι έγκυρα.");
 
             if (mode == InvoiceMode.Credit || mode == InvoiceMode.Cancel)
             {
                 if (kind == MyDataDocumentKind.Delivery || kind == MyDataDocumentKind.ConsolidatedDelivery || kind == MyDataDocumentKind.CorrelatedQuantityReceipt)
-                    throw new ProviderInvoiceValidationException("A standalone delivery document cannot be issued as a financial credit invoice.");
+                    throw new ProviderInvoiceValidationException(
+                        "Ένα αυτοτελές δελτίο αποστολής δεν μπορεί να εκδοθεί ως οικονομικό πιστωτικό παραστατικό.");
                 if (parentCount != validMarkCount)
-                    throw new ProviderInvoiceValidationException("Every linked original invoice must have a successful, uncancelled myDATA MARK before issuing the credit invoice.");
+                    throw new ProviderInvoiceValidationException(
+                        "Πριν από την έκδοση του πιστωτικού, κάθε συνδεδεμένο αρχικό παραστατικό πρέπει να έχει επιτυχημένη διαβίβαση στο myDATA, έγκυρο MARK και να μην έχει ακυρωθεί.");
                 if (mode == InvoiceMode.Cancel && parentCount != 1)
-                    throw new ProviderInvoiceValidationException("A cancellation document must reference exactly one original invoice.");
+                    throw new ProviderInvoiceValidationException(
+                        "Το ακυρωτικό παραστατικό πρέπει να συνδέεται με ακριβώς ένα αρχικό παραστατικό.");
                 return isRetail ? "11.4" : parentCount > 0 ? "5.1" : "5.2";
             }
 

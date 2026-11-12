@@ -53,6 +53,106 @@ internal static partial class Program
             var replacement = service.Capture(row.InvoiceId, Identity("AKEM-1022-3310-4471-0928"), Scope());
             Equal(replacement.CouponCaseId, store.FindLatestByInvoice(row.InvoiceId).CouponCaseId);
         });
+        Test("expired myDiesel coupon can be removed without another remote call", () =>
+        {
+            var factory = new DieselFactory();
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "EXPIRED", false));
+            var service = new MyDieselCouponService(database, factory);
+            Guid invoiceId = DraftInvoice();
+            MyDieselCouponIdentity identity = Identity(
+                "ABNT-1108-4031-5521-0302");
+            MyDieselScope scope = Scope();
+            MyDieselCouponCaseRecord row = service.Capture(invoiceId,
+                identity, scope);
+
+            MyDieselServiceResult expired = service.Reserve(
+                row.CouponCaseId);
+            Equal(MyDieselCaseStage.Final, expired.CouponCase.LocalStage);
+            Check(!expired.CouponCase.BlocksInvoice &&
+                !expired.CouponCase.BlocksCouponReuse,
+                "Expired coupon still blocks the invoice or coupon.");
+
+            var store = new SqlMyDieselStore(database);
+            MyDieselAttemptRecord[] attempts;
+            using (var lease = store.Acquire(row.CouponCaseId))
+            {
+                attempts = store.LoadAttempts(lease).ToArray();
+            }
+            Check(MyDieselCouponService.CanDismissInvalid(
+                expired.CouponCase, attempts),
+                "Expired coupon was not offered for removal.");
+
+            MyDieselCouponCaseRecord dismissed = service.DismissInvalid(
+                row.CouponCaseId);
+            Equal(MyDieselCaseStage.Dismissed, dismissed.LocalStage);
+            Equal(1, factory.Calls);
+            Check(store.CanAttachNewCoupon(invoiceId),
+                "Dismissed expired coupon prevents adding a replacement.");
+        });
+        Test("stale expired response can be removed without repeating myDiesel query", () =>
+        {
+            var factory = new DieselFactory();
+            var service = new MyDieselCouponService(database, factory);
+            Guid invoiceId = DraftInvoice();
+            MyDieselCouponIdentity identity = Identity(
+                "ABYN-1108-4031-5521-0302");
+            MyDieselScope scope = Scope();
+            MyDieselCouponCaseRecord row = service.Capture(invoiceId,
+                identity, scope);
+            var store = new SqlMyDieselStore(database);
+            DateTime createdUtc = DateTime.UtcNow;
+            var info = new MyDieselCouponInfo {
+                Code = row.CouponCode,
+                CouponStatus = "EXPIRED",
+                Redeemable = false,
+                CreatedAt = 1792648800,
+                ValidUntil = 1792666800,
+                IssuedLitres = 150m,
+                FuelType = "DIESEL",
+                FuelCode = 20,
+                LowBalance = false
+            };
+            var responseEnvelope = new {
+                success = true,
+                data = info
+            };
+            string responseBody = Newtonsoft.Json.JsonConvert.SerializeObject(
+                responseEnvelope);
+            var attempt = new MyDieselAttemptRecord {
+                AttemptId = Guid.NewGuid(),
+                Operation = MyDieselOperation.Query,
+                Scope = scope,
+                RequestJson = "{\"couponCode\":\"" + row.CouponCode + "\"}",
+                State = MyDieselOperationState.Prepared,
+                CreatedUtc = createdUtc,
+                UpdatedUtc = createdUtc
+            };
+            MyDieselAttemptRecord[] attempts;
+            using (var lease = store.Acquire(row.CouponCaseId))
+            {
+                store.BeginAttempt(lease, attempt);
+                attempt.State = MyDieselOperationState.Sending;
+                attempt.Revision = 1;
+                attempt.UpdatedUtc = createdUtc.AddSeconds(1);
+                store.SaveAttempt(lease, 0, attempt);
+                attempt.State = MyDieselOperationState.Succeeded;
+                attempt.Revision = 2;
+                attempt.UpdatedUtc = createdUtc.AddSeconds(2);
+                attempt.HttpStatus = 200;
+                attempt.ResponseBody = responseBody;
+                store.SaveAttempt(lease, 1, attempt);
+                attempts = store.LoadAttempts(lease).ToArray();
+            }
+
+            Check(MyDieselCouponService.CanDismissInvalid(row, attempts),
+                "The prior successful expired response was not recoverable.");
+            MyDieselCouponCaseRecord dismissed = service.DismissInvalid(
+                row.CouponCaseId);
+            Equal(MyDieselCaseStage.Dismissed, dismissed.LocalStage);
+            Equal("EXPIRED", dismissed.RemoteStatus);
+            Equal(0, factory.Calls);
+        });
         Test("myDiesel redeem timeout never repeats redemption and reconciles with explicit query", () => {
             var factory = new DieselFactory();
             factory.Results.Enqueue((operation, caseRow) => Success(operation, caseRow, "RESERVED", true));

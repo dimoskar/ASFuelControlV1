@@ -183,6 +183,72 @@ internal static class Program
                 s.Invoice.TotalAmount = 999; Equal("Unknown",service.Send(s.Id,Route(InvoiceProviderCatalog.ITimologiaKey),s).State);
                 Equal(1,h.Posts); Equal(1,s.Loads); Throws(() => service.LoadParentEvidence(s.Id));
             });
+        Test("automatic unknown recovery retries twice and then requires explicit recovery", () =>
+        {
+            var source = new Source();
+            var http = new Http(source.Id, InvoiceProviderCatalog.ITimologiaKey)
+            {
+                InvoicePost = body =>
+                {
+                    throw new HttpRequestException("synthetic timeout");
+                },
+                Lookup = () => Reply("{}", 503)
+            };
+            ProviderSubmissionService service = Service(http);
+            ProviderRoute route = Route(http.Key);
+
+            ProviderSubmissionResult initial = service.Send(source.Id, route,
+                source);
+            Equal("Unknown", initial.State);
+            // iTimologia performs one immediate lookup after the POST timeout.
+            // The bounded automatic retries begin after that result is Unknown.
+            Equal(1, http.Gets);
+
+            ProviderSubmissionResult firstAutomatic = service.Send(source.Id,
+                route, source);
+            Equal("Unknown", firstAutomatic.State);
+            Equal(2, http.Gets);
+
+            service = Service(http);
+            ProviderSubmissionResult secondAutomatic = service.Send(source.Id,
+                route, source);
+            Equal("Unknown", secondAutomatic.State);
+            Equal(3, http.Gets);
+
+            ProviderSubmissionResult stopped = service.Send(source.Id, route,
+                source);
+            Equal("Unknown", stopped.State);
+            Equal(3, http.Gets);
+            string stoppedErrors = Errors(stopped);
+            bool stoppedWasExplained = stoppedErrors.Contains("σταμάτησε");
+            Check(stoppedWasExplained,
+                "The automatic recovery limit was not explained.");
+            FiscalAttemptEvidence[] boundedRevisions = Revisions(source.Id);
+            Equal(7, boundedRevisions.Length);
+            FiscalAttemptEvidence latest = Latest(source.Id);
+            bool counterWasRetained = latest.SnapshotJson.Contains(
+                "HostAutomaticRecovery");
+            Check(counterWasRetained,
+                "The durable automatic-recovery counter was not retained.");
+
+            ProviderSubmissionResult explicitRecovery = service.Recover(
+                source.Id);
+            Equal("Unknown", explicitRecovery.State);
+            Equal(4, http.Gets);
+            FiscalAttemptEvidence[] explicitRevisions = Revisions(source.Id);
+            Equal(9, explicitRevisions.Length);
+            Equal(1, http.Posts);
+
+            ProviderSubmissionResult stillStopped = service.Send(source.Id,
+                route, source);
+            Equal("Unknown", stillStopped.State);
+            Equal(4, http.Gets);
+            string stillStoppedErrors = Errors(stillStopped);
+            bool explicitRecoveryPreservedLimit =
+                stillStoppedErrors.Contains("σταμάτησε");
+            Check(explicitRecoveryPreservedLimit,
+                "Explicit recovery reset the automatic recovery limit.");
+        });
         foreach (var mode in new[] { "matched", "different-description", "missing",
             "different-total", "different-customer", "different-fuel",
             "different-quantity", "different-payment", "cancelled", "duplicate",
@@ -240,6 +306,9 @@ internal static class Program
             h.Lookup = () => {
                 var invoice = new XElement(XDocument.Parse(h.LastPayload).Root.Element(ns + "invoice"));
                 var header = invoice.Element(ns + "invoiceHeader");
+                var dispatchDate = header.Element(ns + "dispatchDate");
+                Check(dispatchDate != null,"delivery test request has no dispatchDate");
+                dispatchDate.Value = "2026-10-12";
                 var dispatchTime = header.Element(ns + "dispatchTime");
                 Check(dispatchTime != null,"delivery test request has no dispatchTime");
                 dispatchTime.Remove();

@@ -34,8 +34,10 @@ namespace ASFuelControl.Windows.UI.Forms
         private bool totalEditorReadOnly;
         private bool guideOnlyFinancialEdit;
 
-        private Guid[] relatedIds;
+        private readonly List<ViewModels.InvoiceDetailsViewModel> relatedInvoices =
+            new List<ViewModels.InvoiceDetailsViewModel>();
         private Guid[] pendingRelatedProcessingIds = new Guid[0];
+        private string pairSaveError;
 
         public InvoiceFormEx() : this(new ViewModels.InvoiceDetailsViewModel())
         {
@@ -879,9 +881,19 @@ namespace ASFuelControl.Windows.UI.Forms
                 return Guid.Empty;
             }
             guideOnlyFinancialEdit = !createFiscalRelations ||
-                relatedIds != null && relatedIds.Length > 0;
+                relatedInvoices.Count > 0;
             var invoiceId = ExecuteWithInvoiceTypeBindingReadOnly<Guid>(() =>
                 ivm.TransformInvoices(invoiceIds, invoiceType, traderId, vehicleId, mode, createFiscalRelations));
+            if (invoiceId != Guid.Empty && relatedInvoices.Count > 0)
+            {
+                ViewModels.InvoiceDetailsViewModel[] dependencies =
+                    relatedInvoices.ToArray();
+                foreach (ViewModels.InvoiceDetailsViewModel dependency in dependencies)
+                {
+                    Guid dependencyId = dependency.InvoiceId;
+                    ivm.AddProcessingDependency(dependencyId);
+                }
+            }
             if (invoiceId != Guid.Empty && guideOnlyFinancialEdit)
                 ivm.EnableGuideOnlyTransformationFinancialEditing();
             if (invoiceId == Guid.Empty)
@@ -900,13 +912,16 @@ namespace ASFuelControl.Windows.UI.Forms
         public Guid[] CreateIntermediateTransformation(Guid[] invoiceIds, Guid invoiceType,
             Guid? traderId, Guid? vehicleId, int mode, string notesAddition)
         {
+            DeleteRelatedInvoices();
             var newIds = new List<Guid>();
+            var stagedInvoices = new List<ViewModels.InvoiceDetailsViewModel>();
             try
             {
                 foreach (var sourceId in invoiceIds)
                 {
                     var related = new ViewModels.InvoiceDetailsViewModel();
-                    var relatedId = related.TransformInvoices(new[] { sourceId }, invoiceType,
+                    Guid[] sourceIds = new[] { sourceId };
+                    var relatedId = related.TransformInvoices(sourceIds, invoiceType,
                         traderId, vehicleId, mode);
                     if (relatedId == Guid.Empty)
                         throw new InvalidOperationException("Δεν ήταν δυνατή η δημιουργία του πιστωτικού παραστατικού.");
@@ -914,19 +929,15 @@ namespace ASFuelControl.Windows.UI.Forms
                         related.Notes = string.IsNullOrWhiteSpace(related.Notes)
                             ? notesAddition
                             : notesAddition + "\r\n" + related.Notes;
-                    lock (Threads.PrintAgent.ExcludeInvoices)
-                        Threads.PrintAgent.ExcludeInvoices.Add(relatedId);
                     newIds.Add(relatedId);
-                    if (!related.Save(relatedId))
-                        throw new InvalidOperationException(string.Join("\r\n",
-                            (related.Errors ?? new ViewModels.ValidationError[0]).Select(error => error.ErrorMessage)));
+                    stagedInvoices.Add(related);
                 }
-                this.relatedIds = newIds.ToArray();
-                return this.relatedIds;
+                this.relatedInvoices.AddRange(stagedInvoices);
+                Guid[] stagedIds = newIds.ToArray();
+                return stagedIds;
             }
             catch
             {
-                this.relatedIds = newIds.ToArray();
                 DeleteRelatedInvoices();
                 throw;
             }
@@ -934,6 +945,7 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private bool SaveInvoice()
         {
+            pairSaveError = null;
             lookupValidationMessageShown = false;
             CommitEditorValues();
             if (!ValidateEditorLookupSelections(true))
@@ -941,22 +953,162 @@ namespace ASFuelControl.Windows.UI.Forms
                 lookupValidationMessageShown = true;
                 return false;
             }
-            var success = this.ivm.Save(this.ivm.InvoiceId);
-            if (success)
+
+            ViewModels.InvoiceDetailsViewModel[] stagedInvoices =
+                this.relatedInvoices.ToArray();
+            if (stagedInvoices.Length == 0)
             {
-                var savedRelatedIds = this.relatedIds ?? new Guid[0];
+                Guid invoiceId = this.ivm.InvoiceId;
+                bool invoiceSaved = this.ivm.Save(invoiceId);
+                return invoiceSaved;
+            }
+
+            Guid[] relatedInvoiceIds = stagedInvoices
+                .Select(invoice => invoice.InvoiceId)
+                .ToArray();
+            Guid[] pairInvoiceIds = relatedInvoiceIds
+                .Concat(new[] { this.ivm.InvoiceId })
+                .Where(invoiceId => invoiceId != Guid.Empty)
+                .Distinct()
+                .ToArray();
+
+            lock (Threads.PrintAgent.ExcludeInvoices)
+            {
+                foreach (Guid invoiceId in pairInvoiceIds)
+                {
+                    Threads.PrintAgent.ExcludeInvoices.Add(invoiceId);
+                }
+            }
+
+            try
+            {
+                bool pairSaved = SaveInvoicePair(stagedInvoices, pairInvoiceIds);
+                if (!pairSaved)
+                {
+                    return false;
+                }
+
                 this.pendingRelatedProcessingIds = this.pendingRelatedProcessingIds
-                    .Concat(savedRelatedIds)
+                    .Concat(relatedInvoiceIds)
                     .Distinct()
                     .ToArray();
+                this.relatedInvoices.Clear();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ResetInvoicePairForRetry(stagedInvoices);
+                pairSaveError =
+                    "Δεν αποθηκεύτηκε το πιστωτικό και το νέο παραστατικό. " +
+                    "Δεν έγινε καμία καταχώρηση στη βάση.\r\n" + ex.Message;
+                return false;
+            }
+            finally
+            {
                 lock (Threads.PrintAgent.ExcludeInvoices)
                 {
-                    foreach (var id in savedRelatedIds)
-                        Threads.PrintAgent.ExcludeInvoices.Remove(id);
+                    foreach (Guid invoiceId in pairInvoiceIds)
+                    {
+                        Threads.PrintAgent.ExcludeInvoices.Remove(invoiceId);
+                    }
                 }
-                this.relatedIds = null;
             }
-            return success;
+        }
+
+        private bool SaveInvoicePair(
+            ViewModels.InvoiceDetailsViewModel[] stagedInvoices,
+            Guid[] pairInvoiceIds)
+        {
+            using (Data.DatabaseModel db = new Data.DatabaseModel(
+                Properties.Settings.Default.DBConnection))
+            {
+                foreach (ViewModels.InvoiceDetailsViewModel related in
+                    stagedInvoices)
+                {
+                    Guid relatedId = related.InvoiceId;
+                    bool relatedSaved = related.Save(db, relatedId);
+                    if (!relatedSaved)
+                    {
+                        string validationMessage =
+                            InvoiceValidationMessage(related);
+                        pairSaveError =
+                            "Δεν αποθηκεύτηκε το συνδεδεμένο πιστωτικό. " +
+                            "Δεν έγινε καμία καταχώρηση στη βάση.\r\n" +
+                            validationMessage;
+                        ResetInvoicePairForRetry(stagedInvoices);
+                        return false;
+                    }
+                }
+
+                Guid invoiceId = this.ivm.InvoiceId;
+                bool invoiceSaved = this.ivm.Save(db, invoiceId);
+                if (!invoiceSaved)
+                {
+                    ResetInvoicePairForRetry(stagedInvoices);
+                    return false;
+                }
+
+                db.SaveChanges();
+                int persistedInvoiceCount = CountPersistedInvoices(
+                    db, pairInvoiceIds);
+                if (persistedInvoiceCount != pairInvoiceIds.Length)
+                {
+                    throw new InvalidOperationException(
+                        "Η βάση δεν επιβεβαίωσε την κοινή αποθήκευση και των δύο παραστατικών.");
+                }
+            }
+            return true;
+        }
+
+        private static int CountPersistedInvoices(Data.DatabaseModel db,
+            Guid[] invoiceIds)
+        {
+            var parameterNames = new List<string>();
+            var parameters = new List<System.Data.Common.DbParameter>();
+            for (int index = 0; index < invoiceIds.Length; index++)
+            {
+                string parameterName = "@invoiceId" + index;
+                var parameter = new System.Data.SqlClient.SqlParameter(
+                    parameterName, invoiceIds[index]);
+                parameterNames.Add(parameterName);
+                parameters.Add(parameter);
+            }
+
+            string joinedParameterNames = string.Join(", ", parameterNames);
+            string sql = "SELECT COUNT(*) FROM dbo.Invoice WHERE InvoiceId IN (" +
+                joinedParameterNames + ")";
+            System.Data.Common.DbParameter[] dbParameters =
+                parameters.ToArray();
+            IEnumerable<int> counts = db.ExecuteQuery<int>(sql, dbParameters);
+            int persistedInvoiceCount = counts.Single();
+            return persistedInvoiceCount;
+        }
+
+        private void ResetInvoicePairForRetry(
+            ViewModels.InvoiceDetailsViewModel[] stagedInvoices)
+        {
+            foreach (ViewModels.InvoiceDetailsViewModel related in stagedInvoices)
+            {
+                related.PrepareNewInvoiceForSaveRetry();
+            }
+            this.ivm.PrepareNewInvoiceForSaveRetry();
+        }
+
+        private static string InvoiceValidationMessage(
+            ViewModels.InvoiceDetailsViewModel invoice)
+        {
+            ViewModels.ValidationError[] errors = invoice.Errors ??
+                new ViewModels.ValidationError[0];
+            string[] messages = errors
+                .Select(error => error.ErrorMessage)
+                .Where(errorMessage => !string.IsNullOrWhiteSpace(errorMessage))
+                .ToArray();
+            if (messages.Length == 0)
+            {
+                return "Το παραστατικό απέτυχε στον έλεγχο αποθήκευσης.";
+            }
+            string message = string.Join("\r\n", messages);
+            return message;
         }
 
         private void ProcessPendingRelatedInvoices()
@@ -975,11 +1127,22 @@ namespace ASFuelControl.Windows.UI.Forms
                     if (Threads.SharedInvoiceRuntime.Handles(relatedId))
                     {
                         var result = Threads.SharedInvoiceRuntime.Process(relatedId, true);
-                        if (result == null || !result.ReadyToPrint)
+                        bool readyToPrint = result != null &&
+                            result.ReadyToPrint;
+                        string printState = result == null || result.Print == null
+                            ? null
+                            : result.Print.State;
+                        bool printCompleted = IsSuccessfulPrintState(printState);
+                        if (!readyToPrint || !printCompleted)
                         {
                             string detail = result == null
                                 ? "Δεν επιστράφηκε αποτέλεσμα έκδοσης."
                                 : ASFuelControl.Windows.UI.Controls.FiscalDocumentPanel.ResultMessage(result);
+                            if (readyToPrint && !printCompleted)
+                            {
+                                detail = detail + "\r\nΗ εκτύπωση του πιστωτικού " +
+                                    "δεν παραδόθηκε επιτυχώς στον εκτυπωτή.";
+                            }
                             throw new InvalidOperationException(detail);
                         }
                     }
@@ -997,7 +1160,10 @@ namespace ASFuelControl.Windows.UI.Forms
                             // the device/provider a second time if the polling worker
                             // completed the credit immediately after it was released.
                             if (related.IsPrinted != true)
-                                new Threads.PrintAgent().SignInvoice(db, related);
+                            {
+                                var printAgent = new Threads.PrintAgent();
+                                printAgent.SignInvoice(db, related);
+                            }
                             if (related.IsPrinted != true)
                                 throw new InvalidOperationException(
                                     "Το πιστωτικό δεν ολοκλήρωσε τη σήμανση ή τη διαβίβασή του.");
@@ -1017,11 +1183,29 @@ namespace ASFuelControl.Windows.UI.Forms
             }
         }
 
+        private static bool IsSuccessfulPrintState(string printState)
+        {
+            return string.Equals(printState, "HandedOff",
+                       StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(printState, "Confirmed",
+                       StringComparison.OrdinalIgnoreCase);
+        }
+
         private void ShowSaveErrors()
         {
             if (lookupValidationMessageShown)
                 return;
-            string message = string.Join("\r\n", this.ivm.Errors.Select(s => s.ErrorMessage));
+            string message = pairSaveError;
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                ViewModels.ValidationError[] errors = this.ivm.Errors ??
+                    new ViewModels.ValidationError[0];
+                string[] messages = errors
+                    .Select(error => error.ErrorMessage)
+                    .Where(error => !string.IsNullOrWhiteSpace(error))
+                    .ToArray();
+                message = string.Join("\r\n", messages);
+            }
             if (!string.IsNullOrWhiteSpace(message))
                 RadMessageBox.Show(message, "Σφάλμα Αποθήκευσης", MessageBoxButtons.OK,
                     RadMessageIcon.Exclamation);
@@ -1048,41 +1232,9 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void DeleteRelatedInvoices()
         {
-            if (this.relatedIds == null || this.relatedIds.Length == 0)
+            if (this.relatedInvoices.Count == 0)
                 return;
-            using (Threads.SharedInvoiceRuntime.EditUnissued(this.relatedIds))
-            using (Data.DatabaseModel db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
-            {
-                foreach (var invoiceId in this.relatedIds)
-                {
-                    var invoice = db.Invoices.SingleOrDefault(item => item.InvoiceId == invoiceId);
-                    if (invoice == null)
-                        continue;
-                    foreach (var line in invoice.InvoiceLines.ToArray())
-                    {
-                        if (line.InvoiceLineRelations_ChildRelationId.Count > 0)
-                            db.Delete(line.InvoiceLineRelations_ChildRelationId);
-                        if (line.InvoiceLineRelations_ParentLineId.Count > 0)
-                            db.Delete(line.InvoiceLineRelations_ParentLineId);
-                    }
-                    if (invoice.ParentInvoiceRelations.Count > 0)
-                        db.Delete(invoice.ParentInvoiceRelations);
-                    if (invoice.ChildInvoiceRelations.Count > 0)
-                        db.Delete(invoice.ChildInvoiceRelations);
-                    if (invoice.FinTransactions.Count > 0)
-                        db.Delete(invoice.FinTransactions);
-                    if (invoice.InvoiceLines.Count > 0)
-                        db.Delete(invoice.InvoiceLines);
-                    db.Delete(invoice);
-                }
-                db.SaveChanges();
-            }
-            lock (Threads.PrintAgent.ExcludeInvoices)
-            {
-                foreach (var id in this.relatedIds)
-                    Threads.PrintAgent.ExcludeInvoices.Remove(id);
-            }
-            this.relatedIds = null;
+            this.relatedInvoices.Clear();
         }
 
         private void InvoiceFormEx_FormClosing(object sender, FormClosingEventArgs e)
@@ -1233,7 +1385,12 @@ namespace ASFuelControl.Windows.UI.Forms
                         {
                             if (lookupValidationMessageShown)
                                 return;
-                            throw new InvalidOperationException(string.Join("\r\n", this.ivm.Errors.Select(s => s.ErrorMessage)));
+                            string saveError = pairSaveError;
+                            if (string.IsNullOrWhiteSpace(saveError))
+                            {
+                                saveError = InvoiceValidationMessage(this.ivm);
+                            }
+                            throw new InvalidOperationException(saveError);
                         }
                     }
                     ProcessPendingRelatedInvoices();

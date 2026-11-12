@@ -258,7 +258,9 @@ namespace ASFuelControl.Windows.UI.SelectionForms
 
         private void LoadInvoiceTypes()
         {
-            var values = ViewModels.CommonCache.Instance.InvoiceTypes.Where(value => value.DispenserTypeEx).ToArray();
+            var values = ViewModels.CommonCache.Instance.InvoiceTypes
+                .Where(value => value.DispenserTypeEx && !value.InvalidatedEx)
+                .ToArray();
             invoiceType.DisplayMember = "Description";
             invoiceType.ValueMember = "InvoiceTypeId";
             invoiceType.DataSource = values;

@@ -265,7 +265,25 @@ namespace ASFuelControl.Windows.UI.Catalogs
 
         private static bool CanSelectInvoice(Data.InvoiceCatalogView invoice)
         {
-            return invoice != null && !invoice.IsReplaced && !invoice.IsCanceled;
+            return invoice != null && !invoice.IsCanceled;
+        }
+
+        private static bool TransformationCreatesCredit(
+            Data.InvoiceTypeTransform transformation,
+            Data.InvoiceType destinationInvoiceType)
+        {
+            if (transformation == null)
+            {
+                return false;
+            }
+
+            bool cancellationTransformation = transformation.TransformationMode ==
+                (int)Common.Enumerators.InvoiceTransformationTypeEnum.Cancelation;
+            bool destinationIsCancellation = destinationInvoiceType != null &&
+                destinationInvoiceType.IsCancelation == true;
+            bool createsCredit = transformation.CreationInvoiceTypeId.HasValue ||
+                cancellationTransformation || destinationIsCancellation;
+            return createsCredit;
         }
 
         private void InvoiceRadGridView_GroupSummaryEvaluate(object sender, GroupSummaryEvaluationEventArgs e)
@@ -306,12 +324,20 @@ namespace ASFuelControl.Windows.UI.Catalogs
                         "Ακύρωση παραστατικού", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
                     return;
                 }
-                if (invoices.Any(invoice => !CanSelectInvoice(invoice)))
+                bool hasUnavailableInvoices = invoices.Any(invoice =>
+                    !CanSelectInvoice(invoice));
+                if (hasUnavailableInvoices)
                 {
-                    foreach (var invoice in invoices.Where(invoice => !CanSelectInvoice(invoice)))
+                    Data.InvoiceCatalogView[] unavailableInvoices = invoices
+                        .Where(invoice => !CanSelectInvoice(invoice))
+                        .ToArray();
+                    foreach (var invoice in unavailableInvoices)
                         invoice.Selected = false;
-                    RadMessageBox.Show("Παραστατικό που έχει ήδη χρησιμοποιηθεί ή ακυρωθεί δεν μπορεί να επιλεγεί ξανά.",
-                        "Σφάλμα Επιλογής...",MessageBoxButtons.OK,RadMessageIcon.Exclamation);
+                    string unavailableMessage =
+                        "Παραστατικό που έχει ήδη ακυρωθεί δεν μπορεί να πιστωθεί ή να μετασχηματιστεί ξανά.";
+                    RadMessageBox.Show(unavailableMessage,
+                        "Σφάλμα Επιλογής...", MessageBoxButtons.OK,
+                        RadMessageIcon.Exclamation);
                     return;
                 }
 
@@ -337,6 +363,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
 
                 Guid parentInvoiceTypeId = invoices.Select(i => i.InvoiceTypeId).First();
                 Data.InvoiceTypeTransform transformation = null;
+                Data.InvoiceType destinationInvoiceType = null;
                 using (SelectionForms.InvoiceTypeSelection sitf = new SelectionForms.InvoiceTypeSelection())
                 {
                     if (cancellationOnly)
@@ -372,10 +399,12 @@ namespace ASFuelControl.Windows.UI.Catalogs
                     if (invoiceTypeId == Guid.Empty)
                         return;
 
-                    var invoiceType = db.InvoiceTypes.SingleOrDefault(i => i.InvoiceTypeId == invoiceTypeId);
-                    if (invoiceType == null)
+                    destinationInvoiceType = db.InvoiceTypes.SingleOrDefault(i =>
+                        i.InvoiceTypeId == invoiceTypeId);
+                    if (destinationInvoiceType == null)
                         return;
-                    if (c > 1 && invoiceType.NeedsVehicle.HasValue && invoiceType.NeedsVehicle.Value)
+                    if (c > 1 && destinationInvoiceType.NeedsVehicle.HasValue &&
+                        destinationInvoiceType.NeedsVehicle.Value)
                     {
                         db.Dispose();
                         RadMessageBox.Show("Το καύσιμο των παραστατικών που επιλέγετε πρέπει να είναι ίδιο.", "Σφάλμα Επιλογής...", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
@@ -409,13 +438,20 @@ namespace ASFuelControl.Windows.UI.Catalogs
                     return;
                 }
 
-                if (transformation.TransformationMode != (int)Common.Enumerators.InvoiceTransformationTypeEnum.OneToMany)
+                bool createsCredit = TransformationCreatesCredit(
+                    transformation, destinationInvoiceType);
+                if (transformation.TransformationMode !=
+                    (int)Common.Enumerators.InvoiceTransformationTypeEnum.OneToMany)
                 {
-                    var cm = invoices.Count(s => s.IsCanceled || s.IsReplaced);
-                    if (cm > 0)
+                    int unavailableCount = invoices.Count(invoice => invoice.IsCanceled ||
+                        invoice.IsReplaced && !createsCredit);
+                    if (unavailableCount > 0)
                     {
                         db.Dispose();
-                        RadMessageBox.Show("Κάποιο από τα παραστατικά έχει ήδη μετασχηματιστεί!", "Σφάλμα Επιλογής...", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
+                        RadMessageBox.Show(
+                            "Κάποιο από τα παραστατικά έχει ήδη μετασχηματιστεί και ο επιλεγμένος μετασχηματισμός δεν δημιουργεί πιστωτικό!",
+                            "Σφάλμα Επιλογής...", MessageBoxButtons.OK,
+                            RadMessageIcon.Exclamation);
                         return;
                     }
                 }

@@ -413,9 +413,15 @@ ELSE INSERT dbo.MyDieselReferenceCache(Environment,CompanyVat,FuelTypesJson,Fuel
             if ((value.LocalStage == MyDieselCaseStage.Released || remote == MyDieselCouponStatus.Expired || remote == MyDieselCouponStatus.Cancelled) &&
                 (value.BlocksInvoice || value.BlocksCouponReuse)) throw new ArgumentException("Released or unavailable coupons cannot remain locally blocking.");
             if (value.LocalStage == MyDieselCaseStage.Final && !MyDieselCouponStates.IsFinal(remote)) throw new ArgumentException("A final local case requires a final remote status.");
-            if (value.LocalStage == MyDieselCaseStage.Dismissed && (value.BlocksInvoice || value.BlocksCouponReuse ||
-                !string.IsNullOrWhiteSpace(value.RemoteStatus) || !string.IsNullOrWhiteSpace(value.InvoiceMark) || value.MarkSourceInvoiceId.HasValue))
-                throw new ArgumentException("Only a rejected, never-reserved coupon can be dismissed.");
+            bool dismissibleRemoteStatus = string.IsNullOrWhiteSpace(value.RemoteStatus) ||
+                remote == MyDieselCouponStatus.Expired ||
+                remote == MyDieselCouponStatus.Cancelled;
+            if (value.LocalStage == MyDieselCaseStage.Dismissed &&
+                (value.BlocksInvoice || value.BlocksCouponReuse ||
+                 !dismissibleRemoteStatus ||
+                 !string.IsNullOrWhiteSpace(value.InvoiceMark) ||
+                 value.MarkSourceInvoiceId.HasValue))
+                throw new ArgumentException("Only a rejected, expired, or cancelled coupon without an invoice MARK can be dismissed.");
         }
 
         private static void ValidateAttempt(MyDieselAttemptRecord value, bool creating)

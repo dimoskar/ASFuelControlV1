@@ -148,7 +148,8 @@ namespace ASFuelControl.Windows.UI.Controls
             resume = Button("Διαβίβαση",async () => {
                 if (!Owned) { await SubmitPrintedInvoice(); return; }
                 var id = invoiceId;
-                if (status?.State("Submission") == "ReconciliationRequired")
+                if (status?.State("Submission") == "ReconciliationRequired" ||
+                    status?.LegacyMyDataError228 == true)
                 {
                     string recovered = null;
                     await Run(() => recovered = SharedInvoiceRuntime.RecoverStatus(id));
@@ -172,7 +173,7 @@ namespace ASFuelControl.Windows.UI.Controls
                     var oldIdentity = saved == null ? string.Empty :
                         "\r\n\r\nΑρχικό παραστατικό: " + (saved.Series ?? string.Empty) + saved.Number +
                         " / " + saved.PrintedDateTime.ToString("dd/MM/yyyy");
-                    var reissueQuestion = "Ο πάροχος απέρριψε το παραστατικό επειδή η ημερομηνία έκδοσης δεν είναι η σημερινή." +
+                    var reissueQuestion = "Η διαβίβαση απορρίφθηκε επειδή η ημερομηνία έκδοσης ή διακίνησης δεν είναι πλέον έγκυρη." +
                         oldIdentity +
                         "\r\n\r\nΝα εκδοθεί ξανά με τη σημερινή ημερομηνία και νέο επόμενο αριθμό;" +
                         "\r\n\r\nΟ αρχικός αριθμός δεν θα επαναχρησιμοποιηθεί και η απόρριψη θα παραμείνει στο ιστορικό.";
@@ -553,7 +554,9 @@ namespace ASFuelControl.Windows.UI.Controls
             try
             {
                 ReadFailed = false;
-                status = id == Guid.Empty ? null : SharedInvoiceRuntime.ReadStatus(id);
+                status = id == Guid.Empty
+                    ? null
+                    : SharedInvoiceRuntime.ReadStatusWithHistory(id);
                 UpdateFiscalAttemptPageVisibility();
                 RefreshFiscalAttempt();
                 var snapshot = status?.Snapshot;
@@ -576,7 +579,10 @@ namespace ASFuelControl.Windows.UI.Controls
                 changePayment.Visible = status?.CanChangePaymentMethod == true;
                 changePayment.Enabled = status?.CanChangePaymentMethod == true;
                 var submissionState = status?.State("Submission");
-                resume.Text = submissionState == "ReconciliationRequired"
+                bool submissionRecoveryRequired =
+                    submissionState == "ReconciliationRequired" ||
+                    status?.LegacyMyDataError228 == true;
+                resume.Text = submissionRecoveryRequired
                     ? "Ανάκτηση διαβίβασης"
                     : submissionState == "Rejected" || status?.ProviderResend?.CanResend == true
                     ? "Επανάληψη διαβίβασης" : "Διαβίβαση";
@@ -597,10 +603,11 @@ namespace ASFuelControl.Windows.UI.Controls
                     "\r\nΣήμανση: " + (snapshot.Signing != null ? StateLabel(status.State("Signing")) : snapshot.Provider != null && snapshot.Provider.ProviderKey != "myDATA" ? "Μέσω παρόχου" : "Δεν απαιτείται") + "    Πληρωμή: " + (snapshot.Payment == null ? "Δεν απαιτείται" : status.RetryPaymentAttemptId.HasValue ? "Αναμονή επανάληψης" : StateLabel(status.State("Payment"))) +
                     "\r\nΔιαβίβαση: " + (snapshot.Provider == null ? "Χωρίς διαβίβαση" : StateLabel(status.State("Submission"))) + "    Εκτύπωση: " + PrintStatus();
                 if (!string.IsNullOrWhiteSpace(status.ConnectionProblem)) summary.Text += "\r\nΈλεγχος σύνδεσης: " + status.ConnectionProblem;
-                if (status.State("Submission") == "Rejected")
+                if (status.State("Submission") == "Rejected" &&
+                    !status.LegacyMyDataError228)
                     summary.Text += "\r\nΗ προηγούμενη διαβίβαση απορρίφθηκε. Επιλέξτε «Επανάληψη διαβίβασης» για νέα προσπάθεια με το διορθωμένο αίτημα.";
                 if (status.CanReissueAfterIssueDateMismatch)
-                    summary.Text += "\r\nΗ απόρριψη αφορά παλιά ημερομηνία έκδοσης. Η επανάληψη θα ζητήσει επιβεβαίωση για σημερινή ημερομηνία και νέο αριθμό.";
+                    summary.Text += "\r\nΗ απόρριψη αφορά παλιά ημερομηνία έκδοσης ή διακίνησης. Η επανάληψη θα ζητήσει επιβεβαίωση για σημερινή ημερομηνία και νέο αριθμό.";
                 else if (status.IssueDateMismatchRejected)
                     summary.Text += "\r\nΗ απόρριψη αφορά την ημερομηνία έκδοσης, αλλά η νέα αρίθμηση εμποδίζεται: " +
                         (status.IssueDateReissueBlockReason ?? "Απαιτείται έλεγχος του φορολογικού ιστορικού.");
@@ -609,12 +616,21 @@ namespace ASFuelControl.Windows.UI.Controls
                         InvoiceProviderCatalog.MyDataKey
                             ? "\r\nΗ έκβαση δεν επιβεβαιώθηκε. Η επανάληψη θα επιτραπεί μόνο με τις ίδιες σημασιολογικές τιμές και την ίδια ταυτότητα myDATA. Αν οι τιμές άλλαξαν, απαιτείται πρώτα ανάκτηση και ακύρωση του αρχικού MARK."
                             : "\r\nΗ έκβαση δεν επιβεβαιώθηκε. Η επανάληψη χρησιμοποιεί το ίδιο InvoiceId· ο πάροχος μπορεί να επιστρέψει ότι το παραστατικό υπάρχει ήδη. Αν οι τιμές άλλαξαν, απαιτείται πρώτα ανάκτηση και επιλεγμένος τύπος ακυρωτικού.";
-                if (status.State("Submission") == "ReconciliationRequired")
+                if (submissionRecoveryRequired)
                     summary.Text += "\r\nΟ πάροχος ή η ΑΑΔΕ ανέφερε ότι το παραστατικό έχει ήδη διαβιβαστεί. Δεν επιτρέπεται νέα αποστολή. " +
                         "Επιλέξτε «Ανάκτηση διαβίβασης» για ασφαλή ανάκτηση και επαλήθευση των στοιχείων σήμανσης.";
                 if (string.IsNullOrWhiteSpace(CurrentActionMessage) && snapshot.Provider != null && snapshot.Payment == null && snapshot.Signing == null && !status.Attempts.Any(a => a.Family == "Submission"))
                     summary.Text += "\r\nΈχουν αποθηκευτεί τα στοιχεία έκδοσης, αλλά δεν έχει καταγραφεί αποστολή παραστατικού.\r\nΗ σύνδεση / προετοιμασία μπορεί να μην ολοκληρώθηκε. Η «Διαβίβαση» εμφανίζει το αποτέλεσμα.";
-                history.Text = string.Join("\r\n",status.Revisions.Select(HistoryLine));
+                var historyLines = status.Revisions.Select(HistoryLine);
+                string historyText = string.Join("\r\n", historyLines);
+                if (status.HistoryTruncated)
+                {
+                    historyText = "Προβάλλονται μόνο οι τελευταίες " +
+                        SharedInvoiceRuntime.RecentHistoryLimitPerAttempt +
+                        " εγγραφές ανά προσπάθεια. Το πλήρες ιστορικό παραμένει στη βάση δεδομένων.\r\n" +
+                        historyText;
+                }
+                history.Text = historyText;
                 payment.Text = snapshot.Payment == null ? "Δεν υπάρχει ενσωματωμένη πληρωμή POS." : "GBridge · " + snapshot.Payment.TerminalId +
                     "\r\nΤρόπος POS: " + (snapshot.Payment.PosMode ?? (snapshot.Payment.Provider.ProviderKey == "Ilyda.Direct" ? snapshot.Payment.IlydaProtocol :
                     snapshot.Payment.ITimologiaSignatureFormat == 1 ? "EDPS / Viva (παλαιό προφίλ)" : "Mellon / ePay / Cardlink / Nexi (παλαιό προφίλ)")) +
@@ -665,7 +681,7 @@ namespace ASFuelControl.Windows.UI.Controls
                 if (configured != null) evidence.Text += "\r\nΠροφίλ από τις τρέχουσες ρυθμίσεις: " + configured.CredentialProfile;
                 recover.Enabled = paymentRecoveryVisible && status.Attempts.Any() &&
                     !status.Attempts.Any(a => a.Family == "Print" && a.Operation != "PrintTF2");
-                resume.Enabled = status.State("Submission") == "ReconciliationRequired" ||
+                resume.Enabled = submissionRecoveryRequired ||
                     status.ProviderResend?.CanResend == true ||
                     !status.Attempts.Any(a => a.Family == "Print" || a.Family == "Cancellation") &&
                     !status.Attempts.GroupBy(a => a.Family).Select(g => g.Last()).Any(a => a.State == "Unknown" || a.State == "Signing" || a.State == "Sending" || a.State == "Queued" || a.State == "QueueFailed" || a.State == "ReconciliationRequired");

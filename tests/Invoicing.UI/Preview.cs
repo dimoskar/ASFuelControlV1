@@ -557,6 +557,7 @@ namespace ASFuelControl.Windows.Threads
         internal Guid? RefundOriginalInvoiceId;
         internal ASFuelControl.Invoicing.Persistence.PaymentCompensationRecord Compensation;
         internal bool CanVoidPayment, CanRecoverVoid, CanRefundPayment, CanRecoverRefund, IsRefundPayment;
+        internal bool HistoryTruncated;
         internal ASFuelControl.Invoicing.ProviderResendAssessment ProviderResend;
         internal InvoiceWorkflowSnapshot Snapshot = new InvoiceWorkflowSnapshot { LocalOnly = true,PrintDestination = "DEMO Thermal" };
         internal FiscalAttemptEvidence[] Attempts = new FiscalAttemptEvidence[0], Revisions = new FiscalAttemptEvidence[0];
@@ -565,6 +566,7 @@ namespace ASFuelControl.Windows.Threads
     internal static class SharedInvoiceRuntime
     {
         internal const string OperatorRequestedCopyReason = "Operator requested an invoice copy.";
+        internal const int RecentHistoryLimitPerAttempt = 100;
         internal static SharedInvoiceStatus Status = new SharedInvoiceStatus();
         internal static bool FailRead, LastPrint;
         internal static int ProcessCalls;
@@ -578,6 +580,11 @@ namespace ASFuelControl.Windows.Threads
         internal static bool Enabled => false;
         internal static bool SupportsIris => false;
         internal static SharedInvoiceStatus ReadStatus(Guid id) { if (FailRead) throw new InvalidOperationException("Synthetic read failure"); return Status; }
+        internal static SharedInvoiceStatus ReadStatusWithHistory(Guid id)
+        {
+            SharedInvoiceStatus status = ReadStatus(id);
+            return status;
+        }
         internal static string RecoverStatus(Guid id) { throw new InvalidOperationException("No transport in preview"); }
         internal static ProviderPaymentResult RetryPayment(Guid id,Guid expectedAttemptId)
         {

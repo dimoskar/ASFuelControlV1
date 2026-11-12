@@ -7,11 +7,31 @@ using Newtonsoft.Json.Linq;
 
 namespace ASFuelControl.Invoicing
 {
+    public enum HeatingCorrectionEvidenceKind
+    {
+        SharedProvider = 0,
+        LegacyMyDataMark = 1,
+        LegacyFiscalSignature = 2
+    }
+
     public sealed class HeatingCorrectionPlan
     {
-        public Guid OriginalId, CreditId, ReplacementId, OriginalTypeId, CreditTypeId, OriginalAttemptId;
+        public Guid OriginalId, CreditId, ReplacementId, OriginalTypeId, CreditTypeId,
+            ReplacementTypeId, OriginalAttemptId;
+        public Guid LegacyEvidenceId;
         public string OriginalDescription, CreditSeries, ReplacementSeries;
+        public string OriginalSignature;
         public long OriginalMark;
+        public HeatingCorrectionEvidenceKind EvidenceKind;
+        public int OriginalHostPaymentType;
+        public int ReplacementHostPaymentType;
+        public InvoicePaymentType ReplacementPaymentType;
+        public bool ReplacementPaymentConfigured;
+        public FiscalSigningScope OriginalSigningScope;
+        public ProviderRoute ReplacementProvider;
+        public FiscalSigningScope ReplacementSigningScope;
+        public bool ReplacementLocalOnly;
+        public bool ReplacementRouteConfigured;
         public InvoiceWorkflowSnapshot Original;
         public JObject Host;
 
@@ -22,9 +42,10 @@ namespace ASFuelControl.Invoicing
             request.Invoice.Number=number;request.Invoice.Series=series;request.Invoice.PrintedDateTime=date;
             request.Invoice.InvoiceSeries.Series=series;
             // No cash refund/recollection: the two correction documents offset one another.
-            request.Invoice.PaymentType=InvoicePaymentType.Credit;
+            request.Invoice.PaymentType=credit?InvoicePaymentType.Credit:
+                ReplacementPaymentType;
             request.Invoice.InvoiceSeries.InvoiceType.InvoiceTypeMode=credit?InvoiceMode.Credit:InvoiceMode.Normal;
-            request.Parents=credit?new[]{new InvoiceParent {Invoice=Copy(Original.Invoice.Invoice),Transmission=new TransmissionEvidence {Status=3,Mark=OriginalMark}}}:new InvoiceParent[0];
+            request.Parents=credit&&OriginalMark>0?new[]{new InvoiceParent {Invoice=Copy(Original.Invoice.Invoice),Transmission=new TransmissionEvidence {Status=3,Mark=OriginalMark}}}:new InvoiceParent[0];
             request.SaleCorrelations=null;
             request.RequireIssuedIdentity=true;
             return request;
@@ -36,22 +57,93 @@ namespace ASFuelControl.Invoicing
     {
         public static void Validate(HeatingCorrectionPlan plan,string originalPayload)
         {
-            if(plan?.Original?.Invoice==null||plan.Original.Provider==null||plan.OriginalMark<=0||plan.OriginalAttemptId==Guid.Empty)
-                throw new InvalidOperationException("Απαιτείται αποθηκευμένη και αποδεκτή αρχική διαβίβαση.");
-            string provider=plan.Original.Provider.ProviderKey;
-            if(provider!=InvoiceProviderCatalog.ITimologiaKey && provider!=InvoiceProviderCatalog.DirectIlydaKey)
-                throw new InvalidOperationException("Η παρτίδα αφορά μόνο iTimologia και Ilyda χωρίς Arbitrans.");
-            if(plan.Original.Payment!=null||plan.Original.Signing!=null||
-                plan.Original.Invoice.Invoice.PaymentType!=InvoicePaymentType.Cash && plan.Original.Invoice.Invoice.PaymentType!=InvoicePaymentType.Credit)
-                throw new InvalidOperationException("Εξαιρείται: πληρωμή POS/IRIS/στόλου ή πρόσθετη σήμανση.");
+            ValidatePlan(plan);
+            ValidateOriginalPayload(plan,originalPayload);
+            ValidateCorrectedDocuments(plan);
+        }
+
+        public static void ValidateLegacy(HeatingCorrectionPlan plan)
+        {
+            ValidatePlan(plan);
+            ValidateCorrectedDocuments(plan);
+        }
+
+        private static void ValidatePlan(HeatingCorrectionPlan plan)
+        {
+            if(plan?.Original?.Invoice==null)
+            {
+                throw new InvalidOperationException("Απαιτούνται τα αποθηκευμένα στοιχεία του αρχικού παραστατικού.");
+            }
+
+            ValidateEvidence(plan);
+            if(plan.ReplacementPaymentType!=InvoicePaymentType.Cash&&
+                plan.ReplacementPaymentType!=InvoicePaymentType.Credit)
+            {
+                throw new InvalidOperationException(
+                    "Η επανέκδοση επιτρέπεται μόνο με πληρωμή μετρητοίς ή επί πιστώσει.");
+            }
+
             if(plan.Original.Invoice.Movement!=null||plan.Original.Invoice.Delivery!=null||plan.Original.Invoice.Invoice.InvoiceSeries.IsDeliveryNote||
                 plan.Original.Invoice.SaleCorrelations?.Any()==true||plan.Original.Invoice.Parents?.Any()==true)
+            {
                 throw new InvalidOperationException("Εξαιρείται: απαιτείται ιδιαίτερη συμφωνία διακίνησης ή συσχετισμένων παραστατικών.");
-            var builder=new InvoiceBuilder(new InvoiceTypeResolver());
+            }
+
+            var resolver=new InvoiceTypeResolver();
+            var builder=new InvoiceBuilder(resolver);
             var model=builder.Build(plan.Original.Invoice);
             if(plan.Original.Invoice.Invoice.InvoiceSeries.InvoiceType.InvoiceTypeMode!=InvoiceMode.Normal||
                 MyDataHeaderFields.SpecialInvoiceCategory(model)!=11||model.InvoiceSummary.TotalGrossValue<=0)
+            {
                 throw new InvalidOperationException("Δεν είναι αρχική πώληση που πληροί τους όρους επιδόματος θέρμανσης.");
+            }
+        }
+
+        private static void ValidateEvidence(HeatingCorrectionPlan plan)
+        {
+            switch(plan.EvidenceKind)
+            {
+                case HeatingCorrectionEvidenceKind.SharedProvider:
+                    string provider=plan.Original.Provider?.ProviderKey;
+                    bool supportedProvider=provider==InvoiceProviderCatalog.ITimologiaKey||
+                        provider==InvoiceProviderCatalog.DirectIlydaKey;
+                    if(!supportedProvider||plan.OriginalMark<=0||
+                        plan.OriginalAttemptId==Guid.Empty||plan.OriginalSigningScope!=null)
+                    {
+                        throw new InvalidOperationException("Απαιτείται αποθηκευμένη και αποδεκτή αρχική διαβίβαση παρόχου.");
+                    }
+                    break;
+                case HeatingCorrectionEvidenceKind.LegacyMyDataMark:
+                    if(plan.Original.Provider?.ProviderKey!=InvoiceProviderCatalog.MyDataKey||
+                        plan.OriginalMark<=0||plan.LegacyEvidenceId==Guid.Empty)
+                    {
+                        throw new InvalidOperationException("Απαιτείται θετικό MARK στο MyDataInvoice.");
+                    }
+                    break;
+                case HeatingCorrectionEvidenceKind.LegacyFiscalSignature:
+                    if(plan.Original.Provider!=null||plan.OriginalSigningScope==null||
+                        string.IsNullOrWhiteSpace(plan.OriginalSignature))
+                    {
+                        throw new InvalidOperationException("Απαιτείται αποθηκευμένη υπογραφή φορολογικού μηχανισμού.");
+                    }
+                    break;
+                default:
+                    throw new InvalidOperationException("Δεν αναγνωρίζεται ο τρόπος επαλήθευσης του αρχικού παραστατικού.");
+            }
+        }
+
+        private static void ValidateOriginalPayload(HeatingCorrectionPlan plan,
+            string originalPayload)
+        {
+            if(plan.EvidenceKind!=HeatingCorrectionEvidenceKind.SharedProvider)
+            {
+                throw new InvalidOperationException("Το αρχικό αίτημα ελέγχεται μόνο για κοινή έκδοση παρόχου.");
+            }
+
+            string provider=plan.Original.Provider.ProviderKey;
+            var resolver=new InvoiceTypeResolver();
+            var builder=new InvoiceBuilder(resolver);
+            var model=builder.Build(plan.Original.Invoice);
             var sent=JObject.Parse(originalPayload);
             if(provider==InvoiceProviderCatalog.ITimologiaKey) {
                 if(sent["invoice_header"]==null)throw new InvalidOperationException("Δεν αναγνωρίζεται το αρχικό αίτημα.");
@@ -84,10 +176,27 @@ namespace ASFuelControl.Invoicing
                 if(sent["precedingInvoices"]?.HasValues==true)throw new InvalidOperationException("Το αρχικό αίτημα έχει συσχετίσεις.");
                 if(xml.Descendants().Any(e=>e.Name.LocalName=="specialInvoiceCategory"))throw new InvalidOperationException("Το αρχικό XML έχει ήδη ειδική κατηγορία παραστατικού.");
             }
+        }
+
+        private static void ValidateCorrectedDocuments(HeatingCorrectionPlan plan)
+        {
+            var resolver=new InvoiceTypeResolver();
+            var builder=new InvoiceBuilder(resolver);
             foreach(bool credit in new[]{true,false}) {
-                var corrected=builder.Build(plan.Request(credit,1,credit?plan.CreditSeries:plan.ReplacementSeries,DateTime.Now));
+                string series=credit?plan.CreditSeries:plan.ReplacementSeries;
+                var request=plan.Request(credit,1,series,DateTime.Now);
+                var corrected=builder.Build(request);
                 if(MyDataHeaderFields.SpecialInvoiceCategory(corrected)!=11)throw new InvalidOperationException("Η διόρθωση δεν παράγει την ένδειξη 11.");
-                new InvoiceAdapterFactory(new InvoiceTypeResolver()).CreatePayloadMapper(provider).Serialize(corrected,credit?plan.CreditId:plan.ReplacementId);
+                ProviderRoute route=credit||!plan.ReplacementRouteConfigured?
+                    plan.Original.Provider:plan.ReplacementProvider;
+                if(route!=null)
+                {
+                    string provider=route.ProviderKey;
+                    var adapterFactory=new InvoiceAdapterFactory(resolver);
+                    var payloadMapper=adapterFactory.CreatePayloadMapper(provider);
+                    Guid documentId=credit?plan.CreditId:plan.ReplacementId;
+                    payloadMapper.Serialize(corrected,documentId);
+                }
             }
         }
         private static void RequireText(JToken actual,string expected)

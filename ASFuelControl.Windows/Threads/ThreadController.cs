@@ -7,6 +7,7 @@ using ASFuelControl.VirtualDevices;
 using System.IO;
 using Telerik.OpenAccess;
 using ASFuelControl.Logging;
+using ASFuelControl.Data.Implementation;
 using System.Collections.Concurrent;
 
 namespace ASFuelControl.Windows.Threads
@@ -51,11 +52,11 @@ namespace ASFuelControl.Windows.Threads
         private List<Guid> processedInvoices = new List<Guid>();
         private string outFolder;
         private bool restartDatabase = false;
-        private int restartDatabaseIndex = 0;
         private int tankFillingRetryScheduled = 0;
         private MyDieselPollingWorker myDieselPolling;
         private SamtecSigningRetryWorker samtecSigningRetry;
         private OutboundAuditArchiveWorker outboundAuditArchiveWorker;
+        private ManagedPollingWorker alertEvaluationWorker;
         private bool databaseUpdateVerified;
         private readonly object salePersistenceSync = new object();
         
@@ -187,6 +188,8 @@ namespace ASFuelControl.Windows.Threads
             if (this.IsRunning ||
                 (this.sendingThread != null && this.sendingThread.IsAlive) ||
                 (this.printAgent != null && this.printAgent.IsAlive) ||
+                (this.alertEvaluationWorker != null &&
+                    this.alertEvaluationWorker.IsAlive) ||
                 (this.tankThread != null && this.tankThread.IsAlive))
             {
                 Logger.Instance.LogToFile("StartThreads", "A previous worker set is still running; duplicate workers were not started.");
@@ -203,6 +206,7 @@ namespace ASFuelControl.Windows.Threads
                 this.sendingThread = new SendAlertsThread();
                 this.tankThread = new TankCheckThread();
                 this.fleetThread = new FleetManagmentThread();
+                this.alertEvaluationWorker = this.CreateAlertEvaluationWorker();
                 this.sendingThread.BalanceCreated += new EventHandler(sendingThread_BalanceCreated);
                 this.sendingThread.SubmissionFailed += new EventHandler(sendingThread_SubmissionFailed);
                 this.sendingThread.SubmissionSuccess += new EventHandler(sendingThread_SubmissionSuccess);
@@ -228,6 +232,7 @@ namespace ASFuelControl.Windows.Threads
                     this.printAgent.StartThread();
                     this.controllerThread.HaltThread = false;
                     this.controllerThread.StartControllers();
+                    this.alertEvaluationWorker.Start();
                     this.sendingThread.StartThread();
                     this.tankThread.StartThread();
                     this.fleetThread.Start();
@@ -375,6 +380,7 @@ namespace ASFuelControl.Windows.Threads
                 this.controllerThread.StopControllers();
                 this.controllerThread.HaltThread = true;
             }
+            this.StopAlertEvaluationWorker();
             if (this.fleetThread != null)
                 this.fleetThread.Stop();
 
@@ -397,6 +403,53 @@ namespace ASFuelControl.Windows.Threads
                 this.outboundAuditArchiveWorker.Dispose();
                 this.outboundAuditArchiveWorker = null;
             }
+        }
+
+        private ManagedPollingWorker CreateAlertEvaluationWorker()
+        {
+            TimeSpan fallbackInterval = TimeSpan.FromSeconds(30);
+            TimeSpan minimumActionInterval = TimeSpan.FromSeconds(5);
+            TimeSpan[] idleIntervals = new TimeSpan[] { fallbackInterval };
+            OutboundWorkState workState = OutboundWorkCoordinator.GetState(
+                OutboundWorkType.AlertEvaluation);
+            ManagedPollingWorker worker = new ManagedPollingWorker(
+                "Alert evaluator",
+                idleIntervals,
+                this.RunAlertEvaluationWorker,
+                workState,
+                minimumActionInterval);
+            return worker;
+        }
+
+        private bool RunAlertEvaluationWorker()
+        {
+            AlertChecker alertChecker = AlertChecker.Instance;
+            alertChecker.CheckForAlerts();
+            return false;
+        }
+
+        private void StopAlertEvaluationWorker()
+        {
+            ManagedPollingWorker worker = this.alertEvaluationWorker;
+            if (worker == null)
+            {
+                return;
+            }
+
+            worker.RequestStop();
+            TimeSpan stopTimeout = TimeSpan.FromSeconds(30);
+            bool stopped = worker.WaitForStop(stopTimeout);
+            if (!stopped)
+            {
+                string message =
+                    "Alert evaluator did not stop within 30 seconds.";
+                Logger.Instance.LogToFile(
+                    "ThreadController::StopAlertEvaluationWorker",
+                    message);
+                return;
+            }
+
+            this.alertEvaluationWorker = null;
         }
 
         public bool StationLocked { set; get; }
@@ -1406,24 +1459,11 @@ namespace ASFuelControl.Windows.Threads
                     return;
                 dispenser.PhysicalState = (int)e.Values.Status;
                 List<Data.Nozzle> nozzles = dispenser.OrderedNozzles.ToList();
-                List<VirtualTank> affectedTanks = new List<VirtualTank>();
                 for(int i = 0; i < nozzles.Count; i++)
                 {
                     if (e.Values.TotalVolumes != null && e.Values.TotalVolumes[i] > 0)
                     {
                         nozzles[i].TotalCounter = e.Values.TotalVolumes[i];
-                        VirtualNozzle nozzle = this.controllerThread.GetNozzle(nozzles[i].NozzleId);
-                        foreach(VirtualTank tank in nozzle.ConnectedTanks)
-                        {
-                            if(affectedTanks.Contains(tank))
-                                continue;
-                            affectedTanks.Add(tank);
-                        }
-                        Threads.AlertChecker.Instance.CheckNozzleAlerts(nozzles[i].NozzleId);
-                    }
-                    else if(e.Values.Sale != null)
-                    {
-                        Threads.AlertChecker.Instance.CheckNozzleAlerts(nozzles[i].NozzleId);
                     }
                 }
 
@@ -1511,24 +1551,6 @@ namespace ASFuelControl.Windows.Threads
                 //if (e.Values == null)
                 if(database.HasChanges)
                     this.database.SaveChanges();
-                restartDatabaseIndex++;
-                if (restartDatabaseIndex % 50 == 0)
-                {
-                    try
-                    {
-                        System.GC.WaitForPendingFinalizers();
-                        System.GC.Collect();
-                        System.GC.WaitForPendingFinalizers();
-                        System.GC.Collect();
-                        System.GC.WaitForPendingFinalizers();
-                        System.GC.Collect();
-                    }
-                    catch
-                    {
-                    }
-                    //restartDatabase = true;
-                    restartDatabaseIndex = 0;
-                }
                 if (this.restartDatabase)
                 {
                     this.database.Dispose();

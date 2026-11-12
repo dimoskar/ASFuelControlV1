@@ -92,7 +92,7 @@ BEGIN TRY
             CONSTRAINT CK_MyDieselCouponCase_Branches CHECK(ReservedBranchNum>=0 AND (CurrentBranchNum IS NULL OR CurrentBranchNum>=0)),
             CONSTRAINT CK_MyDieselCouponCase_Amdika CHECK(LEN(LTRIM(RTRIM(ReservedStationAmdika)))>0 AND (CurrentStationAmdika IS NULL OR LEN(LTRIM(RTRIM(CurrentStationAmdika)))>0)),
             CONSTRAINT CK_MyDieselCouponCase_ExciseRate CHECK(ExciseDiscountPerLitre>0 AND ExciseDiscountPerLitre<=10),
-            CONSTRAINT CK_MyDieselCouponCase_Stage CHECK(LocalStage IN ('Captured','ReserveUnknown','Reserved','Released','InvoiceAccepted','RedeemUnknown','Redeemed','VerificationPending','Final','InterventionRequired')),
+            CONSTRAINT CK_MyDieselCouponCase_Stage CHECK(LocalStage IN ('Captured','ReserveUnknown','Reserved','Released','InvoiceAccepted','RedeemUnknown','Redeemed','VerificationPending','Final','InterventionRequired','Dismissed')),
             CONSTRAINT CK_MyDieselCouponCase_Litres CHECK(IssuedLitres IS NULL OR IssuedLitres>0),
             CONSTRAINT CK_MyDieselCouponCase_Fuel CHECK(FuelCode IS NULL OR FuelCode>0),
             CONSTRAINT CK_MyDieselCouponCase_Mark CHECK(InvoiceMark IS NULL OR (LEN(InvoiceMark)=15 AND InvoiceMark NOT LIKE '%[^0-9]%')),

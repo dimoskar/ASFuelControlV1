@@ -11,6 +11,7 @@ namespace ASFuelControl.Invoicing.Mapping
     // This method never allocates a number, saves an entity or dispatches a document.
     public sealed class HostInvoiceMapper
     {
+        private const int CancelRelationType = 0;
         private const int ReplaceRelationType = 1;
         private readonly InvoiceBuilder builder = new InvoiceBuilder(new InvoiceTypeResolver());
 
@@ -171,22 +172,32 @@ namespace ASFuelControl.Invoicing.Mapping
             bool credit = input.InvoiceSeries.InvoiceType.InvoiceTypeMode == InvoiceMode.Credit;
             bool cancellation = input.InvoiceSeries.InvoiceType.InvoiceTypeMode == InvoiceMode.Cancel;
             bool financialCredit = credit || cancellation;
+            bool hasCancellationRelation = linked.Any(relation =>
+                relation != null &&
+                relation.RelationType == CancelRelationType);
+            Require(financialCredit || !hasCancellationRelation,
+                "Ο τύπος παραστατικού που επιλέξατε ως ακυρωτικό δεν έχει ενεργοποιημένη την επιλογή «Ακυρωτικό παραστατικό». Ελέγξτε τις ρυθμίσεις του τύπου παραστατικού.");
             Require(financialCredit || linked.Length == 0 || context.IncludeSaleCorrelations,
-                "Linked sales require an explicit correlation policy.");
+                "Το παραστατικό συνδέεται με προηγούμενη πώληση, αλλά δεν έχει ενεργοποιηθεί η αντίστοιχη πολιτική συσχέτισης.");
             var parents = linked.Select(r =>
             {
-                Require(r != null && r.ParentInvoice != null, "A linked parent invoice is missing.");
+                Require(r != null && r.ParentInvoice != null,
+                    "Δεν βρέθηκε το συνδεδεμένο αρχικό παραστατικό.");
                 var parent = r.ParentInvoice;
                 ParentEvidence evidence;
                 Require(context.Parents.TryGetValue(parent.InvoiceId, out evidence) && evidence != null &&
-                    evidence.InvoiceId == parent.InvoiceId && evidence.Transmission != null, "Reconciled parent evidence is missing.");
+                    evidence.InvoiceId == parent.InvoiceId && evidence.Transmission != null,
+                    "Δεν βρέθηκαν επιβεβαιωμένα στοιχεία διαβίβασης για το αρχικό παραστατικό.");
                 int branch;
                 Require(int.TryParse(company.CompanyBranch ?? "0", NumberStyles.Integer, CultureInfo.InvariantCulture, out branch) &&
                     evidence.IssuerBranch == branch && string.Equals(Clean(evidence.IssuerVat), Clean(company.CompanyTaxId), StringComparison.OrdinalIgnoreCase) &&
-                    evidence.Environment == context.Environment, "Parent issuer, branch or environment does not match this issuance.");
+                    evidence.Environment == context.Environment,
+                    "Ο εκδότης, το υποκατάστημα ή το περιβάλλον του αρχικού παραστατικού δεν συμφωνεί με την τρέχουσα διαβίβαση.");
                 var parentInput = Identity(parent, context);
-                Require(parent.InvoiceId != Guid.Empty && parent.Number > 0 && parent.TransactionDate != default(DateTime), "Parent identity is incomplete.");
-                Require(parent.InvoiceLines.Count > 0, "Load the original parent lines before resolving its document kind.");
+                Require(parent.InvoiceId != Guid.Empty && parent.Number > 0 && parent.TransactionDate != default(DateTime),
+                    "Τα στοιχεία ταυτοποίησης του αρχικού παραστατικού δεν είναι πλήρη.");
+                Require(parent.InvoiceLines.Count > 0,
+                    "Δεν έχουν φορτωθεί οι γραμμές του αρχικού παραστατικού ώστε να προσδιοριστεί ο τύπος του.");
                 if (parent.InvoiceLines.Count > 0 && parent.InvoiceLines.All(l => l.FuelType != null && Item(l.FuelType, context).SalesItemType == 2))
                     parentInput.InvoiceSeries.InvoiceType.MyDataDocumentKind = (int)MyDataDocumentKind.Services;
                 var t = evidence.Transmission;
@@ -196,7 +207,7 @@ namespace ASFuelControl.Invoicing.Mapping
             if (cancellation)
             {
                 Require(parents.Length == 1,
-                    "A cancellation document must reference exactly one original invoice.");
+                    "Το ακυρωτικό παραστατικό πρέπει να συνδέεται με ακριβώς ένα αρχικό παραστατικό.");
                 // Type 215 is a host cancellation document. For provider/myDATA
                 // transmission it becomes the financial reversal that matches the
                 // original document (5.1 wholesale or 11.4 retail), not a request

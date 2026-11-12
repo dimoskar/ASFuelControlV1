@@ -293,6 +293,55 @@ internal static class Program
                 Equal("Accepted", other.LoadLatest(id, true, a.IssuerVat).State);
             }
         });
+        Test("recent fiscal history summary is bounded and omits large bodies", () =>
+        {
+            var store = new SqlITimologiaSubmissionStore(db);
+            Guid invoiceId = Guid.NewGuid();
+            var attempt = new ITimologiaSubmissionAttempt
+            {
+                AttemptId = Guid.NewGuid(),
+                InvoiceId = invoiceId,
+                TestMode = true,
+                IssuerVat = "099999999",
+                Endpoint = "https://fixture.invalid/invoices",
+                RequestJson = new string('x', 4096),
+                State = "Sending",
+                CreatedUtc = DateTime.UtcNow
+            };
+            using (store.Acquire(invoiceId))
+            {
+                store.Begin(attempt);
+                for (int index = 0; index < 5; index++)
+                {
+                    attempt.State = "Unknown";
+                    attempt.TransportError = "timeout-" + index;
+                    attempt.CompletedUtc = DateTime.UtcNow;
+                    store.Complete(attempt);
+                }
+            }
+
+            using (IFiscalDocumentLease lease = db.EnterInvoice(invoiceId))
+            {
+                var history = new SqlFiscalHistoryStore(db);
+                IReadOnlyList<FiscalAttemptEvidence> recent =
+                    history.LoadRecentHistorySummary(lease,
+                        FiscalJournalFamily.Submission, attempt.AttemptId, 2);
+                Equal(2, recent.Count);
+                Equal(4L, recent[0].Revision);
+                Equal(5L, recent[1].Revision);
+                byte[] summaryPayload = recent[0].RequestPayload;
+                Equal(0, summaryPayload.Length);
+                Equal("{}", recent[0].SnapshotJson);
+
+                IReadOnlyList<FiscalAttemptEvidence> complete =
+                    history.LoadHistory(lease, FiscalJournalFamily.Submission,
+                        attempt.AttemptId);
+                Equal(6, complete.Count);
+                byte[] completePayload = complete[0].RequestPayload;
+                Check(completePayload.Length >= 4096,
+                    "The full audit history unexpectedly lost its request body.");
+            }
+        });
         Test("Ilyda POS session retains original signature and cancellation history", () => {
             var store = new SqlIlydaPosStore(db); var id = Guid.NewGuid();
             using (store.Acquire(id))

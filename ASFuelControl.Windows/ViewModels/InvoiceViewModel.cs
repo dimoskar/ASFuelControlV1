@@ -239,18 +239,77 @@ namespace ASFuelControl.Windows.ViewModels
             if (targetLine == null || sourceLine == null)
                 return;
 
+            TransformationUnitPrice prices = SourceTransformationUnitPrice(
+                sourceLine, sourcePriceIncludesVat);
+            targetLine.SetTransformationUnitPrices(prices.Retail, prices.Net);
+        }
+
+        private static TransformationUnitPrice SourceTransformationUnitPrice(
+            Data.InvoiceLine sourceLine, bool sourcePriceIncludesVat)
+        {
+            if (sourceLine == null)
+            {
+                throw new ArgumentNullException("sourceLine");
+            }
+
             bool retailAuthority = sourcePriceIncludesVat ||
                 sourceLine.SalesTransaction != null;
             // Retail, dispenser and sales-delivery sources own the VAT-inclusive
             // price. Purchase and wholesale sources own the VAT-exclusive price.
             // Derive the secondary representation once and then assign both fields
             // atomically so their editor setters cannot round-trip the source value.
-            var prices = retailAuthority
+            decimal sourceRetailPrice = SourceRetailUnitPrice(sourceLine);
+            decimal sourceNetPrice = SourceNetUnitPrice(sourceLine);
+            TransformationUnitPrice prices = retailAuthority
                 ? TransformationUnitPrice.FromRetail(
-                    SourceRetailUnitPrice(sourceLine), sourceLine.VatPercentage)
+                    sourceRetailPrice, sourceLine.VatPercentage)
                 : TransformationUnitPrice.FromNet(
-                    SourceNetUnitPrice(sourceLine), sourceLine.VatPercentage);
-            targetLine.SetTransformationUnitPrices(prices.Retail, prices.Net);
+                    sourceNetPrice, sourceLine.VatPercentage);
+            return prices;
+        }
+
+        private static bool PreserveSourceFiscalAmountsWhenUnchanged(
+            InvoiceLineViewModel targetLine, Data.InvoiceLine sourceLine,
+            bool sourcePriceIncludesVat, bool targetPriceIncludesVat,
+            bool hasDispenserSource, bool vatExemption,
+            bool selectedDiscountUnchanged)
+        {
+            if (targetLine == null || sourceLine == null ||
+                !hasDispenserSource || vatExemption ||
+                !selectedDiscountUnchanged ||
+                targetLine.VatPercentage != sourceLine.VatPercentage)
+            {
+                return false;
+            }
+
+            TransformationUnitPrice sourcePrice =
+                SourceTransformationUnitPrice(sourceLine,
+                    sourcePriceIncludesVat);
+            bool unchanged = TransformationFiscalAmountPolicy
+                .HasUnchangedPriceAndVolume(sourceLine.Volume,
+                    targetLine.Volume, sourcePrice,
+                    targetLine.UnitPriceRetail,
+                    targetLine.UnitPriceWhole,
+                    targetPriceIncludesVat);
+            if (!unchanged)
+            {
+                return false;
+            }
+
+            // The source line already contains the dispenser-derived payable
+            // gross and its matching VAT/discount split. Keep those fiscal
+            // amounts while retaining the target's existing adjusted volume and
+            // VAT-inclusive/VAT-exclusive unit-price representation.
+            targetLine.DiscountAmountRetail = sourceLine.DiscountAmountRetail;
+            targetLine.DiscountAmountWhole = sourceLine.DiscountAmountWhole;
+            targetLine.DiscountAmount = targetPriceIncludesVat
+                ? sourceLine.DiscountAmountRetail
+                : sourceLine.DiscountAmountWhole;
+            targetLine.DiscountPercentage = sourceLine.DiscountPercentage;
+            targetLine.TotalPrice = sourceLine.TotalPrice;
+            targetLine.VatAmount = sourceLine.VatAmount;
+            targetLine.PreserveFiscalAmounts = true;
+            return true;
         }
 
         private static void ApplyEnteredTransformationPrice(
@@ -349,6 +408,68 @@ namespace ASFuelControl.Windows.ViewModels
             {
                 return this.invRelations.Where(v => v.EntityState != EntityStateEnum.Deleted && v.ParentInvoiceId == this.InvoiceId).ToArray();
             }
+        }
+
+        internal void AddProcessingDependency(Guid parentInvoiceId)
+        {
+            if (parentInvoiceId == Guid.Empty)
+            {
+                throw new ArgumentException("The processing dependency parent is required.",
+                    "parentInvoiceId");
+            }
+            if (parentInvoiceId == this.InvoiceId)
+            {
+                throw new InvalidOperationException(
+                    "An invoice cannot depend on itself for processing.");
+            }
+
+            int dependencyType =
+                (int)Common.Enumerators.InvoiceRelationTypeEnum.ProcessingDependency;
+            bool dependencyExists = this.invRelations.Any(relation =>
+                relation.EntityState != EntityStateEnum.Deleted &&
+                relation.ParentInvoiceId == parentInvoiceId &&
+                relation.ChildInvoiceId == this.InvoiceId &&
+                relation.RelationType == dependencyType);
+            if (dependencyExists)
+            {
+                return;
+            }
+
+            InvoiceRelationViewModel dependency = new InvoiceRelationViewModel();
+            dependency.EntityState = EntityStateEnum.Added;
+            dependency.InvoiceRelationId = Guid.NewGuid();
+            dependency.ParentInvoiceId = parentInvoiceId;
+            dependency.ChildInvoiceId = this.InvoiceId;
+            dependency.RelationType = dependencyType;
+            this.invRelations.Add(dependency);
+        }
+
+        internal void PrepareNewInvoiceForSaveRetry()
+        {
+            this.EntityState = EntityStateEnum.Added;
+            InvoiceLineViewModel[] activeLines = this.lines
+                .Where(line => line.EntityState != EntityStateEnum.Deleted)
+                .ToArray();
+            foreach (InvoiceLineViewModel line in activeLines)
+            {
+                line.EntityState = EntityStateEnum.Added;
+            }
+
+            InvoiceRelationViewModel[] activeRelations = this.invRelations
+                .Where(relation => relation.EntityState != EntityStateEnum.Deleted)
+                .ToArray();
+            foreach (InvoiceRelationViewModel relation in activeRelations)
+            {
+                relation.EntityState = EntityStateEnum.Added;
+                InvoiceLineRelationViewModel[] activeLineRelations =
+                    relation.LineRelations;
+                foreach (InvoiceLineRelationViewModel lineRelation in
+                    activeLineRelations)
+                {
+                    lineRelation.EntityState = EntityStateEnum.Added;
+                }
+            }
+            this.HasChanges = true;
         }
 
         public InvoiceTypeViewModel[] InvoiceTypes { set; get; }
@@ -1183,13 +1304,15 @@ namespace ASFuelControl.Windows.ViewModels
         {
             if (SuspendRecalculation)
                 return;
-            if (this.lines.Count > 0 && this.InvoiceLines.All(line => line.PreserveFiscalAmounts))
-                return;
 
             if (this.VatExemption)
             {
                 foreach (var invLine in this.InvoiceLines)
                 {
+                    if (invLine.PreserveFiscalAmounts)
+                    {
+                        continue;
+                    }
                     if (invLine.SalesTransactionView != null)
                     {
                         var unitPrice = this.GetUnitPriceFromRetailPrice(invLine,
@@ -1222,45 +1345,86 @@ namespace ASFuelControl.Windows.ViewModels
                 decimal volume = line.Volume;
                 if(this.SelectedInvoiceType.TransactionType == 1 && (!this.SelectedInvoiceType.IsInternal.HasValue || !this.SelectedInvoiceType.IsInternal.Value))
                     volume = line.VolumeNormalized;
-                if (line.SalesTransactionView != null && (this.SelectedInvoiceType == null || this.SelectedInvoiceType.OfficialEnumerator != 178))
+                if (line.PreserveFiscalAmounts)
                 {
-                    totalPreDiscount = decimal.Round(volume * line.UnitPrice, 2);
-                    discPercentage = line.SalesTransactionView.DiscountPercentage.HasValue ? line.SalesTransactionView.DiscountPercentage.Value : 0;
-                    discountRetail = decimal.Round((discPercentage * totalPreDiscount) / 100, 2);
-                    // The physical sale is immutable and its saved dispenser total
-                    // is authoritative. Independently rounded volume and unit price
-                    // can multiply one cent away from that total.
-                    totalDiscounted = line.UsesAuthoritativeDispenserTotal
-                        ? decimal.Round(line.SalesTransactionView.TotalPrice, 2)
-                        : totalPreDiscount - discountRetail;
+                    totalDiscounted = decimal.Round(line.TotalPrice, 2);
+                    discountRetail = decimal.Round(
+                        line.DiscountAmountRetail, 2);
+                    discountWhole = decimal.Round(
+                        line.DiscountAmountWhole, 2);
+                    lineVat = decimal.Round(line.VatAmount, 2);
+                    netDiscounted = decimal.Round(
+                        totalDiscounted - lineVat, 2);
+                    netPreDiscount = decimal.Round(
+                        netDiscounted + discountWhole, 2);
                     totalPreDiscount = totalDiscounted + discountRetail;
                 }
                 else
                 {
-                    if (this.PricesIncludeVat)
+                    if (line.SalesTransactionView != null &&
+                        (this.SelectedInvoiceType == null ||
+                         this.SelectedInvoiceType.OfficialEnumerator != 178))
                     {
-                        discPercentage = line.DiscountPercentage;
-                        discountRetail = decimal.Round((discPercentage * decimal.Round(line.Volume * line.UnitPrice, 2)) / 100, 2);
-                        totalDiscounted = decimal.Round(volume * line.UnitPrice, 2) - discountRetail;
+                        totalPreDiscount = decimal.Round(
+                            volume * line.UnitPrice, 2);
+                        discPercentage = line.SalesTransactionView
+                            .DiscountPercentage.HasValue
+                            ? line.SalesTransactionView.DiscountPercentage.Value
+                            : 0;
+                        discountRetail = decimal.Round(
+                            (discPercentage * totalPreDiscount) / 100, 2);
+                        // The physical sale is immutable and its saved dispenser total
+                        // is authoritative. Independently rounded volume and unit price
+                        // can multiply one cent away from that total.
+                        totalDiscounted = line.UsesAuthoritativeDispenserTotal
+                            ? decimal.Round(
+                                line.SalesTransactionView.TotalPrice, 2)
+                            : totalPreDiscount - discountRetail;
                         totalPreDiscount = totalDiscounted + discountRetail;
                     }
                     else
                     {
-                        discountRetail = line.DiscountAmountRetail;
-                        totalDiscounted = decimal.Round(volume * line.UnitPrice, 2) - discountRetail;
-                        totalPreDiscount = totalDiscounted + discountRetail;
+                        if (this.PricesIncludeVat)
+                        {
+                            discPercentage = line.DiscountPercentage;
+                            decimal roundedGross = decimal.Round(
+                                line.Volume * line.UnitPrice, 2);
+                            discountRetail = decimal.Round(
+                                (discPercentage * roundedGross) / 100, 2);
+                            totalDiscounted = decimal.Round(
+                                volume * line.UnitPrice, 2) -
+                                discountRetail;
+                            totalPreDiscount = totalDiscounted +
+                                discountRetail;
+                        }
+                        else
+                        {
+                            discountRetail = line.DiscountAmountRetail;
+                            totalDiscounted = decimal.Round(
+                                volume * line.UnitPrice, 2) -
+                                discountRetail;
+                            totalPreDiscount = totalDiscounted +
+                                discountRetail;
+                        }
                     }
-                }
-                discountWhole = decimal.Round((100 * discountRetail) / (100 + line.VatPercentage), 2);
-                netPreDiscount = decimal.Round((100 * totalPreDiscount) / (100 + line.VatPercentage), 2);
-                netDiscounted = decimal.Round((100 * totalDiscounted) / (100 + line.VatPercentage), 2);
-                lineVat = totalDiscounted - netDiscounted;
 
-                line.TotalPrice = totalDiscounted;
-                line.DiscountAmount = discountRetail;
-                line.DiscountAmountRetail = discountRetail;
-                line.DiscountAmountWhole = discountWhole;
-                line.VatAmount = lineVat;
+                    discountWhole = decimal.Round(
+                        (100 * discountRetail) /
+                        (100 + line.VatPercentage), 2);
+                    netPreDiscount = decimal.Round(
+                        (100 * totalPreDiscount) /
+                        (100 + line.VatPercentage), 2);
+                    netDiscounted = decimal.Round(
+                        (100 * totalDiscounted) /
+                        (100 + line.VatPercentage), 2);
+                    lineVat = totalDiscounted - netDiscounted;
+
+                    line.TotalPrice = totalDiscounted;
+                    line.DiscountAmount = discountRetail;
+                    line.DiscountAmountRetail = discountRetail;
+                    line.DiscountAmountWhole = discountWhole;
+                    line.VatAmount = lineVat;
+                }
 
                 netBeforeDiscount = netBeforeDiscount + netPreDiscount;
                 net = net + netDiscounted;// line.TotalPrice - line.VatAmount + line.DiscountAmountWhole;
@@ -1489,7 +1653,8 @@ namespace ASFuelControl.Windows.ViewModels
                             // and line relations created below. The physical pump sale
                             // remains owned only by its directly-created invoice line.
                             invLine.TankFillingId = line.TankFillingId;
-                            invLine.SetSourceNozzleContext(line);
+                            bool hasDispenserSource =
+                                invLine.SetSourceNozzleContext(line);
                             if (args.AllowUnitPriceEdit)
                                 ApplyEnteredTransformationPrice(invLine, vd.UnitPrice,
                                     line.VatPercentage, targetPriceIncludesVat);
@@ -1502,9 +1667,27 @@ namespace ASFuelControl.Windows.ViewModels
                                     (linePriceIncludesVat ? SourceRetailUnitPrice(line) : SourceNetUnitPrice(line)),
                                 line.VatPercentage,
                                 args.AllowUnitPriceEdit ? targetPriceIncludesVat : linePriceIncludesVat);
+                            decimal sourceSelectedDiscount = targetPriceIncludesVat
+                                ? line.DiscountAmountRetail
+                                : line.DiscountAmountWhole;
+                            decimal selectedDiscount = args.AllowUnitPriceEdit
+                                ? vd.DiscountAmount
+                                : sourceSelectedDiscount;
+                            bool selectedDiscountUnchanged =
+                                decimal.Round(selectedDiscount, 2) ==
+                                decimal.Round(sourceSelectedDiscount, 2);
+                            bool fiscalAmountsPreserved =
+                                PreserveSourceFiscalAmountsWhenUnchanged(
+                                    invLine, line, sourcePriceIncludesVat,
+                                    targetPriceIncludesVat,
+                                    hasDispenserSource, this.VatExemption,
+                                    selectedDiscountUnchanged);
                             invLine.PropertyChanged += Ilvm_PropertyChanged;
                             this.lines.Add(invLine);
-                            invLine.SetComputedColumns(false, false);
+                            if (!fiscalAmountsPreserved)
+                            {
+                                invLine.SetComputedColumns(false, false);
+                            }
                             lineRelations.Add(line.InvoiceLineId, invLine.InvoiceLineId);
                             if (transMode == Common.Enumerators.InvoiceTransformationTypeEnum.OneToMany)
                                 this.oneToManyLineSelections[line.InvoiceLineId] = invLine.InvoiceLineId;
@@ -1545,7 +1728,8 @@ namespace ASFuelControl.Windows.ViewModels
                         // Display the physical source pump/nozzle for every
                         // transformed fuel line, including ordinary credit notes.
                         // Do not copy SaleTransactionId to the derived document.
-                        invLine.SetSourceNozzleContext(line);
+                        bool hasDispenserSource =
+                            invLine.SetSourceNozzleContext(line);
 
                         // Setting volume/nozzle raises the ordinary invoice-line
                         // calculations. Restore the fiscal source values after all
@@ -1563,6 +1747,10 @@ namespace ASFuelControl.Windows.ViewModels
                         this.ApplyVatExemptionToTransformedLine(invLine,
                             linePriceIncludesVat ? SourceRetailUnitPrice(line) : SourceNetUnitPrice(line),
                             line.VatPercentage, linePriceIncludesVat);
+                        PreserveSourceFiscalAmountsWhenUnchanged(
+                            invLine, line, sourcePriceIncludesVat,
+                            targetPriceIncludesVat, hasDispenserSource,
+                            this.VatExemption, true);
 
                         this.lines.Add(invLine);
                         lineRelations.Add(line.InvoiceLineId, invLine.InvoiceLineId);
@@ -1984,8 +2172,12 @@ namespace ASFuelControl.Windows.ViewModels
         private void ConfigureLoadedTransformationPriceEditPolicy(DatabaseModel db,
             Data.Invoice invoice)
         {
+            int processingDependencyType =
+                (int)Common.Enumerators.InvoiceRelationTypeEnum.ProcessingDependency;
             var parentRelations = db.InvoiceRelations
-                .Where(relation => relation.ChildInvoiceId == invoice.InvoiceId)
+                .Where(relation =>
+                    relation.ChildInvoiceId == invoice.InvoiceId &&
+                    relation.RelationType != processingDependencyType)
                 .ToArray();
             if (parentRelations.Length == 0)
             {

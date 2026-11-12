@@ -22,14 +22,21 @@ namespace Exedron.Invoicing.Core
         }
 
         public FiscalSigningAttempt Sign(FiscalDocumentReference document,
-            Func<IFiscalDocumentLease, FiscalSigningRequest> prepare, bool retryDefinitiveFailure = false)
+            Func<IFiscalDocumentLease, FiscalSigningRequest> prepare,
+            bool retryDefinitiveFailure = false,
+            bool supersedeSignedRequest = false)
         {
             using (var lease = store.Acquire(document))
             {
                 var previous = store.Load(lease).LastOrDefault();
                 if (previous != null)
                 {
-                    if (previous.State == FiscalSigningState.Signed || previous.State == FiscalSigningState.Prepared) return previous;
+                    if ((previous.State == FiscalSigningState.Signed &&
+                        !supersedeSignedRequest) ||
+                        previous.State == FiscalSigningState.Prepared)
+                    {
+                        return previous;
+                    }
                     if (previous.State == FiscalSigningState.Signing || previous.State == FiscalSigningState.Unknown)
                     {
                         previous = Recover(lease, previous);
@@ -49,10 +56,17 @@ namespace Exedron.Invoicing.Core
                 var request = prepare(lease);
                 if (request == null || request.Document.Kind != document.Kind || request.Document.DocumentId != document.DocumentId)
                     throw new InvalidOperationException("The prepared signing request belongs to a different document.");
-                if (previous != null && !SameScope(previous.Request.Scope, request.Scope) &&
-                    !(retryDefinitiveFailure && previous.State == FiscalSigningState.Rejected &&
-                      SameIssuerScope(previous.Request.Scope, request.Scope)))
+                bool sameScope = previous != null && SameScope(
+                    previous.Request.Scope, request.Scope);
+                bool allowedRejectedScopeChange = previous != null &&
+                    retryDefinitiveFailure &&
+                    previous.State == FiscalSigningState.Rejected &&
+                    SameIssuerScope(previous.Request.Scope, request.Scope);
+                if (previous != null && !sameScope &&
+                    !allowedRejectedScopeChange)
+                {
                     throw new InvalidOperationException("A signing retry must retain its historical device and issuer scope.");
+                }
                 var attempt = store.Begin(lease, request, DateTime.UtcNow);
                 return Dispatch(lease, attempt, false);
             }
