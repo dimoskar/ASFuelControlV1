@@ -122,7 +122,9 @@ namespace ASFuelControl.Windows.Threads
                 report.SetFont(fontName,(float)fontSize);
                 report.ApplyThermalTypography(fontName,(float)fontSize);
 
-                var lines = db.InvoicePrintViews.Where(line => line.InvoiceId == invoice.InvoiceId).ToArray();
+                bool creditInvoice = CreditInvoiceThermalData.IsCreditInvoice(invoice);
+                CreditInvoiceThermalRow[] creditRows = creditInvoice ? CreditInvoiceThermalData.CreateRows(invoice) : null;
+                var lines = creditInvoice ? new Data.InvoicePrintView[0] : db.InvoicePrintViews.Where(line => line.InvoiceId == invoice.InvoiceId).ToArray();
                 foreach (var line in lines)
                 {
                     line.InvoiceNettoAmount = invoice.NettoAmount.GetValueOrDefault();
@@ -137,6 +139,13 @@ namespace ASFuelControl.Windows.Threads
                     report.DataSource = reportData;
                     ConfigureThermalReport(report, invoice, fiscalDeviceUrl,
                         documentUrl, options);
+                    if (creditInvoice)
+                    {
+                        report.DataSource = creditRows;
+                        string number = invoice.Number.ToString();
+                        string salePoint = CreditInvoiceThermalData.SalePointText(creditRows);
+                        report.SetCreditInvoiceDetails(invoice.InvoiceType.Description, number, invoice.Series, salePoint);
+                    }
                     report.ApplySharedThermalLayout(
                         response == null || string.IsNullOrWhiteSpace(response.InvoiceSignature)
                             ? invoice.InvoiceSignature

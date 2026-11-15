@@ -7,6 +7,16 @@ namespace ASFuelControl.Reports.Invoices
         private bool thermalFooterFlowsAfterDetails;
         private bool thermalDateFlowsBeforeColumns;
 
+        public void SetCreditInvoiceDetails(string description, string number, string series, string salePoint)
+        {
+            // Freeze header values independently of the page renderer's Fields scope.
+            descriptionDataTextBox.Value = description;
+            textBox17.Value = number;
+            textBox20.Value = series;
+            textBox4.Value = salePoint;
+            textBoxVATPercentage.Value = "=Fields.VATPercentage";
+        }
+
         /// <summary>
         /// Page headers do not reliably expose the detail row's Fields collection
         /// in every Telerik rendering path. Freeze the issued invoice date as text
