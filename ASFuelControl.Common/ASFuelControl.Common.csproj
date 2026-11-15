@@ -97,6 +97,8 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="Sales\SaleData.cs" />
+    <Compile Include="Sales\PendingSaleRegistry.cs" />
+    <Compile Include="Sales\PendingControllerCompletion.cs" />
     <Compile Include="Sales\TankFillingData.cs" />
     <Compile Include="Sales\TankSaleData.cs" />
     <Compile Include="StringExtensions.cs" />

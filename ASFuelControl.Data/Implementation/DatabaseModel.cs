@@ -1592,16 +1592,16 @@ namespace ASFuelControl.Data
 
                 DatabaseModel db = DatabaseModel.GetContext(this) as DatabaseModel;
                 SalesTransaction sale = new SalesTransaction();
-                sale.SalesTransactionId = Guid.NewGuid();
+                sale.SalesTransactionId = currentSale.SalesId;
 
 
-                sale.ApplicationUserId = DatabaseModel.CurrentUserId;
+                sale.ApplicationUserId = currentSale.SourceUserId ?? DatabaseModel.CurrentUserId;
                 if (currentSale.ErrorResolving)
                     sale.IsErrorResolving = true;
                 sale.NozzleId = lastNozzle.NozzleId;
                 sale.Nozzle = lastNozzle;
-                sale.TransactionTimeStamp = DateTime.Now;
-                sale.DiscountPercentage = lastNozzle.DiscountPercentage;
+                sale.TransactionTimeStamp = currentSale.SaleEndTime == DateTime.MinValue ? DateTime.Now : currentSale.SaleEndTime;
+                sale.DiscountPercentage = currentSale.DiscountPercentage ?? lastNozzle.DiscountPercentage;
                 lastNozzle.DiscountPercentage = 0;
                 sale.TotalizerStart = currentSale.TotalizerStart;// lastSaleValues.TotalVolumes[lastNozzle.OrderId];// nSale.TotalVolumeStart;
                 sale.TotalizerEnd = currentSale.TotalizerEnd;//nSale.TotalVolumeEnd;
@@ -1612,8 +1612,11 @@ namespace ASFuelControl.Data
                                                              //}
 
                 sale.Volume = currentSale.TotalVolume;//nSale.TotalVolume;
-                if (Data.DatabaseModel.CurrentShiftId != Guid.Empty)
-                    sale.ShiftId = Data.DatabaseModel.CurrentShiftId;
+                Guid sourceShiftId = currentSale.SourceShiftId ?? Data.DatabaseModel.CurrentShiftId;
+                if (sourceShiftId != Guid.Empty)
+                {
+                    sale.ShiftId = sourceShiftId;
+                }
                 sale.UnitPrice = currentSale.UnitPrice;
 
                 db.Add(sale);
@@ -1738,7 +1741,7 @@ namespace ASFuelControl.Data
                         sale.Nozzle.DispenserId));
 
                 Invoice invoice = new Invoice();
-                invoice.ApplicationUserId = DatabaseModel.CurrentUserId;
+                invoice.ApplicationUserId = currentSale.SourceUserId ?? DatabaseModel.CurrentUserId;
                 invoice.InvoiceId = Guid.NewGuid();
                 db.Add(invoice);
                 invoice.TransactionDate = DateTime.Now;
@@ -1896,23 +1899,26 @@ namespace ASFuelControl.Data
 
                 DatabaseModel db = DatabaseModel.GetContext(this) as DatabaseModel;
                 SalesTransaction sale = new SalesTransaction();
-                sale.SalesTransactionId = Guid.NewGuid();
+                sale.SalesTransactionId = currentSale.SalesId;
 
 
-                sale.ApplicationUserId = DatabaseModel.CurrentUserId;
+                sale.ApplicationUserId = currentSale.SourceUserId ?? DatabaseModel.CurrentUserId;
                 if (currentSale.ErrorResolving)
                     sale.IsErrorResolving = true;
                 sale.NozzleId = lastNozzle.NozzleId;
                 sale.Nozzle = lastNozzle;
-                sale.TransactionTimeStamp = DateTime.Now;
+                sale.TransactionTimeStamp = currentSale.SaleEndTime == DateTime.MinValue ? DateTime.Now : currentSale.SaleEndTime;
                 sale.TotalizerStart = currentSale.TotalizerStart;// lastSaleValues.TotalVolumes[lastNozzle.OrderId];// nSale.TotalVolumeStart;
                 sale.TotalizerEnd = currentSale.TotalizerEnd;//nSale.TotalVolumeEnd;
                 sale.InvalidSale = true;
-                sale.DiscountPercentage = lastNozzle.DiscountPercentage;
+                sale.DiscountPercentage = currentSale.DiscountPercentage ?? lastNozzle.DiscountPercentage;
                 lastNozzle.DiscountPercentage = 0;
                 sale.Volume = decimal.Round(currentSale.TotalVolume, 3);//nSale.TotalVolume;
-                if (Data.DatabaseModel.CurrentShiftId != Guid.Empty)
-                    sale.ShiftId = Data.DatabaseModel.CurrentShiftId;
+                Guid sourceShiftId = currentSale.SourceShiftId ?? Data.DatabaseModel.CurrentShiftId;
+                if (sourceShiftId != Guid.Empty)
+                {
+                    sale.ShiftId = sourceShiftId;
+                }
                 sale.UnitPrice = currentSale.UnitPrice;
 
                 db.Add(sale);

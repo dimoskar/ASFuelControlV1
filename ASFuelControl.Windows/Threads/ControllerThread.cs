@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using ASFuelControl.Logging;
 using System.Xml.Serialization;
 using System.IO;
+using ASFuelControl.Common.Sales;
 
 namespace ASFuelControl.Windows.Threads
 {
@@ -60,7 +61,12 @@ namespace ASFuelControl.Windows.Threads
         private bool haltThread = false;
         private DateTime lastTankCheck = DateTime.Now.AddMinutes(-1000);
         private string outFolder = "";
-        ConcurrentDictionary<Guid, Common.Sales.SaleData> salesToProcess = new ConcurrentDictionary<Guid, Common.Sales.SaleData>();
+        private static readonly object SharedSaleProcessingSync = new object();
+        private readonly PendingSaleRegistry retainedSales = PendingSaleRegistry.Instance;
+        private readonly HashSet<Common.FuelPumpControllerBase> retentionControllers = new HashSet<Common.FuelPumpControllerBase>();
+        private readonly object saleQueueSync = PendingSaleRegistry.SyncRoot;
+        private readonly object saleProcessingSync = SharedSaleProcessingSync;
+        private Guid processingSaleId;
         ConcurrentDictionary<Guid, DateTime> saleRetryAfter = new ConcurrentDictionary<Guid, DateTime>();
         private static readonly TimeSpan SaleRetryDelay = TimeSpan.FromSeconds(2);
         private string signFolder = "";
@@ -94,9 +100,17 @@ namespace ASFuelControl.Windows.Threads
 
         #region Public Constructors
 
-        public ControllerThread()
+        public ControllerThread() : this(true)
+        {
+        }
+
+        internal ControllerThread(bool initializeSettings)
         {
             this.TankCheckInterval = 1440 * 60 * 1000;
+            if (!initializeSettings)
+            {
+                return;
+            }
             this.outFolder = Data.Implementation.OptionHandler.Instance.GetOption("Samtec_OutFolder");
             this.defaultTaxDevice = Data.Implementation.OptionHandler.Instance.GetOption("DefaultTaxDevice");
             if (this.defaultTaxDevice == "Samtec")
@@ -143,6 +157,12 @@ namespace ASFuelControl.Windows.Threads
             workFlow.QueryStationLocked += new System.ComponentModel.CancelEventHandler(workFlow_QueryStationLocked);
             this.fpWorkFlows.Add(workFlow);
 
+            Common.FuelPumpControllerBase retainedController = controller as Common.FuelPumpControllerBase;
+            if (retainedController != null && this.retentionControllers.Add(retainedController))
+            {
+                retainedController.SaleRetentionRequired += this.controller_SaleRetentionRequired;
+            }
+
             return dispenser;
         }
 
@@ -176,22 +196,204 @@ namespace ASFuelControl.Windows.Threads
         }
 
         /// <summary>
-        /// Add a sale to the salesToProcess Queue
+        /// Marks a retained sale ready for queued invoicing.
         /// </summary>
         /// <param name="sale"></param>
         public void AddSale(Common.Sales.SaleData sale)
         {
-            if (sale == null || sale.SaleProcessed)
+            if (sale == null)
+            {
                 return;
-            this.salesToProcess.TryAdd(sale.SalesId, sale);
+            }
+            lock (this.saleQueueSync)
+            {
+                PendingSaleRecord record = this.RetainSale(sale, null, -1);
+                if (!object.ReferenceEquals(record.Sale, sale))
+                {
+                    throw new InvalidOperationException("A different sale object is already retained with this ID.");
+                }
+                record.Prepared = true;
+            }
+        }
+
+        private PendingSaleRecord RetainSale(Common.Sales.SaleData sale, VirtualDispenser dispenser, int nozzleNumber)
+        {
+            PendingSaleRecord record = this.retainedSales.Retain(sale);
+            if (record.ApplicationContextCaptured)
+            {
+                return record;
+            }
+            bool sameSale = object.ReferenceEquals(record.Sale, sale);
+            if (!sameSale)
+            {
+                throw new InvalidOperationException("A different sale object is already retained with this ID.");
+            }
+            if (dispenser != null)
+            {
+                record.DispenserId = dispenser.DispenserId;
+            }
+            // The controller already owns the entry; enrich that same entry for invoicing.
+            NozzleSalePersistenceCoordinator.Retain(sale.SalesId, sale.NozzleId);
+            VirtualNozzle nozzle = this.GetNozzle(sale.NozzleId);
+            if (dispenser == null && nozzle != null)
+            {
+                dispenser = nozzle.ParentDispenser;
+            }
+            if (sale.SaleEndTime == DateTime.MinValue)
+            {
+                sale.SaleEndTime = DateTime.Now;
+            }
+            sale.SourceShiftId = Data.DatabaseModel.CurrentShiftId;
+            sale.SourceUserId = Data.DatabaseModel.CurrentUserId;
+            if (nozzle != null)
+            {
+                sale.DiscountPercentage = nozzle.DiscountPercentage;
+            }
+            if (dispenser != null)
+            {
+                record.DispenserId = dispenser.DispenserId;
+            }
+            record.ApplicationContextCaptured = true;
+            return record;
+        }
+
+        private void controller_SaleRetentionRequired(object sender, Common.FuelPointValuesArgs e)
+        {
+            VirtualDispenser dispenser = this.fpWorkFlows.Select(w => w.Dispenser).FirstOrDefault(d => d.Controller == sender && d.ChannelId == e.CurrentFuelPoint.Channel && d.AddressId == e.CurrentFuelPoint.Address);
+            this.CaptureReceivedSale(e.Values.Sale, dispenser, e.CurrentNozzleId);
+        }
+
+        private void CaptureReceivedSale(Common.Sales.SaleData sale, VirtualDispenser dispenser, int nozzleNumber)
+        {
+            lock (this.saleQueueSync)
+            {
+                PendingSaleRecord record = this.RetainSale(sale, dispenser, nozzleNumber);
+                if (dispenser != null && sale.NozzleId == Guid.Empty)
+                {
+                    VirtualNozzle nozzle = dispenser.Nozzles.FirstOrDefault(n => n.NozzleNumber == nozzleNumber);
+                    if (nozzle != null)
+                    {
+                        sale.NozzleId = nozzle.NozzleId;
+                        sale.NozzleNumber = nozzle.NozzleOfficialNumber;
+                        sale.DiscountPercentage = nozzle.DiscountPercentage;
+                        NozzleSalePersistenceCoordinator.Retain(sale.SalesId, sale.NozzleId);
+                    }
+                }
+                if (dispenser != null)
+                {
+                    record.DispenserId = dispenser.DispenserId;
+                }
+            }
+        }
+
+        private void PrepareRetainedSale(PendingSaleRecord record, WorkFlow.IFuelPumpWorkFlow workflow)
+        {
+            if (record.Prepared)
+            {
+                return;
+            }
+            Common.Sales.SaleData sale = record.Sale;
+            VirtualDispenser dispenser = workflow.Dispenser;
+            VirtualNozzle nozzle = dispenser.Nozzles.FirstOrDefault(n => n.NozzleId == sale.NozzleId);
+            if (nozzle == null)
+            {
+                throw new InvalidOperationException("Retained sale has no matching nozzle: " + sale.SalesId);
+            }
+            if (!record.ContextCaptured)
+            {
+                sale.EuromatTransaction = workflow.Controller.GetEuromatTransaction(dispenser.ChannelId, dispenser.AddressId);
+                sale.EuromatPumpNumber = dispenser.EuromatNumber;
+                workflow.SetSale(sale);
+                record.ContextCaptured = true;
+            }
+            if (this.QueryTotalsUpdate != null && sale.TotalVolume > 0)
+            {
+                FuelPump.QueryTotalsUpdateArgs totals = new FuelPump.QueryTotalsUpdateArgs();
+                totals.NozzleId = nozzle.NozzleId;
+                totals.TotalVolumeCounter = sale.TotalizerEnd;
+                this.QueryTotalsUpdate(this, totals);
+            }
+            workflow.CloseSale(sale);
+            if (!record.Prepared)
+            {
+                throw new InvalidOperationException("Sale preparation did not complete; sale remains retained: " + sale.SalesId);
+            }
+        }
+
+        public bool IsQueuedSaleBeingProcessed(Common.Sales.SaleData sale)
+        {
+            lock (this.saleQueueSync)
+            {
+                PendingSaleRecord record;
+                bool retained = this.retainedSales.TryGetValue(sale.SalesId, out record);
+                bool sameSale = retained && object.ReferenceEquals(record.Sale, sale);
+                return sameSale && record.Prepared && this.processingSaleId == sale.SalesId;
+            }
+        }
+
+        private void ProcessNextRetainedSale()
+        {
+            lock (this.saleProcessingSync)
+            {
+                Common.Sales.SaleData sale = this.GetNextSale();
+                if (sale == null)
+                {
+                    return;
+                }
+                try
+                {
+                    PendingSaleRecord record;
+                    lock (this.saleQueueSync)
+                    {
+                        record = this.retainedSales[sale.SalesId];
+                        this.processingSaleId = sale.SalesId;
+                    }
+                    if (!record.Prepared)
+                    {
+                        WorkFlow.IFuelPumpWorkFlow workflow = this.fpWorkFlows.FirstOrDefault(w => w.Dispenser.DispenserId == record.DispenserId);
+                        if (workflow == null || sale.NozzleId == Guid.Empty)
+                        {
+                            throw new InvalidOperationException("Retained sale has no matching dispenser/nozzle: " + sale.SalesId);
+                        }
+                        this.PrepareRetainedSale(record, workflow);
+                    }
+                    if (record.Prepared && this.SaleAvaliable != null)
+                    {
+                        // This is the only pump-sale invoicing dispatch point.
+                        WorkFlow.SaleCompletedArgs args = new WorkFlow.SaleCompletedArgs(sale);
+                        this.SaleAvaliable(this, args);
+                        if (sale.SaleProcessed)
+                        {
+                            this.RemoveSale(sale.SalesId);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    sale.SaleProcessed = false;
+                    string message = "Sale remains retained for retry. SaleId=" + sale.SalesId + " " + ex;
+                    Logger.Instance.LogToFile("Sale retention retry", message);
+                }
+                finally
+                {
+                    lock (this.saleQueueSync)
+                    {
+                        this.processingSaleId = Guid.Empty;
+                        bool stillRetained = this.retainedSales.ContainsKey(sale.SalesId);
+                        if (stillRetained)
+                        {
+                            sale.SaleProcessed = false;
+                            this.DeferSale(sale.SalesId);
+                        }
+                    }
+                }
+            }
         }
 
         private void DeferSale(Guid saleId)
         {
-            this.saleRetryAfter.AddOrUpdate(
-                saleId,
-                DateTime.Now.Add(SaleRetryDelay),
-                (id, retryAt) => DateTime.Now.Add(SaleRetryDelay));
+            DateTime retryAt = DateTime.Now.Add(SaleRetryDelay);
+            this.saleRetryAfter[saleId] = retryAt;
         }
 
         /// <summary>
@@ -336,26 +538,29 @@ namespace ASFuelControl.Windows.Threads
         }
 
         /// <summary>
-        /// Gets the next sale avaliable in the salesToProcess Queue
+        /// Gets the next eligible retained sale, preserving order within a dispenser.
         /// </summary>
         /// <returns></returns>
         public Common.Sales.SaleData GetNextSale()
         {
-            if (this.salesToProcess.Count == 0)
+            lock (this.saleQueueSync)
+            {
+                DateTime now = DateTime.Now;
+                HashSet<Guid> visitedDispensers = new HashSet<Guid>();
+                List<PendingSaleRecord> records = this.retainedSales.Values.OrderBy(r => r.ReceivedSequence).ToList();
+                foreach (PendingSaleRecord record in records)
+                {
+                    bool firstForDispenser = visitedDispensers.Add(record.DispenserId);
+                    DateTime retryAt;
+                    bool deferred = this.saleRetryAfter.TryGetValue(record.Sale.SalesId, out retryAt);
+                    bool readyForProcessing = record.Prepared || record.ReceivedForProcessing;
+                    if (firstForDispenser && readyForProcessing && (!deferred || retryAt <= now))
+                    {
+                        return record.Sale;
+                    }
+                }
                 return null;
-            DateTime now = DateTime.Now;
-            Common.Sales.SaleData sale = this.salesToProcess.Values.FirstOrDefault(s =>
-            {
-                DateTime retryAt;
-                return !this.saleRetryAfter.TryGetValue(s.SalesId, out retryAt) || retryAt <= now;
-            });
-            if (sale == null)
-                return null; 
-            if (this.salesToProcess.TryGetValue(sale.SalesId, out sale))
-            {
-                return sale;
             }
-            return null;
         }
         /// <summary>
         /// Gets the virtual Noozle identified by nozzleId
@@ -387,14 +592,23 @@ namespace ASFuelControl.Windows.Threads
         }
 
         /// <summary>
-        /// Removes a sale from the salesToProcess Queue
+        /// Releases a queued sale only after its persistence handler confirms the commit.
         /// </summary>
         public void RemoveSale(Guid saleId)
         {
-            Common.Sales.SaleData sale = null;
-            this.salesToProcess.TryRemove(saleId, out sale);
-            DateTime retryAt;
-            this.saleRetryAfter.TryRemove(saleId, out retryAt);
+            lock (this.saleQueueSync)
+            {
+                PendingSaleRecord record;
+                bool retained = this.retainedSales.TryGetValue(saleId, out record);
+                if (!retained || !record.Sale.SaleProcessed || this.processingSaleId != saleId)
+                {
+                    throw new InvalidOperationException("Only a verified queued sale can be acknowledged.");
+                }
+                this.retainedSales.ReleaseVerified(record.Sale);
+                DateTime retryAt;
+                this.saleRetryAfter.TryRemove(saleId, out retryAt);
+                NozzleSalePersistenceCoordinator.Release(saleId);
+            }
         }
         /// <summary>
         /// Starts all controllers
@@ -730,6 +944,7 @@ namespace ASFuelControl.Windows.Threads
                 {
                     try
                     {
+                        this.ProcessNextRetainedSale();
                         bool isTankCheck = false;
                         DateTime dt = DateTime.Now;
                         int interval = this.TankCheckInterval;
@@ -862,20 +1077,6 @@ namespace ASFuelControl.Windows.Threads
                                     //    }
                                     //}
                                 }
-                                Common.Sales.SaleData manualSale = this.GetNextSale();
-                                if(manualSale != null)
-                                {
-                                    if (!manualSale.SaleProcessed)
-                                    {
-                                        WorkFlow.SaleCompletedArgs saleArgs = new WorkFlow.SaleCompletedArgs(manualSale);
-                                        if (this.SaleAvaliable != null)
-                                            this.SaleAvaliable(this, saleArgs);
-                                    }
-                                    if (manualSale.SaleProcessed)
-                                        this.RemoveSale(manualSale.SalesId);
-                                    else
-                                        this.DeferSale(manualSale.SalesId);
-                                }
                                 workFlow.CurrentShiftId = Program.CurrentShiftId;
 
                                 if (dispenser.Reset)
@@ -903,46 +1104,17 @@ namespace ASFuelControl.Windows.Threads
                                 
                                 if (values != null && values.Sale != null )
                                 {
-                                    Logger.Instance.LogToFile("Values With Sale:" + controller.CommunicationPort, values);
-                                    Logger.Instance.LogToFile("Controller Thread Sale", values.Sale);
-                                    if (System.IO.File.Exists("ControllerThread.log"))
+                                    lock (this.saleProcessingSync)
                                     {
-                                        System.IO.File.AppendAllText("ControllerThread.log", "Values found");
-                                    }
-                                    if (values.Sale.TotalVolume <= 0)
-                                    {
-                                        if (values.Sale.DisplayVolume > 0)
+                                        // Also covers controllers that do not use the base-class retention hook.
+                                        this.CaptureReceivedSale(values.Sale, dispenser, values.ActiveNozzle);
+                                        PendingSaleRecord record;
+                                        lock (this.saleQueueSync)
                                         {
-                                            System.IO.File.AppendAllText("EmptySales.log", string.Format("Display:{0} TotalStart:{1} TotalStart:{2}\r\n", values.Sale.DisplayVolume, values.Sale.TotalizerStart, values.Sale.TotalizerEnd));
+                                            record = this.retainedSales[values.Sale.SalesId];
+                                            record.ReceivedForProcessing = true;
                                         }
-                                    }
-                                    else
-                                    {
-                                        Common.Sales.SaleData sale = values.Sale;
-
-                                        VirtualNozzle saleNozzle = dispenser.Nozzles.Where(n => n.NozzleNumber == values.ActiveNozzle).FirstOrDefault();
-                                        if (saleNozzle != null)
-                                        {
-                                            saleNozzle.TotalVolumeCounter = sale.TotalizerEnd;
-                                            //sale.EuromatParameters = controller.GetEuromatParameters(dispenser.ChannelId, dispenser.AddressId);
-                                            sale.EuromatTransaction = controller.GetEuromatTransaction(dispenser.ChannelId, dispenser.AddressId);
-                                            sale.NozzleId = saleNozzle.NozzleId;
-                                            sale.EuromatPumpNumber = dispenser.EuromatNumber;
-                                            //sale.CheckSale(dispenser.TotalDecimalPlaces);
-                                            saleNozzle.HasChanges = true;
-                                            if (this.QueryTotalsUpdate != null && sale.TotalVolume > 0)
-                                            {
-                                                this.QueryTotalsUpdate(this, new FuelPump.QueryTotalsUpdateArgs()
-                                                {
-                                                    NozzleId = saleNozzle.NozzleId,
-                                                    TotalVolumeCounter = sale.TotalizerEnd
-                                                });
-                                            }
-                                        }
-                                        workFlow.SetSale(values.Sale);
-                                        workFlow.CloseSale(values.Sale);
-                                        
-                                        //Logger.Instance.LogToFile()
+                                        this.PrepareRetainedSale(record, workFlow);
                                     }
                                 }
                                 if (values == null || values.Sale == null || values.Sale.TotalVolume == 0)
@@ -1203,6 +1375,16 @@ namespace ASFuelControl.Windows.Threads
 
         void workFlow_QueryStationLocked(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            FuelPump.FuelPumpWorkFlow workflow = sender as FuelPump.FuelPumpWorkFlow;
+            lock (this.saleQueueSync)
+            {
+                bool pendingSale = this.retainedSales.Values.Any(r => r.DispenserId == Guid.Empty || workflow == null || r.DispenserId == workflow.Dispenser.DispenserId);
+                if (pendingSale)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
             VirtualTank[] tanks = this.GetTanks();
             foreach (VirtualTank tank in tanks)
             {
@@ -1229,22 +1411,9 @@ namespace ASFuelControl.Windows.Threads
 
         void workFlow_SaleCompleted(object sender, WorkFlow.SaleCompletedArgs e)
         {
-            if (SaleAvaliable != null)
-            {
-                this.SaleAvaliable(this, e);
-            }
-            if (e != null && e.Sale != null && !e.Sale.SaleProcessed)
+            if (e != null && e.Sale != null)
             {
                 this.AddSale(e.Sale);
-                this.DeferSale(e.Sale.SalesId);
-                Logger.Instance.LogToFile(
-                    "Sale Persistence Queue",
-                    string.Format(
-                        "Sale retained for retry. SalesId:{0}, NozzleId:{1}, TotalizerStart:{2}, TotalizerEnd:{3}",
-                        e.Sale.SalesId,
-                        e.Sale.NozzleId,
-                        e.Sale.TotalizerStart,
-                        e.Sale.TotalizerEnd));
             }
         }
         #endregion

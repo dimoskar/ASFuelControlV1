@@ -1,0 +1,23 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>SaleRetention.Tests</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <PlatformTarget>x86</PlatformTarget>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <AppOutput>..\..\ASFuelControl.Windows\bin\Release</AppOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="ASFuelControl.Windows"><HintPath>$(AppOutput)\ASFuelControl.Windows.exe</HintPath><Private>false</Private></Reference>
+    <Reference Include="ASFuelControl.Common"><HintPath>$(AppOutput)\ASFuelControl.Common.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ASFuelControl.VirtualDevices"><HintPath>$(AppOutput)\ASFuelControl.VirtualDevices.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ASFuelControl.WorkFlow"><HintPath>$(AppOutput)\ASFuelControl.WorkFlow.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ASFuelControl.Euromat"><HintPath>$(AppOutput)\ASFuelControl.Euromat.dll</HintPath><Private>false</Private></Reference>
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

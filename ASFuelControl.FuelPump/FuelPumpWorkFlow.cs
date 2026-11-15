@@ -197,10 +197,6 @@ namespace ASFuelControl.FuelPump
             if (nozzle == null)
                 return;
 
-            if (sale.TotalizerStart == sale.TotalizerEnd)
-            {
-                return;
-            }
             this.currentSale = sale;
             sale.TankData = this.currentSaleTankData.ToArray();
 
@@ -215,9 +211,10 @@ namespace ASFuelControl.FuelPump
 
             nozzle.TotalVolumeCounter = sale.TotalizerEnd;
             nozzle.LastVolumeCounter = sale.TotalizerEnd;
-            sale.SaleEndTime = DateTime.Now;
-
-            sale.SaleEndTime = DateTime.Now;
+            if (sale.SaleEndTime == DateTime.MinValue)
+            {
+                sale.SaleEndTime = DateTime.Now;
+            }
 
             Dispenser.InvoiceTypeId = Guid.Empty;
             Dispenser.Odometer = 0;

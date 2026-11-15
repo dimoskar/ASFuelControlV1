@@ -73,6 +73,9 @@ namespace ASFuelControl.Common.Sales
         public TankSaleData[] TankData { set; get; }
         public bool IsOnSale { set; get; }
         public Guid SalesId { private set; get; }
+        public Guid? SourceShiftId { set; get; }
+        public Guid? SourceUserId { set; get; }
+        public decimal? DiscountPercentage { set; get; }
         public DateTime SaleInitialized { set; get; }
         public bool SaleStarted { set;get; }
         public string EuromatParameters { set; get; }

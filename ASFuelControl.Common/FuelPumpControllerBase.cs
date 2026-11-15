@@ -16,6 +16,7 @@ namespace ASFuelControl.Common
         public event EventHandler<TotalsEventArgs> TotalsRecieved;
         public event EventHandler<FuelPointValuesArgs> ValuesRecieved;
         public event EventHandler<SaleEventArgs> SaleRecieved;
+        public event EventHandler<FuelPointValuesArgs> SaleRetentionRequired;
         #endregion
 
         #region private variables
@@ -26,6 +27,10 @@ namespace ASFuelControl.Common
         protected ConcurrentDictionary<ASFuelControl.Common.FuelPoint, ValueHolder> internalQueue = new ConcurrentDictionary<ASFuelControl.Common.FuelPoint, ValueHolder>();
         private IFuelProtocol controller = null;
         private List<Guid> salesCompleted = new List<Guid>();
+        private static readonly ConcurrentDictionary<Guid, Sales.PendingControllerCompletion> RetainedCompletions = new ConcurrentDictionary<Guid, Sales.PendingControllerCompletion>();
+        private readonly ConcurrentDictionary<Guid, Sales.PendingControllerCompletion> pendingCompletions = RetainedCompletions;
+        private readonly object completionProcessingSync = new object();
+        private long completionSequence;
         private bool euromatEnabled = false;
         private EuromatClient euromat = new EuromatClient();
         private string euromatIp;
@@ -175,10 +180,45 @@ namespace ASFuelControl.Common
 
         protected void EnqueValues(ASFuelControl.Common.FuelPoint fuelPoint, ASFuelControl.Common.FuelPointValues values)
         {
-            fuelPoint.LastValues = values;
-            if (!this.internalQueue.ContainsKey(fuelPoint))
-                return;
-            this.internalQueue[fuelPoint].AddValues(values);
+            if (values.Sale != null)
+            {
+                Sales.PendingSaleRegistry.Instance.RetainFromController(values.Sale, this, fuelPoint.Channel, fuelPoint.Address, values.ActiveNozzle);
+            }
+            Exception notificationFailure = null;
+            try
+            {
+                if (values.Sale != null && this.SaleRetentionRequired != null)
+                {
+                    FuelPointValuesArgs retentionArgs = new FuelPointValuesArgs();
+                    retentionArgs.CurrentFuelPoint = fuelPoint;
+                    retentionArgs.CurrentNozzleId = values.ActiveNozzle;
+                    retentionArgs.Values = values;
+                    this.SaleRetentionRequired(this, retentionArgs);
+                }
+            }
+            catch (Exception exception)
+            {
+                notificationFailure = exception;
+            }
+            finally
+            {
+                fuelPoint.LastValues = values;
+                ValueHolder holder;
+                bool queueExists = this.internalQueue.TryGetValue(fuelPoint, out holder);
+                if (queueExists)
+                {
+                    holder.AddValues(values);
+                }
+                else if (values.Sale != null)
+                {
+                    throw new InvalidOperationException("Controller value queue is missing; sale remains retained.");
+                }
+            }
+            if (notificationFailure != null)
+            {
+                string message = "Sale retention subscriber failed; sale remains in the common registry. " + notificationFailure;
+                System.Diagnostics.Trace.WriteLine(message);
+            }
             //if (this.internalQueue[fuelPoint].Count == 0)
             //    this.internalQueue[fuelPoint].Enqueue(values);
             //else
@@ -234,6 +274,11 @@ namespace ASFuelControl.Common
 
         public virtual bool AuthorizeDispenser(int channel, int address)
         {
+            bool pending = this.HasPendingCompletionOrSale(channel, address);
+            if (pending)
+            {
+                return false;
+            }
             FuelPoint fp = this.GetFulePoint(channel, address);
             if (fp == null)
                 return false;
@@ -299,6 +344,11 @@ namespace ASFuelControl.Common
 
         public virtual bool AuthorizeDispenserVolumePreset(int channel, int address, decimal volume)
         {
+            bool pending = this.HasPendingCompletionOrSale(channel, address);
+            if (pending)
+            {
+                return false;
+            }
             FuelPoint fp = this.GetFulePoint(channel, address);
             if (fp == null)
                 return false;
@@ -312,6 +362,11 @@ namespace ASFuelControl.Common
 
         public virtual bool AuthorizeDispenserAmountPreset(int channel, int address, decimal price)
         {
+            bool pending = this.HasPendingCompletionOrSale(channel, address);
+            if (pending)
+            {
+                return false;
+            }
             FuelPoint fp = this.GetFulePoint(channel, address);
             if (fp == null)
                 return false;
@@ -454,6 +509,7 @@ namespace ASFuelControl.Common
         DateTime lastValuesSent = DateTime.MinValue;
         public virtual FuelPointValues GetDispenserValues(int channel, int address)
         {
+            this.RetryPendingCompletions();
             
             KeyValuePair<ASFuelControl.Common.FuelPoint, ValueHolder> pair = this.internalQueue.Where(iv => iv.Key.Channel == channel && iv.Key.Address == address).FirstOrDefault();
             if (pair.Key == null)
@@ -664,199 +720,288 @@ namespace ASFuelControl.Common
 
         protected virtual void OnTransactionCompleted(TotalsEventArgs e)
         {
-            Common.FuelPoint fp = e.CurrentFuelPoint;
-            if (fp == null)
-                return;
-
-            Common.Nozzle nz = fp.Nozzles.Where(n => n.Index == e.NozzleId).FirstOrDefault();
-            if (this.TotalsRecieved != null)
-            {
-                this.TotalsRecieved(this, new Common.TotalsEventArgs(fp, (int)e.NozzleId, (decimal)nz.TotalVolume, (decimal)0));
-            }
-            nz.QueryTotals = false;
-            int totalIndex = nz.GetTotalsIndex();
-            if(totalIndex < 3)
-            {
-                nz.Totals.Add(nz.TotalVolume);
-                nz.SetExtendedProperty("TotalIndex", totalIndex + 1);
-                if (!nz.HasValidTotals())
-                {
-                    nz.QueryTotals = true;
-                    return;
-                }
-            }
-            decimal totals = nz.GetTotalsFromList();
-            nz.Totals.Clear();
-            nz.SetExtendedProperty("TotalIndex", 0);
-            nz.TotalVolume = totals;
-            //if (nz.LastTotalVolume >= nz.TotalVolume || nz.LastTotalVolume < 0)
-            //{
-            //    if (e.CurrentFuelPoint.DispensedVolume > 0 && totalIndex < 5)
-            //    {
-            //        nz.SetExtendedProperty("TotalIndex", totalIndex + 1);
-            //        nz.QueryTotals = true;
-            //        return;
-            //    }
-            //    if(e.CurrentFuelPoint.DispensedVolume == 0)
-            //        return;
-            //}
-            if (e.CurrentFuelPoint.DispensedVolume == 0 && nz.TransactionVolume == 0)
-            {
-                CreateValuesForTotals(nz);
-                return;
-            }
-            //if (nz.GetExtendedProperty("LastTotalVolume") != null && (decimal)nz.GetExtendedProperty("LastTotalVolume") == nz.TotalVolume)
-            //{
-            //    if (e.CurrentFuelPoint.DispensedVolume > 0 && totalIndex < 5)
-            //    {
-            //        nz.SetExtendedProperty("TotalIndex", totalIndex + 1);
-            //        nz.QueryTotals = true;
-            //        return;
-            //    }
-            //    if (e.CurrentFuelPoint.DispensedVolume == 0)
-            //    {
-            //        if (System.IO.File.Exists("TransactionCompleted.log"))
-            //        {
-            //            System.IO.File.AppendAllText("TransactionCompleted.log", "DispensedVolume is 0\r\n");
-            //        }
-            //        return;
-            //    }
-            //}
-            if(nz.TransactionVolume == 0 && e.CurrentFuelPoint.DispensedVolume > 0)
-            {
-
-            }
-            else if(nz.TransactionVolume > 0 && e.CurrentFuelPoint.DispensedVolume == 0)
-            {
-
-            }
-            bool work = (bool)nz.ParentFuelPoint.GetExtendedProperty("Work", false);
-            nz.ParentFuelPoint.SetExtendedProperty("Work", false);
-            //Logger.Instance.Info($"OnTransactionCompleted #1 || Address: {nz.ParentFuelPoint.Address}- Nozzle Index: {nz.NozzleIndex} Work: {work}");
-            nz.SetExtendedProperty("LastTotalVolume", nz.TotalVolume);
-            nz.SetExtendedProperty("TotalIndex", 0);
-
-            if (nz.SuspendSale)
-            {
-                //Logger.Instance.Info($"OnTransactionCompleted || Address: {nz.ParentFuelPoint.Address}- Nozzle Index: {nz.NozzleIndex} Suspend Sale: {nz.SuspendSale}");
-
-                nz.SuspendSale = false;
-                if (fp.EuromatNumber > 0)
-                {
-                    this.euromat.TransactionCompleted(fp, fp.EuromatNumber, nz.Index, nz.UnitPrice, 0, 0);
-                }
-                //return;
-            }
-            if (!fp.NeedsInvoice)
-            {
-                if (System.IO.File.Exists("TransactionCompleted.log"))
-                {
-                    System.IO.File.AppendAllText("TransactionCompleted.log", "fp.NeedsInvoice is FALSE\r\n");
-                }
-                //Logger.Instance.Info($"OnTransactionCompleted || Address: {nz.ParentFuelPoint.Address}- Nozzle Index: {nz.NozzleIndex} Needs Invoice: {fp.NeedsInvoice}");
-                CreateValuesForTotals(nz);
-                return;
-            }
-            fp.NeedsInvoice = false;
-            Common.FuelPointValues values = new Common.FuelPointValues();
-            if (fp.EuromatNumber > 0)
-            {
-                //fp.EuromatTransactionParameters = "";
-                this.euromat.TransactionCompleted(fp, fp.EuromatNumber, nz.Index, nz.UnitPrice, e.CurrentFuelPoint.DispensedAmount, e.CurrentFuelPoint.DispensedVolume);
-                values.EuromatParameters = fp.EuromatTransactionParameters;
-            }
-            Common.Sales.SaleData sale = new Sales.SaleData();//nz.saleHandler.AddTotalizer(e.TotalVolume, nz.UnitPrice, e.CurrentFuelPoint.DispensedVolume, e.CurrentFuelPoint.DispensedAmount);
-            sale.DisplayPrice = work ? e.CurrentFuelPoint.DispensedAmount : 0;
-            sale.DisplayVolume = work ? e.CurrentFuelPoint.DispensedVolume : 0;
-            sale.TotalizerStart = nz.LastTotalVolume;
-            sale.TotalizerEnd = nz.TotalVolume;
-            sale.TotalPrice = work ? e.CurrentFuelPoint.DispensedAmount : 0;
-            sale.TotalVolume = work ? e.CurrentFuelPoint.DispensedVolume : 0;
-            sale.UnitPrice = nz.UnitPrice;
-
-            decimal totalVolume = (decimal)((double)(sale.TotalizerEnd - sale.TotalizerStart) / Math.Pow(10, e.CurrentFuelPoint.TotalDecimalPlaces));
-
-            if (totalVolume > sale.TotalVolume + (decimal)1 || totalVolume < sale.TotalVolume - (decimal)1)
-            {
-                sale.InvalidSale = true;
-            }
-
-            fp.Status = fp.DispenserStatus;
-            values.Sale = sale;
-            values.Status = fp.Status;
-            values.CurrentPriceTotal = sale.TotalPrice;
-            values.CurrentSalePrice = sale.UnitPrice;
-            values.CurrentVolume = sale.TotalVolume;
-            values.HasTotalMisfunction = nz.TotalMisfunction;
-            values.ActiveNozzle = nz.Index;
-            if(System.IO.File.Exists("TransactionCompleted.log"))
-            {
-                System.IO.File.AppendAllText("TransactionCompleted.log", "Values Enquee\r\n");
-            }
-            this.EnqueValues(fp, values);
-
-            //nz.ParentFuelPoint.DispensedAmount = 0;
-            //nz.ParentFuelPoint.DispensedVolume = 0;
+            Sales.PendingControllerCompletion completion = new Sales.PendingControllerCompletion();
+            completion.FuelPoint = e.CurrentFuelPoint;
+            completion.NozzleIndex = e.NozzleId;
+            completion.ReportedTotal = e.TotalVolume;
+            completion.ReportedPriceTotal = e.TotalPrice;
+            this.CaptureCompletion(completion);
         }
 
         protected virtual void OnSaleRecieved(SaleEventArgs e)
         {
-            Common.FuelPoint fp = e.CurrentFuelPoint;
-            if (fp == null)
-                return;
+            Sales.PendingControllerCompletion completion = new Sales.PendingControllerCompletion();
+            completion.FuelPoint = e.CurrentFuelPoint;
+            completion.NozzleIndex = e.NozzleId;
+            completion.DirectSale = true;
+            completion.ReportedTotal = e.TotalVolume;
+            completion.ReportedPriceTotal = e.TotalPrice;
+            completion.Amount = e.Amount;
+            completion.Volume = e.Volume;
+            this.CaptureCompletion(completion);
+        }
 
-            Common.Nozzle nz = fp.Nozzles.Where(n => n.Index == e.NozzleId).FirstOrDefault();
-            
-            bool work = (bool)nz.ParentFuelPoint.GetExtendedProperty("Work", false);
-            nz.ParentFuelPoint.SetExtendedProperty("Work", false);
-            nz.TotalVolume = e.TotalVolume;
-            if (nz.SuspendSale)
+        public int PendingCompletionCount
+        {
+            get
             {
-                nz.SuspendSale = false;
-                if (fp.EuromatNumber > 0)
-                {
-                    this.euromat.TransactionCompleted(fp, fp.EuromatNumber, nz.Index, nz.UnitPrice, 0, 0);
-                }
-                //return;
+                return this.pendingCompletions.Values.Count(c => c.Owner == this);
             }
-            if (!fp.NeedsInvoice)
+        }
+
+        private void CaptureCompletion(Sales.PendingControllerCompletion completion)
+        {
+            completion.Owner = this;
+            completion.Sequence = System.Threading.Interlocked.Increment(ref this.completionSequence);
+            this.pendingCompletions.TryAdd(completion.Id, completion);
+            // Capture source values before any subscriber, fleet call or state reset.
+            try
             {
-                if (System.IO.File.Exists("TransactionCompleted.log"))
+                this.CaptureCompletionSnapshot(completion);
+            }
+            catch (Exception exception)
+            {
+                completion.LastError = exception.ToString();
+            }
+            this.RetryPendingCompletions();
+        }
+
+        private void CaptureCompletionSnapshot(Sales.PendingControllerCompletion completion)
+        {
+            lock (completion)
+            {
+                if (completion.SnapshotCaptured)
                 {
-                    System.IO.File.AppendAllText("TransactionCompleted.log", "fp.NeedsInvoice is FALSE\r\n");
+                    return;
                 }
-                CreateValuesForTotals(nz);
+                FuelPoint point = completion.FuelPoint;
+                if (point == null)
+                {
+                    throw new InvalidOperationException("Completion has no fuel point.");
+                }
+                if (!completion.SourceValuesCaptured)
+                {
+                    if (!completion.DirectSale)
+                    {
+                        completion.Amount = point.DispensedAmount;
+                        completion.Volume = point.DispensedVolume;
+                    }
+                    completion.NeedsInvoice = point.NeedsInvoice;
+                    object workValue = point.GetExtendedProperty("Work", false);
+                    completion.Work = workValue is bool && (bool)workValue;
+                    completion.TotalDecimalPlaces = point.TotalDecimalPlaces;
+                    completion.SourceValuesCaptured = true;
+                }
+                Nozzle nozzle = point.Nozzles.FirstOrDefault(n => n.Index == completion.NozzleIndex);
+                if (nozzle == null)
+                {
+                    throw new InvalidOperationException("Completion nozzle was not found: " + completion.NozzleIndex);
+                }
+                completion.StartTotal = completion.DirectSale && nozzle.TotalVolume != completion.ReportedTotal ? nozzle.TotalVolume : nozzle.LastTotalVolume;
+                completion.UnitPrice = nozzle.UnitPrice;
+                completion.SnapshotCaptured = true;
+            }
+        }
+
+        public void RetryPendingCompletions()
+        {
+            bool acquired = System.Threading.Monitor.TryEnter(this.completionProcessingSync);
+            if (!acquired)
+            {
                 return;
             }
-            fp.NeedsInvoice = false;
-            Common.FuelPointValues values = new Common.FuelPointValues();
-            if (fp.EuromatNumber > 0)
+            try
             {
-                //fp.EuromatTransactionParameters = "";
-                this.euromat.TransactionCompleted(fp, fp.EuromatNumber, nz.Index, nz.UnitPrice, e.CurrentFuelPoint.DispensedAmount, e.CurrentFuelPoint.DispensedVolume);
-                values.EuromatParameters = fp.EuromatTransactionParameters;
+                HashSet<FuelPoint> blockedPoints = new HashSet<FuelPoint>();
+                Sales.PendingControllerCompletion[] completions = this.pendingCompletions.Values.Where(c => c.Owner == this).OrderBy(c => c.Sequence).ToArray();
+                foreach (Sales.PendingControllerCompletion completion in completions)
+                {
+                    if (completion.WaitingForTotals && completion.TotalsNotified)
+                    {
+                        // Keep the receipt until a later total reading finishes this completion.
+                        continue;
+                    }
+                    bool blocked = blockedPoints.Contains(completion.FuelPoint);
+                    if (blocked)
+                    {
+                        continue;
+                    }
+                    if (DateTime.UtcNow < completion.RetryAfterUtc)
+                    {
+                        blockedPoints.Add(completion.FuelPoint);
+                        continue;
+                    }
+                    try
+                    {
+                        this.ProcessCompletion(completion);
+                        if (!completion.WaitingForTotals)
+                        {
+                            Sales.PendingControllerCompletion removed;
+                            this.pendingCompletions.TryRemove(completion.Id, out removed);
+                            foreach (Sales.PendingControllerCompletion sample in completions)
+                            {
+                                if (sample.WaitingForTotals && sample.Sequence < completion.Sequence && sample.FuelPoint == completion.FuelPoint && sample.NozzleIndex == completion.NozzleIndex)
+                                {
+                                    this.pendingCompletions.TryRemove(sample.Id, out removed);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        completion.LastError = exception.ToString();
+                        completion.RetryAfterUtc = DateTime.UtcNow.AddSeconds(2);
+                        blockedPoints.Add(completion.FuelPoint);
+                        string message = "Controller completion retained for retry. EventId=" + completion.Id + " " + completion.LastError;
+                        System.Diagnostics.Trace.WriteLine(message);
+                    }
+                }
             }
-            Common.Sales.SaleData sale = new Sales.SaleData();//nz.saleHandler.AddTotalizer(e.TotalVolume, nz.UnitPrice, e.CurrentFuelPoint.DispensedVolume, e.CurrentFuelPoint.DispensedAmount);
-            sale.DisplayPrice = e.Amount;
-            sale.DisplayVolume = e.Volume;
-            sale.TotalizerStart = nz.LastTotalVolume;
-            sale.TotalizerEnd = e.TotalVolume;
-            sale.TotalPrice = e.Amount;
-            sale.TotalVolume = e.Volume;
-            sale.UnitPrice = nz.UnitPrice;
-            fp.Status = fp.DispenserStatus;// Enumerators.FuelPointStatusEnum.Idle;
-            values.Sale = sale;
-            values.Status = fp.Status;
-            values.CurrentPriceTotal = sale.TotalPrice;
-            values.CurrentSalePrice = sale.UnitPrice;
-            values.CurrentVolume = sale.TotalVolume;
-            values.HasTotalMisfunction = nz.TotalMisfunction;
-            values.ActiveNozzle = nz.Index;
-            if (System.IO.File.Exists("TransactionCompleted.log"))
+            finally
             {
-                System.IO.File.AppendAllText("TransactionCompleted.log", "Values Enquee\r\n");
+                System.Threading.Monitor.Exit(this.completionProcessingSync);
             }
-            this.EnqueValues(fp, values);
+        }
+
+        private void ProcessCompletion(Sales.PendingControllerCompletion completion)
+        {
+            if (!completion.SnapshotCaptured)
+            {
+                this.CaptureCompletionSnapshot(completion);
+            }
+            FuelPoint point = completion.FuelPoint;
+            Nozzle nozzle = point.Nozzles.FirstOrDefault(n => n.Index == completion.NozzleIndex);
+            if (nozzle == null)
+            {
+                throw new InvalidOperationException("Completion nozzle is no longer available.");
+            }
+
+            if (!completion.TotalsEvaluated)
+            {
+                completion.EndTotal = completion.ReportedTotal;
+                if (!completion.DirectSale)
+                {
+                    nozzle.QueryTotals = false;
+                    int totalIndex = nozzle.GetTotalsIndex();
+                    if (totalIndex < 3)
+                    {
+                        nozzle.Totals.Add(completion.ReportedTotal);
+                        nozzle.SetExtendedProperty("TotalIndex", totalIndex + 1);
+                        bool validTotals = nozzle.HasValidTotals();
+                        completion.WaitingForTotals = !validTotals;
+                    }
+                    if (completion.WaitingForTotals)
+                    {
+                        nozzle.QueryTotals = true;
+                    }
+                    else
+                    {
+                        completion.EndTotal = nozzle.GetTotalsFromList();
+                        nozzle.Totals.Clear();
+                        nozzle.SetExtendedProperty("TotalIndex", 0);
+                    }
+                }
+                completion.TotalsEvaluated = true;
+            }
+
+            if (!completion.WaitingForTotals)
+            {
+                nozzle.TotalVolume = completion.EndTotal;
+                if (!completion.DecisionMade)
+                {
+                    bool hasSaleValues = completion.DirectSale || completion.Volume != 0 || completion.EndTotal != completion.StartTotal;
+                    completion.ShouldCreateSale = hasSaleValues && completion.NeedsInvoice && point.NeedsInvoice;
+                    completion.DecisionMade = true;
+                }
+                if (completion.ShouldCreateSale)
+                {
+                    if (completion.Sale == null)
+                    {
+                        Sales.SaleData sale = new Sales.SaleData();
+                        sale.SaleEndTime = completion.ReceivedUtc.ToLocalTime();
+                        sale.DisplayPrice = completion.DirectSale || completion.Work ? completion.Amount : 0;
+                        sale.DisplayVolume = completion.DirectSale || completion.Work ? completion.Volume : 0;
+                        sale.TotalizerStart = completion.StartTotal;
+                        sale.TotalizerEnd = completion.EndTotal;
+                        sale.TotalPrice = sale.DisplayPrice;
+                        sale.TotalVolume = sale.DisplayVolume;
+                        sale.UnitPrice = completion.UnitPrice;
+                        completion.Sale = sale;
+                    }
+                    if (!completion.SaleRetained)
+                    {
+                        if (!completion.DirectSale)
+                        {
+                            double multiplier = Math.Pow(10, completion.TotalDecimalPlaces);
+                            decimal measuredVolume = (decimal)((double)(completion.Sale.TotalizerEnd - completion.Sale.TotalizerStart) / multiplier);
+                            completion.Sale.InvalidSale = measuredVolume > completion.Sale.TotalVolume + 1 || measuredVolume < completion.Sale.TotalVolume - 1;
+                        }
+                        Sales.PendingSaleRegistry.Instance.RetainFromController(completion.Sale, this, point.Channel, point.Address, completion.NozzleIndex);
+                        completion.SaleRetained = true;
+                    }
+                    // A failure after this point retries the same SaleData/SalesId.
+                    point.NeedsInvoice = false;
+                    point.SetExtendedProperty("Work", false);
+                    if (!completion.SuspendHandled)
+                    {
+                        if (nozzle.SuspendSale && point.EuromatNumber > 0)
+                        {
+                            this.euromat.TransactionCompleted(point, point.EuromatNumber, completion.NozzleIndex, completion.UnitPrice, 0, 0);
+                        }
+                        nozzle.SuspendSale = false;
+                        completion.SuspendHandled = true;
+                    }
+                    if (!completion.FleetHandled)
+                    {
+                        if (point.EuromatNumber > 0)
+                        {
+                            this.euromat.TransactionCompleted(point, point.EuromatNumber, completion.NozzleIndex, completion.UnitPrice, completion.Amount, completion.Volume);
+                        }
+                        completion.FleetHandled = true;
+                    }
+                    if (!completion.ValuesPublished)
+                    {
+                        FuelPointValues values = new FuelPointValues();
+                        values.Sale = completion.Sale;
+                        values.Status = point.DispenserStatus;
+                        values.ActiveNozzle = completion.NozzleIndex;
+                        values.CurrentPriceTotal = completion.Sale.TotalPrice;
+                        values.CurrentSalePrice = completion.Sale.UnitPrice;
+                        values.CurrentVolume = completion.Sale.TotalVolume;
+                        values.HasTotalMisfunction = nozzle.TotalMisfunction;
+                        values.EuromatParameters = point.EuromatTransactionParameters;
+                        this.EnqueValues(point, values);
+                        completion.ValuesPublished = true;
+                    }
+                }
+                else if (!completion.ValuesPublished)
+                {
+                    this.CreateValuesForTotals(nozzle);
+                    completion.ValuesPublished = true;
+                }
+            }
+
+            // Notification is last: a throwing subscriber cannot undo sale retention.
+            if (!completion.DirectSale && !completion.TotalsNotified)
+            {
+                if (this.TotalsRecieved != null)
+                {
+                    TotalsEventArgs args = new TotalsEventArgs(point, completion.NozzleIndex, completion.EndTotal, completion.ReportedPriceTotal);
+                    this.TotalsRecieved(this, args);
+                }
+                completion.TotalsNotified = true;
+            }
+        }
+
+        private bool HasPendingCompletionOrSale(int channel, int address)
+        {
+            bool completionPending = this.pendingCompletions.Values.Any(c => c.Owner == this && (c.FuelPoint == null || (c.FuelPoint.Channel == channel && c.FuelPoint.Address == address)));
+            if (completionPending)
+            {
+                return true;
+            }
+            Sales.PendingSaleRecord[] sales = Sales.PendingSaleRegistry.Instance.Values;
+            return sales.Any(s => s.SourceController == this && s.Channel == channel && s.Address == address);
         }
 
         protected virtual void OnStatusChanged(FuelPointValuesArgs e)
@@ -1050,47 +1195,76 @@ namespace ASFuelControl.Common
     public class ValueHolder
     {
         private List<FuelPointValues> values = new List<FuelPointValues>();
+        private readonly object syncRoot = new object();
 
         public FuelPoint FuelPump { set; get; }
         public FuelPointValues[] Values
         {
-            get { return this.values.ToArray(); }
+            get
+            {
+                lock (this.syncRoot)
+                {
+                    return this.values.ToArray();
+                }
+            }
         }
 
         public void AddValues(FuelPointValues vals)
         {
-            foreach(FuelPointValues fv in this.values)
+            lock (this.syncRoot)
             {
-                if (fv.Equals(vals))
-                    return;
-            }
-            if (vals.Status == Enumerators.FuelPointStatusEnum.Work)
-            {
-                var q1 = this.values.Where(v => v.Status == Enumerators.FuelPointStatusEnum.Work);
-                if (q1.Count() > 0)
+                foreach (FuelPointValues fv in this.values)
+                {
+                    // Separate completed sales must never be coalesced as status updates.
+                    if (fv.Sale != null || vals.Sale != null)
+                    {
+                        if (fv.Sale != null && vals.Sale != null && fv.Sale.SalesId == vals.Sale.SalesId)
+                        {
+                            return;
+                        }
+                        continue;
+                    }
+                    bool sameValues = fv.Equals(vals);
+                    if (sameValues)
+                    {
+                        return;
+                    }
+                }
+                if (vals.Status == Enumerators.FuelPointStatusEnum.Work)
                 {
                     this.ClearValues(Enumerators.FuelPointStatusEnum.Work);
                 }
+                this.values.Add(vals);
             }
-            this.values.Add(vals);
         }
 
         public FuelPointValues GetValues()
         {
-            if (this.values.Count == 0)
-                return null;
-            FuelPointValues vals = this.values[0];
-            this.values.RemoveAt(0);
-            if (values.Count % 10 == 0 && values.Count > 1)
-                Console.WriteLine("Values COUNT : {0}", values.Count);
-            return vals;
+            lock (this.syncRoot)
+            {
+                if (this.values.Count == 0)
+                {
+                    return null;
+                }
+                FuelPointValues vals = this.values[0];
+                this.values.RemoveAt(0);
+                return vals;
+            }
         }
 
         public void ClearValues(Enumerators.FuelPointStatusEnum status)
         {
-            var q = this.values.ToArray();
-            foreach (FuelPointValues vals in q)
-                this.values.Remove(vals);
+            lock (this.syncRoot)
+            {
+                for (int index = this.values.Count - 1; index >= 0; index--)
+                {
+                    FuelPointValues queuedValues = this.values[index];
+                    if (queuedValues.Status == status && queuedValues.Sale == null)
+                    {
+                        this.values.RemoveAt(index);
+                    }
+                }
+            }
         }
     }
 }
