@@ -1761,6 +1761,8 @@ namespace ASFuelControl.Windows.Threads
             Common.Sales.SaleData sale = e.Sale;
             Data.Invoice newInvoice = null;
             Data.Nozzle nozzle = null;
+            bool persistenceVerified = false;
+            NozzleSalePersistenceCoordinator.Begin(sale.NozzleId);
             try
             {
                 this.database.SaveChanges();
@@ -1798,6 +1800,7 @@ namespace ASFuelControl.Windows.Threads
 
                     if (existingLine != null)
                         e.InvoiceLineId = existingLine.InvoiceLineId;
+                    persistenceVerified = true;
                     sale.SaleProcessed = true;
                     this.ApplyLiterCheckPersistence(sale, e.InvoiceLineId);
                     Logger.Instance.LogToFile(
@@ -1822,6 +1825,17 @@ namespace ASFuelControl.Windows.Threads
                             sale.NozzleId));
 
                     this.database.SaveChanges();
+                    bool invalidSalePersisted = this.IsSalePersisted(
+                        saleTransId,
+                        sale);
+                    if (!invalidSalePersisted)
+                    {
+                        throw new InvalidOperationException(string.Format(
+                            "Invalid sale {0} was not found after SaveChanges.",
+                            saleTransId));
+                    }
+
+                    persistenceVerified = true;
                     nz.ParentDispenser.HasInvalidSale = true;
                     nz.ParentDispenser.InvalidSales.Add(saleTransId);
                     sale.SaleProcessed = true;
@@ -1902,6 +1916,26 @@ namespace ASFuelControl.Windows.Threads
                         "Invoice {0} was committed without an invoice line.",
                         newInvoice.InvoiceId));
 
+                Data.SalesTransaction persistedSale = invoiceLine.SalesTransaction;
+                if (persistedSale == null)
+                {
+                    throw new InvalidOperationException(string.Format(
+                        "Invoice line {0} has no sales transaction.",
+                        invoiceLine.InvoiceLineId));
+                }
+
+                Guid salesTransactionId = persistedSale.SalesTransactionId;
+                bool normalSalePersisted = this.IsSalePersisted(
+                    salesTransactionId,
+                    sale);
+                if (!normalSalePersisted)
+                {
+                    throw new InvalidOperationException(string.Format(
+                        "Sale {0} was not found after SaveChanges.",
+                        salesTransactionId));
+                }
+
+                persistenceVerified = true;
                 e.InvoiceLineId = invoiceLine.InvoiceLineId;
                 sale.SaleProcessed = true;
                 this.ApplyLiterCheckPersistence(sale, e.InvoiceLineId);
@@ -1930,6 +1964,12 @@ namespace ASFuelControl.Windows.Threads
                 }
                 return;
             }
+            finally
+            {
+                NozzleSalePersistenceCoordinator.End(
+                    sale.NozzleId,
+                    persistenceVerified);
+            }
 
             if (newInvoice != null && nozzle != null)
             {
@@ -1945,6 +1985,32 @@ namespace ASFuelControl.Windows.Threads
             ///////////////////////////
             //here updates the tanks.//
             ///////////////////////////
+        }
+
+        private bool IsSalePersisted(
+            Guid salesTransactionId,
+            Common.Sales.SaleData sale)
+        {
+            string connectionString = Properties.Settings.Default.DBConnection;
+            using (Data.DatabaseModel verificationDatabase =
+                new Data.DatabaseModel(connectionString))
+            {
+                Data.SalesTransaction persistedSale =
+                    verificationDatabase.SalesTransactions
+                        .Where(s => s.SalesTransactionId == salesTransactionId)
+                        .FirstOrDefault();
+                if (persistedSale == null)
+                {
+                    return false;
+                }
+
+                bool nozzleMatches = persistedSale.NozzleId == sale.NozzleId;
+                bool startMatches =
+                    persistedSale.TotalizerStart == sale.TotalizerStart;
+                bool endMatches =
+                    persistedSale.TotalizerEnd == sale.TotalizerEnd;
+                return nozzleMatches & startMatches & endMatches;
+            }
         }
 
         private void ApplyLiterCheckPersistence(Common.Sales.SaleData sale, Guid invoiceLineId)

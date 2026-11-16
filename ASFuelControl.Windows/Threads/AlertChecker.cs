@@ -16,6 +16,8 @@ namespace ASFuelControl.Windows.Threads
                 {
                     OutboundWorkType.AlertEvaluation
                 };
+        private static readonly TimeSpan NozzleMismatchConfirmationPeriod =
+            TimeSpan.FromSeconds(20);
 
         public event EventHandler AlarmAdded;
         public event EventHandler AlarmResolved;
@@ -35,6 +37,10 @@ namespace ASFuelControl.Windows.Threads
 
         private bool firstRun = true;
         private int index = 0;
+        private readonly object nozzleMismatchSync = new object();
+        private readonly Dictionary<Guid, NozzleMismatchCandidate>
+            nozzleMismatchCandidates =
+                new Dictionary<Guid, NozzleMismatchCandidate>();
 
         public bool HasNozzleAlerts { set; get; }
 
@@ -435,19 +441,30 @@ namespace ASFuelControl.Windows.Threads
 
         private void CheckNozzleAlerts(DatabaseModel db, Data.Nozzle nozzle)
         {
+            Guid nozzleId = nozzle.NozzleId;
+            bool shouldDefer =
+                NozzleSalePersistenceCoordinator.ShouldDefer(nozzleId);
+            if (shouldDefer)
+            {
+                this.ClearNozzleMismatchCandidate(nozzleId);
+                return;
+            }
+
             Data.SalesTransaction latestSale = db.SalesTransactions
-                .Where(s => s.NozzleId == nozzle.NozzleId)
-                .OrderBy(s => s.TransactionTimeStamp)
-                .LastOrDefault();
+                .Where(s => s.NozzleId == nozzleId)
+                .OrderByDescending(s => s.TransactionTimeStamp)
+                .ThenByDescending(s => s.SalesTransactionId)
+                .FirstOrDefault();
             if (latestSale == null)
             {
+                this.ClearNozzleMismatchCandidate(nozzleId);
                 return;
             }
 
             string formattedTotalCounter = nozzle.TotalCounter.ToString("N2");
             SystemEvent matchingEvent = db.SystemEvents
                 .Where(s =>
-                    s.NozzleId == nozzle.NozzleId &&
+                    s.NozzleId == nozzleId &&
                     s.SystemEventData.Where(sd =>
                             sd.PropertyName == "TotalVolumeCounter" &&
                             sd.Value == formattedTotalCounter)
@@ -456,6 +473,7 @@ namespace ASFuelControl.Windows.Threads
                 .LastOrDefault();
             if (matchingEvent != null || latestSale.TotalizerEnd == nozzle.TotalCounter)
             {
+                this.ClearNozzleMismatchCandidate(nozzleId);
                 return;
             }
 
@@ -472,14 +490,167 @@ namespace ASFuelControl.Windows.Threads
                     "Total Difference : {0:N4}",
                     absoluteDifference);
                 Console.WriteLine(differenceMessage);
+                this.ClearNozzleMismatchCandidate(nozzleId);
                 return;
             }
 
+            bool mismatchConfirmed = this.IsNozzleMismatchConfirmed(
+                nozzleId,
+                nozzle.TotalCounter,
+                latestSale.TotalizerEnd);
+            if (!mismatchConfirmed)
+            {
+                return;
+            }
+
+            decimal verifiedDifference;
+            bool mismatchStillPresent = this.IsNozzleMismatchStillPresent(
+                nozzleId,
+                nozzle.TotalCounter,
+                latestSale.TotalizerEnd,
+                out verifiedDifference);
+            if (!mismatchStillPresent)
+            {
+                this.ClearNozzleMismatchCandidate(nozzleId);
+                return;
+            }
+
+            this.ClearNozzleMismatchCandidate(nozzleId);
             this.CreateUpdateNozzleAlert(
                 db,
-                nozzle.NozzleId,
+                nozzleId,
                 Common.Enumerators.AlarmEnum.NozzleTotalError,
-                diff);
+                verifiedDifference);
+        }
+
+        private bool IsNozzleMismatchConfirmed(
+            Guid nozzleId,
+            decimal totalCounter,
+            decimal latestSaleTotalizer)
+        {
+            DateTime utcNow = DateTime.UtcNow;
+            lock (this.nozzleMismatchSync)
+            {
+                NozzleMismatchCandidate candidate;
+                bool candidateExists = this.nozzleMismatchCandidates.TryGetValue(
+                    nozzleId,
+                    out candidate);
+                bool valuesMatch = candidateExists &&
+                    candidate.TotalCounter == totalCounter &&
+                    candidate.LatestSaleTotalizer == latestSaleTotalizer;
+                if (!valuesMatch)
+                {
+                    candidate = new NozzleMismatchCandidate();
+                    candidate.TotalCounter = totalCounter;
+                    candidate.LatestSaleTotalizer = latestSaleTotalizer;
+                    candidate.FirstObservedUtc = utcNow;
+                    this.nozzleMismatchCandidates[nozzleId] = candidate;
+                    return false;
+                }
+
+                TimeSpan observationPeriod =
+                    utcNow.Subtract(candidate.FirstObservedUtc);
+                return observationPeriod >= NozzleMismatchConfirmationPeriod;
+            }
+        }
+
+        private bool IsNozzleMismatchStillPresent(
+            Guid nozzleId,
+            decimal expectedTotalCounter,
+            decimal expectedLatestSaleTotalizer,
+            out decimal verifiedDifference)
+        {
+            verifiedDifference = 0;
+            bool shouldDefer =
+                NozzleSalePersistenceCoordinator.ShouldDefer(nozzleId);
+            if (shouldDefer)
+            {
+                return false;
+            }
+
+            string connectionString = Properties.Settings.Default.DBConnection;
+            using (DatabaseModel verificationDatabase =
+                new DatabaseModel(connectionString))
+            {
+                Data.Nozzle verifiedNozzle = verificationDatabase.Nozzles
+                    .Where(n => n.NozzleId == nozzleId)
+                    .FirstOrDefault();
+                if (verifiedNozzle == null)
+                {
+                    return false;
+                }
+
+                Data.SalesTransaction verifiedLatestSale =
+                    verificationDatabase.SalesTransactions
+                        .Where(s => s.NozzleId == nozzleId)
+                        .OrderByDescending(s => s.TransactionTimeStamp)
+                        .ThenByDescending(s => s.SalesTransactionId)
+                        .FirstOrDefault();
+                if (verifiedLatestSale == null)
+                {
+                    return false;
+                }
+
+                bool totalCounterUnchanged =
+                    verifiedNozzle.TotalCounter == expectedTotalCounter;
+                bool latestSaleUnchanged =
+                    verifiedLatestSale.TotalizerEnd ==
+                        expectedLatestSaleTotalizer;
+                if (!totalCounterUnchanged || !latestSaleUnchanged)
+                {
+                    return false;
+                }
+
+                string formattedTotalCounter =
+                    verifiedNozzle.TotalCounter.ToString("N2");
+                SystemEvent matchingEvent = verificationDatabase.SystemEvents
+                    .Where(s =>
+                        s.NozzleId == nozzleId &&
+                        s.SystemEventData.Where(sd =>
+                                sd.PropertyName == "TotalVolumeCounter" &&
+                                sd.Value == formattedTotalCounter)
+                            .Count() > 0)
+                    .OrderByDescending(s => s.EventDate)
+                    .FirstOrDefault();
+                if (matchingEvent != null)
+                {
+                    return false;
+                }
+
+                double decimalPlaces =
+                    (double)verifiedNozzle.Dispenser.TotalVolumeDecimalPlaces;
+                double multiplierValue = Math.Pow(10, decimalPlaces);
+                decimal differenceAllowed = (decimal)multiplierValue;
+                verifiedDifference =
+                    verifiedNozzle.TotalCounter -
+                    verifiedLatestSale.TotalizerEnd;
+                decimal absoluteDifference = Math.Abs(verifiedDifference);
+                if (absoluteDifference <= differenceAllowed)
+                {
+                    return false;
+                }
+            }
+
+            bool persistenceStartedDuringVerification =
+                NozzleSalePersistenceCoordinator.ShouldDefer(nozzleId);
+            return !persistenceStartedDuringVerification;
+        }
+
+        private void ClearNozzleMismatchCandidate(Guid nozzleId)
+        {
+            lock (this.nozzleMismatchSync)
+            {
+                this.nozzleMismatchCandidates.Remove(nozzleId);
+            }
+        }
+
+        private sealed class NozzleMismatchCandidate
+        {
+            public decimal TotalCounter { set; get; }
+
+            public decimal LatestSaleTotalizer { set; get; }
+
+            public DateTime FirstObservedUtc { set; get; }
         }
 
         public void CreateUpdateTankAlert(DatabaseModel db, Guid deviceId, Common.Enumerators.AlarmEnum alertType, bool incAlert, bool decAlert)
