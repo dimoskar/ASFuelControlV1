@@ -960,6 +960,10 @@ namespace ASFuelControl.Windows.UI.Forms
             {
                 Guid invoiceId = this.ivm.InvoiceId;
                 bool invoiceSaved = this.ivm.Save(invoiceId);
+                if (invoiceSaved && myDieselVisible && myDieselPanel != null)
+                {
+                    myDieselPanel.MarkInvoicePersisted();
+                }
                 return invoiceSaved;
             }
 
@@ -993,6 +997,10 @@ namespace ASFuelControl.Windows.UI.Forms
                     .Distinct()
                     .ToArray();
                 this.relatedInvoices.Clear();
+                if (myDieselVisible && myDieselPanel != null)
+                {
+                    myDieselPanel.MarkInvoicePersisted();
+                }
                 return true;
             }
             catch (Exception ex)
@@ -1244,6 +1252,18 @@ namespace ASFuelControl.Windows.UI.Forms
                 e.Cancel = true;
                 RadMessageBox.Show(this,"Υπάρχει ενέργεια έκδοσης σε εξέλιξη. Περιμένετε να ολοκληρωθεί πριν κλείσετε το παραστατικό.",
                     "Κλείσιμο παραστατικού",MessageBoxButtons.OK,RadMessageIcon.Info);
+                return;
+            }
+            bool unsavedMyDieselDraft = myDieselVisible &&
+                myDieselPanel.HasBlockingCase && !InvoiceExists(ivm.InvoiceId);
+            if (unsavedMyDieselDraft)
+            {
+                e.Cancel = true;
+                RadMessageBox.Show(this,
+                    "Το κουπόνι myDiesel είναι δεσμευμένο σε μη αποθηκευμένο παραστατικό. " +
+                    "Πατήστε Αποθήκευση ή αποδεσμεύστε πρώτα το κουπόνι πριν κλείσετε.",
+                    "Ενεργή υπόθεση myDiesel", MessageBoxButtons.OK,
+                    RadMessageIcon.Exclamation);
                 return;
             }
             if (myDieselVisible && myDieselPanel.HasBlockingCase && !fiscalPanel.Owned &&

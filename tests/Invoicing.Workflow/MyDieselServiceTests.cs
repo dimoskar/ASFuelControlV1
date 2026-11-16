@@ -9,6 +9,30 @@ internal static partial class Program
 {
     private static void MyDieselServiceTests()
     {
+        Test("myDiesel draft capture reserves without persisting the invoice", () =>
+        {
+            Guid invoiceId = Guid.NewGuid();
+            var factory = new DieselFactory();
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "RESERVED", true));
+            var service = new MyDieselCouponService(database, factory);
+            MyDieselCouponIdentity identity = Identity(
+                "AENT-1108-4031-5521-0302");
+            MyDieselScope scope = Scope();
+            Throws(() => service.Capture(invoiceId, identity, scope));
+
+            MyDieselCouponCaseRecord coupon = service.CaptureDraft(invoiceId,
+                identity, scope);
+            MyDieselServiceResult reservation = service.Reserve(
+                coupon.CouponCaseId);
+            Equal(MyDieselCaseStage.Reserved,
+                reservation.CouponCase.LocalStage);
+            Execute(connection, "IF EXISTS(SELECT 1 FROM dbo.Invoice WHERE InvoiceId='" +
+                invoiceId + "') RAISERROR('Draft capture persisted the invoice.',16,1);");
+            MyDieselCouponCaseRecord stored = new SqlMyDieselStore(database)
+                .FindBlockingByInvoice(invoiceId);
+            Equal(coupon.CouponCaseId, stored.CouponCaseId);
+        });
         Test("myDiesel reservation retries the same unknown request and attempt", () => {
             var factory = new DieselFactory();
             factory.Results.Enqueue((operation, caseRow) => Unknown(operation));

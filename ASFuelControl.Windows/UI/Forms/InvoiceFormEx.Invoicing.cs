@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
+using ASFuelControl.Invoicing.Persistence;
 using ASFuelControl.Windows.UI.Controls;
 using Exedron.Invoicing.Core;
 using Telerik.WinControls.UI;
@@ -28,8 +29,10 @@ namespace ASFuelControl.Windows.UI.Forms
                 Disposed += (s,e) => fiscalPanel.Dispose();
             myDieselVisible = fiscalStatusVisible && Data.Implementation.OptionHandler.Instance.MyDieselEnabled;
             if (fiscalStatusVisible)
-                myDieselPanel = new MyDieselCouponPanel(EnsureInvoiceSavedForMyDiesel,InvoiceTraderVat,
-                    InvoiceMyDieselEligibilityProblem,RefreshInvoiceValuesAfterMyDiesel);
+                myDieselPanel = new MyDieselCouponPanel(PrepareInvoiceForMyDiesel,
+                    InvoiceTraderVat, InvoiceMyDieselEligibilityProblem,
+                    ApplyMyDieselDiscount, ClearMyDieselDiscount,
+                    RefreshInvoiceValuesAfterMyDiesel);
             bool fixedEditor = editorLayout != ViewModels.InvoiceEditorLayout.Legacy;
             if (fiscalStatusVisible)
             {
@@ -103,6 +106,16 @@ namespace ASFuelControl.Windows.UI.Forms
 
         private void RefreshInvoiceValuesAfterMyDiesel()
         {
+            bool invoicePersisted = InvoiceExists(ivm.InvoiceId);
+            if (!invoicePersisted)
+            {
+                ResetEditorBindings();
+                ApplyPriceBindings();
+                SetView();
+                ApplyMyDieselDiscountLock();
+                return;
+            }
+
             ExecuteWithInvoiceTypeBindingReadOnly(() => ivm.Load(ivm.InvoiceId));
             var loadedInvoiceTypeId = ivm.InvoiceTypeId;
             ResetEditorBindings();
@@ -167,7 +180,7 @@ namespace ASFuelControl.Windows.UI.Forms
             control.Enabled = false;
         }
 
-        private bool EnsureInvoiceSavedForMyDiesel()
+        private bool PrepareInvoiceForMyDiesel()
         {
             if (ivm.InvoiceId == Guid.Empty) return false;
             // The voucher dialog is opened while a Telerik grid editor may still
@@ -191,45 +204,119 @@ namespace ASFuelControl.Windows.UI.Forms
                     "myDiesel",MessageBoxButtons.OK,Telerik.WinControls.RadMessageIcon.Exclamation);
                 return false;
             }
-            try
+            return true;
+        }
+
+        private void ApplyMyDieselDiscount(MyDieselCouponCaseRecord coupon)
+        {
+            if (coupon == null || !coupon.IssuedLitres.HasValue ||
+                coupon.IssuedLitres.Value <= 0)
             {
-                bool invoicePersisted = InvoiceExists(ivm.InvoiceId);
-                bool relatedInvoicesPending = relatedInvoices.Count > 0;
-                bool saveRequired = ivm.HasChanges || !invoicePersisted || relatedInvoicesPending;
-                if (saveRequired)
+                throw new InvalidOperationException(
+                    "Δεν επιστράφηκαν έγκυρα λίτρα κουπονιού.");
+            }
+
+            bool invoicePersisted = InvoiceExists(ivm.InvoiceId);
+            if (invoicePersisted)
+            {
+                Threads.PendingMyDieselSelectionStore.ApplyExciseDiscount(
+                    ivm.InvoiceId, coupon.IssuedLitres.Value,
+                    coupon.ExciseDiscountPerLitre);
+                return;
+            }
+
+            decimal remainingLitres = Math.Min(coupon.IssuedLitres.Value,
+                ivm.InvoiceLines.Sum(line => Math.Abs(line.Volume)));
+            foreach (ViewModels.InvoiceLineViewModel line in ivm.InvoiceLines)
+            {
+                decimal originalTotal = Math.Abs(line.TotalPrice);
+                if (originalTotal <= 0)
                 {
-                    bool invoiceSaved = SaveInvoice();
-                    if (!invoiceSaved)
-                    {
-                        ShowSaveErrors();
-                        return false;
-                    }
+                    decimal retailUnitPrice = line.UnitPriceRetail != 0
+                        ? Math.Abs(line.UnitPriceRetail)
+                        : Math.Abs(line.UnitPrice);
+                    originalTotal = Math.Round(Math.Abs(line.Volume) *
+                        retailUnitPrice, 2);
+                }
+                decimal applicableLitres = Math.Min(Math.Abs(line.Volume),
+                    remainingLitres);
+                decimal retailDiscount = applicableLitres <= 0
+                    ? 0
+                    : MyDieselTaxRules.CalculateVatInclusiveExciseDiscount(
+                        applicableLitres, applicableLitres,
+                        coupon.ExciseDiscountPerLitre, line.VatPercentage);
+                if (retailDiscount > originalTotal)
+                {
+                    retailDiscount = originalTotal;
+                }
+                decimal wholesaleDiscount =
+                    MyDieselTaxRules.CalculateNetDiscountFromGross(
+                        retailDiscount, line.VatPercentage);
+                decimal discountPercentage = originalTotal == 0
+                    ? 0
+                    : Math.Round(100 * retailDiscount / originalTotal, 4);
+                decimal discountedTotal = Math.Round(originalTotal -
+                    retailDiscount, 2);
+                decimal vatMultiplier = 1 + line.VatPercentage / 100;
+                decimal vatAmount = Math.Round(discountedTotal -
+                    discountedTotal / vatMultiplier, 2);
+
+                line.DiscountAmountRetail = retailDiscount;
+                line.DiscountAmountWhole = wholesaleDiscount;
+                line.DiscountAmount = retailDiscount;
+                line.DiscountPercentage = discountPercentage;
+                line.TotalPrice = discountedTotal;
+                line.VatAmount = vatAmount;
+                if (line.SalesTransactionView != null)
+                {
+                    line.SalesTransactionView.TotalPrice = discountedTotal;
+                    line.SalesTransactionView.DiscountPercentage =
+                        discountPercentage;
+                }
+                remainingLitres -= applicableLitres;
+            }
+            ivm.RecalculateSums();
+        }
+
+        private void ClearMyDieselDiscount()
+        {
+            bool invoicePersisted = InvoiceExists(ivm.InvoiceId);
+            if (invoicePersisted)
+            {
+                Threads.PendingMyDieselSelectionStore.ClearExciseDiscount(
+                    ivm.InvoiceId);
+                return;
+            }
+
+            foreach (ViewModels.InvoiceLineViewModel line in ivm.InvoiceLines)
+            {
+                decimal restoredTotal = Math.Round(line.TotalPrice +
+                    Math.Abs(line.DiscountAmountRetail), 2);
+                decimal retailUnitPrice = line.UnitPriceRetail != 0
+                    ? Math.Abs(line.UnitPriceRetail)
+                    : Math.Abs(line.UnitPrice);
+                decimal expectedTotal = Math.Round(Math.Abs(line.Volume) *
+                    retailUnitPrice, 2);
+                if (expectedTotal > 0)
+                {
+                    restoredTotal = expectedTotal;
                 }
 
-                // The scanner's "Έλεγχος και δέσμευση" button reaches this
-                // method directly; the operator does not press the invoice Save
-                // button first. Preserve the selected customer across legacy
-                // pump-sale save paths that create and reload the invoice model.
-                using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+                line.DiscountAmountRetail = 0;
+                line.DiscountAmountWhole = 0;
+                line.DiscountAmount = 0;
+                line.DiscountPercentage = 0;
+                line.TotalPrice = restoredTotal;
+                decimal vatMultiplier = 1 + line.VatPercentage / 100;
+                line.VatAmount = Math.Round(restoredTotal -
+                    restoredTotal / vatMultiplier, 2);
+                if (line.SalesTransactionView != null)
                 {
-                    var invoice = db.Invoices.SingleOrDefault(value => value.InvoiceId == ivm.InvoiceId);
-                    if (invoice == null)
-                        throw new InvalidOperationException("Δεν δημιουργήθηκε το παραστατικό για τη δέσμευση myDiesel.");
-                    if (invoice.TraderId != selectedTraderId)
-                    {
-                        invoice.TraderId = selectedTraderId;
-                        db.SaveChanges();
-                    }
+                    line.SalesTransactionView.TotalPrice = restoredTotal;
+                    line.SalesTransactionView.DiscountPercentage = 0;
                 }
-                fiscalPanel.LoadInvoice(ivm.InvoiceId);
-                return true;
             }
-            catch (Exception ex)
-            {
-                Telerik.WinControls.RadMessageBox.Show(ex.Message,"Σφάλμα Αποθήκευσης myDiesel",
-                    MessageBoxButtons.OK,Telerik.WinControls.RadMessageIcon.Exclamation);
-                return false;
-            }
+            ivm.RecalculateSums();
         }
 
         private string InvoiceTraderVat()

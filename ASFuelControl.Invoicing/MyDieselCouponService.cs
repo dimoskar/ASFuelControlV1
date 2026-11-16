@@ -43,6 +43,24 @@ namespace ASFuelControl.Invoicing
             DateTime? validUntilUtc = null, decimal? issuedLitres = null,
             decimal exciseDiscountPerLitre = MyDieselTaxRules.DefaultExciseDiscountPerLitre)
         {
+            return Capture(invoiceId, identity, scope, validUntilUtc, issuedLitres,
+                exciseDiscountPerLitre, false);
+        }
+
+        public MyDieselCouponCaseRecord CaptureDraft(Guid invoiceId,
+            MyDieselCouponIdentity identity, MyDieselScope scope,
+            DateTime? validUntilUtc = null, decimal? issuedLitres = null,
+            decimal exciseDiscountPerLitre = MyDieselTaxRules.DefaultExciseDiscountPerLitre)
+        {
+            return Capture(invoiceId, identity, scope, validUntilUtc, issuedLitres,
+                exciseDiscountPerLitre, true);
+        }
+
+        private MyDieselCouponCaseRecord Capture(Guid invoiceId,
+            MyDieselCouponIdentity identity, MyDieselScope scope,
+            DateTime? validUntilUtc, decimal? issuedLitres,
+            decimal exciseDiscountPerLitre, bool allowUnpersistedInvoice)
+        {
             if (invoiceId == Guid.Empty) throw new ArgumentException("Invoice ID is required.", nameof(invoiceId));
             if (identity == null) throw new ArgumentNullException(nameof(identity));
             if (scope == null) throw new ArgumentNullException(nameof(scope));
@@ -50,7 +68,10 @@ namespace ASFuelControl.Invoicing
             if (validUntilUtc.HasValue && validUntilUtc.Value.Kind != DateTimeKind.Utc) throw new ArgumentException("Coupon validity must be UTC.", nameof(validUntilUtc));
             if (issuedLitres <= 0) throw new ArgumentException("Issued litres must be positive when present.", nameof(issuedLitres));
             exciseDiscountPerLitre = MyDieselTaxRules.NormalizeExciseDiscountPerLitre(exciseDiscountPerLitre);
-            using (store.AcquireInvoiceForNewCoupon(invoiceId))
+            IDisposable invoiceLease = allowUnpersistedInvoice
+                ? store.AcquireDraftInvoiceForNewCoupon(invoiceId)
+                : store.AcquireInvoiceForNewCoupon(invoiceId);
+            using (invoiceLease)
             {
                 MyDieselCouponCaseRecord existingCoupon = store.FindBlockingByCoupon(identity.CouponCode);
                 if (existingCoupon != null)
@@ -83,6 +104,19 @@ namespace ASFuelControl.Invoicing
         {
             if (qr == null) throw new ArgumentNullException(nameof(qr));
             return Capture(invoiceId, qr.Identity, scope, qr.ValidUntilUtc.UtcDateTime, qr.IssuedLitres, exciseDiscountPerLitre);
+        }
+
+        public MyDieselCouponCaseRecord CaptureDraft(Guid invoiceId,
+            MyDieselQrCoupon qr, MyDieselScope scope,
+            decimal exciseDiscountPerLitre = MyDieselTaxRules.DefaultExciseDiscountPerLitre)
+        {
+            if (qr == null)
+            {
+                throw new ArgumentNullException(nameof(qr));
+            }
+            DateTime validUntilUtc = qr.ValidUntilUtc.UtcDateTime;
+            return CaptureDraft(invoiceId, qr.Identity, scope, validUntilUtc,
+                qr.IssuedLitres, exciseDiscountPerLitre);
         }
 
         public MyDieselServiceResult Reserve(Guid couponCaseId)
@@ -136,7 +170,7 @@ namespace ASFuelControl.Invoicing
                 MyDieselCouponCaseRecord loadedValue = store.Load(initialLease);
                 initialValue = Required(loadedValue);
             }
-            using (store.AcquireInvoiceForNewCoupon(initialValue.InvoiceId))
+            using (store.AcquireDraftInvoiceForNewCoupon(initialValue.InvoiceId))
             using (var lease = store.Acquire(couponCaseId))
             {
                 MyDieselCouponCaseRecord loadedValue = store.Load(lease);
@@ -388,7 +422,7 @@ namespace ASFuelControl.Invoicing
                     invoiceId, authorizedBy, reason);
             }
 
-            return Capture(invoiceId, identity, scope, null, null,
+            return CaptureDraft(invoiceId, identity, scope, null, null,
                 existingCoupon.ExciseDiscountPerLitre);
         }
 

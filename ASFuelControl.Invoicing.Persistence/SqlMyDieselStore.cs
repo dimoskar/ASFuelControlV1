@@ -110,6 +110,8 @@ AND ISNULL(i.InvoiceSignature,'')=''
 AND ISNULL(i.QRCodeData,'')=''
 AND NOT EXISTS(SELECT 1 FROM dbo.MyDataInvoice m WHERE m.InvoiceId=i.InvoiceId))
 THEN 1 ELSE 0 END;";
+        internal const string ReadInvoiceExists =
+            "SELECT CASE WHEN EXISTS(SELECT 1 FROM dbo.Invoice WHERE InvoiceId=@invoice) THEN 1 ELSE 0 END;";
         internal const string ReadHttpEvidence = "SELECT RequestJson,ResponseJson FROM dbo.FiscalHttpExchange WHERE DocumentKind=6 AND DocumentId=@case ORDER BY StartedUtc,ExchangeId;";
         internal const string ReadPollCandidates = @"SELECT TOP (@maximum) CouponCaseId FROM dbo.MyDieselCouponCase
 WHERE LocalStage IN ('Redeemed','VerificationPending')
@@ -139,15 +141,48 @@ ELSE INSERT dbo.MyDieselReferenceCache(Environment,CompanyVat,FuelTypesJson,Fuel
 
         public IDisposable AcquireInvoiceForNewCoupon(Guid invoiceId)
         {
+            return AcquireInvoiceForNewCoupon(invoiceId, false);
+        }
+
+        public IDisposable AcquireDraftInvoiceForNewCoupon(Guid invoiceId)
+        {
+            return AcquireInvoiceForNewCoupon(invoiceId, true);
+        }
+
+        private IDisposable AcquireInvoiceForNewCoupon(Guid invoiceId,
+            bool allowUnpersistedInvoice)
+        {
             if (invoiceId == Guid.Empty) throw new ArgumentException("Invoice ID is required.", nameof(invoiceId));
             var lease = db.EnterInvoice(invoiceId);
             try
             {
-                if (!InvoiceAllowsNewCoupon(lease))
+                bool invoiceExists = InvoiceExists(lease);
+                var ownershipStore = new SqlFiscalOwnershipStore(db);
+                bool invoiceOwned = ownershipStore.Owns(lease);
+                bool invoiceAllowsNewCoupon = !invoiceOwned && invoiceExists &&
+                    InvoiceAllowsNewCoupon(lease);
+                if (!invoiceAllowsNewCoupon &&
+                    !(allowUnpersistedInvoice && !invoiceExists &&
+                      !invoiceOwned))
                     throw new InvalidOperationException("Δεν μπορεί να προστεθεί κουπόνι myDiesel σε παραστατικό που έχει ήδη εκδοθεί ή εκτυπωθεί.");
                 return lease;
             }
             catch { lease.Dispose(); throw; }
+        }
+
+        private bool InvoiceExists(IFiscalDocumentLease lease)
+        {
+            return db.Locked(lease, (held, transaction) =>
+            {
+                using (var command = SqlFiscalDatabase.Command(held.Connection,
+                    transaction, ReadInvoiceExists, "@invoice",
+                    held.Document.DocumentId))
+                {
+                    object scalar = command.ExecuteScalar();
+                    int result = Convert.ToInt32(scalar);
+                    return result != 0;
+                }
+            });
         }
 
         private bool InvoiceAllowsNewCoupon(IFiscalDocumentLease lease)

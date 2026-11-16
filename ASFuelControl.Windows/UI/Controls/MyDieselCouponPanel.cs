@@ -15,9 +15,11 @@ namespace ASFuelControl.Windows.UI.Controls
 {
     internal sealed class MyDieselCouponPanel : UserControl
     {
-        private readonly Func<bool> ensureSaved;
+        private readonly Func<bool> prepareInvoice;
         private readonly Func<string> traderVat;
         private readonly Func<string> eligibilityProblem;
+        private readonly Action<MyDieselCouponCaseRecord> applyDiscount;
+        private readonly Action clearDiscount;
         private readonly Action invoiceValuesChanged;
         private readonly RadLabel state = new RadLabel { AutoSize = false,Dock = DockStyle.Fill,TextAlignment = ContentAlignment.MiddleLeft };
         private readonly RadLabel details = new RadLabel { AutoSize = false,Dock = DockStyle.Fill,TextAlignment = ContentAlignment.MiddleLeft };
@@ -25,6 +27,7 @@ namespace ASFuelControl.Windows.UI.Controls
         private readonly FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill,FlowDirection = FlowDirection.LeftToRight,WrapContents = false,AutoScroll = true,Padding = new Padding(0,4,0,0) };
         private readonly RadButton capture, reassign, reserve, release, dismiss, refresh, correctMark, changeBranch, evidence;
         private Guid invoiceId;
+        private bool newUnsavedInvoice;
         private SharedMyDieselStatus status;
         internal bool Busy { get; private set; }
         internal bool HasBlockingCase => status?.HistoricalReassignmentSource != true &&
@@ -43,12 +46,16 @@ namespace ASFuelControl.Windows.UI.Controls
         }
         internal event EventHandler StateChanged;
 
-        internal MyDieselCouponPanel(Func<bool> ensureSaved, Func<string> traderVat, Func<string> eligibilityProblem,
-            Action invoiceValuesChanged)
+        internal MyDieselCouponPanel(Func<bool> prepareInvoice,
+            Func<string> traderVat, Func<string> eligibilityProblem,
+            Action<MyDieselCouponCaseRecord> applyDiscount,
+            Action clearDiscount, Action invoiceValuesChanged)
         {
-            this.ensureSaved = ensureSaved ?? throw new ArgumentNullException(nameof(ensureSaved));
+            this.prepareInvoice = prepareInvoice ?? throw new ArgumentNullException(nameof(prepareInvoice));
             this.traderVat = traderVat ?? throw new ArgumentNullException(nameof(traderVat));
             this.eligibilityProblem = eligibilityProblem ?? throw new ArgumentNullException(nameof(eligibilityProblem));
+            this.applyDiscount = applyDiscount ?? throw new ArgumentNullException(nameof(applyDiscount));
+            this.clearDiscount = clearDiscount ?? throw new ArgumentNullException(nameof(clearDiscount));
             this.invoiceValuesChanged = invoiceValuesChanged ?? throw new ArgumentNullException(nameof(invoiceValuesChanged));
             Height = 132; MinimumSize = new Size(760,132); BackColor = SystemColors.ControlLightLight;
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill,ColumnCount = 2,RowCount = 4,Padding = new Padding(9,6,9,5) };
@@ -74,11 +81,15 @@ namespace ASFuelControl.Windows.UI.Controls
 
         internal void LoadInvoice(Guid id, bool isNewUnsavedInvoice = false)
         {
+            if (invoiceId != id || isNewUnsavedInvoice)
+            {
+                newUnsavedInvoice = isNewUnsavedInvoice;
+            }
             invoiceId = id;
             try
             {
                 status = SharedMyDieselRuntime.ReadInvoice(id);
-                if (isNewUnsavedInvoice && status.CouponCase == null)
+                if (newUnsavedInvoice)
                     status.CanAttachNewCoupon = true;
             }
             catch (Exception ex)
@@ -87,6 +98,12 @@ namespace ASFuelControl.Windows.UI.Controls
                 Enable(false); StateChanged?.Invoke(this,EventArgs.Empty); return;
             }
             Render(); StateChanged?.Invoke(this,EventArgs.Empty);
+        }
+
+        internal void MarkInvoicePersisted()
+        {
+            newUnsavedInvoice = false;
+            LoadInvoice(invoiceId);
         }
 
         internal void RefreshEligibility()
@@ -194,7 +211,7 @@ namespace ASFuelControl.Windows.UI.Controls
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 input = dialog.Value;
             }
-            if (!ensureSaved()) return;
+            if (!prepareInvoice()) return;
             if (!EnsureEligible(true)) return;
             string invoiceVat;
             try { invoiceVat = ReadInvoiceTraderVat(); }
@@ -207,16 +224,23 @@ namespace ASFuelControl.Windows.UI.Controls
             {
                 RadMessageBox.Show("Το ΑΦΜ του πελάτη στο παραστατικό δεν συμφωνεί με το ΑΦΜ δικαιούχου του κουπονιού.","myDiesel",MessageBoxButtons.OK,RadMessageIcon.Exclamation); return;
             }
-            bool discountApplied = false;
+            MyDieselCouponCaseRecord reservedCoupon = null;
             await Run(() => {
                 var configuration = SharedInvoicingSettings.LoadRuntime();
                 var service = SharedMyDieselRuntime.CreateService(configuration);
                 var scope = SharedMyDieselRuntime.NewReservationScope(configuration);
                 decimal exciseRate = configuration.MyDiesel.ExciseDiscountPerLitre;
-                var coupon = input.Qr == null ? service.Capture(invoiceId,input.Identity,scope,null,null,exciseRate) : service.Capture(invoiceId,input.Qr,scope,exciseRate);
-                discountApplied = ReserveAndApplyDiscount(service,coupon.CouponCaseId);
+                var coupon = input.Qr == null
+                    ? service.CaptureDraft(invoiceId, input.Identity, scope, null,
+                        null, exciseRate)
+                    : service.CaptureDraft(invoiceId, input.Qr, scope, exciseRate);
+                reservedCoupon = ReserveCoupon(service, coupon.CouponCaseId);
             });
-            if (discountApplied && !IsDisposed) invoiceValuesChanged();
+            bool discountApplied = await ApplyReservedDiscount(reservedCoupon);
+            if (discountApplied && !IsDisposed)
+            {
+                invoiceValuesChanged();
+            }
         }
 
         private string ReadInvoiceTraderVat()
@@ -243,16 +267,21 @@ namespace ASFuelControl.Windows.UI.Controls
         private async void Reserve(object sender, EventArgs e)
         {
             var value = status?.CouponCase; if (value == null) return;
-            if (!EnsureEligible(true) || !ensureSaved() || !EnsureEligible(true)) return;
-            bool discountApplied = false;
+            if (!EnsureEligible(true) || !prepareInvoice() || !EnsureEligible(true)) return;
+            MyDieselCouponCaseRecord reservedCoupon = null;
             await Run(() => {
                 var service = SharedMyDieselRuntime.CreateService();
-                discountApplied = ReserveAndApplyDiscount(service,value.CouponCaseId);
+                reservedCoupon = ReserveCoupon(service,value.CouponCaseId);
             });
-            if (discountApplied && !IsDisposed) invoiceValuesChanged();
+            bool discountApplied = await ApplyReservedDiscount(reservedCoupon);
+            if (discountApplied && !IsDisposed)
+            {
+                invoiceValuesChanged();
+            }
         }
 
-        private bool ReserveAndApplyDiscount(MyDieselCouponService service, Guid couponCaseId)
+        private static MyDieselCouponCaseRecord ReserveCoupon(
+            MyDieselCouponService service, Guid couponCaseId)
         {
             var result = service.Reserve(couponCaseId);
             var reserved = result == null ? null : result.CouponCase;
@@ -264,19 +293,7 @@ namespace ASFuelControl.Windows.UI.Controls
             bool reassignment = reserved != null && reserved.LocalStage == MyDieselCaseStage.ReassignmentPending &&
                 MyDieselCouponStates.CanRedeem(remoteStatus) && remoteStatus != MyDieselCouponStatus.Reserved;
             if (!normalReservation && !reassignment)
-                return false;
-
-            string problem;
-            if (!PendingMyDieselSelectionStore.SaleRemainsEligible(invoiceId,out problem))
-            {
-                if (normalReservation)
-                {
-                    service.Release(reserved.CouponCaseId);
-                    throw new InvalidOperationException(problem + " Το κουπόνι αποδεσμεύτηκε και δεν εφαρμόστηκε έκπτωση.");
-                }
-
-                throw new InvalidOperationException(problem + " Η μεταφορά παραμένει συνδεδεμένη ώστε να διορθωθεί το νέο παραστατικό χωρίς απώλεια τεκμηρίων.");
-            }
+                return null;
             if (!reserved.IssuedLitres.HasValue || reserved.IssuedLitres.Value <= 0)
             {
                 if (normalReservation)
@@ -287,9 +304,60 @@ namespace ASFuelControl.Windows.UI.Controls
 
                 throw new InvalidOperationException("Η μεταφορά δεν περιέχει έγκυρα λίτρα κουπονιού. Δεν εφαρμόστηκε έκπτωση.");
             }
-            PendingMyDieselSelectionStore.ApplyExciseDiscount(invoiceId,reserved.IssuedLitres.Value,
-                reserved.ExciseDiscountPerLitre);
-            return true;
+            return reserved;
+        }
+
+        private async Task<bool> ApplyReservedDiscount(
+            MyDieselCouponCaseRecord reservedCoupon)
+        {
+            if (reservedCoupon == null || IsDisposed)
+            {
+                return false;
+            }
+
+            string problem = ReadEligibilityProblem();
+            try
+            {
+                if (problem != null)
+                {
+                    throw new InvalidOperationException(problem);
+                }
+                applyDiscount(reservedCoupon);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                MyDieselCouponStatus remoteStatus = MyDieselCouponStates.Parse(
+                    reservedCoupon.RemoteStatus);
+                bool normalReservation = reservedCoupon.LocalStage ==
+                    MyDieselCaseStage.Reserved && remoteStatus ==
+                    MyDieselCouponStatus.Reserved;
+                if (normalReservation)
+                {
+                    bool released = false;
+                    await Run(() =>
+                    {
+                        MyDieselServiceResult result =
+                            SharedMyDieselRuntime.CreateService().Release(
+                                reservedCoupon.CouponCaseId);
+                        released = result != null && result.OperationState ==
+                            MyDieselOperationState.Succeeded;
+                    });
+                    string releaseMessage = released
+                        ? " Το κουπόνι αποδεσμεύτηκε και δεν εφαρμόστηκε έκπτωση."
+                        : " Η έκπτωση δεν εφαρμόστηκε. Ελέγξτε την ενεργή δέσμευση myDiesel.";
+                    RadMessageBox.Show(exception.Message + releaseMessage,
+                        "myDiesel", MessageBoxButtons.OK,
+                        RadMessageIcon.Exclamation);
+                    return false;
+                }
+
+                RadMessageBox.Show(exception.Message +
+                    " Η μεταφορά παραμένει συνδεδεμένη ώστε να διορθωθεί το νέο παραστατικό χωρίς απώλεια τεκμηρίων.",
+                    "myDiesel", MessageBoxButtons.OK,
+                    RadMessageIcon.Exclamation);
+                return false;
+            }
         }
 
         private async void ReassignRedeemed(object sender, EventArgs e)
@@ -298,7 +366,7 @@ namespace ASFuelControl.Windows.UI.Controls
             {
                 return;
             }
-            if (!ensureSaved() || !EnsureEligible(true))
+            if (!prepareInvoice() || !EnsureEligible(true))
             {
                 return;
             }
@@ -354,7 +422,7 @@ namespace ASFuelControl.Windows.UI.Controls
                 return;
             }
 
-            bool discountApplied = false;
+            MyDieselCouponCaseRecord reservedCoupon = null;
             void ReassignOperation()
             {
                 SharedInvoiceConfiguration configuration = SharedInvoicingSettings.LoadRuntime();
@@ -370,10 +438,11 @@ namespace ASFuelControl.Windows.UI.Controls
                     : Program.CurrentUserName;
                 MyDieselCouponCaseRecord reassigned = service.ReassignDirectMyDataToInvoice(
                     invoiceId, identity, scope, authorizedBy, reason);
-                discountApplied = ReserveAndApplyDiscount(service, reassigned.CouponCaseId);
+                reservedCoupon = ReserveCoupon(service, reassigned.CouponCaseId);
             }
 
             await Run(ReassignOperation);
+            bool discountApplied = await ApplyReservedDiscount(reservedCoupon);
             if (discountApplied && !IsDisposed)
             {
                 invoiceValuesChanged();
@@ -507,11 +576,13 @@ namespace ASFuelControl.Windows.UI.Controls
                     (result.CouponCase.LocalStage == MyDieselCaseStage.Released ||
                      result.CouponCase.LocalStage == MyDieselCaseStage.Final);
                 if (!released) return;
-
-                PendingMyDieselSelectionStore.ClearExciseDiscount(invoiceId);
                 discountCleared = true;
             });
-            if (discountCleared && !IsDisposed) invoiceValuesChanged();
+            if (discountCleared && !IsDisposed)
+            {
+                clearDiscount();
+                invoiceValuesChanged();
+            }
         }
 
         private async void DismissInvalid(object sender, EventArgs e)
@@ -534,11 +605,11 @@ namespace ASFuelControl.Windows.UI.Controls
             {
                 MyDieselCouponService service = SharedMyDieselRuntime.CreateService();
                 service.DismissInvalid(value.CouponCaseId);
-                PendingMyDieselSelectionStore.ClearExciseDiscount(invoiceId);
                 discountCleared = true;
             });
             if (discountCleared && !IsDisposed)
             {
+                clearDiscount();
                 invoiceValuesChanged();
             }
         }
