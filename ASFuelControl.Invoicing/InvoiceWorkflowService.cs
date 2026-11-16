@@ -39,6 +39,10 @@ namespace ASFuelControl.Invoicing
         public Guid? MyDieselCouponCaseId { get; set; }
         public MyDieselScope MyDieselScope { get; set; }
         public decimal? MyDieselExciseDiscountPerLitre { get; set; }
+        // Administrative repair history for vouchers that were coupled to an
+        // invoice sent directly to myDATA. The active fields above are cleared,
+        // while the original coupon, MARK and operator decision remain auditable.
+        public List<MyDieselDetachmentAudit> MyDieselDetachments { get; set; }
         // Audit trail for an issued identity whose fiscal payload was regenerated
         // before any external operation completed. Previous attempts remain in the
         // fiscal journal; this records why the current frozen payload differs.
@@ -75,6 +79,16 @@ namespace ASFuelControl.Invoicing
             if (document.DocumentId != InvoiceId || Signing == null || !FiscalSigningCoordinator.SameScope(scope, Signing.Scope)) throw new InvalidOperationException("Workflow signing scope mismatch.");
             return Signing;
         }
+    }
+    public sealed class MyDieselDetachmentAudit
+    {
+        public Guid CouponCaseId { get; set; }
+        public Guid ReplacementInvoiceId { get; set; }
+        public string CouponMark { get; set; }
+        public string PreviousProviderKey { get; set; }
+        public string AuthorizedBy { get; set; }
+        public DateTime DetachedUtc { get; set; }
+        public string Reason { get; set; }
     }
     public sealed class InvoicePaymentMethodChange
     {
@@ -571,6 +585,8 @@ namespace ASFuelControl.Invoicing
                 throw new InvalidOperationException("Local-only processing cannot include external fiscal or payment operations.");
             if (value.MyDieselCouponCaseId.HasValue && (value.Version != 2 || value.MyDieselScope == null || value.LocalOnly || value.Provider == null))
                 throw new InvalidOperationException("myDiesel requires a version-2 electronic invoice workflow and a frozen non-secret coupon scope.");
+            if (value.MyDieselCouponCaseId.HasValue && value.Provider != null && value.Provider.ProviderKey == InvoiceProviderCatalog.MyDataKey)
+                throw new InvalidOperationException("myDiesel vouchers are allowed only through an invoice provider, not through direct myDATA transmission.");
             if (!value.MyDieselCouponCaseId.HasValue && value.MyDieselScope != null)
                 throw new InvalidOperationException("A myDiesel scope requires a coupon case.");
             if (value.MyDieselCouponCaseId.HasValue && value.MyDieselExciseDiscountPerLitre.HasValue)

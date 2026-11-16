@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using ASFuelControl.Invoicing;
 using ASFuelControl.Invoicing.Persistence;
 using Exedron.Invoicing.Adapters;
 using Exedron.Invoicing.Core;
+using Newtonsoft.Json;
 
 namespace ASFuelControl.Windows.Threads
 {
@@ -13,6 +16,21 @@ namespace ASFuelControl.Windows.Threads
         internal MyDieselAttemptRecord[] Attempts { get; set; } = new MyDieselAttemptRecord[0];
         internal MyDieselHttpEvidenceRecord[] HttpEvidence { get; set; } = new MyDieselHttpEvidenceRecord[0];
         internal bool CanAttachNewCoupon { get; set; }
+        internal bool HistoricalReassignmentSource { get; set; }
+        internal string HistoricalCouponMark { get; set; }
+    }
+
+    internal sealed class SharedMyDieselReassignmentCandidate
+    {
+        internal MyDieselCouponCaseRecord CouponCase { get; set; }
+        internal string InvoiceReference { get; set; }
+
+        public override string ToString()
+        {
+            MyDieselCouponCaseRecord value = CouponCase;
+            return value.CouponCode + " · ΑΦΜ " + value.BeneficiaryVat +
+                " · " + InvoiceReference + " · MARK " + value.InvoiceMark;
+        }
     }
 
     internal sealed class SharedMyDieselClientFactory : IMyDieselClientFactory
@@ -81,6 +99,20 @@ namespace ASFuelControl.Windows.Threads
 
     internal static class SharedMyDieselRuntime
     {
+        private const string ProviderRouteRequired = "Το κουπόνι myDiesel επιτρέπεται μόνο σε παραστατικό που διαβιβάζεται μέσω παρόχου τιμολόγησης. Δεν επιτρέπεται στην απευθείας διαβίβαση myDATA.";
+
+        internal static string InvoiceTypeEligibilityProblem(Guid invoiceTypeId)
+        {
+            if (invoiceTypeId == Guid.Empty)
+            {
+                return "Επιλέξτε τύπο παραστατικού πριν χρησιμοποιήσετε κουπόνι myDiesel.";
+            }
+
+            SharedInvoiceConfiguration configuration = SharedInvoicingSettings.LoadRuntime();
+            SharedInvoiceRoute route = configuration.Route(invoiceTypeId, null);
+            return RouteEligibilityProblem(route);
+        }
+
         internal static string InvoiceEligibilityProblem(Guid invoiceId)
         {
             if (invoiceId == Guid.Empty) return "Δεν έχει δημιουργηθεί παραστατικό.";
@@ -88,6 +120,13 @@ namespace ASFuelControl.Windows.Threads
             {
                 var invoice = db.Invoices.SingleOrDefault(value => value.InvoiceId == invoiceId);
                 if (invoice == null) return "Δεν βρέθηκε το παραστατικό.";
+                SharedInvoiceConfiguration configuration = SharedInvoicingSettings.LoadRuntime();
+                SharedInvoiceRoute route = configuration.Route(invoice);
+                string routeProblem = RouteEligibilityProblem(route);
+                if (routeProblem != null)
+                {
+                    return routeProblem;
+                }
                 if (!invoice.TraderId.HasValue)
                     return "Επιλέξτε πελάτη πριν χρησιμοποιήσετε κουπόνι myDiesel.";
 
@@ -106,11 +145,100 @@ namespace ASFuelControl.Windows.Threads
             return null;
         }
 
+        private static string RouteEligibilityProblem(SharedInvoiceRoute route)
+        {
+            if (route == null || route.LocalOnly || route.Provider == null ||
+                route.Provider.ProviderKey == InvoiceProviderCatalog.MyDataKey)
+            {
+                return ProviderRouteRequired;
+            }
+
+            return null;
+        }
+
         internal static MyDieselCouponService CreateService(SharedInvoiceConfiguration configuration = null)
         {
             var current = configuration ?? SharedInvoicingSettings.LoadRuntime();
             var database = new SqlFiscalDatabase(Properties.Settings.Default.DBConnection);
             return new MyDieselCouponService(database,new SharedMyDieselClientFactory(current,database));
+        }
+
+        internal static SharedMyDieselReassignmentCandidate[] ReassignmentCandidates(
+            Guid replacementInvoiceId, string beneficiaryVat)
+        {
+            if (replacementInvoiceId == Guid.Empty)
+            {
+                throw new ArgumentException("Replacement invoice ID is required.", nameof(replacementInvoiceId));
+            }
+            string normalizedVat = MyDieselCouponIdentity.NormalizeVat(beneficiaryVat,
+                "Invoice trader VAT");
+            var database = new SqlFiscalDatabase(Properties.Settings.Default.DBConnection);
+            var store = new SqlMyDieselStore(database);
+            IReadOnlyList<MyDieselCouponCaseRecord> available = store.LoadReassignmentCandidates();
+            var result = new List<SharedMyDieselReassignmentCandidate>();
+            using (var host = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                foreach (MyDieselCouponCaseRecord coupon in available)
+                {
+                    bool alreadyReleased = coupon.LocalStage == MyDieselCaseStage.ReassignmentAvailable;
+                    if (coupon.BeneficiaryVat != normalizedVat ||
+                        !alreadyReleased && !MyDieselCouponService.CanReleaseForReassignment(coupon))
+                    {
+                        continue;
+                    }
+
+                    InvoiceWorkflowSnapshot snapshot = ReadWorkflow(database, coupon.InvoiceId);
+                    bool directMyData = snapshot != null && snapshot.Provider != null &&
+                        snapshot.Provider.ProviderKey == InvoiceProviderCatalog.MyDataKey;
+                    bool currentlyCoupled = directMyData &&
+                        snapshot.MyDieselCouponCaseId == coupon.CouponCaseId;
+                    MyDieselDetachmentAudit priorRelease = directMyData
+                        ? snapshot.MyDieselDetachments?.LastOrDefault(audit =>
+                            audit.CouponCaseId == coupon.CouponCaseId)
+                        : null;
+                    bool previouslyReleased = priorRelease != null &&
+                        (priorRelease.ReplacementInvoiceId == Guid.Empty ||
+                         priorRelease.ReplacementInvoiceId == replacementInvoiceId);
+                    if (!currentlyCoupled && !previouslyReleased)
+                    {
+                        continue;
+                    }
+
+                    Data.Invoice invoice = host.Invoices.SingleOrDefault(value =>
+                        value.InvoiceId == coupon.InvoiceId);
+                    if (invoice == null)
+                    {
+                        continue;
+                    }
+
+                    string invoiceReference = (invoice.Series ?? string.Empty) + " " +
+                        invoice.Number + " · " + invoice.TransactionDate.ToString("dd/MM/yyyy");
+                    result.Add(new SharedMyDieselReassignmentCandidate
+                    {
+                        CouponCase = coupon,
+                        InvoiceReference = invoiceReference.Trim()
+                    });
+                }
+            }
+
+            return result.ToArray();
+        }
+
+        private static InvoiceWorkflowSnapshot ReadWorkflow(SqlFiscalDatabase database,
+            Guid invoiceId)
+        {
+            using (IFiscalDocumentLease lease = database.EnterInvoice(invoiceId))
+            {
+                var workflowStore = new SqlInvoiceWorkflowStore(database);
+                byte[] bytes = workflowStore.Load(lease);
+                if (bytes == null)
+                {
+                    return null;
+                }
+
+                string json = Encoding.UTF8.GetString(bytes);
+                return JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(json);
+            }
         }
 
         internal static MyDieselScope NewReservationScope(SharedInvoiceConfiguration configuration)
@@ -129,7 +257,21 @@ namespace ASFuelControl.Windows.Threads
             var database = new SqlFiscalDatabase(Properties.Settings.Default.DBConnection);
             var store = new SqlMyDieselStore(database);
             bool canAttachNewCoupon = store.CanAttachNewCoupon(invoiceId);
-            var coupon = store.FindLatestByInvoice(invoiceId);
+            InvoiceWorkflowSnapshot snapshot = ReadWorkflow(database, invoiceId);
+            MyDieselDetachmentAudit detachment = snapshot?.MyDieselDetachments?
+                .LastOrDefault(audit => audit.CouponCaseId != Guid.Empty);
+            bool historicalReassignmentSource = detachment != null &&
+                !snapshot.MyDieselCouponCaseId.HasValue;
+            MyDieselCouponCaseRecord coupon = historicalReassignmentSource
+                ? null
+                : store.FindLatestByInvoice(invoiceId);
+            if (historicalReassignmentSource)
+            {
+                using (var historicalLease = store.Acquire(detachment.CouponCaseId))
+                {
+                    coupon = store.Load(historicalLease);
+                }
+            }
             if (coupon == null) return new SharedMyDieselStatus { CanAttachNewCoupon = canAttachNewCoupon };
             using (var lease = store.Acquire(coupon.CouponCaseId))
             {
@@ -137,6 +279,8 @@ namespace ASFuelControl.Windows.Threads
                 return new SharedMyDieselStatus {
                     CouponCase = coupon,
                     CanAttachNewCoupon = canAttachNewCoupon,
+                    HistoricalReassignmentSource = historicalReassignmentSource,
+                    HistoricalCouponMark = detachment?.CouponMark,
                     Attempts = store.LoadAttempts(lease,null,includeHistory).ToArray(),
                     HttpEvidence = includeHistory ? store.LoadHttpEvidence(coupon.CouponCaseId).ToArray() : new MyDieselHttpEvidenceRecord[0]
                 };

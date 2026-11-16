@@ -74,6 +74,10 @@ internal static partial class Program
             Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.InvoiceAccepted, MyDieselCaseStage.Final), "Accepted invoice cannot retain a final result.");
             Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Final, MyDieselCaseStage.Dismissed), "Inactive final coupon cannot be dismissed.");
             Check(!MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Reserved, MyDieselCaseStage.Dismissed), "Reserved coupon can be dismissed without release.");
+            Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Redeemed, MyDieselCaseStage.ReassignmentAvailable), "Redeemed coupon cannot be released for reassignment.");
+            Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.ReassignmentAvailable, MyDieselCaseStage.ReassignmentPending), "Released coupon cannot attach to its replacement invoice.");
+            Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.ReassignmentPending, MyDieselCaseStage.Redeemed), "Reassigned coupon cannot accept its corrected MARK.");
+            Check(!MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Reserved, MyDieselCaseStage.ReassignmentAvailable), "A reserved coupon can bypass normal release.");
             Check(MyDieselCouponStates.CanRedeem(MyDieselCouponStatus.Reserved), "Reserved coupon cannot redeem.");
             Check(MyDieselCouponStates.CanRedeem(MyDieselCouponStatus.VerificationInvalid), "Invalid verification cannot be corrected.");
             Check(!MyDieselCouponStates.CanRedeem(MyDieselCouponStatus.Verified), "Verified coupon can redeem again.");

@@ -193,11 +193,17 @@ namespace ASFuelControl.Windows.UI.Forms
             }
             try
             {
-                if (ivm.HasChanges && !ivm.Save(ivm.InvoiceId))
+                bool invoicePersisted = InvoiceExists(ivm.InvoiceId);
+                bool relatedInvoicesPending = relatedInvoices.Count > 0;
+                bool saveRequired = ivm.HasChanges || !invoicePersisted || relatedInvoicesPending;
+                if (saveRequired)
                 {
-                    Telerik.WinControls.RadMessageBox.Show(string.Join("\r\n",ivm.Errors.Select(error => error.ErrorMessage)),
-                        "Σφάλμα Αποθήκευσης",MessageBoxButtons.OK,Telerik.WinControls.RadMessageIcon.Exclamation);
-                    return false;
+                    bool invoiceSaved = SaveInvoice();
+                    if (!invoiceSaved)
+                    {
+                        ShowSaveErrors();
+                        return false;
+                    }
                 }
 
                 // The scanner's "Έλεγχος και δέσμευση" button reaches this
@@ -250,8 +256,15 @@ namespace ASFuelControl.Windows.UI.Forms
         {
             // Once saved, the database row is authoritative. This also avoids a
             // transiently cleared bound TraderId while controls are refreshed.
-            if (!ivm.HasChanges && ivm.InvoiceId != Guid.Empty)
+            bool invoicePersisted = ivm.InvoiceId != Guid.Empty && InvoiceExists(ivm.InvoiceId);
+            if (!ivm.HasChanges && invoicePersisted)
                 return Threads.SharedMyDieselRuntime.InvoiceEligibilityProblem(ivm.InvoiceId);
+
+            string routeProblem = Threads.SharedMyDieselRuntime.InvoiceTypeEligibilityProblem(ivm.InvoiceTypeId);
+            if (routeProblem != null)
+            {
+                return routeProblem;
+            }
 
             if (!ivm.TraderId.HasValue)
                 return "Επιλέξτε πελάτη πριν χρησιμοποιήσετε κουπόνι myDiesel.";
@@ -270,6 +283,15 @@ namespace ASFuelControl.Windows.UI.Forms
             if (fuelCodes.Select(value => value.Value).Distinct().Count() != 1)
                 return "Το παραστατικό πρέπει να περιέχει ένα μόνο επιλέξιμο καύσιμο myDiesel.";
             return null;
+        }
+
+        private static bool InvoiceExists(Guid invoiceId)
+        {
+            using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
+            {
+                bool invoiceExists = db.Invoices.Any(value => value.InvoiceId == invoiceId);
+                return invoiceExists;
+            }
         }
     }
 }

@@ -18,7 +18,6 @@ namespace Exedron.Invoicing.Core
             if (attempt != null && (attempt.State == "Declined" || attempt.State == "Failed" || attempt.State == "Voided") && !retryRejected)
                 return attempt;
             if (attempt == null && recoveryOnly) throw new InvalidOperationException("No payment exists to recover.");
-            if (attempt != null && attempt.State == "Voided") throw new InvalidOperationException("A voided payment cannot be charged again by invoice retry.");
             attempt = store.GetOrCreate(request); // Immutable scope, amount, terminal and host snapshot.
             if (attempt.State == "Approved" || attempt.State == "Invoiced" || attempt.State == "Mismatch" ||
                 attempt.State == "VoidPending" || attempt.State == "VoidFailed" || attempt.State == "SignaturePending") return attempt;

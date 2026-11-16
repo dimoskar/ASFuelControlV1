@@ -20,7 +20,7 @@ BEGIN TRY
         ALTER TABLE dbo.MyDieselCouponCase DROP CONSTRAINT CK_MyDieselCouponCase_Stage;
 
     ALTER TABLE dbo.MyDieselCouponCase WITH CHECK ADD CONSTRAINT CK_MyDieselCouponCase_Stage
-        CHECK(LocalStage IN ('Captured','ReserveUnknown','Reserved','Released','InvoiceAccepted','RedeemUnknown','Redeemed','VerificationPending','Final','InterventionRequired','Dismissed'));
+        CHECK(LocalStage IN ('Captured','ReserveUnknown','Reserved','Released','InvoiceAccepted','RedeemUnknown','Redeemed','VerificationPending','Final','InterventionRequired','Dismissed','ReassignmentAvailable','ReassignmentPending'));
 
     IF COL_LENGTH(N'dbo.MyDieselCouponCase',N'ExciseDiscountPerLitre') IS NULL
         RAISERROR('myDiesel excise-discount migration did not complete.',16,1);

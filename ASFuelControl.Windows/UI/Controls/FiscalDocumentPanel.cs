@@ -654,6 +654,13 @@ namespace ASFuelControl.Windows.UI.Controls
                     summary.Text += "\r\n" + retryMessage;
                     payment.Text += "\r\n" + retryMessage;
                 }
+                if (status.VoidedPaymentRequiresPaymentMethodChange)
+                {
+                    const string voidedPaymentMessage =
+                        "Η πληρωμή POS ακυρώθηκε επιτυχώς. Επιλέξτε «Αλλαγή τρόπου πληρωμής» πριν συνεχίσετε την έκδοση.";
+                    summary.Text += "\r\n" + voidedPaymentMessage;
+                    payment.Text += "\r\n" + voidedPaymentMessage;
+                }
                 if (status.PaymentAttemptId.HasValue)
                     payment.Text += "\r\nΠροσπάθεια: " + status.PaymentAttemptId +
                         (status.OriginalPaymentAttemptId.HasValue ? "\r\nΑρχική / αντικατασταθείσα: " + status.OriginalPaymentAttemptId : "");
@@ -687,6 +694,10 @@ namespace ASFuelControl.Windows.UI.Controls
                     !status.Attempts.GroupBy(a => a.Family).Select(g => g.Last()).Any(a => a.State == "Unknown" || a.State == "Signing" || a.State == "Sending" || a.State == "Queued" || a.State == "QueueFailed" || a.State == "ReconciliationRequired");
                 bool printable = snapshot.LocalOnly || status.Attempts.Any(a => a.Operation == "PrintTF2") || (snapshot.Provider != null ? status.State("Submission") == "Accepted" || status.State("Submission") == "Queued" : status.State("Signing") == "Signed");
                 if (printable || status.RetryPaymentAttemptId.HasValue || !string.IsNullOrWhiteSpace(status.ConnectionProblem)) resume.Enabled = false;
+                if (status.VoidedPaymentRequiresPaymentMethodChange)
+                {
+                    resume.Enabled = false;
+                }
                 reconcile.Visible = reconcile.Enabled = status.State("Print") == "Unknown" ||
                     status.State("Print") == "Dispatching";
             }

@@ -41,6 +41,7 @@ namespace ASFuelControl.Windows.Threads
         internal ProviderResendAssessment ProviderResend;
         internal bool LegacyMyDataError228;
         internal bool CanChangePaymentMethod;
+        internal bool VoidedPaymentRequiresPaymentMethodChange;
         internal bool IssueDateMismatchRejected;
         internal bool CanReissueAfterIssueDateMismatch;
         internal string IssueDateReissueBlockReason;
@@ -110,8 +111,19 @@ namespace ASFuelControl.Windows.Threads
                 };
                 status.InvoiceSignature = ReadInvoiceSignature(entries);
                 var paymentEntry = entries.LastOrDefault(a => a.Family == "Payment" && a.Operation == "Payment");
-                bool paymentWasSuperseded = status.Snapshot?.PaymentMethodChanges?.Count > 0 &&
-                    (paymentEntry?.State == "Declined" || paymentEntry?.State == "Failed");
+                InvoicePaymentMethodChange latestPaymentMethodChange =
+                    status.Snapshot?.PaymentMethodChanges?.LastOrDefault();
+                bool paymentWasSuperseded = paymentEntry != null &&
+                    latestPaymentMethodChange != null &&
+                    latestPaymentMethodChange.PreviousPaymentType !=
+                        latestPaymentMethodChange.PaymentType &&
+                    latestPaymentMethodChange.ChangedUtc > paymentEntry.UpdatedUtc &&
+                    (paymentEntry.State == "Declined" ||
+                     paymentEntry.State == "Failed" ||
+                     paymentEntry.State == "Voided");
+                status.VoidedPaymentRequiresPaymentMethodChange =
+                    paymentEntry?.State == "Voided" &&
+                    !paymentWasSuperseded;
                 if (status.Snapshot?.Payment != null && paymentEntry?.PayloadFormat == "provider-payment.v2.json" &&
                     !paymentWasSuperseded)
                 {
@@ -331,8 +343,13 @@ namespace ASFuelControl.Windows.Threads
                 entry.Family == "Submission" && entry.Operation == "Issue" && entry.State == "Rejected" ||
                 entry.Family == "ProviderSession" && entry.Operation == "SignPayment" &&
                     (entry.State == "Rejected" || entry.State == "Cancelled" || entry.State == "Expired") ||
-                entry.Family == "Payment" && entry.Operation == "Payment" &&
-                    (entry.State == "Declined" || entry.State == "Failed"));
+                entry.Family == "Payment" &&
+                    (entry.Operation == "Payment" &&
+                        (entry.State == "Declined" ||
+                         entry.State == "Failed" ||
+                         entry.State == "Voided") ||
+                     entry.Operation == "Void" &&
+                        entry.State == FiscalPaymentState.Accepted.ToString()));
         }
         private static void ReadPaymentCompensationStatus(Guid id, SharedInvoiceStatus status)
         {

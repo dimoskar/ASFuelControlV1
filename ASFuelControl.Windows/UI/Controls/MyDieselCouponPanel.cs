@@ -23,20 +23,22 @@ namespace ASFuelControl.Windows.UI.Controls
         private readonly RadLabel details = new RadLabel { AutoSize = false,Dock = DockStyle.Fill,TextAlignment = ContentAlignment.MiddleLeft };
         private readonly RadLabel warning = new RadLabel { AutoSize = false,Dock = DockStyle.Fill,ForeColor = Color.FromArgb(138,80,0),TextAlignment = ContentAlignment.MiddleLeft };
         private readonly FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill,FlowDirection = FlowDirection.LeftToRight,WrapContents = false,AutoScroll = true,Padding = new Padding(0,4,0,0) };
-        private readonly RadButton capture, reserve, release, dismiss, refresh, correctMark, changeBranch, evidence;
+        private readonly RadButton capture, reassign, reserve, release, dismiss, refresh, correctMark, changeBranch, evidence;
         private Guid invoiceId;
         private SharedMyDieselStatus status;
         internal bool Busy { get; private set; }
-        internal bool HasBlockingCase => status?.CouponCase?.BlocksInvoice == true;
+        internal bool HasBlockingCase => status?.HistoricalReassignmentSource != true &&
+            status?.CouponCase?.BlocksInvoice == true;
         internal bool DiscountLocked
         {
             get
             {
                 var value = status?.CouponCase;
-                if (value == null) return false;
+                if (value == null || status?.HistoricalReassignmentSource == true) return false;
                 return value.LocalStage == MyDieselCaseStage.Reserved || value.LocalStage == MyDieselCaseStage.InvoiceAccepted ||
                     value.LocalStage == MyDieselCaseStage.RedeemUnknown || value.LocalStage == MyDieselCaseStage.Redeemed ||
-                    value.LocalStage == MyDieselCaseStage.VerificationPending || value.LocalStage == MyDieselCaseStage.Final;
+                    value.LocalStage == MyDieselCaseStage.VerificationPending || value.LocalStage == MyDieselCaseStage.Final ||
+                    value.LocalStage == MyDieselCaseStage.ReassignmentPending;
             }
         }
         internal event EventHandler StateChanged;
@@ -59,6 +61,7 @@ namespace ASFuelControl.Windows.UI.Controls
             layout.Controls.Add(actions,0,3); layout.SetColumnSpan(actions,2); Controls.Add(layout);
 
             capture = Button("Σάρωση / καταχώριση",CaptureAndReserve);
+            reassign = Button("Μεταφορά εξαργυρωμένου", ReassignRedeemed);
             reserve = Button("Έλεγχος και δέσμευση",Reserve);
             release = Button("Αποδέσμευση",Release);
             dismiss = Button("Αφαίρεση άκυρου",DismissInvalid);
@@ -97,6 +100,7 @@ namespace ASFuelControl.Windows.UI.Controls
             string currentEligibilityProblem = ReadEligibilityProblem();
             bool dismissed = value?.LocalStage == MyDieselCaseStage.Dismissed;
             bool released = value?.LocalStage == MyDieselCaseStage.Released;
+            bool historicalReassignmentSource = status?.HistoricalReassignmentSource == true;
             if (value == null)
             {
                 state.Text = "Δεν έχει συνδεθεί κουπόνι";
@@ -104,6 +108,13 @@ namespace ASFuelControl.Windows.UI.Controls
                     ? "Σαρώστε το QR ή καταχωρίστε κωδικό και ΑΦΜ δικαιούχου."
                     : "Το παραστατικό έχει ήδη εκδοθεί ή εκτυπωθεί. Δεν μπορεί να προστεθεί κουπόνι myDiesel.";
                 warning.Text = status?.CanAttachNewCoupon == true ? currentEligibilityProblem ?? "" : "";
+            }
+            else if (historicalReassignmentSource)
+            {
+                state.Text = "Μεταφέρθηκε σε νέο παραστατικό";
+                details.Text = value.CouponCode + " · παλιό MARK " + status.HistoricalCouponMark +
+                    " · τα τεκμήρια της αρχικής σύνδεσης διατηρούνται";
+                warning.Text = "Το κουπόνι δεν ανήκει πλέον σε αυτό το παραστατικό.";
             }
             else if (dismissed)
             {
@@ -124,30 +135,38 @@ namespace ASFuelControl.Windows.UI.Controls
                     ? "Η έκβαση είναι άγνωστη. Μην επαναλάβετε τυφλά την ενέργεια." : currentEligibilityProblem ?? "";
             }
             bool active = !Busy && invoiceId != Guid.Empty;
-            bool showCapture = (value == null || dismissed || released) && status?.CanAttachNewCoupon == true;
+            bool showCapture = !historicalReassignmentSource &&
+                (value == null || dismissed || released) && status?.CanAttachNewCoupon == true;
             capture.Text = released ? "Σάρωση νέου κουπονιού" : "Σάρωση / καταχώριση";
             capture.Visible = showCapture;
             capture.Enabled = active && showCapture && NewReservationsEnabled() && currentEligibilityProblem == null;
-            bool showReserve = value != null && (value.LocalStage == MyDieselCaseStage.Captured || value.LocalStage == MyDieselCaseStage.ReserveUnknown);
+            bool showReassign = value == null && status?.CanAttachNewCoupon == true && currentEligibilityProblem == null;
+            reassign.Visible = showReassign;
+            reassign.Enabled = active && Program.AdminConnected && showReassign;
+            bool showReserve = !historicalReassignmentSource && value != null &&
+                (value.LocalStage == MyDieselCaseStage.Captured || value.LocalStage == MyDieselCaseStage.ReserveUnknown);
             reserve.Visible = showReserve;
             reserve.Enabled = active && showReserve && currentEligibilityProblem == null;
-            bool showRelease = value != null && value.LocalStage == MyDieselCaseStage.Reserved;
+            bool showRelease = !historicalReassignmentSource && value != null &&
+                value.LocalStage == MyDieselCaseStage.Reserved;
             release.Visible = showRelease;
             release.Enabled = active && showRelease;
-            bool showDismiss = status?.CanAttachNewCoupon == true &&
+            bool showDismiss = !historicalReassignmentSource && status?.CanAttachNewCoupon == true &&
                 MyDieselCouponService.CanDismissInvalid(value, status.Attempts);
             dismiss.Visible = showDismiss;
             dismiss.Enabled = active && showDismiss;
-            bool showRefresh = value != null && (value.LocalStage == MyDieselCaseStage.RedeemUnknown || value.LocalStage == MyDieselCaseStage.Redeemed ||
+            bool showRefresh = !historicalReassignmentSource && value != null && (value.LocalStage == MyDieselCaseStage.RedeemUnknown || value.LocalStage == MyDieselCaseStage.Redeemed ||
                 value.LocalStage == MyDieselCaseStage.VerificationPending || value.LocalStage == MyDieselCaseStage.InterventionRequired);
             refresh.Visible = showRefresh;
             refresh.Enabled = active && showRefresh;
             var remote = value == null ? MyDieselCouponStatus.UnknownValue : MyDieselCouponStates.Parse(value.RemoteStatus);
             bool admin = Program.AdminConnected;
-            bool showCorrectMark = value != null && MyDieselCouponStates.CanRedeem(remote) && remote != MyDieselCouponStatus.Reserved;
+            bool showCorrectMark = !historicalReassignmentSource && value != null &&
+                MyDieselCouponStates.CanRedeem(remote) && remote != MyDieselCouponStatus.Reserved;
             correctMark.Visible = showCorrectMark;
             correctMark.Enabled = active && admin && showCorrectMark;
-            bool showChangeBranch = value != null && MyDieselCouponStates.CanChangeBranch(remote);
+            bool showChangeBranch = !historicalReassignmentSource && value != null &&
+                MyDieselCouponStates.CanChangeBranch(remote);
             changeBranch.Visible = showChangeBranch;
             changeBranch.Enabled = active && admin && showChangeBranch;
             bool showEvidence = value != null;
@@ -237,24 +256,242 @@ namespace ASFuelControl.Windows.UI.Controls
         {
             var result = service.Reserve(couponCaseId);
             var reserved = result == null ? null : result.CouponCase;
-            if (reserved == null || reserved.LocalStage != MyDieselCaseStage.Reserved ||
-                MyDieselCouponStates.Parse(reserved.RemoteStatus) != MyDieselCouponStatus.Reserved)
+            MyDieselCouponStatus remoteStatus = reserved == null
+                ? MyDieselCouponStatus.UnknownValue
+                : MyDieselCouponStates.Parse(reserved.RemoteStatus);
+            bool normalReservation = reserved != null && reserved.LocalStage == MyDieselCaseStage.Reserved &&
+                remoteStatus == MyDieselCouponStatus.Reserved;
+            bool reassignment = reserved != null && reserved.LocalStage == MyDieselCaseStage.ReassignmentPending &&
+                MyDieselCouponStates.CanRedeem(remoteStatus) && remoteStatus != MyDieselCouponStatus.Reserved;
+            if (!normalReservation && !reassignment)
                 return false;
 
             string problem;
             if (!PendingMyDieselSelectionStore.SaleRemainsEligible(invoiceId,out problem))
             {
-                service.Release(reserved.CouponCaseId);
-                throw new InvalidOperationException(problem + " Το κουπόνι αποδεσμεύτηκε και δεν εφαρμόστηκε έκπτωση.");
+                if (normalReservation)
+                {
+                    service.Release(reserved.CouponCaseId);
+                    throw new InvalidOperationException(problem + " Το κουπόνι αποδεσμεύτηκε και δεν εφαρμόστηκε έκπτωση.");
+                }
+
+                throw new InvalidOperationException(problem + " Η μεταφορά παραμένει συνδεδεμένη ώστε να διορθωθεί το νέο παραστατικό χωρίς απώλεια τεκμηρίων.");
             }
             if (!reserved.IssuedLitres.HasValue || reserved.IssuedLitres.Value <= 0)
             {
-                service.Release(reserved.CouponCaseId);
-                throw new InvalidOperationException("Δεν επιστράφηκαν έγκυρα λίτρα κουπονιού. Το κουπόνι αποδεσμεύτηκε και δεν εφαρμόστηκε έκπτωση.");
+                if (normalReservation)
+                {
+                    service.Release(reserved.CouponCaseId);
+                    throw new InvalidOperationException("Δεν επιστράφηκαν έγκυρα λίτρα κουπονιού. Το κουπόνι αποδεσμεύτηκε και δεν εφαρμόστηκε έκπτωση.");
+                }
+
+                throw new InvalidOperationException("Η μεταφορά δεν περιέχει έγκυρα λίτρα κουπονιού. Δεν εφαρμόστηκε έκπτωση.");
             }
             PendingMyDieselSelectionStore.ApplyExciseDiscount(invoiceId,reserved.IssuedLitres.Value,
                 reserved.ExciseDiscountPerLitre);
             return true;
+        }
+
+        private async void ReassignRedeemed(object sender, EventArgs e)
+        {
+            if (Busy || !Program.AdminConnected || !EnsureEligible(true))
+            {
+                return;
+            }
+            if (!ensureSaved() || !EnsureEligible(true))
+            {
+                return;
+            }
+
+            string invoiceVat;
+            try
+            {
+                invoiceVat = ReadInvoiceTraderVat();
+            }
+            catch (Exception exception)
+            {
+                RadMessageBox.Show(exception.Message, "myDiesel", MessageBoxButtons.OK,
+                    RadMessageIcon.Exclamation);
+                return;
+            }
+
+            SharedMyDieselReassignmentCandidate[] candidates;
+            try
+            {
+                candidates = SharedMyDieselRuntime.ReassignmentCandidates(invoiceId, invoiceVat);
+            }
+            catch (Exception exception)
+            {
+                RadMessageBox.Show(exception.Message, "myDiesel", MessageBoxButtons.OK,
+                    RadMessageIcon.Exclamation);
+                return;
+            }
+            if (candidates.Length == 0)
+            {
+                RadMessageBox.Show(
+                    "Δεν βρέθηκε εξαργυρωμένο κουπόνι του ίδιου πελάτη σε παραστατικό με απευθείας διαβίβαση myDATA.",
+                    "Μεταφορά myDiesel", MessageBoxButtons.OK, RadMessageIcon.Info);
+                return;
+            }
+
+            SharedMyDieselReassignmentCandidate selectedCandidate;
+            if (!ReassignmentDialog(candidates, out selectedCandidate))
+            {
+                return;
+            }
+
+            string reason;
+            if (!ReasonDialog(out reason))
+            {
+                return;
+            }
+            DialogResult confirmation = RadMessageBox.Show(
+                "Το κουπόνι θα αποσυνδεθεί από το παλιό παραστατικό απευθείας myDATA και θα συνδεθεί στο νέο παραστατικό παρόχου. " +
+                "Μετά την αποδοχή του νέου παραστατικού, το νέο MARK θα σταλεί στο myDiesel ως διόρθωση. Συνέχεια;",
+                "Μεταφορά myDiesel", MessageBoxButtons.YesNo, RadMessageIcon.Question);
+            if (confirmation != DialogResult.Yes)
+            {
+                return;
+            }
+
+            bool discountApplied = false;
+            void ReassignOperation()
+            {
+                SharedInvoiceConfiguration configuration = SharedInvoicingSettings.LoadRuntime();
+                MyDieselCouponService service = SharedMyDieselRuntime.CreateService(configuration);
+                MyDieselCouponCaseRecord selectedCoupon = selectedCandidate.CouponCase;
+                var identity = new MyDieselCouponIdentity(selectedCoupon.CouponCode,
+                    selectedCoupon.BeneficiaryVat);
+                var scope = new MyDieselScope(selectedCoupon.Environment,
+                    selectedCoupon.CompanyVat, selectedCoupon.ReservedBranchNum,
+                    selectedCoupon.CredentialProfileId, selectedCoupon.ReservedStationAmdika);
+                string authorizedBy = string.IsNullOrWhiteSpace(Program.CurrentUserName)
+                    ? Environment.UserName
+                    : Program.CurrentUserName;
+                MyDieselCouponCaseRecord reassigned = service.ReassignDirectMyDataToInvoice(
+                    invoiceId, identity, scope, authorizedBy, reason);
+                discountApplied = ReserveAndApplyDiscount(service, reassigned.CouponCaseId);
+            }
+
+            await Run(ReassignOperation);
+            if (discountApplied && !IsDisposed)
+            {
+                invoiceValuesChanged();
+            }
+        }
+
+        private static bool ReassignmentDialog(
+            SharedMyDieselReassignmentCandidate[] candidates,
+            out SharedMyDieselReassignmentCandidate selectedCandidate)
+        {
+            using (var dialog = new RadForm
+            {
+                Text = "Επιλογή εξαργυρωμένου κουπονιού myDiesel",
+                StartPosition = FormStartPosition.CenterParent,
+                ClientSize = new Size(820, 320),
+                MinimumSize = new Size(720, 280),
+                ShowIcon = false
+            })
+            {
+                var table = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    ColumnCount = 1,
+                    RowCount = 3,
+                    Padding = new Padding(14)
+                };
+                table.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+                table.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                table.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+                var list = new ListBox
+                {
+                    Dock = DockStyle.Fill,
+                    SelectionMode = SelectionMode.One,
+                    HorizontalScrollbar = true
+                };
+                foreach (SharedMyDieselReassignmentCandidate candidate in candidates)
+                {
+                    list.Items.Add(candidate);
+                }
+                if (list.Items.Count > 0)
+                {
+                    list.SelectedIndex = 0;
+                }
+
+                var accept = new RadButton
+                {
+                    Text = "Επιλογή",
+                    Dock = DockStyle.Right,
+                    Width = 150
+                };
+                void AcceptSelection(object clickSender, EventArgs clickEvent)
+                {
+                    if (list.SelectedItem != null)
+                    {
+                        dialog.DialogResult = DialogResult.OK;
+                    }
+                }
+
+                accept.Click += AcceptSelection;
+                table.Controls.Add(new RadLabel
+                {
+                    Text = "Εμφανίζονται κουπόνια του ίδιου ΑΦΜ από οριστικοποιημένα ή μη παραστατικά με παγωμένη απευθείας διαβίβαση myDATA.",
+                    Dock = DockStyle.Fill,
+                    AutoSize = false
+                }, 0, 0);
+                table.Controls.Add(list, 0, 1);
+                table.Controls.Add(accept, 0, 2);
+                dialog.Controls.Add(table);
+                DialogResult dialogResult = dialog.ShowDialog();
+                selectedCandidate = list.SelectedItem as SharedMyDieselReassignmentCandidate;
+                return dialogResult == DialogResult.OK && selectedCandidate != null;
+            }
+        }
+
+        private static bool ReasonDialog(out string reason)
+        {
+            using (var dialog = new RadForm
+            {
+                Text = "Αιτιολογία μεταφοράς myDiesel",
+                StartPosition = FormStartPosition.CenterParent,
+                ClientSize = new Size(580, 190),
+                MinimumSize = new Size(580, 190),
+                ShowIcon = false
+            })
+            {
+                var table = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    ColumnCount = 1,
+                    RowCount = 3,
+                    Padding = new Padding(14)
+                };
+                table.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+                table.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                table.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+                var note = new RadTextBox { Multiline = true, Dock = DockStyle.Fill };
+                var accept = new RadButton { Text = "Συνέχεια", Dock = DockStyle.Right, Width = 150 };
+                void AcceptReason(object clickSender, EventArgs clickEvent)
+                {
+                    if (!string.IsNullOrWhiteSpace(note.Text))
+                    {
+                        dialog.DialogResult = DialogResult.OK;
+                    }
+                }
+
+                accept.Click += AcceptReason;
+                table.Controls.Add(new RadLabel
+                {
+                    Text = "Αιτιολογία / τεκμήριο (υποχρεωτικό)",
+                    Dock = DockStyle.Fill
+                }, 0, 0);
+                table.Controls.Add(note, 0, 1);
+                table.Controls.Add(accept, 0, 2);
+                dialog.Controls.Add(table);
+                DialogResult dialogResult = dialog.ShowDialog();
+                reason = note.Text.Trim();
+                return dialogResult == DialogResult.OK;
+            }
         }
 
         private async void Release(object sender, EventArgs e)

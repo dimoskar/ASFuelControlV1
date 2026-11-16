@@ -123,6 +123,35 @@ namespace ASFuelControl.Invoicing.Persistence
                 return replacementSnapshot;
             });
         }
+        public byte[] ReplaceAfterMyDieselDetachment(IFiscalDocumentLease lease,
+            byte[] expectedSnapshot, byte[] replacementSnapshot)
+        {
+            RequireInvoice(lease);
+            if (expectedSnapshot == null || expectedSnapshot.Length == 0 ||
+                replacementSnapshot == null || replacementSnapshot.Length == 0)
+            {
+                throw new ArgumentException("Both workflow snapshots are required.");
+            }
+
+            string expectedHash = SqlFiscalDatabase.Hash(expectedSnapshot);
+            string replacementHash = SqlFiscalDatabase.Hash(replacementSnapshot);
+            return database.Locked(lease, (held, transaction) =>
+            {
+                using (var command = SqlFiscalDatabase.Command(held.Connection, transaction,
+                    SqlStatements.ReplaceWorkflowAfterMyDieselDetachment,
+                    "@id", lease.Document.DocumentId,
+                    "@expected", expectedSnapshot,
+                    "@expectedHash", expectedHash,
+                    "@payload", replacementSnapshot,
+                    "@hash", replacementHash,
+                    "@token", lease.FencingToken))
+                {
+                    command.ExecuteNonQuery();
+                }
+
+                return replacementSnapshot;
+            });
+        }
         // A direct-pump invoice-delivery that never completed issuance may be
         // dispatched on a later day. The host invoice row is deliberately not
         // updated: only the fingerprinted workflow payload changes under the

@@ -113,7 +113,7 @@ internal static class Program
         Test("Migration reruns without duplicating or deleting data", () => {
             db.InstallSchema(); db.InstallSchema();
             Equal(1, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM dbo.FiscalSchemaVersion WHERE Version=1;")));
-            Equal(10, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.tables WHERE name LIKE 'Fiscal%' AND name <> 'FiscalSchemaVersion';")));
+            Equal(11, Convert.ToInt32(Scalar("SELECT COUNT(*) FROM sys.tables WHERE name LIKE 'Fiscal%' AND name <> 'FiscalSchemaVersion';")));
         });
     }
     private static void SigningTests()
@@ -393,6 +393,11 @@ internal static class Program
                 Equal(a.Id, store.GetOrCreate(request).Id);
                 Throws<InvalidOperationException>(() => store.MarkVoidPending(a.Id, "void-2"));
                 store.MarkVoidPending(a.Id, "void-1"); store.MarkVoided(a.Id);
+                Throws<InvalidOperationException>(() => store.GetOrCreate(request));
+                string changedUtc = DateTime.UtcNow.AddSeconds(1).ToString("o");
+                request.WorkflowContext = "{\"PaymentMethodChanges\":[{" +
+                    "\"PreviousPaymentType\":2,\"PaymentType\":4," +
+                    "\"ChangedUtc\":\"" + changedUtc + "\"}]}";
                 var next = store.GetOrCreate(request); Check(next.Id != a.Id && next.TransactionUid != a.TransactionUid, "Payment identity reused.");
                 Equal(a.Id, next.OriginalPaymentAttemptId.Value); Equal(2, next.AttemptNumber);
             }

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text;
 using Exedron.Invoicing.Core;
+using Newtonsoft.Json.Linq;
 
 namespace ASFuelControl.Invoicing.Persistence
 {
@@ -48,10 +49,26 @@ namespace ASFuelControl.Invoicing.Persistence
                 string.IsNullOrWhiteSpace(request.Gateway) || string.IsNullOrWhiteSpace(request.InvoiceProvider) || request.ProviderId <= 0)
                 throw new ArgumentException("Invalid payment request.");
             var history = database.Load(lease, "Payment").ToArray();
-            if (history.Any(e => e.Operation != "Payment"))
+            var paymentHistory = history.Where(item =>
+                item.Operation == "Payment").ToArray();
+            var latest = paymentHistory.LastOrDefault();
+            bool paymentMethodChangedAfterVoid = latest != null &&
+                latest.State == "Voided" &&
+                HasPaymentMethodChangeAfter(request.WorkflowContext,
+                    latest.UpdatedUtc);
+            bool resolvedVoid = latest != null &&
+                history.Where(item => item.Operation != "Payment").All(item =>
+                    item.Operation == "Void" && item.State == "Accepted" &&
+                    item.OriginalId == latest.Id);
+            if (history.Any(item => item.Operation != "Payment") &&
+                !(paymentMethodChangedAfterVoid && resolvedVoid))
                 throw new InvalidOperationException("An existing reversal blocks new payment authorization on this invoice.");
-            var latest = history.LastOrDefault();
-            var payload = Encoding.UTF8.GetBytes(SqlFiscalDatabase.Json(request));
+            if (latest?.State == "Voided" &&
+                !paymentMethodChangedAfterVoid)
+                throw new InvalidOperationException(
+                    "A voided payment requires an audited payment-method change before a new authorization.");
+            string requestJson = SqlFiscalDatabase.Json(request);
+            var payload = Encoding.UTF8.GetBytes(requestJson);
             if (latest != null && latest.State != "Voided" && latest.State != "Declined" && latest.State != "Failed")
             {
                 if (latest.Scope != scope || !latest.Payload.SequenceEqual(payload)) throw new InvalidOperationException("Payment settings/amount changed; reconcile the original payment first.");
@@ -59,7 +76,7 @@ namespace ASFuelControl.Invoicing.Persistence
             }
             var id = Guid.NewGuid();
             var attempt = new ProviderPaymentAttempt { Id = id, InvoiceId = request.InvoiceId, OriginalPaymentAttemptId = latest?.Id ?? request.OriginalPaymentAttemptId,
-                AttemptNumber = history.Length + 1, ProviderId = request.ProviderId, State = "Prepared", TransactionUid = id.ToString("N"),
+                AttemptNumber = paymentHistory.Length + 1, ProviderId = request.ProviderId, State = "Prepared", TransactionUid = id.ToString("N"),
                 TerminalId = request.TerminalId, Amount = request.Amount, AmountMinorUnits = request.AmountMinorUnits,
                 Operation = request.Operation, PaymentType = request.PaymentType, RequiresSignatureRenewal = latest != null };
             var entry = new SqlFiscalDatabase.JournalEntry { Id = id, Family = "Payment", Operation = "Payment", Scope = scope,
@@ -67,6 +84,52 @@ namespace ASFuelControl.Invoicing.Persistence
                 State = "Prepared", Revision = 0, OriginalId = latest?.Id ?? request.OriginalPaymentAttemptId, Snapshot = SqlFiscalDatabase.Json(new Snapshot { Attempt = attempt }) };
             database.Write(lease, entry, null, true, null);
             return attempt;
+        }
+        private static bool HasPaymentMethodChangeAfter(
+            string workflowContext, DateTime paymentUpdatedUtc)
+        {
+            if (string.IsNullOrWhiteSpace(workflowContext))
+            {
+                return false;
+            }
+            try
+            {
+                JObject workflow = JObject.Parse(workflowContext);
+                var changes = workflow["PaymentMethodChanges"] as JArray;
+                if (changes == null)
+                {
+                    return false;
+                }
+                foreach (JToken change in changes)
+                {
+                    JToken changedUtcToken = change["ChangedUtc"];
+                    if (changedUtcToken == null)
+                    {
+                        continue;
+                    }
+                    DateTime changedUtc = changedUtcToken.ToObject<DateTime>();
+                    JToken previousPaymentType = change["PreviousPaymentType"];
+                    JToken paymentType = change["PaymentType"];
+                    bool paymentTypeChanged = previousPaymentType != null &&
+                        paymentType != null &&
+                        previousPaymentType.ToString() !=
+                        paymentType.ToString();
+                    if (paymentTypeChanged &&
+                        changedUtc > paymentUpdatedUtc)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            catch (Newtonsoft.Json.JsonException)
+            {
+                return false;
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
         }
         private static PaymentGatewayEvent[] ReadEvents(SqlFiscalDatabase.Lease lease, System.Data.SqlClient.SqlTransaction tx, string uid)
         {

@@ -58,7 +58,9 @@ namespace Exedron.Invoicing.Core
         VerificationPending = 8,
         Final = 9,
         InterventionRequired = 10,
-        Dismissed = 11
+        Dismissed = 11,
+        ReassignmentAvailable = 12,
+        ReassignmentPending = 13
     }
 
     public static class MyDieselCaseTransitions
@@ -89,18 +91,24 @@ namespace Exedron.Invoicing.Core
                 case MyDieselCaseStage.Redeemed:
                     return to == MyDieselCaseStage.RedeemUnknown ||
                         to == MyDieselCaseStage.VerificationPending || to == MyDieselCaseStage.Final ||
-                        to == MyDieselCaseStage.InterventionRequired;
+                        to == MyDieselCaseStage.InterventionRequired || to == MyDieselCaseStage.ReassignmentAvailable;
                 case MyDieselCaseStage.VerificationPending:
                     return to == MyDieselCaseStage.RedeemUnknown ||
                         to == MyDieselCaseStage.Redeemed || to == MyDieselCaseStage.Final ||
-                        to == MyDieselCaseStage.InterventionRequired;
+                        to == MyDieselCaseStage.InterventionRequired || to == MyDieselCaseStage.ReassignmentAvailable;
                 case MyDieselCaseStage.InterventionRequired:
                     return to == MyDieselCaseStage.Reserved || to == MyDieselCaseStage.Released ||
                         to == MyDieselCaseStage.RedeemUnknown || to == MyDieselCaseStage.Redeemed ||
                         to == MyDieselCaseStage.VerificationPending || to == MyDieselCaseStage.Final ||
-                        to == MyDieselCaseStage.Dismissed;
+                        to == MyDieselCaseStage.Dismissed || to == MyDieselCaseStage.ReassignmentAvailable;
                 case MyDieselCaseStage.Final:
-                    return to == MyDieselCaseStage.Dismissed;
+                    return to == MyDieselCaseStage.Dismissed || to == MyDieselCaseStage.ReassignmentAvailable;
+                case MyDieselCaseStage.ReassignmentAvailable:
+                    return to == MyDieselCaseStage.ReassignmentPending;
+                case MyDieselCaseStage.ReassignmentPending:
+                    return to == MyDieselCaseStage.RedeemUnknown || to == MyDieselCaseStage.Redeemed ||
+                        to == MyDieselCaseStage.VerificationPending || to == MyDieselCaseStage.Final ||
+                        to == MyDieselCaseStage.InterventionRequired;
                 default:
                     return false;
             }

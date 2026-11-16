@@ -90,9 +90,13 @@ namespace ASFuelControl.Invoicing
                 var operations = new SqlPaymentCompensationStore(database);
                 var record = operations.Load(lease);
                 if (record?.Operation == "Refund") throw new InvalidOperationException("An existing refund prevents voiding this payment.");
-                if (record != null && record.State == FiscalPaymentState.Accepted) return record;
                 var original = history.Load(lease,FiscalJournalFamily.Payment).LastOrDefault(a => a.Operation == "Payment");
-                if (original == null || original.PayloadFormat != "provider-payment.v2.json" || original.State != "Approved")
+                bool originalStateAllowed = record == null
+                    ? original?.State == "Approved"
+                    : original?.State == "Approved" || original?.State == "VoidPending" ||
+                      original?.State == "VoidFailed" || original?.State == "Voided";
+                if (original == null || original.PayloadFormat != "provider-payment.v2.json" ||
+                    !originalStateAllowed)
                     throw new InvalidOperationException("Void requires an approved payment that has not been attached to an accepted invoice.");
                 if (history.Load(lease,FiscalJournalFamily.Submission).Any(a => a.State != "Rejected") ||
                     history.Load(lease,FiscalJournalFamily.Cancellation).Any() || history.Load(lease,FiscalJournalFamily.Print).Any())
@@ -102,7 +106,14 @@ namespace ASFuelControl.Invoicing
                 if (snapshot?.Version != 1 || snapshot.InvoiceId != invoiceId || JsonConvert.SerializeObject(snapshot.Route) != original.Scope)
                     throw new InvalidOperationException("Historical payment routing is unavailable.");
                 var route = snapshot.Route;
-                var payment = new SqlProviderPaymentStore(database,original.Scope).LoadLatest(invoiceId);
+                var paymentStore = new SqlProviderPaymentStore(database,original.Scope);
+                var payment = paymentStore.LoadLatest(invoiceId);
+                if (record != null && record.State == FiscalPaymentState.Accepted)
+                {
+                    CompleteConfirmedVoid(paymentStore,payment);
+                    CancelVoidedPaymentSignature(invoiceId,snapshot);
+                    return record;
+                }
                 PaymentVoidRequest request;
                 if (record == null)
                 {
@@ -114,6 +125,13 @@ namespace ASFuelControl.Invoicing
                     record = operations.Begin(lease,payment.Id,"Void",JsonConvert.SerializeObject(new { Request = request, Reason = reason }));
                 }
                 else request = JObject.Parse(record.RequestJson)["Request"].ToObject<PaymentVoidRequest>();
+                if (payment.State == "Voided")
+                {
+                    record = operations.Save(lease,record,FiscalPaymentState.Accepted,
+                        "Gateway void was confirmed before the compensation outcome was saved.");
+                    CancelVoidedPaymentSignature(invoiceId,snapshot);
+                    return record;
+                }
                 bool lookup = record.State == FiscalPaymentState.Processing || record.State == FiscalPaymentState.Unknown;
                 if (record.State == FiscalPaymentState.Prepared && recoveryOnly) return record;
                 if (!lookup && record.State != FiscalPaymentState.Prepared) return record;
@@ -123,11 +141,65 @@ namespace ASFuelControl.Invoicing
                 {
                     if (record.State == FiscalPaymentState.Prepared)
                         record = operations.Save(lease,record,FiscalPaymentState.Processing,"Saved original transaction before void dispatch.");
+                    paymentStore.MarkVoidPending(payment.Id,request.TransactionUid);
                     FiscalPaymentState outcome; string evidence;
                     try { gateway.Void(request); outcome = FiscalPaymentState.Accepted;
                         evidence = "Gateway confirmed void of original transaction " + request.OriginalTransactionId + "; HTTP evidence uses TransUid " + request.TransactionUid; }
                     catch (Exception ex) { outcome = FiscalPaymentState.Unknown; evidence = "Void remains unconfirmed: " + ex.GetType().Name; }
-                    return operations.Save(lease,record,outcome,evidence);
+                    if (outcome == FiscalPaymentState.Accepted)
+                    {
+                        paymentStore.MarkVoided(payment.Id);
+                    }
+                    record = operations.Save(lease,record,outcome,evidence);
+                    if (outcome == FiscalPaymentState.Accepted)
+                    {
+                        CancelVoidedPaymentSignature(invoiceId,snapshot);
+                    }
+                    return record;
+                }
+            }
+        }
+        private static void CompleteConfirmedVoid(
+            SqlProviderPaymentStore paymentStore,
+            ProviderPaymentAttempt payment)
+        {
+            if (payment.State == "Approved")
+            {
+                paymentStore.MarkVoidPending(payment.Id,
+                    payment.TransactionUid);
+                payment = paymentStore.LoadLatest(payment.InvoiceId);
+            }
+            if (payment.State == "VoidPending" ||
+                payment.State == "VoidFailed")
+            {
+                paymentStore.MarkVoided(payment.Id);
+                payment = paymentStore.LoadLatest(payment.InvoiceId);
+            }
+            if (payment.State != "Voided")
+            {
+                throw new InvalidOperationException(
+                    "The confirmed void could not be applied to the payment history.");
+            }
+        }
+        private void CancelVoidedPaymentSignature(Guid invoiceId,
+            PaymentSnapshot snapshot)
+        {
+            if (snapshot.Route.Provider.ProviderKey !=
+                InvoiceProviderCatalog.DirectIlydaKey)
+            {
+                return;
+            }
+            string routingContext = ProviderSubmissionService.Context(
+                snapshot.Route.Provider,snapshot.Invoice);
+            using (IInvoiceProvider provider = providers.Open(
+                snapshot.Route.Provider,routingContext,invoiceId,
+                snapshot.Route))
+            {
+                var lifecycle = provider as IInvoiceProviderPaymentLifecycle;
+                if (lifecycle != null)
+                {
+                    lifecycle.CancelUnusedPaymentSignature(invoiceId,
+                        "TRANSACTION_CANCELLED");
                 }
             }
         }

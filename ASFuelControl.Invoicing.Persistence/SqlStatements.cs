@@ -6,6 +6,10 @@ namespace ASFuelControl.Invoicing.Persistence
     {
         internal const string ReadWorkflow = "SELECT Payload,PayloadSha256 FROM dbo.FiscalInvoiceWorkflow WHERE InvoiceId=@id;";
         internal const string InsertWorkflow = "INSERT dbo.FiscalInvoiceWorkflow(InvoiceId,Payload,PayloadSha256,CreatedUtc,FencingToken) VALUES(@id,@payload,@hash,@now,@token);";
+        internal const string ReplaceWorkflowAfterMyDieselDetachment = @"
+UPDATE dbo.FiscalInvoiceWorkflow SET Payload=@payload,PayloadSha256=@hash,FencingToken=@token
+WHERE InvoiceId=@id AND PayloadSha256=@expectedHash AND Payload=@expected;
+IF @@ROWCOUNT<>1 BEGIN RAISERROR('The saved workflow changed. Reload before continuing.',16,1); RETURN; END;";
         internal const string RefreshWorkflowConnection = @"
 IF EXISTS(SELECT 1 FROM dbo.FiscalAttempt WITH (UPDLOCK,HOLDLOCK) WHERE DocumentKind=1 AND DocumentId=@id)
 BEGIN RAISERROR('The provider connection is fixed once fiscal processing has started.',16,1); RETURN; END;
@@ -85,7 +89,9 @@ IF EXISTS(
         (a.Family='Signing' AND r.State NOT IN ('Prepared','Rejected','FailedBeforeDispatch')) OR
         (a.Family='Submission' AND r.State<>'Rejected') OR
         (a.Family='ProviderSession' AND r.State NOT IN ('Rejected','Cancelled','Expired')) OR
-        (a.Family='Payment' AND r.State NOT IN ('Declined','Failed')) OR
+        (a.Family='Payment' AND NOT (
+            (a.Operation='Payment' AND r.State IN ('Declined','Failed','Voided')) OR
+            (a.Operation='Void' AND r.State='Accepted'))) OR
         a.Family NOT IN ('Signing','Submission','ProviderSession','Payment')))
 BEGIN RAISERROR('A completed or unresolved fiscal operation prevents changing payment method.',16,1); RETURN; END;
 INSERT dbo.FiscalAttemptRevision(AttemptId,Revision,State,RecordedUtc,SnapshotJson,FencingToken)

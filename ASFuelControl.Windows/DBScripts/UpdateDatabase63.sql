@@ -12,5 +12,5 @@ BEGIN
         ALTER TABLE dbo.MyDieselCouponCase DROP CONSTRAINT CK_MyDieselCouponCase_Stage;
 
     ALTER TABLE dbo.MyDieselCouponCase WITH CHECK ADD CONSTRAINT CK_MyDieselCouponCase_Stage
-        CHECK(LocalStage IN ('Captured','ReserveUnknown','Reserved','Released','InvoiceAccepted','RedeemUnknown','Redeemed','VerificationPending','Final','InterventionRequired','Dismissed'));
+        CHECK(LocalStage IN ('Captured','ReserveUnknown','Reserved','Released','InvoiceAccepted','RedeemUnknown','Redeemed','VerificationPending','Final','InterventionRequired','Dismissed','ReassignmentAvailable','ReassignmentPending'));
 END

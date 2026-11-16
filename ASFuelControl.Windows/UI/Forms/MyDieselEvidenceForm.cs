@@ -204,6 +204,8 @@ namespace ASFuelControl.Windows.UI.Forms
                 case "Final": return "Ολοκληρωμένο";
                 case "InterventionRequired": return "Χρειάζεται παρέμβαση";
                 case "Dismissed": return "Αφαιρέθηκε ως άκυρο";
+                case "ReassignmentAvailable": return "Διαθέσιμο για μεταφορά";
+                case "ReassignmentPending": return "Μεταφέρθηκε — αναμονή νέου MARK";
                 default: return value;
             }
         }

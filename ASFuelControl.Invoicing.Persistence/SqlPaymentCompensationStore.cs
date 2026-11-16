@@ -44,7 +44,18 @@ namespace ASFuelControl.Invoicing.Persistence
             var entry = database.Load(lease,"Payment",record.Id).Single();
             if (entry.Revision != record.Revision) throw new InvalidOperationException("Stale payment operation.");
             entry.Revision++; entry.UpdatedUtc = DateTime.UtcNow; entry.State = state.ToString(); entry.Snapshot = SqlFiscalDatabase.Json(new Outcome { Evidence = evidence });
-            database.Write(lease,entry,record.Revision,true,old => FiscalStateTransitions.CanTransition((FiscalPaymentState)Enum.Parse(typeof(FiscalPaymentState),old.State),state));
+            bool blocksNewAttempt = record.Operation != "Void" ||
+                state != FiscalPaymentState.Accepted;
+            bool CanSaveTransition(SqlFiscalDatabase.JournalEntry previous)
+            {
+                object parsedState = Enum.Parse(typeof(FiscalPaymentState),
+                    previous.State);
+                var previousState = (FiscalPaymentState)parsedState;
+                return FiscalStateTransitions.CanTransition(previousState,
+                    state);
+            }
+            database.Write(lease,entry,record.Revision,blocksNewAttempt,
+                CanSaveTransition);
             return Restore(entry);
         }
         private static PaymentCompensationRecord Restore(SqlFiscalDatabase.JournalEntry entry) => new PaymentCompensationRecord {

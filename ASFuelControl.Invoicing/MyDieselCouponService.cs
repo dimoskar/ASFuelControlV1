@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using ASFuelControl.Invoicing.Persistence;
 using Exedron.Invoicing.Core;
 using Newtonsoft.Json;
@@ -24,13 +26,15 @@ namespace ASFuelControl.Invoicing
     // Owns lifecycle policy. The adapter only transports; the store owns durable evidence.
     public sealed class MyDieselCouponService
     {
+        private readonly SqlFiscalDatabase database;
         private readonly SqlMyDieselStore store;
         private readonly IMyDieselClientFactory clients;
         private readonly Func<DateTime> utcNow;
 
         public MyDieselCouponService(SqlFiscalDatabase database, IMyDieselClientFactory clientFactory, Func<DateTime> utcClock = null)
         {
-            store = new SqlMyDieselStore(database ?? throw new ArgumentNullException(nameof(database)));
+            this.database = database ?? throw new ArgumentNullException(nameof(database));
+            store = new SqlMyDieselStore(this.database);
             clients = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
             utcNow = utcClock ?? (() => DateTime.UtcNow);
         }
@@ -48,6 +52,17 @@ namespace ASFuelControl.Invoicing
             exciseDiscountPerLitre = MyDieselTaxRules.NormalizeExciseDiscountPerLitre(exciseDiscountPerLitre);
             using (store.AcquireInvoiceForNewCoupon(invoiceId))
             {
+                MyDieselCouponCaseRecord existingCoupon = store.FindBlockingByCoupon(identity.CouponCode);
+                if (existingCoupon != null)
+                {
+                    if (existingCoupon.LocalStage != MyDieselCaseStage.ReassignmentAvailable)
+                    {
+                        throw new InvalidOperationException("This myDiesel voucher is already coupled to another invoice.");
+                    }
+
+                    return ReassignAvailableCoupon(invoiceId, identity, scope, existingCoupon.CouponCaseId);
+                }
+
                 var now = Now();
                 var value = new MyDieselCouponCaseRecord {
                     CouponCaseId = Guid.NewGuid(), InvoiceId = invoiceId, CouponCode = identity.CouponCode,
@@ -75,6 +90,14 @@ namespace ASFuelControl.Invoicing
             using (var lease = store.Acquire(couponCaseId))
             {
                 var value = Required(store.Load(lease));
+                if (value.LocalStage == MyDieselCaseStage.ReassignmentPending)
+                {
+                    return new MyDieselServiceResult
+                    {
+                        CouponCase = value,
+                        OperationState = MyDieselOperationState.Succeeded
+                    };
+                }
                 if (value.LocalStage != MyDieselCaseStage.Captured && value.LocalStage != MyDieselCaseStage.ReserveUnknown)
                     throw new InvalidOperationException("Only a captured or reservation-unknown coupon can be reserved.");
                 var request = new MyDieselLookupRequest(value.CouponCode, value.CompanyVat, value.ReservedBranchNum, value.ReservedStationAmdika);
@@ -113,7 +136,6 @@ namespace ASFuelControl.Invoicing
                 MyDieselCouponCaseRecord loadedValue = store.Load(initialLease);
                 initialValue = Required(loadedValue);
             }
-
             using (store.AcquireInvoiceForNewCoupon(initialValue.InvoiceId))
             using (var lease = store.Acquire(couponCaseId))
             {
@@ -181,6 +203,240 @@ namespace ASFuelControl.Invoicing
 
             MyDieselCouponInfo recoveredInfo;
             return CanRecoverInactiveFinal(value, attemptValues, out recoveredInfo);
+        }
+
+        public static bool CanReleaseForReassignment(MyDieselCouponCaseRecord value)
+        {
+            if (value == null || string.IsNullOrWhiteSpace(value.InvoiceMark) ||
+                value.MarkSourceInvoiceId != value.InvoiceId)
+            {
+                return false;
+            }
+
+            bool supportedStage = value.LocalStage == MyDieselCaseStage.Redeemed ||
+                value.LocalStage == MyDieselCaseStage.VerificationPending ||
+                value.LocalStage == MyDieselCaseStage.Final ||
+                value.LocalStage == MyDieselCaseStage.InterventionRequired;
+            MyDieselCouponStatus remoteStatus = MyDieselCouponStates.Parse(value.RemoteStatus);
+            bool redeemedRemoteStatus = IsRedeemedRemoteStatus(remoteStatus);
+            return supportedStage && redeemedRemoteStatus;
+        }
+
+        public MyDieselCouponCaseRecord ReleaseDirectMyDataForReassignment(Guid couponCaseId,
+            Guid replacementInvoiceId, string authorizedBy, string reason)
+        {
+            if (couponCaseId == Guid.Empty)
+            {
+                throw new ArgumentException("Coupon case ID is required.", nameof(couponCaseId));
+            }
+            if (string.IsNullOrWhiteSpace(authorizedBy))
+            {
+                throw new ArgumentException("The administrator identity is required.", nameof(authorizedBy));
+            }
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                throw new ArgumentException("A detachment reason is required.", nameof(reason));
+            }
+            if (replacementInvoiceId == Guid.Empty)
+            {
+                throw new ArgumentException("Replacement invoice ID is required.", nameof(replacementInvoiceId));
+            }
+
+            MyDieselCouponCaseRecord initialValue;
+            using (var initialLease = store.Acquire(couponCaseId))
+            {
+                MyDieselCouponCaseRecord loadedValue = store.Load(initialLease);
+                initialValue = Required(loadedValue);
+            }
+            if (replacementInvoiceId == initialValue.InvoiceId)
+            {
+                throw new InvalidOperationException("The replacement invoice must differ from the incorrect direct-myDATA invoice.");
+            }
+
+            using (IFiscalDocumentLease invoiceLease = database.EnterInvoice(initialValue.InvoiceId))
+            {
+                var workflowStore = new SqlInvoiceWorkflowStore(database);
+                byte[] workflowBytes = workflowStore.Load(invoiceLease);
+                if (workflowBytes == null)
+                {
+                    throw new InvalidOperationException("The invoice has no saved fiscal workflow to repair.");
+                }
+
+                string workflowJson = Encoding.UTF8.GetString(workflowBytes);
+                InvoiceWorkflowSnapshot snapshot = JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(workflowJson);
+                if (snapshot == null || snapshot.InvoiceId != initialValue.InvoiceId || snapshot.Provider == null ||
+                    snapshot.Provider.ProviderKey != InvoiceProviderCatalog.MyDataKey)
+                {
+                    throw new InvalidOperationException("Only a voucher coupled to a direct-myDATA invoice can be detached by this repair.");
+                }
+
+                List<MyDieselDetachmentAudit> audits = snapshot.MyDieselDetachments ?? new List<MyDieselDetachmentAudit>();
+                MyDieselDetachmentAudit existingAudit = audits.LastOrDefault(audit => audit.CouponCaseId == couponCaseId);
+                if (existingAudit != null && existingAudit.ReplacementInvoiceId != Guid.Empty &&
+                    existingAudit.ReplacementInvoiceId != replacementInvoiceId)
+                {
+                    throw new InvalidOperationException("The voucher was already released for a different replacement invoice.");
+                }
+                if (snapshot.MyDieselCouponCaseId.HasValue && snapshot.MyDieselCouponCaseId.Value != couponCaseId)
+                {
+                    throw new InvalidOperationException("The saved invoice workflow is coupled to a different myDiesel voucher.");
+                }
+                if (!snapshot.MyDieselCouponCaseId.HasValue && existingAudit == null)
+                {
+                    throw new InvalidOperationException("The saved invoice workflow is not coupled to this myDiesel voucher.");
+                }
+
+                if (snapshot.MyDieselCouponCaseId.HasValue)
+                {
+                    if (existingAudit == null)
+                    {
+                        DateTime detachedUtc = Now();
+                        existingAudit = new MyDieselDetachmentAudit
+                        {
+                            CouponCaseId = couponCaseId,
+                            ReplacementInvoiceId = replacementInvoiceId,
+                            CouponMark = initialValue.InvoiceMark,
+                            PreviousProviderKey = snapshot.Provider.ProviderKey,
+                            AuthorizedBy = authorizedBy.Trim(),
+                            DetachedUtc = detachedUtc,
+                            Reason = reason.Trim()
+                        };
+                        audits.Add(existingAudit);
+                    }
+
+                    snapshot.MyDieselDetachments = audits;
+                    // Keep the original invoice payload, provider evidence and
+                    // financial identity unchanged so its normal credit and
+                    // cancellation workflows remain available.
+                    snapshot.MyDieselCouponCaseId = null;
+                    snapshot.MyDieselScope = null;
+                    snapshot.MyDieselExciseDiscountPerLitre = null;
+                    string replacementJson = JsonConvert.SerializeObject(snapshot);
+                    byte[] replacementBytes = Encoding.UTF8.GetBytes(replacementJson);
+                    workflowStore.ReplaceAfterMyDieselDetachment(invoiceLease, workflowBytes, replacementBytes);
+                }
+
+                using (var couponLease = store.Acquire(couponCaseId))
+                {
+                    MyDieselCouponCaseRecord loadedValue = store.Load(couponLease);
+                    MyDieselCouponCaseRecord value = Required(loadedValue);
+                    if (value.InvoiceId != initialValue.InvoiceId)
+                    {
+                        throw new InvalidOperationException("The coupon invoice changed while detachment was being prepared.");
+                    }
+                    if (value.LocalStage == MyDieselCaseStage.ReassignmentAvailable ||
+                        value.LocalStage == MyDieselCaseStage.ReassignmentPending)
+                    {
+                        if (!value.BlocksCouponReuse ||
+                            value.LocalStage == MyDieselCaseStage.ReassignmentAvailable && value.BlocksInvoice ||
+                            string.IsNullOrWhiteSpace(value.InvoiceMark) ||
+                            !value.MarkSourceInvoiceId.HasValue)
+                        {
+                            throw new InvalidOperationException("The voucher reassignment has inconsistent local safeguards.");
+                        }
+
+                        return value;
+                    }
+                    if (!CanReleaseForReassignment(value))
+                    {
+                        throw new InvalidOperationException("The voucher does not have conclusive redeemed myDiesel evidence and cannot be released for reassignment safely.");
+                    }
+
+                    value.LocalStage = MyDieselCaseStage.ReassignmentAvailable;
+                    value.BlocksInvoice = false;
+                    value.BlocksCouponReuse = true;
+                    Advance(couponLease, value);
+                    return value;
+                }
+            }
+        }
+
+        public MyDieselCouponCaseRecord ReassignDirectMyDataToInvoice(Guid invoiceId,
+            MyDieselCouponIdentity identity, MyDieselScope scope, string authorizedBy,
+            string reason)
+        {
+            if (invoiceId == Guid.Empty)
+            {
+                throw new ArgumentException("Replacement invoice ID is required.", nameof(invoiceId));
+            }
+            if (identity == null)
+            {
+                throw new ArgumentNullException(nameof(identity));
+            }
+            if (scope == null)
+            {
+                throw new ArgumentNullException(nameof(scope));
+            }
+
+            MyDieselCouponCaseRecord existingCoupon = store.FindBlockingByCoupon(identity.CouponCode);
+            if (existingCoupon == null)
+            {
+                throw new InvalidOperationException("No redeemed myDiesel voucher is waiting for reassignment with this code.");
+            }
+            if (!CanUseReassignmentScope(existingCoupon, identity, scope))
+            {
+                throw new InvalidOperationException("The scanned voucher identity or reservation scope differs from the redeemed voucher.");
+            }
+            if (existingCoupon.LocalStage == MyDieselCaseStage.ReassignmentPending &&
+                existingCoupon.InvoiceId == invoiceId)
+            {
+                return existingCoupon;
+            }
+            if (existingCoupon.LocalStage != MyDieselCaseStage.ReassignmentAvailable)
+            {
+                ReleaseDirectMyDataForReassignment(existingCoupon.CouponCaseId,
+                    invoiceId, authorizedBy, reason);
+            }
+
+            return Capture(invoiceId, identity, scope, null, null,
+                existingCoupon.ExciseDiscountPerLitre);
+        }
+
+        private MyDieselCouponCaseRecord ReassignAvailableCoupon(Guid invoiceId,
+            MyDieselCouponIdentity identity, MyDieselScope scope, Guid couponCaseId)
+        {
+            using (var couponLease = store.Acquire(couponCaseId))
+            {
+                MyDieselCouponCaseRecord loadedValue = store.Load(couponLease);
+                MyDieselCouponCaseRecord value = Required(loadedValue);
+                if (value.LocalStage != MyDieselCaseStage.ReassignmentAvailable ||
+                    !CanUseReassignmentScope(value, identity, scope))
+                {
+                    throw new InvalidOperationException("The released myDiesel voucher cannot be assigned with changed identity or reservation scope.");
+                }
+                if (value.InvoiceId == invoiceId)
+                {
+                    throw new InvalidOperationException("The myDiesel voucher must be reassigned to a different invoice.");
+                }
+
+                long expectedRevision = value.Revision;
+                value.InvoiceId = invoiceId;
+                value.LocalStage = MyDieselCaseStage.ReassignmentPending;
+                value.BlocksInvoice = true;
+                value.BlocksCouponReuse = true;
+                value.UpdatedUtc = Now();
+                value.Revision++;
+                store.Reassign(couponLease, expectedRevision, value);
+                return value;
+            }
+        }
+
+        private static bool CanUseReassignmentScope(MyDieselCouponCaseRecord value,
+            MyDieselCouponIdentity identity, MyDieselScope scope)
+        {
+            return value.CouponCode == identity.CouponCode &&
+                value.BeneficiaryVat == identity.BeneficiaryVat &&
+                value.Environment == scope.Environment &&
+                value.CompanyVat == scope.CompanyVat &&
+                value.ReservedBranchNum == scope.BranchNum &&
+                value.ReservedStationAmdika == scope.StationAmdika &&
+                value.CredentialProfileId == scope.CredentialProfileId;
+        }
+
+        private static bool IsRedeemedRemoteStatus(MyDieselCouponStatus remoteStatus)
+        {
+            bool canRedeem = MyDieselCouponStates.CanRedeem(remoteStatus);
+            return canRedeem && remoteStatus != MyDieselCouponStatus.Reserved;
         }
 
         private static bool IsUnissuedCoupon(MyDieselCouponCaseRecord value)
@@ -297,7 +553,16 @@ namespace ASFuelControl.Invoicing
             if (value.LocalStage == MyDieselCaseStage.Reserved || value.LocalStage == MyDieselCaseStage.InvoiceAccepted)
                 return Redeem(couponCaseId,invoiceId,mark);
             if (value.InvoiceMark != mark || value.MarkSourceInvoiceId != invoiceId)
+            {
+                if (value.LocalStage == MyDieselCaseStage.ReassignmentPending &&
+                    value.MarkSourceInvoiceId.HasValue && value.MarkSourceInvoiceId.Value != invoiceId)
+                {
+                    return CorrectMark(couponCaseId, invoiceId, mark,
+                        "Reassign redeemed voucher from an incorrect direct-myDATA invoice");
+                }
+
                 throw new InvalidOperationException("The accepted invoice MARK differs from the frozen myDiesel redemption.");
+            }
             if (value.LocalStage == MyDieselCaseStage.RedeemUnknown || value.LocalStage == MyDieselCaseStage.InterventionRequired)
                 return RefreshStatus(couponCaseId,true);
             if (value.LocalStage == MyDieselCaseStage.Redeemed || value.LocalStage == MyDieselCaseStage.VerificationPending || value.LocalStage == MyDieselCaseStage.Final)

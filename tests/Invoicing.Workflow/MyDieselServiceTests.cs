@@ -233,7 +233,7 @@ internal static partial class Program
                 Equal(2,new SqlMyDieselStore(database).LoadAttempts(lease)
                     .Count(attempt => attempt.Operation == MyDieselOperation.Redeem));
         });
-        Test("accepted invoice redeems myDiesel before print and freezes the coupon in snapshot v2", () => {
+        Test("accepted provider invoice redeems myDiesel before print and freezes the coupon in snapshot v2", () => {
             var source = new WorkflowSource(); var invoice = source.Source.Id;
             DraftInvoice(invoice);
             var factory = new DieselFactory();
@@ -243,12 +243,13 @@ internal static partial class Program
             var scope = new MyDieselScope(FiscalEnvironment.Test,"000000000",0,"uat-fixture","AMD-0");
             var coupon = couponService.Capture(invoice,new MyDieselCouponIdentity("AEMN-1022-8625-7956-7356","111111111"),scope,null,null,0.375m);
             couponService.Reserve(coupon.CouponCaseId);
-            source.Snapshot = new InvoiceWorkflowSnapshot { Version = 2,InvoiceId = invoice,Provider = Route(InvoiceProviderCatalog.MyDataKey),
-                Invoice = source.Source.Prepare(invoice,Route(InvoiceProviderCatalog.MyDataKey)),PrintDestination = "test",PrintFormat = "test/v1",
+            ProviderRoute provider = Route(InvoiceProviderCatalog.ITimologiaKey);
+            source.Snapshot = new InvoiceWorkflowSnapshot { Version = 2,InvoiceId = invoice,Provider = provider,
+                Invoice = source.Source.Prepare(invoice,provider),PrintDestination = "test",PrintFormat = "test/v1",
                 PrintContent = System.Text.Encoding.UTF8.GetBytes("invoice"),MyDieselCouponCaseId = coupon.CouponCaseId,MyDieselScope = scope,
                 MyDieselExciseDiscountPerLitre = coupon.ExciseDiscountPerLitre };
-            var http = new Http(invoice,InvoiceProviderCatalog.MyDataKey) {
-                InvoicePost = body => Reply("<ResponseDoc><response><statusCode>Success</statusCode><invoiceMark>400001234567890</invoiceMark><invoiceUid>UID</invoiceUid></response></ResponseDoc>") };
+            var http = new Http(invoice,InvoiceProviderCatalog.ITimologiaKey) {
+                InvoicePost = body => Reply("{\"data\":{\"ext_system_id\":\"" + invoice.ToString("N") + "\",\"uid\":\"UID\",\"mark\":\"400001234567890\",\"authentication_code\":\"HASH\",\"signature_code\":\"PROVIDER-SIGNATURE\",\"web_view\":\"https://example.invalid/qr\"}}") };
             var printer = new Printer(); var workflow = Workflow(http,printer,myDiesel:new DieselCoordinator(couponService));
             var result = workflow.Process(invoice,source);
             Equal("Redeemed",result.MyDieselState); Equal("HandedOff",result.Print.State); Equal(1,printer.Calls);
@@ -257,6 +258,78 @@ internal static partial class Program
                 var saved = Newtonsoft.Json.JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(System.Text.Encoding.UTF8.GetString(new SqlInvoiceWorkflowStore(database).Load(lease)));
                 Equal(2,saved.Version); Equal(coupon.CouponCaseId,saved.MyDieselCouponCaseId); Equal(0.375m,saved.MyDieselExciseDiscountPerLitre);
             }
+        });
+        Test("direct myDATA workflow rejects a newly coupled myDiesel voucher before dispatch", () => {
+            var source = new WorkflowSource(); var invoice = source.Source.Id;
+            DraftInvoice(invoice);
+            var factory = new DieselFactory();
+            factory.Results.Enqueue((operation, caseRow) => Success(operation,caseRow,"RESERVED",true));
+            var couponService = new MyDieselCouponService(database,factory);
+            var scope = new MyDieselScope(FiscalEnvironment.Test,"000000000",0,"uat-fixture","AMD-0");
+            var coupon = couponService.Capture(invoice,new MyDieselCouponIdentity("AEMY-1108-4031-5521-0302","111111111"),scope);
+            couponService.Reserve(coupon.CouponCaseId);
+            ProviderRoute directMyData = Route(InvoiceProviderCatalog.MyDataKey);
+            source.Snapshot = new InvoiceWorkflowSnapshot { Version = 2,InvoiceId = invoice,Provider = directMyData,
+                Invoice = source.Source.Prepare(invoice,directMyData),PrintDestination = "test",PrintFormat = "test/v1",
+                PrintContent = System.Text.Encoding.UTF8.GetBytes("invoice"),MyDieselCouponCaseId = coupon.CouponCaseId,MyDieselScope = scope };
+            var http = new Http(invoice,InvoiceProviderCatalog.MyDataKey);
+            Throws(() => Workflow(http,new Printer(),myDiesel:new DieselCoordinator(couponService)).Process(invoice,source));
+            Equal(0,http.Posts);
+            Equal(1,factory.Calls);
+        });
+        Test("redeemed direct-myDATA voucher moves from a finalized invoice and corrects MARK after provider acceptance", () => {
+            var oldSource = new WorkflowSource(); Guid oldInvoiceId = oldSource.Source.Id;
+            DraftInvoice(oldInvoiceId);
+            var factory = new DieselFactory();
+            factory.Results.Enqueue((operation, caseRow) => Success(operation,caseRow,"RESERVED",true));
+            factory.Results.Enqueue((operation, caseRow) => Success(operation,caseRow,"REDEEMED",false));
+            factory.Results.Enqueue((operation, caseRow) => Success(operation,caseRow,"REDEEMED",false));
+            var couponService = new MyDieselCouponService(database,factory);
+            var scope = new MyDieselScope(FiscalEnvironment.Test,"000000000",0,"uat-fixture","AMD-0");
+            var identity = new MyDieselCouponIdentity("AMTY-1108-4031-5521-0302","111111111");
+            MyDieselCouponCaseRecord coupon = couponService.Capture(oldInvoiceId,identity,scope,null,null,0.375m);
+            couponService.Reserve(coupon.CouponCaseId);
+            couponService.Redeem(coupon.CouponCaseId,oldInvoiceId,"400001234567890");
+            ProviderRoute directMyData = Route(InvoiceProviderCatalog.MyDataKey);
+            var oldSnapshot = new InvoiceWorkflowSnapshot { Version = 2,InvoiceId = oldInvoiceId,Provider = directMyData,
+                Invoice = oldSource.Source.Prepare(oldInvoiceId,directMyData),PrintDestination = "old",PrintFormat = "test/v1",
+                PrintContent = System.Text.Encoding.UTF8.GetBytes("old invoice"),MyDieselCouponCaseId = coupon.CouponCaseId,
+                MyDieselScope = scope,MyDieselExciseDiscountPerLitre = coupon.ExciseDiscountPerLitre };
+            using (var oldLease = database.EnterInvoice(oldInvoiceId))
+                new SqlInvoiceWorkflowStore(database).Save(oldLease,System.Text.Encoding.UTF8.GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(oldSnapshot)));
+            Execute(connection,"UPDATE dbo.Invoice SET IsPrinted=1 WHERE InvoiceId='" + oldInvoiceId + "';");
+
+            var newSource = new WorkflowSource(); Guid newInvoiceId = newSource.Source.Id;
+            DraftInvoice(newInvoiceId);
+            MyDieselCouponCaseRecord reassigned = couponService.ReassignDirectMyDataToInvoice(newInvoiceId,identity,scope,"administrator","Wrong invoice type used direct myDATA");
+            Equal(MyDieselCaseStage.ReassignmentPending,reassigned.LocalStage);
+            Equal(newInvoiceId,reassigned.InvoiceId);
+            Equal(oldInvoiceId,reassigned.MarkSourceInvoiceId);
+            Equal("400001234567890",reassigned.InvoiceMark);
+            using (var oldLease = database.EnterInvoice(oldInvoiceId))
+            {
+                var savedOld = Newtonsoft.Json.JsonConvert.DeserializeObject<InvoiceWorkflowSnapshot>(System.Text.Encoding.UTF8.GetString(new SqlInvoiceWorkflowStore(database).Load(oldLease)));
+                Equal(null,savedOld.MyDieselCouponCaseId);
+                Equal(1,savedOld.MyDieselDetachments.Count);
+                Equal(coupon.CouponCaseId,savedOld.MyDieselDetachments[0].CouponCaseId);
+                Equal(newInvoiceId,savedOld.MyDieselDetachments[0].ReplacementInvoiceId);
+                Equal("400001234567890",savedOld.MyDieselDetachments[0].CouponMark);
+            }
+
+            ProviderRoute provider = Route(InvoiceProviderCatalog.ITimologiaKey);
+            newSource.Snapshot = new InvoiceWorkflowSnapshot { Version = 2,InvoiceId = newInvoiceId,Provider = provider,
+                Invoice = newSource.Source.Prepare(newInvoiceId,provider),PrintDestination = "new",PrintFormat = "test/v1",
+                PrintContent = System.Text.Encoding.UTF8.GetBytes("new invoice"),MyDieselCouponCaseId = coupon.CouponCaseId,
+                MyDieselScope = scope,MyDieselExciseDiscountPerLitre = coupon.ExciseDiscountPerLitre };
+            var http = new Http(newInvoiceId,InvoiceProviderCatalog.ITimologiaKey) {
+                InvoicePost = body => Reply("{\"data\":{\"ext_system_id\":\"" + newInvoiceId.ToString("N") + "\",\"uid\":\"UID-NEW\",\"mark\":\"400001234567891\",\"authentication_code\":\"HASH\",\"signature_code\":\"PROVIDER-SIGNATURE\",\"web_view\":\"https://example.invalid/new-qr\"}}") };
+            InvoiceWorkflowResult result = Workflow(http,new Printer(),myDiesel:new DieselCoordinator(couponService)).Process(newInvoiceId,newSource);
+            Equal("Redeemed",result.MyDieselState);
+            MyDieselCouponCaseRecord corrected = new SqlMyDieselStore(database).FindLatestByInvoice(newInvoiceId);
+            Equal(MyDieselCaseStage.Redeemed,corrected.LocalStage);
+            Equal("400001234567891",corrected.InvoiceMark);
+            Equal(newInvoiceId,corrected.MarkSourceInvoiceId);
+            Equal(3,factory.Calls);
         });
         Test("iTimologia legacy recovery redeems the existing RESERVED myDiesel case without printing", () => {
             var source = new WorkflowSource();

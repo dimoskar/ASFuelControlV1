@@ -150,6 +150,7 @@ internal static partial class Program
             var s = new Source(); var h = new Http(s.Id,"iTimologia") { RejectInvoice = true }; var service = Service(h);
             Equal("Approved",service.Send(s.Id,Route(),s).Payment.State); Equal(0,h.Voids);
             var op = service.VoidAcceptedPayment(s.Id,"Customer cancelled after rejection"); Equal(FiscalPaymentState.Accepted,op.State); Equal("Void",op.Operation);
+            Equal("Voided",LatestState(s.Id));
             Equal(1,h.Voids); Equal(op.Id,service.RecoverVoid(s.Id).Id); Equal(1,h.Voids);
             Throws(() => service.Send(s.Id,null,null,true)); Equal(1,h.Authorizations);
         });
@@ -158,7 +159,79 @@ internal static partial class Program
             service.Send(s.Id,Route(),s); Equal(FiscalPaymentState.Unknown,service.VoidAcceptedPayment(s.Id,"test").State); Equal(1,h.Voids);
             Equal(FiscalPaymentState.Unknown,service.RecoverVoid(s.Id).State); Equal(1,h.Voids);
             h.UnknownVoid = false; h.VoidWrongId = true; Equal(FiscalPaymentState.Unknown,service.RecoverVoid(s.Id).State);
-            h.VoidWrongId = false; Equal(FiscalPaymentState.Accepted,service.RecoverVoid(s.Id).State); Equal(1,h.Voids);
+            h.VoidWrongId = false; Equal(FiscalPaymentState.Accepted,service.RecoverVoid(s.Id).State); Equal("Voided",LatestState(s.Id)); Equal(1,h.Voids);
+        });
+        Test("voided payment can be replaced only after an audited payment-method change", () => {
+            var source = new Source();
+            var transport = new Http(source.Id,"iTimologia") { RejectInvoice = true };
+            var service = Service(transport);
+            PaymentRoute initialRoute = Route();
+            ProviderPaymentResult original = service.Send(source.Id,initialRoute,source);
+            Equal("Approved",original.Payment.State);
+            PaymentCompensationRecord voidRecord = service.VoidAcceptedPayment(
+                source.Id,"Customer selected another payment method");
+            Equal(FiscalPaymentState.Accepted,voidRecord.State);
+            Equal("Voided",LatestState(source.Id));
+            Throws(() => service.Send(source.Id,null,null,true));
+            Equal(1,transport.Authorizations);
+
+            source.Invoice.PaymentType = 4;
+            ProviderRoute providerRoute = initialRoute.Provider;
+            InvoiceBuildRequest replacementInvoice = source.Prepare(
+                source.Id,providerRoute);
+            PaymentRoute baseRoute = Route();
+            PaymentRoute replacementRoute = PaymentRoute.ForMode(
+                baseRoute.Provider,baseRoute.Endpoint,baseRoute.TerminalId,
+                "MELLON");
+            var replacementWorkflow = new InvoiceWorkflowSnapshot
+            {
+                InvoiceId = source.Id,
+                Provider = replacementRoute.Provider,
+                Payment = replacementRoute,
+                Invoice = replacementInvoice,
+                PaymentMethodChanges = new List<InvoicePaymentMethodChange>
+                {
+                    new InvoicePaymentMethodChange
+                    {
+                        PreviousPaymentType = 2,
+                        PaymentType = 4,
+                        ChangedBy = "test",
+                        ChangedUtc = DateTime.UtcNow.AddSeconds(1)
+                    }
+                }
+            };
+            transport.RejectInvoice = false;
+            ProviderPaymentResult replacement = service.Send(
+                source.Id,replacementRoute,replacementWorkflow,
+                retryRejectedInvoice:true);
+            Accepted(replacement);
+            Equal(2,transport.Authorizations);
+            Equal(1,replacement.Payment.PaymentType);
+            Equal(original.Payment.Id,
+                replacement.Payment.OriginalPaymentAttemptId.Value);
+            Check(original.Payment.TransactionUid !=
+                replacement.Payment.TransactionUid,
+                "Replacement payment reused the voided transaction identity");
+        });
+        Test("voiding an Ilyda payment cancels its unused provider signature", () => {
+            var source = new Source();
+            var transport = new Http(source.Id,"Ilyda.Direct")
+            {
+                RejectInvoice = true,
+                RejectionCode = 422
+            };
+            var service = Service(transport);
+            PaymentRoute route = Route("Ilyda.Direct");
+            ProviderPaymentResult result = service.Send(source.Id,route,source);
+            Equal("Approved",result.Payment.State);
+            PaymentCompensationRecord voidRecord = service.VoidAcceptedPayment(
+                source.Id,"Customer cancelled after rejection");
+            Equal(FiscalPaymentState.Accepted,voidRecord.State);
+            Equal("Voided",LatestState(source.Id));
+            Equal(1,transport.Cancellations);
+            PaymentCompensationRecord recovered = service.RecoverVoid(source.Id);
+            Equal(voidRecord.Id,recovered.Id);
+            Equal(1,transport.Cancellations);
         });
         Test("accepted invoice cannot be voided through failure compensation", () => {
             var s = new Source(); var h = new Http(s.Id,"iTimologia"); var service = Service(h); Accepted(service.Send(s.Id,Route(),s));
@@ -268,7 +341,14 @@ internal static partial class Program
             }
             Invoices++; Equal("Approved",LatestState(Id)); CheckLogged(raw); LastInvoice = JObject.Parse(raw);
             if(UnknownInvoice) throw new HttpRequestException("synthetic lost reply");
-            if(RejectInvoice) return Task.FromResult(Reply("{\"message\":\"Synthetic definitive rejection\"}",RejectionCode));
+            if(RejectInvoice) {
+                string rejection = Key == "iTimologia"
+                    ? "{\"message\":\"Synthetic definitive rejection\"}"
+                    : "{\"invoiceMarking\":null,\"errors\":[{\"fatal\":true,\"code\":\"SYNTHETIC\",\"message\":\"Synthetic definitive rejection\"}]}";
+                HttpResponseMessage rejectionResponse = Reply(rejection,
+                    RejectionCode);
+                return Task.FromResult(rejectionResponse);
+            }
             return Task.FromResult(Reply(Key == "iTimologia" ? TimReply(Id) : "{\"invoiceMarking\":{\"invoiceIdentifier\":\"UID\",\"invoiceId\":\"provider-id\",\"mark\":\"900010\",\"verificationHash\":\"HASH\"},\"errors\":[]}"));
         }
         private HttpResponseMessage Gateway(JObject request,string raw)

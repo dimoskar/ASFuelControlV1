@@ -719,12 +719,22 @@ namespace ASFuelControl.Windows.Threads
             {
                 var coupon = new SqlMyDieselStore(sql.Value).FindBlockingByInvoice(invoice.InvoiceId);
                 if (coupon == null) return null;
-                if (coupon.LocalStage != MyDieselCaseStage.Reserved || MyDieselCouponStates.Parse(coupon.RemoteStatus) != MyDieselCouponStatus.Reserved)
-                    throw new InvalidOperationException("Το κουπόνι myDiesel δεν έχει επιβεβαιωμένη κατάσταση RESERVED. Ολοκληρώστε πρώτα την ανάκτηση ή αποδέσμευση.");
+                MyDieselCouponStatus remoteStatus = MyDieselCouponStates.Parse(coupon.RemoteStatus);
+                bool normallyReserved = coupon.LocalStage == MyDieselCaseStage.Reserved &&
+                    remoteStatus == MyDieselCouponStatus.Reserved;
+                bool markCanBeCorrected = MyDieselCouponStates.CanRedeem(remoteStatus) &&
+                    remoteStatus != MyDieselCouponStatus.Reserved;
+                bool reassignmentPending = coupon.LocalStage == MyDieselCaseStage.ReassignmentPending &&
+                    markCanBeCorrected && coupon.MarkSourceInvoiceId.HasValue &&
+                    coupon.MarkSourceInvoiceId.Value != invoice.InvoiceId;
+                if (!normallyReserved && !reassignmentPending)
+                    throw new InvalidOperationException("Το κουπόνι myDiesel δεν έχει επιβεβαιωμένη δέσμευση ή ελεγχόμενη μεταφορά από λανθασμένο παραστατικό.");
                 if (invoice.Trader == null || MyDieselCouponIdentity.NormalizeVat(invoice.Trader.TaxRegistrationNumber,"Invoice trader VAT") != coupon.BeneficiaryVat)
                     throw new InvalidOperationException("Το ΑΦΜ του πελάτη δεν συμφωνεί με το ΑΦΜ δικαιούχου του κουπονιού myDiesel.");
                 if (route.LocalOnly || route.Provider == null)
                     throw new InvalidOperationException("Το myDiesel απαιτεί ηλεκτρονική διαβίβαση που επιστρέφει οριστικό MARK.");
+                if (route.Provider.ProviderKey == InvoiceProviderCatalog.MyDataKey)
+                    throw new InvalidOperationException("Το κουπόνι myDiesel επιτρέπεται μόνο σε παραστατικό που διαβιβάζεται μέσω παρόχου τιμολόγησης και όχι απευθείας στο myDATA.");
                 bool couponIsTest = coupon.Environment == FiscalEnvironment.Test;
                 if (route.Provider.TestMode != couponIsTest)
                 {

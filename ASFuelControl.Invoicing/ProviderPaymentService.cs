@@ -64,11 +64,33 @@ namespace ASFuelControl.Invoicing
             using (var lease = database.EnterInvoice(invoiceId))
             {
                 var records = history.Load(lease, FiscalJournalFamily.Payment);
-                if (records.Any(a => a.Operation != "Payment")) throw new InvalidOperationException("A related payment operation requires reconciliation before invoice processing.");
-                var saved = records.LastOrDefault();
+                var saved = records.LastOrDefault(item =>
+                    item.Operation == "Payment");
                 var changedWorkflow = source as InvoiceWorkflowSnapshot;
-                bool replaceTerminalPayment = changedWorkflow?.PaymentMethodChanges?.Count > 0 &&
-                    saved != null && (saved.State == "Declined" || saved.State == "Failed");
+                bool paymentMethodChanged = saved != null &&
+                    HasPaymentMethodChangeAfter(changedWorkflow,
+                        saved.UpdatedUtc);
+                bool replaceTerminalPayment = paymentMethodChanged &&
+                    (saved.State == "Declined" || saved.State == "Failed" ||
+                     saved.State == "Voided");
+                bool resolvedVoid = saved != null && saved.State == "Voided" &&
+                    records.Any(item => item.Operation == "Void" &&
+                        item.State == FiscalPaymentState.Accepted.ToString() &&
+                        item.OriginalAttemptId == saved.AttemptId);
+                bool unresolvedRelatedOperation = records.Any(item =>
+                    item.Operation != "Payment" &&
+                    !(replaceTerminalPayment && resolvedVoid &&
+                      item.Operation == "Void" &&
+                      item.State == FiscalPaymentState.Accepted.ToString() &&
+                      item.OriginalAttemptId == saved.AttemptId));
+                if (unresolvedRelatedOperation)
+                {
+                    throw new InvalidOperationException(
+                        "A related payment operation requires reconciliation before invoice processing.");
+                }
+                FiscalAttemptEvidence replacedPayment = replaceTerminalPayment
+                    ? saved
+                    : null;
                 if (replaceTerminalPayment) saved = null;
                 if (retryPaymentAttemptId.HasValue && saved?.AttemptId != retryPaymentAttemptId.Value)
                     throw new InvalidOperationException("Η προσπάθεια πληρωμής έχει αλλάξει. Ανανεώστε την κατάσταση πριν από επανάληψη.");
@@ -91,6 +113,24 @@ namespace ASFuelControl.Invoicing
                 {
                     if (recoverOnly) throw new InvalidOperationException("No payment exists to recover.");
                     if (route == null || source == null) throw new ArgumentException("A route and saved invoice source are required.");
+                    if (replacedPayment != null)
+                    {
+                        var previousRequest = JsonConvert.DeserializeObject<ProviderPaymentAttemptRequest>(
+                            System.Text.Encoding.UTF8.GetString(
+                                replacedPayment.RequestPayload));
+                        var previousSnapshot = JsonConvert.DeserializeObject<PaymentSnapshot>(
+                            previousRequest.WorkflowContext);
+                        string previousProvider = JsonConvert.SerializeObject(
+                            previousSnapshot?.Route?.Provider);
+                        string replacementProvider = JsonConvert.SerializeObject(
+                            route.Provider);
+                        if (previousSnapshot == null ||
+                            previousProvider != replacementProvider)
+                        {
+                            throw new InvalidOperationException(
+                                "Η αλλαγή τρόπου πληρωμής πρέπει να διατηρεί τον αρχικό πάροχο και εκδότη.");
+                        }
+                    }
                     foreach (var family in new[] { FiscalJournalFamily.Signing,
                         FiscalJournalFamily.Cancellation, FiscalJournalFamily.Print })
                         if (history.Load(lease, family).Any()) throw new InvalidOperationException("Existing " + family + " history requires reconciliation.");
@@ -108,7 +148,10 @@ namespace ASFuelControl.Invoicing
                     var invoice = new InvoiceBuilder(new InvoiceTypeResolver()).Build(input);
                     Validate(invoice, route, originalInvoiceId.HasValue);
                     new InvoiceAdapterFactory(new InvoiceTypeResolver()).CreatePayloadMapper(route.Provider.ProviderKey).Serialize(invoice, invoiceId);
-                    snapshot = new PaymentSnapshot { Version = 1, InvoiceId = invoiceId, Route = route, Invoice = invoice };
+                    InvoicePaymentMethodChange[] paymentMethodChanges =
+                        changedWorkflow?.PaymentMethodChanges?.ToArray();
+                    snapshot = new PaymentSnapshot { Version = 1, InvoiceId = invoiceId, Route = route, Invoice = invoice,
+                        PaymentMethodChanges = paymentMethodChanges };
                     var payment = invoice.PaymentMethods.Single();
                     request = new ProviderPaymentAttemptRequest { InvoiceId = invoiceId, Gateway = "GBridge", InvoiceProvider = route.Provider.ProviderKey,
                         ProviderId = InvoiceProviderCatalog.Get(route.Provider.ProviderKey).AadeProviderId.Value,
@@ -139,7 +182,12 @@ namespace ASFuelControl.Invoicing
                 });
                 var submission = history.Load(lease, FiscalJournalFamily.Submission).LastOrDefault();
                 if (submission != null && existingPayment?.State != "Approved" && existingPayment?.State != "Invoiced")
-                    throw new InvalidOperationException("Invoice history exists without a confirmed payment; no authorization is permitted.");
+                {
+                    if (!replaceTerminalPayment)
+                    {
+                        throw new InvalidOperationException("Invoice history exists without a confirmed payment; no authorization is permitted.");
+                    }
+                }
                 if (retryPaymentAttemptId.HasValue)
                 {
                     var prior = existingPayment;
@@ -189,12 +237,14 @@ namespace ASFuelControl.Invoicing
                 {
                     var lifecycle = provider as IInvoiceProviderPaymentLifecycle;
                     if (!recoverOnly && existingPayment?.State == "Declined") lifecycle?.CancelUnusedPaymentSignature(invoiceId, "TRANSACTION_FAILED");
+                    bool allowReplacementPayment = retryDeclined ||
+                        replaceTerminalPayment;
                     Func<bool, ProviderPaymentAttempt> authorize = onlyRecover => new ProviderPaymentCoordinator(store).Authorize(request, gateway,
                         () => lifecycle != null ? lifecycle.PreparePaymentSignature(snapshot.Invoice, invoiceId, true) :
                             ((ITimologiaInvoiceProvider)provider).CreatePaymentSignature(snapshot.Invoice, e => {
                                 e.TransactionUid = store.LoadLatest(invoiceId).TransactionUid; new SqlEvidenceLogger(database).Record(e); }),
                         signature => provider is IlydaInvoiceProvider ? ((IlydaInvoiceProvider)provider).GBridgeSignature(invoiceId, signature.ProviderSignature) : signature.ProviderSignature,
-                        retryDeclined, onlyRecover, attempt => {
+                        allowReplacementPayment, onlyRecover, attempt => {
                             if (attempt.RequiresSignatureRenewal) lifecycle?.CancelUnusedPaymentSignature(invoiceId, "TRANSACTION_CANCELLED");
                         });
                     var payment = authorize(recoverOnly);
@@ -260,9 +310,21 @@ namespace ASFuelControl.Invoicing
             if (new[] { "5.1", "5.2", "11.4" }.Contains(invoice.InvoiceHeader.InvoiceType) != refund)
                 throw new InvalidOperationException("A refund requires an explicit original accepted payment reference; invoice retry cannot infer it.");
         }
+        private static bool HasPaymentMethodChangeAfter(
+            InvoiceWorkflowSnapshot workflow, DateTime paymentUpdatedUtc)
+        {
+            if (workflow?.PaymentMethodChanges == null)
+            {
+                return false;
+            }
+            return workflow.PaymentMethodChanges.Any(change =>
+                change.PreviousPaymentType != change.PaymentType &&
+                change.ChangedUtc > paymentUpdatedUtc);
+        }
         private sealed class PaymentSnapshot
         {
             public int Version; public Guid InvoiceId; public PaymentRoute Route; public InvoiceModel Invoice;
+            public InvoicePaymentMethodChange[] PaymentMethodChanges;
         }
     }
 }

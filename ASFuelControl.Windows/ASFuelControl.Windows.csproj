@@ -1712,6 +1712,7 @@
     <Content Include="DBScripts\UpdateDatabase64.sql" />
     <Content Include="DBScripts\UpdateDatabase65.sql" />
     <Content Include="DBScripts\UpdateDatabase66.sql" />
+    <Content Include="DBScripts\UpdateDatabase67.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />
