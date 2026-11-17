@@ -1762,6 +1762,7 @@ namespace ASFuelControl.Windows.Threads
             Data.Invoice newInvoice = null;
             Data.Nozzle nozzle = null;
             bool persistenceVerified = false;
+            bool myDieselIssuanceHeld = false;
             NozzleSalePersistenceCoordinator.Begin(sale.NozzleId);
             try
             {
@@ -1860,6 +1861,14 @@ namespace ASFuelControl.Windows.Threads
                             "Invoice was not created for sale {0} on nozzle {1}.",
                             sale.SalesId,
                             sale.NozzleId));
+                    bool pendingMyDiesel =
+                        PendingMyDieselSelectionStore.HasPending(
+                            nozzle.DispenserId);
+                    if (pendingMyDiesel)
+                    {
+                        PrintAgent.HoldInvoice(newInvoice.InvoiceId);
+                        myDieselIssuanceHeld = true;
+                    }
                 }
                 if (nozzle != null)
                 {
@@ -1969,17 +1978,38 @@ namespace ASFuelControl.Windows.Threads
                 NozzleSalePersistenceCoordinator.End(
                     sale.NozzleId,
                     persistenceVerified);
+                if (!persistenceVerified && myDieselIssuanceHeld &&
+                    newInvoice != null)
+                {
+                    PrintAgent.ReleaseInvoice(newInvoice.InvoiceId);
+                    myDieselIssuanceHeld = false;
+                }
             }
 
-            if (newInvoice != null && nozzle != null)
+            if (newInvoice != null && nozzle != null &&
+                myDieselIssuanceHeld)
             {
                 try
                 {
-                    PendingMyDieselSelectionStore.AttachToInvoice(nozzle.DispenserId, newInvoice.InvoiceId);
+                    bool attached =
+                        PendingMyDieselSelectionStore.AttachToInvoice(
+                            nozzle.DispenserId, newInvoice.InvoiceId);
+                    if (!attached)
+                    {
+                        throw new InvalidOperationException(
+                            "The staged myDiesel voucher was not attached to the saved sale invoice.");
+                    }
+                    PrintAgent.ReleaseInvoice(newInvoice.InvoiceId);
+                    myDieselIssuanceHeld = false;
                 }
                 catch (Exception ex)
                 {
-                    Logger.Instance.LogToFile("myDiesel next sale", ex);
+                    InvalidOperationException attachmentException =
+                        new InvalidOperationException(
+                            "Το παραστατικό παραμένει σε αναμονή και δεν θα εκδοθεί χωρίς το επιλεγμένο κουπόνι myDiesel.",
+                            ex);
+                    Logger.Instance.LogToFile("myDiesel next sale",
+                        attachmentException);
                 }
             }
             ///////////////////////////

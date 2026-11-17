@@ -102,7 +102,9 @@ namespace Exedron.Invoicing.Core
                         to == MyDieselCaseStage.VerificationPending || to == MyDieselCaseStage.Final ||
                         to == MyDieselCaseStage.Dismissed || to == MyDieselCaseStage.ReassignmentAvailable;
                 case MyDieselCaseStage.Final:
-                    return to == MyDieselCaseStage.Dismissed || to == MyDieselCaseStage.ReassignmentAvailable;
+                    return to == MyDieselCaseStage.VerificationPending ||
+                        to == MyDieselCaseStage.Dismissed ||
+                        to == MyDieselCaseStage.ReassignmentAvailable;
                 case MyDieselCaseStage.ReassignmentAvailable:
                     return to == MyDieselCaseStage.ReassignmentPending;
                 case MyDieselCaseStage.ReassignmentPending:

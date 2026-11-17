@@ -427,7 +427,7 @@ namespace ASFuelControl.Windows.UI.SelectionForms
             couponMessage.ForeColor = mismatch ? Color.FromArgb(170, 60, 35) : Color.FromArgb(20, 86, 122);
             couponMessage.Text = mismatch
                 ? "⚠  Το ΑΦΜ του επιλεγμένου πελάτη δεν συμφωνεί με το κουπόνι. Επιλέξτε τον σωστό πελάτη ή αφαιρέστε το κουπόνι."
-                : "✓  Το ΑΦΜ συμφωνεί. Καύσιμο και λίτρα θα ελεγχθούν πριν από τη δέσμευση· αν δεν είναι επιλέξιμα, το παραστατικό θα συνεχίσει χωρίς κουπόνι.";
+                : "✓  Το ΑΦΜ συμφωνεί. Καύσιμο και λίτρα θα ελεγχθούν πριν από τη δέσμευση· αν δεν είναι επιλέξιμα, το παραστατικό δεν θα εκδοθεί χωρίς διόρθωση.";
             apply.Enabled = SelectedVehicle != null && !mismatch;
         }
 
@@ -475,6 +475,17 @@ namespace ASFuelControl.Windows.UI.SelectionForms
                 RadMessageBox.Show("Το ΑΦΜ του πελάτη δεν συμφωνεί με το ΑΦΜ δικαιούχου του κουπονιού.",
                     "myDiesel", MessageBoxButtons.OK, RadMessageIcon.Exclamation);
                 return;
+            }
+            if (stagedCoupon != null)
+            {
+                string routeProblem =
+                    SharedMyDieselRuntime.InvoiceTypeEligibilityProblem(typeId);
+                if (routeProblem != null)
+                {
+                    RadMessageBox.Show(routeProblem, "myDiesel",
+                        MessageBoxButtons.OK, RadMessageIcon.Exclamation);
+                    return;
+                }
             }
 
             SelectedInvoiceTypeId = typeId;

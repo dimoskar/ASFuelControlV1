@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ASFuelControl.Invoicing;
+using ASFuelControl.Invoicing.Persistence;
 using Exedron.Invoicing.Core;
 
 namespace ASFuelControl.Windows.Threads
@@ -38,6 +39,12 @@ namespace ASFuelControl.Windows.Threads
             }
         }
 
+        internal static bool HasPending(Guid dispenserId)
+        {
+            PendingMyDieselSelection pending = Get(dispenserId);
+            return pending != null;
+        }
+
         internal static void Set(Guid dispenserId, MyDieselCouponIdentity identity, MyDieselQrCoupon qr)
         {
             if (dispenserId == Guid.Empty) throw new ArgumentException("Dispenser ID is required.", nameof(dispenserId));
@@ -56,70 +63,153 @@ namespace ASFuelControl.Windows.Threads
         /// receive the discount, while myDiesel verifies the actual invoice litres
         /// asynchronously through myDATA.
         /// </summary>
-        internal static void AttachToInvoice(Guid dispenserId, Guid invoiceId)
+        internal static bool AttachToInvoice(Guid dispenserId, Guid invoiceId)
         {
-            var pending = Get(dispenserId);
-            if (pending == null || invoiceId == Guid.Empty) return;
-
-            try
+            PendingMyDieselSelection pending = Get(dispenserId);
+            if (pending == null || invoiceId == Guid.Empty)
             {
-                string eligibilityProblem = SharedMyDieselRuntime.InvoiceEligibilityProblem(invoiceId);
-                if (eligibilityProblem != null)
-                {
-                    Logging.Logger.Instance.LogToFile("myDiesel next sale",
-                        eligibilityProblem + " Το κουπόνι δεν δεσμεύτηκε και το παραστατικό συνεχίζει κανονικά.");
-                    return;
-                }
-
-                using (var db = new Data.DatabaseModel(Properties.Settings.Default.DBConnection))
-                {
-                    var invoice = db.Invoices.Single(value => value.InvoiceId == invoiceId);
-                    string traderVat = invoice.Trader == null
-                        ? null
-                        : MyDieselCouponIdentity.NormalizeVat(invoice.Trader.TaxRegistrationNumber, "ΑΦΜ πελάτη");
-                    if (traderVat != pending.Identity.BeneficiaryVat)
-                    {
-                        Logging.Logger.Instance.LogToFile("myDiesel next sale",
-                            "Το ΑΦΜ του παραστατικού δεν συμφωνεί με το staged κουπόνι. Το κουπόνι δεν δεσμεύτηκε.");
-                        return;
-                    }
-                }
-
-                var configuration = SharedInvoicingSettings.LoadRuntime();
-                var service = SharedMyDieselRuntime.CreateService(configuration);
-                var scope = SharedMyDieselRuntime.NewReservationScope(configuration);
-                decimal rate = configuration.MyDiesel.ExciseDiscountPerLitre;
-                var coupon = pending.Qr == null
-                    ? service.Capture(invoiceId, pending.Identity, scope, null, null, rate)
-                    : service.Capture(invoiceId, pending.Qr, scope, rate);
-                var reservation = service.Reserve(coupon.CouponCaseId);
-                var reserved = reservation.CouponCase;
-                if (reserved == null || reserved.LocalStage != MyDieselCaseStage.Reserved ||
-                    MyDieselCouponStates.Parse(reserved.RemoteStatus) != MyDieselCouponStatus.Reserved)
-                    return;
-
-                string problem;
-                if (!SaleRemainsEligible(invoiceId, out problem))
-                {
-                    Logging.Logger.Instance.LogToFile("myDiesel next sale", problem + " Το κουπόνι αποδεσμεύεται.");
-                    service.Release(reserved.CouponCaseId);
-                    return;
-                }
-                if (!reserved.IssuedLitres.HasValue || reserved.IssuedLitres.Value <= 0)
-                {
-                    Logging.Logger.Instance.LogToFile("myDiesel next sale",
-                        "Δεν επιστράφηκαν έγκυρα λίτρα κουπονιού. Το κουπόνι αποδεσμεύεται.");
-                    service.Release(reserved.CouponCaseId);
-                    return;
-                }
-
-                ApplyExciseDiscount(invoiceId, reserved.IssuedLitres.Value, reserved.ExciseDiscountPerLitre);
+                return false;
             }
-            finally
+
+            string eligibilityProblem =
+                SharedMyDieselRuntime.InvoiceEligibilityProblem(invoiceId);
+            if (eligibilityProblem != null)
             {
-                // A staged coupon belongs to one physical sale only. Never allow a
-                // failed attempt to leak into the following customer's transaction.
-                Clear(dispenserId);
+                throw new InvalidOperationException(eligibilityProblem);
+            }
+
+            using (var db = new Data.DatabaseModel(
+                Properties.Settings.Default.DBConnection))
+            {
+                Data.Invoice invoice = db.Invoices.Single(value =>
+                    value.InvoiceId == invoiceId);
+                string traderVat = invoice.Trader == null
+                    ? null
+                    : MyDieselCouponIdentity.NormalizeVat(
+                        invoice.Trader.TaxRegistrationNumber,
+                        "ΑΦΜ πελάτη");
+                if (traderVat != pending.Identity.BeneficiaryVat)
+                {
+                    throw new InvalidOperationException(
+                        "Το ΑΦΜ του παραστατικού δεν συμφωνεί με το staged κουπόνι.");
+                }
+            }
+
+            SharedInvoiceConfiguration configuration =
+                SharedInvoicingSettings.LoadRuntime();
+            MyDieselCouponService service =
+                SharedMyDieselRuntime.CreateService(configuration);
+            MyDieselScope scope =
+                SharedMyDieselRuntime.NewReservationScope(configuration);
+            decimal rate = configuration.MyDiesel.ExciseDiscountPerLitre;
+            MyDieselCouponCaseRecord coupon = pending.Qr == null
+                ? service.Capture(invoiceId, pending.Identity, scope, null,
+                    null, rate)
+                : service.Capture(invoiceId, pending.Qr, scope, rate);
+            MyDieselServiceResult reservation = service.Reserve(
+                coupon.CouponCaseId);
+            MyDieselCouponCaseRecord reserved = reservation.CouponCase;
+            if (reserved == null || reserved.LocalStage !=
+                MyDieselCaseStage.Reserved ||
+                MyDieselCouponStates.Parse(reserved.RemoteStatus) !=
+                    MyDieselCouponStatus.Reserved)
+            {
+                throw new InvalidOperationException(
+                    "Το κουπόνι myDiesel δεν δεσμεύτηκε οριστικά.");
+            }
+
+            string problem;
+            if (!SaleRemainsEligible(invoiceId, out problem))
+            {
+                service.Release(reserved.CouponCaseId);
+                throw new InvalidOperationException(problem +
+                    " Το κουπόνι αποδεσμεύτηκε.");
+            }
+            if (!reserved.IssuedLitres.HasValue ||
+                reserved.IssuedLitres.Value <= 0)
+            {
+                service.Release(reserved.CouponCaseId);
+                throw new InvalidOperationException(
+                    "Δεν επιστράφηκαν έγκυρα λίτρα κουπονιού. Το κουπόνι αποδεσμεύτηκε.");
+            }
+
+            ApplyExciseDiscount(invoiceId, reserved.IssuedLitres.Value,
+                reserved.ExciseDiscountPerLitre);
+            EnsurePersistedVoucherAndDiscount(invoiceId);
+            Clear(dispenserId);
+            return true;
+        }
+
+        internal static void EnsurePersistedVoucherAndDiscount(Guid invoiceId)
+        {
+            if (invoiceId == Guid.Empty)
+            {
+                throw new ArgumentException("Invoice ID is required.",
+                    nameof(invoiceId));
+            }
+
+            var fiscalDatabase = new SqlFiscalDatabase(
+                Properties.Settings.Default.DBConnection);
+            var couponStore = new SqlMyDieselStore(fiscalDatabase);
+            MyDieselCouponCaseRecord coupon =
+                couponStore.FindBlockingByInvoice(invoiceId);
+            if (coupon == null)
+            {
+                throw new InvalidOperationException(
+                    "Δεν βρέθηκε ενεργό κουπόνι myDiesel συνδεδεμένο με το παραστατικό.");
+            }
+            if (coupon.InvoiceId != invoiceId || !coupon.BlocksInvoice)
+            {
+                throw new InvalidOperationException(
+                    "Το κουπόνι myDiesel δεν είναι συνδεδεμένο με το παραστατικό.");
+            }
+
+            MyDieselCouponStatus remoteStatus =
+                MyDieselCouponStates.Parse(coupon.RemoteStatus);
+            bool reserved = coupon.LocalStage == MyDieselCaseStage.Reserved &&
+                remoteStatus == MyDieselCouponStatus.Reserved;
+            bool reassignment = coupon.LocalStage ==
+                MyDieselCaseStage.ReassignmentPending &&
+                MyDieselCouponStates.CanRedeem(remoteStatus) &&
+                remoteStatus != MyDieselCouponStatus.Reserved;
+            if (!reserved && !reassignment)
+            {
+                throw new InvalidOperationException(
+                    "Το κουπόνι myDiesel δεν έχει επιβεβαιωμένη δέσμευση.");
+            }
+            if (!coupon.IssuedLitres.HasValue || coupon.IssuedLitres.Value <= 0)
+            {
+                throw new InvalidOperationException(
+                    "Το κουπόνι myDiesel δεν περιέχει έγκυρη ποσότητα λίτρων.");
+            }
+
+            string problem;
+            if (!SaleRemainsEligible(invoiceId, out problem))
+            {
+                throw new InvalidOperationException(problem);
+            }
+
+            ReconcileExciseDiscount(invoiceId, coupon.IssuedLitres.Value,
+                coupon.ExciseDiscountPerLitre);
+
+            using (var db = new Data.DatabaseModel(
+                Properties.Settings.Default.DBConnection))
+            {
+                Data.Invoice invoice = db.Invoices.Single(value =>
+                    value.InvoiceId == invoiceId);
+                decimal lineDiscount = invoice.InvoiceLines.Sum(line =>
+                    Math.Abs(line.DiscountAmountRetail));
+                decimal invoiceDiscount = Math.Abs(
+                    invoice.DiscountAmountRetail);
+                decimal generalDiscount = Math.Abs(invoice.DiscountAmount);
+                bool discountPersisted = invoiceDiscount > 0 &&
+                    Math.Abs(invoiceDiscount - lineDiscount) <= 0.01m &&
+                    Math.Abs(generalDiscount - lineDiscount) <= 0.01m;
+                if (!discountPersisted)
+                {
+                    throw new InvalidOperationException(
+                        "Η έκπτωση myDiesel δεν αποθηκεύτηκε στο παραστατικό.");
+                }
             }
         }
 

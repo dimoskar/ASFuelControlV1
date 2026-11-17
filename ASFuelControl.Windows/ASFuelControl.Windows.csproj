@@ -1714,6 +1714,7 @@
     <Content Include="DBScripts\UpdateDatabase65.sql" />
     <Content Include="DBScripts\UpdateDatabase66.sql" />
     <Content Include="DBScripts\UpdateDatabase67.sql" />
+    <Content Include="DBScripts\UpdateDatabase68.sql" />
     <Content Include="DBScripts\UpdateDatabase6.sql" />
     <Content Include="DBScripts\UpdateDatabase7.sql" />
     <Content Include="DBScripts\UpdateDatabase8.sql" />
@@ -1769,6 +1770,7 @@
     <None Include="Resources\ExcelExport32 .png" />
     <None Include="Resources\PDFExport32.png" />
     <None Include="Resources\InvoiceReplace32.png" />
+    <None Include="Resources\InvoiceCorrection32.png" />
     <None Include="Resources\InvoiceCancel32.png" />
     <None Include="Resources\Payment32.png" />
     <None Include="Resources\Menu32.png" />
@@ -1852,10 +1854,14 @@
     <Compile Include="Threads\PendingMyDieselSelectionStore.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.HeatingBatch.cs" />
     <Compile Include="Threads\SharedInvoiceRuntime.InvoiceTypeCorrection.cs" />
+    <Compile Include="Threads\SharedInvoiceRuntime.MyDieselInvoiceCorrection.cs" />
     <Compile Include="UI\Forms\HeatingCorrectionBatchForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\Forms\InvoiceTypeCorrectionBatchForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Forms\MyDieselInvoiceCorrectionBatchForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\Forms\GBridgeDiagnosticsForm.cs">

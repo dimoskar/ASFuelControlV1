@@ -101,6 +101,12 @@ namespace ASFuelControl.Windows.Threads
             return true;
         }
 
+        internal bool IsWholesaleCode(int officialCode)
+        {
+            return Mapping != null && Mapping.WholesaleCodes != null &&
+                Mapping.WholesaleCodes.Contains(officialCode);
+        }
+
         internal SharedInvoiceRoute Route(Guid typeId, string printerName, bool laserPrint = false)
         {
             if (Version == 1)

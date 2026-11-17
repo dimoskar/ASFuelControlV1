@@ -1383,7 +1383,9 @@ namespace ASFuelControl.Windows.UI.Forms
         private async void btnPrint_Click(object sender, EventArgs e)
         {
             if (fiscalPanel.Busy || (myDieselVisible && myDieselPanel.Busy)) return;
-            if (!Threads.SharedInvoiceRuntime.Owns(this.ivm.InvoiceId))
+            bool invoiceOwned =
+                Threads.SharedInvoiceRuntime.Owns(this.ivm.InvoiceId);
+            if (!invoiceOwned)
             {
                 CommitEditorValues();
                 lookupValidationMessageShown = false;
@@ -1397,20 +1399,36 @@ namespace ASFuelControl.Windows.UI.Forms
             // screen data before a reprint. The status panel locks issued fields.
             if (Threads.SharedInvoiceRuntime.Handles(this.ivm.InvoiceId))
             {
+                bool invoiceHeld = false;
                 try
                 {
-                    if (!Threads.SharedInvoiceRuntime.Owns(this.ivm.InvoiceId))
+                    if (!invoiceOwned)
                     {
-                        if (this.ivm.HasChanges && !this.SaveInvoice())
+                        Threads.PrintAgent.HoldInvoice(this.ivm.InvoiceId);
+                        invoiceHeld = true;
+                        bool invoicePersisted =
+                            InvoiceExists(this.ivm.InvoiceId);
+                        bool saveRequired = this.ivm.HasChanges ||
+                            !invoicePersisted;
+                        if (saveRequired)
                         {
-                            if (lookupValidationMessageShown)
-                                return;
-                            string saveError = pairSaveError;
-                            if (string.IsNullOrWhiteSpace(saveError))
+                            bool invoiceSaved = this.SaveInvoice();
+                            if (!invoiceSaved)
                             {
-                                saveError = InvoiceValidationMessage(this.ivm);
+                                if (lookupValidationMessageShown)
+                                    return;
+                                string saveError = pairSaveError;
+                                if (string.IsNullOrWhiteSpace(saveError))
+                                {
+                                    saveError = InvoiceValidationMessage(
+                                        this.ivm);
+                                }
+                                throw new InvalidOperationException(saveError);
                             }
-                            throw new InvalidOperationException(saveError);
+                        }
+                        if (myDieselVisible && myDieselPanel != null)
+                        {
+                            myDieselPanel.EnsurePersistedForIssuance();
                         }
                     }
                     ProcessPendingRelatedInvoices();
@@ -1421,6 +1439,14 @@ namespace ASFuelControl.Windows.UI.Forms
                 {
                     Logging.Logger.Instance.LogToFile("Shared invoice print", ex);
                     RadMessageBox.Show(ex.Message, "Σφάλμα Εκτύπωσης", MessageBoxButtons.OK, RadMessageIcon.Error);
+                }
+                finally
+                {
+                    if (invoiceHeld)
+                    {
+                        Threads.PrintAgent.ReleaseInvoice(
+                            this.ivm.InvoiceId);
+                    }
                 }
                 return;
             }

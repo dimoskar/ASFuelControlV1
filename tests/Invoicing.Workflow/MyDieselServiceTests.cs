@@ -191,6 +191,48 @@ internal static partial class Program
             Equal(MyDieselCaseStage.Redeemed, reconciled.CouponCase.LocalStage);
             Equal("400001234567890", reconciled.CouponCase.InvoiceMark); Equal(3, factory.Calls);
         });
+        Test("myDiesel query replaces a stale verified state with verification invalid", () =>
+        {
+            var factory = new DieselFactory();
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "RESERVED", true));
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "VERIFIED", false));
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "VERIFICATION_INVALID", false));
+            var service = new MyDieselCouponService(database, factory);
+            Guid invoiceId = DraftInvoice();
+            MyDieselCouponIdentity identity = Identity(
+                "AEBP-1109-4226-7742-7204");
+            MyDieselScope scope = Scope();
+            MyDieselCouponCaseRecord coupon = service.Capture(invoiceId,
+                identity, scope);
+            service.Reserve(coupon.CouponCaseId);
+            MyDieselServiceResult verified = service.Redeem(
+                coupon.CouponCaseId, invoiceId, "400015978281582");
+            Equal(MyDieselCaseStage.Final, verified.CouponCase.LocalStage);
+            Equal("VERIFIED", verified.CouponCase.RemoteStatus);
+
+            MyDieselServiceResult refreshed = service.RefreshStatus(
+                coupon.CouponCaseId);
+
+            Equal(MyDieselCaseStage.VerificationPending,
+                refreshed.CouponCase.LocalStage);
+            Equal("VERIFICATION_INVALID",
+                refreshed.CouponCase.RemoteStatus);
+            var store = new SqlMyDieselStore(database);
+            MyDieselCouponCaseRecord persisted;
+            using (IFiscalDocumentLease lease = store.Acquire(
+                coupon.CouponCaseId))
+            {
+                persisted = store.Load(lease);
+            }
+            Equal(MyDieselCaseStage.VerificationPending,
+                persisted.LocalStage);
+            Equal("VERIFICATION_INVALID", persisted.RemoteStatus);
+            Check(MyDieselCouponService.CanReleaseForReassignment(persisted),
+                "The authoritative invalid status was not selectable for correction.");
+        });
         Test("myDiesel rejects a successful envelope for a different coupon identity", () => {
             var factory = new DieselFactory();
             factory.Results.Enqueue((operation, caseRow) => {
@@ -354,6 +396,279 @@ internal static partial class Program
             Equal("400001234567891",corrected.InvoiceMark);
             Equal(newInvoiceId,corrected.MarkSourceInvoiceId);
             Equal(3,factory.Calls);
+        });
+        Test("redeemed provider voucher moves to a correction replacement without a second scan", delegate
+        {
+            var oldSource = new WorkflowSource();
+            Guid oldInvoiceId = oldSource.Source.Id;
+            DraftInvoice(oldInvoiceId);
+            var factory = new DieselFactory();
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "RESERVED", true));
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "REDEEMED", false));
+            var couponService = new MyDieselCouponService(database, factory);
+            var scope = new MyDieselScope(FiscalEnvironment.Test,
+                "000000000", 0, "uat-fixture", "AMD-0");
+            var identity = new MyDieselCouponIdentity(
+                "ABTY-1108-4031-5521-0302", "111111111");
+            MyDieselCouponCaseRecord coupon = couponService.Capture(
+                oldInvoiceId, identity, scope, null, null, 0.375m);
+            couponService.Reserve(coupon.CouponCaseId);
+            couponService.Redeem(coupon.CouponCaseId, oldInvoiceId,
+                "400001234567892");
+            ProviderRoute provider = Route(
+                InvoiceProviderCatalog.ITimologiaKey);
+            InvoiceBuildRequest request = oldSource.Source.Prepare(
+                oldInvoiceId, provider);
+            byte[] printContent = System.Text.Encoding.UTF8.GetBytes(
+                "provider invoice");
+            var oldSnapshot = new InvoiceWorkflowSnapshot
+            {
+                Version = 2,
+                InvoiceId = oldInvoiceId,
+                Provider = provider,
+                Invoice = request,
+                PrintDestination = "old",
+                PrintFormat = "test/v1",
+                PrintContent = printContent,
+                MyDieselCouponCaseId = coupon.CouponCaseId,
+                MyDieselScope = scope,
+                MyDieselExciseDiscountPerLitre =
+                    coupon.ExciseDiscountPerLitre
+            };
+            string snapshotJson = Newtonsoft.Json.JsonConvert.SerializeObject(
+                oldSnapshot);
+            byte[] snapshotBytes = System.Text.Encoding.UTF8.GetBytes(
+                snapshotJson);
+            using (var oldLease = database.EnterInvoice(oldInvoiceId))
+            {
+                var workflowStore = new SqlInvoiceWorkflowStore(database);
+                workflowStore.Save(oldLease, snapshotBytes);
+            }
+
+            Guid replacementInvoiceId = DraftInvoice();
+            MyDieselCouponCaseRecord reassigned =
+                couponService.ReassignToCorrectedInvoice(
+                    coupon.CouponCaseId, replacementInvoiceId,
+                    "administrator", "AADE invoice-data correction");
+
+            Equal(MyDieselCaseStage.ReassignmentPending,
+                reassigned.LocalStage);
+            Equal(replacementInvoiceId, reassigned.InvoiceId);
+            Equal(oldInvoiceId, reassigned.MarkSourceInvoiceId);
+            using (var oldLease = database.EnterInvoice(oldInvoiceId))
+            {
+                var workflowStore = new SqlInvoiceWorkflowStore(database);
+                byte[] savedBytes = workflowStore.Load(oldLease);
+                string savedJson = System.Text.Encoding.UTF8.GetString(
+                    savedBytes);
+                InvoiceWorkflowSnapshot savedOld =
+                    Newtonsoft.Json.JsonConvert.DeserializeObject<
+                        InvoiceWorkflowSnapshot>(savedJson);
+                Equal(null, savedOld.MyDieselCouponCaseId);
+                Equal(1, savedOld.MyDieselDetachments.Count);
+                Equal(InvoiceProviderCatalog.ITimologiaKey,
+                    savedOld.MyDieselDetachments[0].PreviousProviderKey);
+                Equal(replacementInvoiceId,
+                    savedOld.MyDieselDetachments[0].ReplacementInvoiceId);
+            }
+        });
+        Test("myDiesel correction endpoint leaves coupon attached to exactly one invoice", delegate
+        {
+            var originalSource = new WorkflowSource();
+            Guid originalInvoiceId = originalSource.Source.Id;
+            DraftInvoice(originalInvoiceId);
+            var replacementSource = new WorkflowSource();
+            Guid replacementInvoiceId = replacementSource.Source.Id;
+            DraftInvoice(replacementInvoiceId);
+            var factory = new DieselFactory();
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "RESERVED", true));
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "REDEEMED", false));
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "REDEEMED", false));
+            var couponService = new MyDieselCouponService(database, factory);
+            var scope = new MyDieselScope(FiscalEnvironment.Test,
+                "000000000", 0, "uat-fixture", "AMD-0");
+            var identity = new MyDieselCouponIdentity(
+                "ATKE-1108-4031-5521-0302", "111111111");
+            MyDieselCouponCaseRecord coupon = couponService.Capture(
+                originalInvoiceId, identity, scope, null, null, 0.375m);
+            couponService.Reserve(coupon.CouponCaseId);
+            const string originalMark = "400001234567893";
+            const string replacementMark = "400001234567894";
+            couponService.Redeem(coupon.CouponCaseId, originalInvoiceId,
+                originalMark);
+            ProviderRoute provider = Route(
+                InvoiceProviderCatalog.ITimologiaKey);
+            InvoiceBuildRequest originalRequest =
+                originalSource.Source.Prepare(originalInvoiceId, provider);
+            InvoiceBuildRequest replacementRequest =
+                replacementSource.Source.Prepare(replacementInvoiceId,
+                    provider);
+            byte[] printContent = System.Text.Encoding.UTF8.GetBytes(
+                "correction invoice");
+            var originalSnapshot = new InvoiceWorkflowSnapshot
+            {
+                Version = 2,
+                InvoiceId = originalInvoiceId,
+                Provider = provider,
+                Invoice = originalRequest,
+                PrintDestination = "old",
+                PrintFormat = "test/v1",
+                PrintContent = printContent,
+                MyDieselCouponCaseId = coupon.CouponCaseId,
+                MyDieselScope = scope,
+                MyDieselExciseDiscountPerLitre =
+                    coupon.ExciseDiscountPerLitre
+            };
+            var replacementSnapshot = new InvoiceWorkflowSnapshot
+            {
+                InvoiceId = replacementInvoiceId,
+                Provider = provider,
+                Invoice = replacementRequest,
+                PrintDestination = "new",
+                PrintFormat = "test/v1",
+                PrintContent = printContent
+            };
+            var workflowStore = new SqlInvoiceWorkflowStore(database);
+            string originalJson =
+                Newtonsoft.Json.JsonConvert.SerializeObject(originalSnapshot);
+            byte[] originalBytes = System.Text.Encoding.UTF8.GetBytes(
+                originalJson);
+            using (var originalLease = database.EnterInvoice(
+                originalInvoiceId))
+            {
+                workflowStore.Save(originalLease, originalBytes);
+            }
+            string replacementJson =
+                Newtonsoft.Json.JsonConvert.SerializeObject(
+                    replacementSnapshot);
+            byte[] replacementBytes = System.Text.Encoding.UTF8.GetBytes(
+                replacementJson);
+            using (var replacementLease = database.EnterInvoice(
+                replacementInvoiceId))
+            {
+                workflowStore.Save(replacementLease, replacementBytes);
+            }
+
+            const string correctionReason =
+                "AADE invoice association correction";
+            MyDieselServiceResult result =
+                couponService.CorrectInvoiceAssociationOrRecover(
+                    coupon.CouponCaseId, originalInvoiceId,
+                    replacementInvoiceId, originalMark, replacementMark,
+                    "administrator", correctionReason);
+
+            Equal(MyDieselOperationState.Succeeded,
+                result.OperationState);
+            Equal(replacementInvoiceId, result.CouponCase.InvoiceId);
+            Equal(replacementInvoiceId,
+                result.CouponCase.MarkSourceInvoiceId);
+            Equal(replacementMark, result.CouponCase.InvoiceMark);
+            using (var originalLease = database.EnterInvoice(
+                originalInvoiceId))
+            {
+                byte[] savedBytes = workflowStore.Load(originalLease);
+                string savedJson = System.Text.Encoding.UTF8.GetString(
+                    savedBytes);
+                InvoiceWorkflowSnapshot savedOriginal =
+                    Newtonsoft.Json.JsonConvert.DeserializeObject<
+                        InvoiceWorkflowSnapshot>(savedJson);
+                Equal(null, savedOriginal.MyDieselCouponCaseId);
+            }
+            using (var replacementLease = database.EnterInvoice(
+                replacementInvoiceId))
+            {
+                byte[] savedBytes = workflowStore.Load(replacementLease);
+                string savedJson = System.Text.Encoding.UTF8.GetString(
+                    savedBytes);
+                InvoiceWorkflowSnapshot savedReplacement =
+                    Newtonsoft.Json.JsonConvert.DeserializeObject<
+                        InvoiceWorkflowSnapshot>(savedJson);
+                Equal(coupon.CouponCaseId,
+                    savedReplacement.MyDieselCouponCaseId);
+            }
+        });
+        Test("rejected myDiesel correction keeps coupon attached to original invoice", delegate
+        {
+            var originalSource = new WorkflowSource();
+            Guid originalInvoiceId = originalSource.Source.Id;
+            DraftInvoice(originalInvoiceId);
+            Guid replacementInvoiceId = DraftInvoice();
+            var factory = new DieselFactory();
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "RESERVED", true));
+            factory.Results.Enqueue((operation, caseRow) =>
+                Success(operation, caseRow, "REDEEMED", false));
+            factory.Results.Enqueue((operation, caseRow) =>
+                new MyDieselCallResult<MyDieselCouponInfo>
+                {
+                    Operation = operation,
+                    State = MyDieselOperationState.Rejected,
+                    HttpStatus = 400,
+                    Error = new MyDieselError
+                    {
+                        HttpStatus = 400,
+                        Code = "COUPON_STATUS_INVALID"
+                    }
+                });
+            var couponService = new MyDieselCouponService(database, factory);
+            MyDieselScope scope = Scope();
+            MyDieselCouponIdentity identity = Identity(
+                "APTE-1108-4031-5521-0302");
+            MyDieselCouponCaseRecord coupon = couponService.Capture(
+                originalInvoiceId, identity, scope);
+            couponService.Reserve(coupon.CouponCaseId);
+            const string originalMark = "400001234567895";
+            couponService.Redeem(coupon.CouponCaseId, originalInvoiceId,
+                originalMark);
+            ProviderRoute provider = Route(
+                InvoiceProviderCatalog.ITimologiaKey);
+            InvoiceBuildRequest request = originalSource.Source.Prepare(
+                originalInvoiceId, provider);
+            var originalSnapshot = new InvoiceWorkflowSnapshot
+            {
+                Version = 2,
+                InvoiceId = originalInvoiceId,
+                Provider = provider,
+                Invoice = request,
+                PrintDestination = "old",
+                PrintFormat = "test/v1",
+                PrintContent = System.Text.Encoding.UTF8.GetBytes("old"),
+                MyDieselCouponCaseId = coupon.CouponCaseId,
+                MyDieselScope = scope,
+                MyDieselExciseDiscountPerLitre =
+                    coupon.ExciseDiscountPerLitre
+            };
+            string originalJson =
+                Newtonsoft.Json.JsonConvert.SerializeObject(originalSnapshot);
+            byte[] originalBytes = System.Text.Encoding.UTF8.GetBytes(
+                originalJson);
+            using (var originalLease = database.EnterInvoice(
+                originalInvoiceId))
+            {
+                var workflowStore = new SqlInvoiceWorkflowStore(database);
+                workflowStore.Save(originalLease, originalBytes);
+            }
+
+            MyDieselServiceResult result =
+                couponService.CorrectInvoiceAssociationOrRecover(
+                    coupon.CouponCaseId, originalInvoiceId,
+                    replacementInvoiceId, originalMark,
+                    "400001234567896", "administrator",
+                    "Rejected AADE correction fixture");
+
+            Equal(MyDieselOperationState.Rejected,
+                result.OperationState);
+            Equal(originalInvoiceId, result.CouponCase.InvoiceId);
+            Equal(originalInvoiceId,
+                result.CouponCase.MarkSourceInvoiceId);
+            Equal(originalMark, result.CouponCase.InvoiceMark);
+            couponService.VerifyCouponAssociation(coupon.CouponCaseId,
+                originalInvoiceId, originalMark, replacementInvoiceId);
         });
         Test("iTimologia legacy recovery redeems the existing RESERVED myDiesel case without printing", () => {
             var source = new WorkflowSource();

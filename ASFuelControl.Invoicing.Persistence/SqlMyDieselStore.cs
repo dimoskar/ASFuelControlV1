@@ -97,11 +97,16 @@ WHERE CouponCaseId=@case AND Revision=@expected AND FencingToken<=@token;";
 SET InvoiceId=@invoice,LocalStage=@stage,BlocksInvoice=@blocksInvoice,BlocksCouponReuse=@blocksCoupon,
 Revision=Revision+1,FencingToken=@token,UpdatedUtc=@updated
 WHERE CouponCaseId=@case AND InvoiceId=@oldInvoice AND Revision=@expected AND FencingToken<=@token;";
+        internal const string CorrectedReassignCase = @"UPDATE dbo.MyDieselCouponCase
+SET InvoiceId=@invoice,MarkSourceInvoiceId=@invoice,Revision=Revision+1,FencingToken=@token,UpdatedUtc=@updated
+WHERE CouponCaseId=@case AND InvoiceId=@oldInvoice AND InvoiceMark=@mark
+AND MarkSourceInvoiceId=@oldInvoice AND Revision=@expected AND FencingToken<=@token;";
         internal const string ReadCase = "SELECT " + CaseColumns + " FROM dbo.MyDieselCouponCase WHERE CouponCaseId=@case;";
         internal const string ReadBlockingInvoice = "SELECT " + CaseColumns + " FROM dbo.MyDieselCouponCase WHERE InvoiceId=@invoice AND BlocksInvoice=1;";
         internal const string ReadLatestInvoice = "SELECT TOP 1 " + CaseColumns + " FROM dbo.MyDieselCouponCase WHERE InvoiceId=@invoice ORDER BY CreatedUtc DESC,CouponCaseId DESC;";
         internal const string ReadBlockingCoupon = "SELECT " + CaseColumns + " FROM dbo.MyDieselCouponCase WHERE CouponCode=@code AND BlocksCouponReuse=1;";
         internal const string ReadReassignmentCandidates = "SELECT " + CaseColumns + " FROM dbo.MyDieselCouponCase WHERE BlocksCouponReuse=1 AND InvoiceMark IS NOT NULL AND LocalStage IN ('Redeemed','VerificationPending','InterventionRequired','ReassignmentAvailable') ORDER BY UpdatedUtc DESC,CouponCaseId;";
+        internal const string ReadInvoiceCorrectionCandidates = "SELECT " + CaseColumns + " FROM dbo.MyDieselCouponCase WHERE InvoiceMark IS NOT NULL AND LocalStage IN ('Redeemed','VerificationPending','Final','InterventionRequired','ReassignmentAvailable','ReassignmentPending') ORDER BY UpdatedUtc DESC,CouponCaseId;";
         internal const string ReadInvoiceAllowsNewCoupon = @"SELECT CASE WHEN EXISTS(
 SELECT 1 FROM dbo.Invoice i
 WHERE i.InvoiceId=@invoice
@@ -250,6 +255,23 @@ ELSE INSERT dbo.MyDieselReferenceCache(Environment,CompanyVat,FuelTypesJson,Fuel
             return result;
         }
 
+        public IReadOnlyList<MyDieselCouponCaseRecord> LoadInvoiceCorrectionCandidates()
+        {
+            var result = new List<MyDieselCouponCaseRecord>();
+            using (var connection = db.Open())
+            using (var command = SqlFiscalDatabase.Command(connection, null,
+                ReadInvoiceCorrectionCandidates))
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    MyDieselCouponCaseRecord value = ReadRecord(reader);
+                    result.Add(value);
+                }
+            }
+            return result;
+        }
+
         public void Save(IFiscalDocumentLease lease, long expectedRevision, MyDieselCouponCaseRecord value)
         {
             ValidateLease(lease, value == null ? Guid.Empty : value.CouponCaseId);
@@ -327,6 +349,91 @@ ELSE INSERT dbo.MyDieselReferenceCache(Environment,CompanyVat,FuelTypesJson,Fuel
 
                 return true;
             });
+        }
+
+        public MyDieselCouponCaseRecord ReassignAfterSuccessfulCorrection(
+            IFiscalDocumentLease lease, long expectedRevision,
+            Guid originalInvoiceId, Guid replacementInvoiceId,
+            string correctedMark, MyDieselCouponCaseRecord value)
+        {
+            ValidateLease(lease, value == null ? Guid.Empty :
+                value.CouponCaseId);
+            if (originalInvoiceId == Guid.Empty || replacementInvoiceId ==
+                Guid.Empty || originalInvoiceId == replacementInvoiceId)
+            {
+                throw new ArgumentException(
+                    "Distinct original and replacement invoices are required.");
+            }
+            string normalizedMark = MyDieselRedeemRequest.NormalizeMark(
+                correctedMark);
+            IFiscalDocumentLease replacementLease = db.InvoiceLease(
+                replacementInvoiceId);
+            if (replacementLease.Document.DocumentId != replacementInvoiceId)
+            {
+                throw new InvalidOperationException(
+                    "Hold the replacement invoice lease while completing a corrected myDiesel association.");
+            }
+            MyDieselCouponStatus remoteStatus = MyDieselCouponStates.Parse(
+                value.RemoteStatus);
+            bool correctableStatus = MyDieselCouponStates.CanRedeem(
+                    remoteStatus) &&
+                remoteStatus != MyDieselCouponStatus.Reserved;
+            bool supportedStage = value.LocalStage ==
+                    MyDieselCaseStage.Redeemed ||
+                value.LocalStage == MyDieselCaseStage.VerificationPending ||
+                value.LocalStage == MyDieselCaseStage.InterventionRequired;
+            if (value.InvoiceId != originalInvoiceId ||
+                value.MarkSourceInvoiceId != originalInvoiceId ||
+                value.InvoiceMark != normalizedMark ||
+                !correctableStatus || !supportedStage)
+            {
+                throw new InvalidOperationException(
+                    "The coupon does not contain a successful correctable MARK response for the original invoice.");
+            }
+
+            value.InvoiceId = replacementInvoiceId;
+            value.MarkSourceInvoiceId = replacementInvoiceId;
+            value.UpdatedUtc = DateTime.UtcNow;
+            value.Revision = expectedRevision + 1;
+            ValidateCase(value, false);
+            db.Locked(lease, (held, transaction) =>
+            {
+                MyDieselCouponCaseRecord old = ReadOne(held.Connection,
+                    transaction, ReadCase, "@case", value.CouponCaseId);
+                bool unchanged = old != null &&
+                    old.Revision == expectedRevision &&
+                    old.InvoiceId == originalInvoiceId &&
+                    old.MarkSourceInvoiceId == originalInvoiceId &&
+                    old.InvoiceMark == normalizedMark &&
+                    old.LocalStage == value.LocalStage &&
+                    old.RemoteStatus == value.RemoteStatus &&
+                    old.BlocksInvoice == value.BlocksInvoice &&
+                    old.BlocksCouponReuse == value.BlocksCouponReuse;
+                if (!unchanged)
+                {
+                    throw new InvalidOperationException(
+                        "The coupon changed while the corrected association was being completed.");
+                }
+
+                value.FencingToken = held.FencingToken;
+                using (var command = SqlFiscalDatabase.Command(
+                    held.Connection, transaction, CorrectedReassignCase,
+                    "@case", value.CouponCaseId, "@oldInvoice",
+                    originalInvoiceId, "@invoice", replacementInvoiceId,
+                    "@mark", normalizedMark, "@token", value.FencingToken,
+                    "@updated", value.UpdatedUtc, "@expected",
+                    expectedRevision))
+                {
+                    int affectedRows = command.ExecuteNonQuery();
+                    if (affectedRows != 1)
+                    {
+                        throw new InvalidOperationException(
+                            "myDiesel corrected-association conflict.");
+                    }
+                }
+                return true;
+            });
+            return value;
         }
 
         public MyDieselAttemptRecord BeginAttempt(IFiscalDocumentLease lease, MyDieselAttemptRecord attempt)

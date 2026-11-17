@@ -274,7 +274,7 @@
             this.radGridView1.MasterTemplate.EnableGrouping = false;
             this.radGridView1.MasterTemplate.ShowRowHeaderColumn = false;
             this.radGridView1.Name = "radGridView1";
-            this.radGridView1.Size = new System.Drawing.Size(452, 424);
+            this.radGridView1.Size = new System.Drawing.Size(452, 394);
             this.radGridView1.TabIndex = 0;
             this.radGridView1.Text = "radGridView1";
             // 
@@ -465,7 +465,7 @@
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(640, 424);
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(640, 394);
             this.tableLayoutPanel1.TabIndex = 49;
             // 
             // radCheckBox14
@@ -1062,9 +1062,9 @@
             this.panel1.Controls.Add(this.radGridView2);
             this.panel1.Controls.Add(this.tableLayoutPanel2);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.panel1.Location = new System.Drawing.Point(0, 464);
+            this.panel1.Location = new System.Drawing.Point(0, 434);
             this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(1092, 256);
+            this.panel1.Size = new System.Drawing.Size(1092, 179);
             this.panel1.TabIndex = 63;
             // 
             // radGridView2
@@ -1121,7 +1121,7 @@
             this.radGridView2.MasterTemplate.EnableGrouping = false;
             this.radGridView2.MasterTemplate.ShowRowHeaderColumn = false;
             this.radGridView2.Name = "radGridView2";
-            this.radGridView2.Size = new System.Drawing.Size(1092, 216);
+            this.radGridView2.Size = new System.Drawing.Size(1092, 139);
             this.radGridView2.TabIndex = 2;
             this.radGridView2.Text = "radGridView2";
             // 
@@ -1197,7 +1197,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1092, 720);
+            this.ClientSize = new System.Drawing.Size(1092, 613);
             this.Controls.Add(this.tableLayoutPanel1);
             this.Controls.Add(this.radGridView1);
             this.Controls.Add(this.tableLayoutPanel3);

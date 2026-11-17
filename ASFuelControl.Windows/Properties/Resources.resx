@@ -676,6 +676,9 @@
   <data name="InvoiceReplace32" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\InvoiceReplace32.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="InvoiceCorrection32" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\InvoiceCorrection32.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="Menu32" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Menu32.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -792,5 +795,8 @@
   </data>
   <data name="UpdateDatabase67" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\DBScripts\UpdateDatabase67.sql;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
+  </data>
+  <data name="UpdateDatabase68" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\DBScripts\UpdateDatabase68.sql;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;utf-8</value>
   </data>
 </root>

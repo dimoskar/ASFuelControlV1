@@ -73,6 +73,7 @@ internal static partial class Program
             Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.InvoiceAccepted, MyDieselCaseStage.VerificationPending), "Accepted invoice cannot retain a verification result.");
             Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.InvoiceAccepted, MyDieselCaseStage.Final), "Accepted invoice cannot retain a final result.");
             Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Final, MyDieselCaseStage.Dismissed), "Inactive final coupon cannot be dismissed.");
+            Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Final, MyDieselCaseStage.VerificationPending), "A newer non-final AADE verification result cannot replace a previously final coupon state.");
             Check(!MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Reserved, MyDieselCaseStage.Dismissed), "Reserved coupon can be dismissed without release.");
             Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.Redeemed, MyDieselCaseStage.ReassignmentAvailable), "Redeemed coupon cannot be released for reassignment.");
             Check(MyDieselCaseTransitions.CanTransition(MyDieselCaseStage.ReassignmentAvailable, MyDieselCaseStage.ReassignmentPending), "Released coupon cannot attach to its replacement invoice.");

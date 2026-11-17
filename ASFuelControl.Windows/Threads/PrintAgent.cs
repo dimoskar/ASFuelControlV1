@@ -31,6 +31,39 @@ namespace ASFuelControl.Windows.Threads
                 };
 
         public static List<Guid> ExcludeInvoices = new List<Guid>();
+
+        internal static void HoldInvoice(Guid invoiceId)
+        {
+            if (invoiceId == Guid.Empty)
+            {
+                throw new ArgumentException("Invoice ID is required.",
+                    nameof(invoiceId));
+            }
+            lock (ExcludeInvoices)
+            {
+                ExcludeInvoices.Add(invoiceId);
+            }
+        }
+
+        internal static void ReleaseInvoice(Guid invoiceId)
+        {
+            if (invoiceId == Guid.Empty)
+            {
+                return;
+            }
+            lock (ExcludeInvoices)
+            {
+                ExcludeInvoices.Remove(invoiceId);
+            }
+        }
+
+        private static Guid[] ExcludedInvoiceSnapshot()
+        {
+            lock (ExcludeInvoices)
+            {
+                return ExcludeInvoices.Distinct().ToArray();
+            }
+        }
         public bool IsAlive { get { return this.th != null && this.th.IsAlive; } }
         private static string[] installedPrintrers = new string[] { };
         private static DateTime closeSalesDate = Data.Implementation.OptionHandler.Instance.GetDateTimeOption("CloseSalesDate", DateTime.Now.AddDays(-1));
@@ -1364,8 +1397,10 @@ namespace ASFuelControl.Windows.Threads
                             //this.database.Refresh(Telerik.OpenAccess.RefreshMode.OverwriteChangesFromStore, qInvoice);
                             int processingDependencyType =
                                 (int)Common.Enumerators.InvoiceRelationTypeEnum.ProcessingDependency;
+                            Guid[] excludedInvoiceIds =
+                                ExcludedInvoiceSnapshot();
                             var invoiceQuery = qInvoice
-                                .Where(ii => !ExcludeInvoices.Contains(ii.InvoiceId))
+                                .Where(ii => !excludedInvoiceIds.Contains(ii.InvoiceId))
                                 .Where(ii => !ii.ParentInvoiceRelations.Any(relation =>
                                     relation.RelationType == processingDependencyType &&
                                     (!relation.ParentInvoice.IsPrinted.HasValue ||
@@ -1425,7 +1460,8 @@ namespace ASFuelControl.Windows.Threads
                             {
                                 // Correction pairs are issued and printed explicitly by their batch.
                                 if (SharedInvoiceRuntime.IsHeatingBatchChild(invoice.InvoiceId) ||
-                                    SharedInvoiceRuntime.IsInvoiceTypeCorrectionChild(invoice.InvoiceId)) continue;
+                                    SharedInvoiceRuntime.IsInvoiceTypeCorrectionChild(invoice.InvoiceId) ||
+                                    SharedInvoiceRuntime.IsMyDieselInvoiceCorrectionChild(invoice.InvoiceId)) continue;
                                 if (SharedInvoiceRuntime.Handles(invoice.InvoiceId))
                                 {
                                     SharedInvoiceRuntime.Process(invoice.InvoiceId,

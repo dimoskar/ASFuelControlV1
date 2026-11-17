@@ -20,6 +20,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
         private Font summaryFont;
         private RadMenuItem heatingCorrectionMenu;
         private RadMenuItem invoiceTypeCorrectionMenu;
+        private RadMenuItem myDieselInvoiceCorrectionMenu;
         private GridViewImageColumn fiscalFailureColumn;
         private Image fiscalFailureImage;
         public InvoiceCatalog()
@@ -27,13 +28,15 @@ namespace ASFuelControl.Windows.UI.Catalogs
             InitializeComponent();
             fiscalFailureImage = new Bitmap(Properties.Resources.error32,
                 new Size(16,16));
+            object correctionMenuImageResource = Properties.Resources.ResourceManager.GetObject("InvoiceCorrection32");
+            Image correctionMenuImage = correctionMenuImageResource as Image;
             fiscalFailureColumn = new GridViewImageColumn("FiscalFailure") {
                 HeaderText = "", Width = 30, ReadOnly = true, AllowFiltering = false,
                 ImageLayout = ImageLayout.Center
             };
             fiscalFailureColumn.HeaderText = "!";
             this.invoiceRadGridView.Columns.Insert(3,fiscalFailureColumn);
-            heatingCorrectionMenu = new RadMenuItem("Διόρθωση επιδόματος θέρμανσης…") { Visibility = ElementVisibility.Collapsed };
+            heatingCorrectionMenu = new RadMenuItem("Διόρθωση επιδόματος θέρμανσης…") { Visibility = ElementVisibility.Collapsed, Image = correctionMenuImage };
             heatingCorrectionMenu.Click += delegate {
                 try {
                     Threads.SharedInvoiceRuntime.RequireHeatingAdmin();
@@ -44,7 +47,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
                 }
             };
             radDropDownButton1.Items.Add(heatingCorrectionMenu);
-            invoiceTypeCorrectionMenu = new RadMenuItem("Διόρθωση τύπου myDATA 11.1 → 1.1…") { Visibility = ElementVisibility.Collapsed };
+            invoiceTypeCorrectionMenu = new RadMenuItem("Διόρθωση τύπου myDATA 11.1 → 1.1…") { Visibility = ElementVisibility.Collapsed, Image = correctionMenuImage };
             invoiceTypeCorrectionMenu.Click += delegate {
                 try {
                     Threads.SharedInvoiceRuntime.RequireInvoiceTypeCorrectionAdmin();
@@ -55,6 +58,27 @@ namespace ASFuelControl.Windows.UI.Catalogs
                 }
             };
             radDropDownButton1.Items.Add(invoiceTypeCorrectionMenu);
+            myDieselInvoiceCorrectionMenu = new RadMenuItem("Διόρθωση παραστατικών myDiesel…") { Visibility = ElementVisibility.Collapsed, Image = correctionMenuImage };
+            myDieselInvoiceCorrectionMenu.Click += delegate
+            {
+                try
+                {
+                    Threads.SharedInvoiceRuntime.RequireMyDieselInvoiceCorrectionAdmin();
+                    using (var form = new Forms.MyDieselInvoiceCorrectionBatchForm(
+                        vm.InvoicesFrom, vm.InvoicesTo))
+                    {
+                        form.ShowDialog(this);
+                    }
+                    RefreshData();
+                }
+                catch (Exception ex)
+                {
+                    RadMessageBox.Show(this, ex.Message,
+                        "Διόρθωση παραστατικών myDiesel",
+                        MessageBoxButtons.OK, RadMessageIcon.Error);
+                }
+            };
+            radDropDownButton1.Items.Add(myDieselInvoiceCorrectionMenu);
             vm.QueryInvoiceData += Vm_QueryInvoiceData;
             this.Disposed += delegate
             {
@@ -771,6 +795,7 @@ namespace ASFuelControl.Windows.UI.Catalogs
             this.vm.RefreshIsAdmin();
             heatingCorrectionMenu.Visibility = vm.IsAdmin ? ElementVisibility.Visible : ElementVisibility.Collapsed;
             invoiceTypeCorrectionMenu.Visibility = vm.IsAdmin ? ElementVisibility.Visible : ElementVisibility.Collapsed;
+            myDieselInvoiceCorrectionMenu.Visibility = vm.IsAdmin ? ElementVisibility.Visible : ElementVisibility.Collapsed;
         }
 
         private void btnPrint_Click(object sender, EventArgs e)

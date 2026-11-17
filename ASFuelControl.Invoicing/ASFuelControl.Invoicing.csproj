@@ -14,6 +14,7 @@
     <Compile Include="DatabaseInvoiceSource.cs" />
     <Compile Include="HeatingCorrection.cs" />
     <Compile Include="InvoiceTypeCorrection.cs" />
+    <Compile Include="MyDieselInvoiceCorrection.cs" />
     <Compile Include="FiscalPrintService.cs" />
     <Compile Include="FiscalSigningService.cs" />
     <Compile Include="HostFiscalSigningMapper.cs" />

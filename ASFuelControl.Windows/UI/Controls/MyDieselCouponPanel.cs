@@ -106,6 +106,36 @@ namespace ASFuelControl.Windows.UI.Controls
             LoadInvoice(invoiceId);
         }
 
+        internal void EnsurePersistedForIssuance()
+        {
+            if (invoiceId == Guid.Empty)
+            {
+                throw new InvalidOperationException(
+                    "Δεν έχει δημιουργηθεί παραστατικό για τον έλεγχο myDiesel.");
+            }
+            SharedMyDieselStatus persistedStatus =
+                SharedMyDieselRuntime.ReadInvoice(invoiceId);
+            MyDieselCouponCaseRecord coupon = persistedStatus.CouponCase;
+            bool activeCoupon =
+                persistedStatus.HistoricalReassignmentSource != true &&
+                coupon != null && coupon.BlocksInvoice;
+            if (!activeCoupon)
+            {
+                status = persistedStatus;
+                return;
+            }
+
+            PendingMyDieselSelectionStore
+                .EnsurePersistedVoucherAndDiscount(invoiceId);
+            status = SharedMyDieselRuntime.ReadInvoice(invoiceId);
+            Render();
+            EventHandler stateChanged = StateChanged;
+            if (stateChanged != null)
+            {
+                stateChanged(this, EventArgs.Empty);
+            }
+        }
+
         internal void RefreshEligibility()
         {
             if (!IsDisposed) Render();

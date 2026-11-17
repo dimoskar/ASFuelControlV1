@@ -61,6 +61,8 @@ internal static partial class Program
             config.Mapping.WholesaleCodes = new HashSet<int> { 999 };
             Check(!config.EnsureWholesaleCodes(),"configured wholesale codes were replaced");
             Equal("999",string.Join(",",config.Mapping.WholesaleCodes));
+            Check(config.IsWholesaleCode(999),"configured wholesale code was not recognized");
+            Check(!config.IsWholesaleCode(165),"unconfigured wholesale code was recognized");
         });
         Test("per-type policy resolves five supported transmission/signing combinations", () => {
             var type = Guid.NewGuid();
