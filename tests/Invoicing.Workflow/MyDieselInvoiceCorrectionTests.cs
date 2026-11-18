@@ -68,6 +68,37 @@ internal static partial class Program
                     "A different provider account was treated as the same route.");
             });
 
+        Test("myDiesel credit route ignores regenerated signing profile IDs but retains issuer scope",
+            delegate
+            {
+                var original = new FiscalSigningScope("Samtec",
+                    "saved-profile-1", FiscalEnvironment.Production,
+                    "165368890", 0);
+                var regeneratedProfile = new FiscalSigningScope("Samtec",
+                    "saved-profile-2", FiscalEnvironment.Production,
+                    "165368890", 0);
+                bool sameIssuer = MyDieselInvoiceCorrectionPlan
+                    .SameCreditSigningRoute(original, regeneratedProfile);
+                Check(sameIssuer,
+                    "A regenerated signing profile ID excluded the coupon correction.");
+
+                var testEnvironment = new FiscalSigningScope("Samtec",
+                    "saved-profile-2", FiscalEnvironment.Test,
+                    "165368890", 0);
+                bool differentEnvironment = MyDieselInvoiceCorrectionPlan
+                    .SameCreditSigningRoute(original, testEnvironment);
+                Check(!differentEnvironment,
+                    "A different signing environment was treated as the same route.");
+
+                var differentIssuer = new FiscalSigningScope("Samtec",
+                    "saved-profile-2", FiscalEnvironment.Production,
+                    "999999999", 0);
+                bool sameDifferentIssuer = MyDieselInvoiceCorrectionPlan
+                    .SameCreditSigningRoute(original, differentIssuer);
+                Check(!sameDifferentIssuer,
+                    "A different signing issuer was treated as the same route.");
+            });
+
         Test("myDiesel corrective invoices retain payment except card becomes credit",
             delegate
             {

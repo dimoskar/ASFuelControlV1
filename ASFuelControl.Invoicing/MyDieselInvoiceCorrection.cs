@@ -54,6 +54,20 @@ namespace ASFuelControl.Invoicing
                 original.MyDataBaseUrl == current.MyDataBaseUrl;
         }
 
+        public static bool SameCreditSigningRoute(FiscalSigningScope original,
+            FiscalSigningScope current)
+        {
+            if (original == null || current == null)
+            {
+                return original == null && current == null;
+            }
+
+            // DeviceId identifies a saved Samtec profile revision. Saving the
+            // same physical signer can create a new profile ID, so myDiesel
+            // correction eligibility follows the stable issuer scope instead.
+            return FiscalSigningCoordinator.SameIssuerScope(original, current);
+        }
+
         public static T Copy<T>(T value)
         {
             string json = JsonConvert.SerializeObject(value);

@@ -493,11 +493,8 @@ namespace ASFuelControl.Windows.Threads
         private static bool SameMyDieselCorrectionSigning(
             FiscalSigningScope left, FiscalSigningScope right)
         {
-            if (left == null || right == null)
-            {
-                return left == null && right == null;
-            }
-            return FiscalSigningCoordinator.SameScope(left, right);
+            return MyDieselInvoiceCorrectionPlan.SameCreditSigningRoute(
+                left, right);
         }
 
         private static MyDieselInvoiceCorrectionRow
