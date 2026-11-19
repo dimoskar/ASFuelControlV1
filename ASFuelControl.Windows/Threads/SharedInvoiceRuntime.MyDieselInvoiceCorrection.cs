@@ -9,6 +9,7 @@ using Exedron.Invoicing.Adapters.Samtec;
 using Exedron.Invoicing.Core;
 using Exedron.Invoicing.Core.Models;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace ASFuelControl.Windows.Threads
 {
@@ -23,6 +24,7 @@ namespace ASFuelControl.Windows.Threads
         public string Provider { get; set; }
         public string Mark { get; set; }
         public string CouponStatus { get; set; }
+        public decimal OriginalAmount { get; set; }
         public decimal Amount { get; set; }
         public string Credit { get; set; }
         public string Replacement { get; set; }
@@ -184,10 +186,11 @@ namespace ASFuelControl.Windows.Threads
                                 invoice, coupon, creditTypeId,
                                 replacementTypeId, correctionStore);
                         }
+                        row.Amount = row.Plan.ReplacementTotal();
                         row.Eligible = true;
                         row.Selected = true;
                         row.Status =
-                            "Έτοιμο — επανέκδοση, διόρθωση συσχέτισης μέσω myDiesel και κατόπιν πίστωση του αρχικού" +
+                            "Έτοιμο — επανυπολογισμός έκπτωσης, επανέκδοση, διόρθωση συσχέτισης μέσω myDiesel και κατόπιν πίστωση του αρχικού" +
                             statusRefreshNote;
                     }
                     catch (Exception exception)
@@ -271,6 +274,7 @@ namespace ASFuelControl.Windows.Threads
                     invoice.Trader.TaxRegistrationNumber,
                 Mark = coupon.InvoiceMark,
                 CouponStatus = coupon.RemoteStatus ?? string.Empty,
+                OriginalAmount = invoice.TotalAmount ?? 0,
                 Amount = invoice.TotalAmount ?? 0
             };
         }
@@ -383,6 +387,19 @@ namespace ASFuelControl.Windows.Threads
             credentials.Resolve(snapshot.Provider);
             credentials.Resolve(replacementRoute.Provider);
 
+            if (!coupon.IssuedLitres.HasValue ||
+                coupon.IssuedLitres.Value <= 0)
+            {
+                throw new InvalidOperationException(
+                    "Το κουπόνι δεν περιέχει έγκυρη ποσότητα λίτρων για τον επανυπολογισμό της έκπτωσης.");
+            }
+            JObject originalHost = correctionStore.ReadHost(
+                invoice.InvoiceId);
+            JObject replacementHost = MyDieselInvoiceCorrectionPlan
+                .RecalculateReplacementHost(originalHost,
+                    coupon.IssuedLitres.Value,
+                    coupon.ExciseDiscountPerLitre);
+
             return new MyDieselInvoiceCorrectionPlan
             {
                 OriginalId = invoice.InvoiceId,
@@ -397,8 +414,11 @@ namespace ASFuelControl.Windows.Threads
                 CreditSeries = creditType.DefaultSeries ?? string.Empty,
                 ReplacementSeries = replacementType.DefaultSeries ?? string.Empty,
                 OriginalMark = originalMark,
+                CouponIssuedLitres = coupon.IssuedLitres.Value,
+                ExciseDiscountPerLitre = coupon.ExciseDiscountPerLitre,
                 Original = MyDieselInvoiceCorrectionPlan.Copy(snapshot),
-                Host = correctionStore.ReadHost(invoice.InvoiceId)
+                Host = originalHost,
+                ReplacementHost = replacementHost
             };
         }
 
@@ -538,7 +558,14 @@ namespace ASFuelControl.Windows.Threads
                         System.Globalization.CultureInfo.InvariantCulture),
                     CouponStatus = coupon == null ? string.Empty :
                         coupon.RemoteStatus ?? string.Empty,
-                    Amount = original == null ? 0 : original.TotalAmount ?? 0,
+                    OriginalAmount = original == null ? 0 :
+                        original.TotalAmount ?? 0,
+                    Amount = replacement == null
+                        ? plan.ReplacementHost == null
+                            ? original == null ? 0 :
+                                original.TotalAmount ?? 0
+                            : plan.ReplacementTotal()
+                        : replacement.TotalAmount ?? 0,
                     Credit = credit == null ? "Εκκρεμεί" : credit.Description,
                     Replacement = replacement == null ? "Εκκρεμεί" :
                         replacement.Description,
@@ -596,9 +623,13 @@ namespace ASFuelControl.Windows.Threads
                                     row.Plan.ReplacementTypeId, store);
                             bool sameHost = SqlHeatingCorrectionStore.SameHost(
                                 row.Plan.Host, latest.Host);
+                            bool sameReplacement =
+                                SqlHeatingCorrectionStore.SameHost(
+                                    row.Plan.ReplacementHost,
+                                    latest.ReplacementHost);
                             bool sameAttempt = row.Plan.OriginalAttemptId ==
                                 latest.OriginalAttemptId;
-                            if (!sameHost || !sameAttempt)
+                            if (!sameHost || !sameReplacement || !sameAttempt)
                             {
                                 throw new InvalidOperationException(
                                     "Τα στοιχεία άλλαξαν μετά τον έλεγχο. Εκτελέστε νέο έλεγχο παραστατικών.");
@@ -626,7 +657,8 @@ namespace ASFuelControl.Windows.Threads
                             sql.Value.EnterInvoice(row.Id))
                         {
                             store.ReserveAndCreateChildren(lease, record,
-                                row.Plan.Host, row.Plan.CreditTypeId,
+                                row.Plan.Host, row.Plan.ReplacementHost,
+                                row.Plan.CreditTypeId,
                                 row.Plan.CreditSeries, creditNote,
                                 row.Plan.ReplacementTypeId,
                                 row.Plan.ReplacementSeries, replacementNote,
@@ -746,10 +778,16 @@ namespace ASFuelControl.Windows.Threads
             string note = (credit ? "Πλήρης πίστωση" : "Επανέκδοση") +
                 " του " + plan.OriginalDescription +
                 " — διόρθωση στοιχείων myDiesel κατόπιν ελέγχου ΑΑΔΕ.";
+            JObject childHost = credit ? plan.Host : plan.ReplacementHost;
+            if (childHost == null)
+            {
+                throw new InvalidOperationException(
+                    "Δεν υπάρχει αποθηκευμένο σχέδιο αξιών για το διορθωτικό παραστατικό.");
+            }
             var hostStore = new SqlHeatingCorrectionStore(sql.Value);
             using (IFiscalDocumentLease lease = sql.Value.EnterInvoice(invoiceId))
             {
-                hostStore.CreateChild(lease, plan.Host, typeId, series, userId,
+                hostStore.CreateChild(lease, childHost, typeId, series, userId,
                     note, DateTime.Now, 0);
             }
             InvoiceParent creditParent = credit ?

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Exedron.Invoicing.Core;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -19,8 +21,11 @@ namespace ASFuelControl.Invoicing
         public string CreditSeries { get; set; }
         public string ReplacementSeries { get; set; }
         public long OriginalMark { get; set; }
+        public decimal CouponIssuedLitres { get; set; }
+        public decimal ExciseDiscountPerLitre { get; set; }
         public InvoiceWorkflowSnapshot Original { get; set; }
         public JObject Host { get; set; }
+        public JObject ReplacementHost { get; set; }
 
         public InvoicePaymentType CorrectivePaymentType()
         {
@@ -73,6 +78,147 @@ namespace ASFuelControl.Invoicing
             string json = JsonConvert.SerializeObject(value);
             T copy = JsonConvert.DeserializeObject<T>(json);
             return copy;
+        }
+
+        public decimal ReplacementTotal()
+        {
+            if (ReplacementHost == null ||
+                ReplacementHost["Invoice"] == null)
+            {
+                throw new InvalidOperationException(
+                    "The recalculated replacement invoice is unavailable.");
+            }
+
+            return DecimalValue(
+                ReplacementHost["Invoice"]["TotalAmount"]);
+        }
+
+        public static JObject RecalculateReplacementHost(JObject source,
+            decimal voucherLitres, decimal rate)
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+            if (voucherLitres <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(voucherLitres));
+            }
+
+            decimal normalizedRate =
+                MyDieselTaxRules.NormalizeExciseDiscountPerLitre(rate);
+            JObject replacement = (JObject)source.DeepClone();
+            JObject invoice = replacement["Invoice"] as JObject;
+            JArray lines = replacement["Lines"] as JArray;
+            if (invoice == null || lines == null || lines.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "The source invoice has no persisted invoice lines.");
+            }
+
+            IEnumerable<JObject> invoiceLines = lines.OfType<JObject>();
+            decimal invoiceLitres = invoiceLines.Sum(LineLitres);
+            decimal remainingLitres = Math.Min(voucherLitres,
+                invoiceLitres);
+            decimal retailDiscount = 0;
+            decimal wholesaleDiscount = 0;
+            decimal totalAmount = 0;
+            decimal vatAmount = 0;
+            decimal netBeforeDiscount = 0;
+            decimal netAfterDiscount = 0;
+
+            foreach (JObject line in lines.OfType<JObject>())
+            {
+                decimal volume = LineLitres(line);
+                decimal originalTotal = OriginalLineTotal(line, volume);
+                decimal applicableLitres = Math.Min(volume,
+                    remainingLitres);
+                decimal vatPercentage = DecimalValue(
+                    line["VatPercentage"]);
+                decimal lineRetail = applicableLitres <= 0
+                    ? 0
+                    : MyDieselTaxRules.CalculateVatInclusiveExciseDiscount(
+                        applicableLitres, applicableLitres, normalizedRate,
+                        vatPercentage);
+                if (lineRetail > originalTotal)
+                {
+                    lineRetail = originalTotal;
+                }
+                decimal lineWholesale =
+                    MyDieselTaxRules.CalculateNetDiscountFromGross(
+                        lineRetail, vatPercentage);
+                remainingLitres -= applicableLitres;
+
+                decimal vatMultiplier = 1 + vatPercentage / 100;
+                decimal discountedTotal = Math.Round(originalTotal -
+                    lineRetail, 2);
+                decimal discountedNet = Math.Round(discountedTotal /
+                    vatMultiplier, 2, MidpointRounding.ToEven);
+                decimal lineVat = discountedTotal - discountedNet;
+                decimal discountPercentage = originalTotal == 0
+                    ? 0
+                    : Math.Round(100 * lineRetail / originalTotal, 4);
+
+                line["DiscountAmountRetail"] = lineRetail;
+                line["DiscountAmountWhole"] = lineWholesale;
+                line["DiscountAmount"] = lineRetail;
+                line["DiscountPercentage"] = discountPercentage;
+                line["TotalPrice"] = discountedTotal;
+                line["VatAmount"] = lineVat;
+
+                retailDiscount += lineRetail;
+                wholesaleDiscount += lineWholesale;
+                totalAmount += discountedTotal;
+                vatAmount += lineVat;
+                netBeforeDiscount += discountedNet + lineWholesale;
+                netAfterDiscount += discountedNet;
+            }
+
+            invoice["DiscountAmountRetail"] = Math.Round(retailDiscount, 2);
+            invoice["DiscountAmountWhole"] = Math.Round(wholesaleDiscount, 2);
+            invoice["DiscountAmount"] = Math.Round(retailDiscount, 2);
+            invoice["TotalAmount"] = Math.Round(totalAmount, 2);
+            invoice["VatAmount"] = Math.Round(vatAmount, 2);
+            invoice["NettoAmount"] = Math.Round(netBeforeDiscount, 2);
+            invoice["NettoAfterDiscount"] = Math.Round(netAfterDiscount, 2);
+            return replacement;
+        }
+
+        private static decimal OriginalLineTotal(JObject line,
+            decimal volume)
+        {
+            decimal retailUnitPrice = DecimalValue(
+                line["UnitPriceRetail"]);
+            decimal savedUnitPrice = DecimalValue(line["UnitPrice"]);
+            decimal unitPrice = retailUnitPrice != 0
+                ? Math.Abs(retailUnitPrice)
+                : Math.Abs(savedUnitPrice);
+            decimal total = Math.Round(volume * unitPrice, 2);
+            if (total <= 0)
+            {
+                decimal totalValue = DecimalValue(line["TotalPrice"]);
+                decimal discountValue = DecimalValue(
+                    line["DiscountAmountRetail"]);
+                decimal savedTotal = Math.Abs(totalValue);
+                decimal savedDiscount = Math.Abs(discountValue);
+                total = Math.Round(savedTotal + savedDiscount, 2);
+            }
+            return total;
+        }
+
+        private static decimal LineLitres(JObject line)
+        {
+            decimal savedVolume = DecimalValue(line["Volume"]);
+            return Math.Abs(savedVolume);
+        }
+
+        private static decimal DecimalValue(JToken value)
+        {
+            if (value == null || value.Type == JTokenType.Null)
+            {
+                return 0;
+            }
+            return value.Value<decimal>();
         }
     }
 

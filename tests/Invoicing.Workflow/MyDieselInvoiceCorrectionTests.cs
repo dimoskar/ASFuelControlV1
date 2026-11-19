@@ -305,7 +305,7 @@ internal static partial class Program
                 Equal(0, credits);
             });
 
-        Test("myDiesel correction reservation persists and protects both child invoices",
+        Test("myDiesel correction preserves the credit and recalculates the replacement discount",
             delegate
             {
                 Guid originalId = Guid.NewGuid();
@@ -319,17 +319,20 @@ internal static partial class Program
                 string insert =
                     "INSERT dbo.InvoiceType(InvoiceTypeId,LastNumber,DefaultSeries) VALUES('" +
                     typeId + "',70,'MD'); " +
-                    "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,TraderId,NettoAmount,VatAmount,TotalAmount,SupplyNumber,PaymentType,IsPrinted) VALUES('" +
+                    "INSERT dbo.Invoice(InvoiceId,InvoiceTypeId,Number,Series,TransactionDate,TraderId,NettoAmount,VatAmount,TotalAmount,SupplyNumber,PaymentType,IsPrinted,DiscountAmount,DiscountAmountWhole,DiscountAmountRetail,NettoAfterDiscount) VALUES('" +
                     originalId + "','" + typeId +
                     "',70,'MD','20261116','" + traderId +
-                    "',100,24,124,'123456789',1,1); " +
-                    "INSERT dbo.InvoiceLine(InvoiceId,InvoiceLineId,FuelTypeId,Volume,TotalPrice,VatAmount) VALUES('" +
+                    "',100,23.23,120,'123456789',1,1,4,3.23,4,96.77); " +
+                    "INSERT dbo.InvoiceLine(InvoiceId,InvoiceLineId,FuelTypeId,Volume,TotalPrice,VatAmount,VatPercentage,UnitPrice,UnitPriceRetail,DiscountAmount,DiscountAmountWhole,DiscountAmountRetail,DiscountPercentage) VALUES('" +
                     originalId + "','" + Guid.NewGuid() + "','" +
-                    fuelTypeId + "',50,124,24);";
+                    fuelTypeId + "',50,120,23.23,24,2.48,2.48,4,3.23,4,3.2258);";
                 Execute(connection, insert);
                 var store = new SqlMyDieselInvoiceCorrectionStore(database);
                 Newtonsoft.Json.Linq.JObject frozenHost =
                     store.ReadHost(originalId);
+                Newtonsoft.Json.Linq.JObject replacementHost =
+                    MyDieselInvoiceCorrectionPlan.RecalculateReplacementHost(
+                        frozenHost, 20m, 0.41m);
                 var record = new MyDieselInvoiceCorrectionRecord
                 {
                     OriginalInvoiceId = originalId,
@@ -345,8 +348,8 @@ internal static partial class Program
                 {
                     DateTime issuedAt = new DateTime(2026, 11, 16);
                     store.ReserveAndCreateChildren(lease, record, frozenHost,
-                        typeId, "CR", "credit", typeId, "NEW",
-                        "replacement", issuedAt);
+                        replacementHost, typeId, "CR", "credit", typeId,
+                        "NEW", "replacement", issuedAt);
                 }
 
                 Check(store.IsChild(creditId),
@@ -366,6 +369,14 @@ internal static partial class Program
                     (int)savedReplacement["Invoice"]["Number"];
                 Equal(71, creditNumber);
                 Equal(72, replacementNumber);
+                Equal(120m, (decimal)savedCredit["Invoice"]["TotalAmount"]);
+                Equal(4m, (decimal)savedCredit["Invoice"]["DiscountAmount"]);
+                Equal(113.83m,
+                    (decimal)savedReplacement["Invoice"]["TotalAmount"]);
+                Equal(10.17m,
+                    (decimal)savedReplacement["Invoice"]["DiscountAmount"]);
+                Equal(91.80m,
+                    (decimal)savedReplacement["Invoice"]["NettoAfterDiscount"]);
             });
     }
 }

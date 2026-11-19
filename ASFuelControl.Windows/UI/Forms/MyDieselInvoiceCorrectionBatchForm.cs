@@ -135,7 +135,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 AnchorStyles.Right;
             bottom.Controls.Add(detail);
             Label explanation = LabelAt(bottom,
-                "Επανέκδοση → διόρθωση συσχέτισης μέσω myDiesel → πίστωση αρχικού. Αν το API απορρίψει τη διόρθωση, πιστώνεται η επανέκδοση και το κουπόνι μένει στο αρχικό.",
+                "Επανυπολογισμός έκπτωσης κουπονιού και επανέκδοση → διόρθωση συσχέτισης μέσω myDiesel → πίστωση αρχικού. Αν το API απορρίψει τη διόρθωση, πιστώνεται η επανέκδοση και το κουπόνι μένει στο αρχικό.",
                 16, 79, 1284);
             explanation.Height = 32;
             var actions = new FlowLayoutPanel
@@ -184,18 +184,18 @@ namespace ASFuelControl.Windows.UI.Forms
             string[] fields =
             {
                 "Voucher", "Document", "Date", "Customer", "VatNumber",
-                "Provider", "Mark", "CouponStatus", "Amount", "Credit",
-                "Replacement", "Status"
+                "Provider", "Mark", "CouponStatus", "OriginalAmount",
+                "Amount", "Credit", "Replacement", "Status"
             };
             string[] labels =
             {
                 "Κουπόνι", "Αρχικό", "Ημερομηνία", "Πελάτης", "ΑΦΜ",
-                "Πάροχος", "MARK", "Κατάσταση κουπονιού", "Σύνολο €",
-                "Πιστωτικό", "Επανέκδοση",
+                "Πάροχος", "MARK", "Κατάσταση κουπονιού", "Αρχικό €",
+                "Τελικό €", "Πιστωτικό", "Επανέκδοση",
                 "Κατάσταση / αιτία εξαίρεσης"
             };
-            int[] widths = { 145, 105, 80, 120, 75, 120, 90, 105, 75, 110,
-                110, 320 };
+            int[] widths = { 145, 105, 80, 120, 75, 120, 90, 105, 75, 75,
+                110, 110, 320 };
             for (int index = 0; index < fields.Length; index++)
             {
                 var column = new GridViewTextBoxColumn(fields[index])
@@ -208,6 +208,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 grid.Columns.Add(column);
             }
             grid.Columns["Date"].FormatString = "{0:dd/MM/yyyy}";
+            grid.Columns["OriginalAmount"].FormatString = "{0:N2}";
             grid.Columns["Amount"].FormatString = "{0:N2}";
         }
 
@@ -434,7 +435,7 @@ namespace ASFuelControl.Windows.UI.Forms
                 }
                 string[] header =
                 {
-                    "Κουπόνι;Αρχικό;Ημερομηνία;Πελάτης;ΑΦΜ;Πάροχος;MARK;Κατάσταση κουπονιού;Σύνολο;Πιστωτικό;Επανέκδοση;Κατάσταση"
+                    "Κουπόνι;Αρχικό;Ημερομηνία;Πελάτης;ΑΦΜ;Πάροχος;MARK;Κατάσταση κουπονιού;Αρχικό σύνολο;Τελικό σύνολο;Πιστωτικό;Επανέκδοση;Κατάσταση"
                 };
                 CultureInfo greekCulture = CultureInfo.GetCultureInfo("el-GR");
                 var dataRows = new List<string>();
@@ -454,12 +455,14 @@ namespace ASFuelControl.Windows.UI.Forms
             MyDieselInvoiceCorrectionRow row, CultureInfo culture)
         {
             string date = row.Date.ToString("dd/MM/yyyy");
+            string originalAmount = row.OriginalAmount.ToString(culture);
             string amount = row.Amount.ToString(culture);
             string[] values =
             {
                 row.Voucher, row.Document, date, row.Customer,
-                row.VatNumber, row.Provider, row.Mark, row.CouponStatus, amount,
-                row.Credit, row.Replacement, row.Status
+                row.VatNumber, row.Provider, row.Mark, row.CouponStatus,
+                originalAmount, amount, row.Credit, row.Replacement,
+                row.Status
             };
             IEnumerable<string> quotedValues = values.Select(Quote);
             return string.Join(";", quotedValues);

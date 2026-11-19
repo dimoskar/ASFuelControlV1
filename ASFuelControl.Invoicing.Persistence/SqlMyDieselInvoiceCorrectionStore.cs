@@ -114,7 +114,8 @@ AND (@pending=0 OR State<>'Completed')";
         }
 
         public void ReserveAndCreateChildren(IFiscalDocumentLease lease,
-            MyDieselInvoiceCorrectionRecord row, JObject frozenHost,
+            MyDieselInvoiceCorrectionRecord row, JObject creditHost,
+            JObject replacementHost,
             Guid creditTypeId, string creditSeries, string creditNote,
             Guid replacementTypeId, string replacementSeries,
             string replacementNote, DateTime issuedAt)
@@ -147,13 +148,13 @@ VALUES(@id,@batch,@coupon,@credit,@replacement,@plan,@hash,'Prepared',N'Αποθ
             using (IFiscalDocumentLease creditLease =
                 database.EnterInvoice(row.CreditInvoiceId))
             {
-                hostStore.CreateChild(creditLease, frozenHost, creditTypeId,
+                hostStore.CreateChild(creditLease, creditHost, creditTypeId,
                     creditSeries, row.CreatedBy, creditNote, issuedAt, 0);
             }
             using (IFiscalDocumentLease replacementLease =
                 database.EnterInvoice(row.ReplacementInvoiceId))
             {
-                hostStore.CreateChild(replacementLease, frozenHost,
+                hostStore.CreateChild(replacementLease, replacementHost,
                     replacementTypeId, replacementSeries, row.CreatedBy,
                     replacementNote, issuedAt, 0);
             }
